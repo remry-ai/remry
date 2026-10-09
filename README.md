@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/splash.png" alt="Remry: your mind palace, kept by Claude." width="400">
+</p>
+
 # Remry
 
 A local, structured notebook that your AI assistant writes to over MCP. Works with Claude today.
