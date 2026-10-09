@@ -1,0 +1,464 @@
+// Prisma schema — SQLite, local-only, single user.
+// Conventions: snake_case table and column names via @@map / @map.
+// SQLite has no enums: entity_type and status columns are plain strings,
+// validated by Zod against the unions in src/shared/types/enums.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ----- Branding -----
+
+model Branding {
+  id               String   @id @default(cuid())
+  name             String
+  iconUrl          String?  @map("icon_url")
+  logoUrl          String?  @map("logo_url")
+  primaryColor     String   @default("#4f46e5") @map("primary_color")
+  accentColor      String   @default("#06b6d4") @map("accent_color")
+  primaryFontColor String   @default("#ffffff") @map("primary_font_color")
+  accentFontColor  String   @default("#ffffff") @map("accent_font_color")
+  isDefault        Boolean  @default(false) @map("is_default")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  reports Report[]
+
+  @@index([isDefault])
+  @@map("branding")
+}
+
+// ----- Core entities: Person, Group (groups have kinds, defined per notebook) -----
+// A person holds only what every module shares. Modules keep their own fields in
+// 1:1 extension tables (org_person, personal_person); core code never reads them.
+
+model Person {
+  id         String    @id @default(cuid())
+  name       String
+  email      String?
+  /** The notebook's owner: relations to them read as "your …". At most one person. */
+  isMe       Boolean   @default(false) @map("is_me")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  org              OrgPerson?
+  personal         PersonalPerson?
+  groupMemberships GroupMember[]
+  relationsFrom    PersonRelation[] @relation("PersonRelationFrom")
+  relationsTo      PersonRelation[] @relation("PersonRelationTo")
+
+  @@index([archivedAt])
+  @@map("person")
+}
+
+model GroupKind {
+  key       String   @id
+  name      String
+  plural    String
+  /** A person is in at most one group of an exclusive kind (a department). */
+  exclusive Boolean  @default(false)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups Group[]
+
+  @@map("group_kind")
+}
+
+model Group {
+  id          String    @id @default(cuid())
+  kind        String
+  name        String
+  description String?
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  groupKind GroupKind     @relation(fields: [kind], references: [key], onUpdate: Cascade, onDelete: Restrict)
+  members   GroupMember[]
+
+  @@index([kind])
+  @@index([archivedAt])
+  @@map("group")
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String   @map("group_id")
+  personId  String   @map("person_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, personId])
+  @@index([personId])
+  @@map("group_member")
+}
+
+// ----- Module: org (titles; reporting lines are LEAD_OF relations) -----
+
+model OrgPerson {
+  personId  String   @id @map("person_id")
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@map("org_person")
+}
+
+// ----- Module: personal (birthdays and how you know someone) -----
+
+model PersonalPerson {
+  personId  String   @id @map("person_id")
+  /** `YYYY-MM-DD`, or `--MM-DD` when the year isn't known. */
+  birthday  String?
+  knownAs   String?  @map("known_as")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@map("personal_person")
+}
+
+// ----- Assets: Doc, Note, Report (polymorphic via entityType + entityId) -----
+
+model Doc {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  title      String
+  content    String   @default("")
+  sourceUrl  String?  @map("source_url")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@map("doc")
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  parentId   String?  @map("parent_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  parent  Note?  @relation("NoteThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Note[] @relation("NoteThread")
+
+  @@index([entityType, entityId])
+  @@map("note")
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  title      String
+  content    String   @default("")
+  brandingId String?  @map("branding_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  branding Branding? @relation(fields: [brandingId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([brandingId])
+  @@map("report")
+}
+
+// ----- Projects -----
+
+model Project {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  status          String?
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  daysOptimistic  Int?      @map("days_optimistic")
+  daysLikely      Int?      @map("days_likely")
+  daysPessimistic Int?      @map("days_pessimistic")
+  parentId        String?   @map("parent_id")
+  ownerType       String?   @map("owner_type")
+  ownerId         String?   @map("owner_id")
+  archivedAt      DateTime? @map("archived_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  parent   Project?      @relation("ProjectHierarchy", fields: [parentId], references: [id])
+  children Project[]     @relation("ProjectHierarchy")
+  goals    GoalProject[]
+
+  @@index([ownerType, ownerId])
+  @@index([archivedAt])
+  @@map("project")
+}
+
+// ----- Goals (owner is polymorphic: PERSON, TEAM or DEPARTMENT) -----
+
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  ownerType   String?  @map("owner_type")
+  ownerId     String?  @map("owner_id")
+  parentId    String?  @map("parent_id")
+  period      String?
+  status      String   @default("NOT_STARTED")
+  unit        String?
+  baseline    Float?
+  target      Float?
+  sortOrder   Int      @default(0) @map("sort_order")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent   Goal?         @relation("GoalHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Goal[]        @relation("GoalHierarchy")
+  checkIns GoalCheckIn[]
+  projects GoalProject[]
+
+  @@index([ownerType, ownerId])
+  @@index([parentId])
+  @@index([period])
+  @@index([archivedAt])
+  @@map("goal")
+}
+
+model GoalCheckIn {
+  id        String   @id @default(cuid())
+  goalId    String   @map("goal_id")
+  date      DateTime
+  value     Float?
+  status    String?
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, date])
+  @@map("goal_check_in")
+}
+
+model GoalProject {
+  id        String   @id @default(cuid())
+  goalId    String   @map("goal_id")
+  projectId String   @map("project_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  goal    Goal    @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, projectId])
+  @@index([projectId])
+  @@map("goal_project")
+}
+
+// ----- Wiki pages (properties is JSON, validated against the page_kind row's fields) -----
+
+model Page {
+  id         String   @id @default(cuid())
+  title      String
+  kind       String   @default("GENERAL")
+  parentId   String?  @map("parent_id")
+  content    String   @default("")
+  properties String   @default("{}")
+  sortOrder  Int      @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  parent   Page?  @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Page[] @relation("PageHierarchy")
+
+  @@index([kind])
+  @@index([parentId])
+  @@index([archivedAt])
+  @@map("page")
+}
+
+// ----- Page kinds: user-defined per notebook; fields is JSON, validated in src/shared/types/pages.ts -----
+
+model PageKind {
+  key         String   @id
+  name        String
+  description String?
+  fields      String   @default("[]")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("page_kind")
+}
+
+// ----- Relation kinds: a notebook's own (RELATED, DEPENDS_ON and MENTIONS are built in) -----
+
+/// A kind of relationship between two people, read one way from each end ("Parent of" / "Child of").
+/// Seeded by modules (org: LEAD_OF; personal: partner, parent, sibling, friend, in-laws); the user can add more.
+model PersonRelationKind {
+  key          String   @id
+  label        String
+  inverseLabel String   @map("inverse_label")
+  /// Reads the same both ways; stored with the smaller person id first.
+  symmetric    Boolean  @default(false)
+  /// A person is the `to` end of one at most (one lead): adding another replaces it. A trigger enforces it.
+  exclusive    Boolean  @default(false)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  relations PersonRelation[]
+
+  @@map("person_relation_kind")
+}
+
+/// A relationship between two people. Deleting either person deletes it.
+model PersonRelation {
+  id           String   @id @default(cuid())
+  fromPersonId String   @map("from_person_id")
+  toPersonId   String   @map("to_person_id")
+  kind         String
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  from    Person             @relation("PersonRelationFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  to      Person             @relation("PersonRelationTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+  kindDef PersonRelationKind @relation(fields: [kind], references: [key], onDelete: Restrict)
+
+  @@unique([fromPersonId, toPersonId, kind])
+  @@index([toPersonId, kind])
+  @@map("person_relation")
+}
+
+// ----- Relations: typed links between any two entities (polymorphic at both ends, no FK) -----
+
+model Relation {
+  id        String   @id @default(cuid())
+  fromType  String   @map("from_type")
+  fromId    String   @map("from_id")
+  toType    String   @map("to_type")
+  toId      String   @map("to_id")
+  kind      String   @default("RELATED")
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([fromType, fromId, toType, toId, kind])
+  @@index([fromType, fromId])
+  @@index([toType, toId])
+  @@map("relation")
+}
+
+// ----- Todos -----
+
+model Todo {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("PENDING")
+  priority    Int       @default(0)
+  entityType  String    @map("entity_type")
+  entityId    String    @map("entity_id")
+  targetDate  DateTime? @map("target_date")
+  recurrence  String?
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("todo")
+}
+
+// ----- Meta: Link, Tag, Comment, Emoji -----
+
+model Link {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  url        String
+  title      String?
+  syncedAt   DateTime? @map("synced_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("link")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String @default("#6b7280")
+
+  attachments TagAttachment[]
+
+  @@map("tag")
+}
+
+model TagAttachment {
+  id         String   @id @default(cuid())
+  tagId      String   @map("tag_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("tag_attachment")
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("comment")
+}
+
+model Emoji {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  emoji      String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([entityType, entityId, emoji])
+  @@map("emoji")
+}
+
+// ----- Page chat: the web app's conversation with the local Claude about one entity page -----
+
+// One per entity; the Chat tab's Clear deletes it. `messages` is JSON:
+// [{ "role": "user" | "assistant", "content": "..." }], oldest first.
+model PageChat {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  messages   String   @default("[]")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId])
+  @@map("page_chat")
+}

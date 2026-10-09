@@ -1,0 +1,63 @@
+# Type checks and tests on every push and pull request.
+# A successful run on main triggers release.yml.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Generate the Prisma client
+        run: bunx prisma generate
+
+      - name: Type check
+        run: bun run check
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Integration tests
+        run: bun run test:integration
+
+  # Unit tests on the other platforms the release builds for. Windows support is new, so
+  # a failure here shows up without blocking main (or the release, which waits on CI).
+  portability:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Generate the Prisma client
+        run: bunx prisma generate
+
+      - name: Unit tests
+        run: bun run test

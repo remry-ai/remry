@@ -1,0 +1,8 @@
+// Global stylesheet entry, imported once in src/routes/+layout.svelte.
+// Partials cannot rely on Vite's `additionalData`; each one `@use`s
+// _variables.scss itself.
+@use './styles/tokens';
+@use './styles/base';
+@use './styles/controls';
+@use './styles/layout';
+@use './styles/print';

@@ -1,0 +1,12 @@
+#!/bin/sh
+# The command's name when the app was Working Notes: runs bin/remry. Older plugin shims and
+# a `wnotes` link on PATH still call it. To be removed in a later release.
+set -e
+src=$0
+while [ -L "$src" ]; do
+  dir=$(cd -P "$(dirname "$src")" && pwd)
+  src=$(readlink "$src")
+  case $src in /*) ;; *) src=$dir/$src ;; esac
+done
+if [ -t 2 ]; then echo "wnotes is now called remry; the old name will stop working in a later release." >&2; fi
+exec "$(cd -P "$(dirname "$src")" && pwd)/remry" "$@"

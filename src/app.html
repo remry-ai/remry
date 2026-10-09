@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- One drawing at every size: icons/icon.svg (on the macOS icon grid, with margin and
+         shadow) and icons/icon-maskable.svg are the sources; `bun run icons` renders the PNGs.
+         Browsers that support an SVG icon use it and stay sharp at any size. -->
+    <link rel="icon" href="%sveltekit.assets%/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%sveltekit.assets%/favicon-16x16.png" />
+
+    <!-- Installable as a desktop app: Chrome and Edge read the manifest, Safari's
+         "Add to Dock" reads the apple-touch-icon and the apple-mobile-web-app tags. -->
+    <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Remry" />
+    <meta name="application-name" content="Remry" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#111111" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18181b" />
+
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

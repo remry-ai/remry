@@ -1,0 +1,255 @@
+@use '../_variables.scss' as *;
+
+// Reset and element defaults. Bare elements are quiet; components opt into
+// looks with the classes in _controls.scss and _layout.scss.
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100vh;
+  overscroll-behavior: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--accent-soft); }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 var(--sp-2);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+h1 { font-size: var(--fs-xl); letter-spacing: -0.01em; }
+h2 { font-size: var(--fs-lg); }
+h3 { font-size: var(--fs-base); }
+h4 {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+p { margin: 0 0 var(--sp-3); }
+p:last-child { margin-bottom: 0; }
+
+ul, ol {
+  margin: 0 0 var(--sp-3);
+  padding-left: var(--sp-5);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--sp-4) 0;
+}
+
+code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+code {
+  padding: 1px 4px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
+}
+pre {
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-inset);
+  overflow-x: auto;
+  code { padding: 0; background: none; }
+}
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: var(--fs-xs);
+  line-height: 18px;
+  text-align: center;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+}
+
+blockquote {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-2);
+}
+
+img { max-width: 100%; }
+
+// --- Buttons: bare <button> is a reset. Add .btn for a styled control. ---
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  cursor: pointer;
+  text-align: inherit;
+  &:disabled { cursor: default; }
+  &:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-sm); }
+}
+a, [role="button"], [role="link"], summary { cursor: pointer; }
+
+// --- Form controls ---
+
+label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+input, select, textarea {
+  font: inherit;
+  font-size: var(--fs-md);
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 10px;
+  margin: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  transition: border-color var(--ease), box-shadow var(--ease);
+
+  &::placeholder { color: var(--text-3); }
+  &:hover:not(:disabled) { border-color: color-mix(in srgb, var(--border-strong) 60%, var(--text-3)); }
+  &:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+  &:disabled { background: var(--surface-inset); color: var(--text-3); }
+}
+
+textarea {
+  height: auto;
+  min-height: calc(var(--control-h) * 2);
+  padding: 6px 10px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+select {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5l3 3 3-3'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+input[type="checkbox"], input[type="radio"], input[role="switch"] {
+  appearance: auto;
+  width: auto;
+  height: auto;
+  accent-color: var(--accent);
+}
+input[type="color"] {
+  width: var(--control-h);
+  padding: 2px;
+}
+input[type="file"] {
+  height: auto;
+  padding: 5px 10px;
+  font-size: var(--fs-sm);
+}
+
+// Small variant for inline rows.
+.sm:is(input, select, textarea), input.sm, select.sm {
+  height: var(--control-h-sm);
+  font-size: var(--fs-sm);
+  padding: 0 8px;
+}
+
+// --- Tables ---
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+  th, td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  th {
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+  tbody tr:hover td { background: var(--surface-hover); }
+  // Per-row actions, shown on hover or focus as in a .list-row; .active marks the row a side peek shows.
+  tbody tr {
+    .row-actions { display: inline-flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--ease); }
+    &:hover .row-actions, &:focus-within .row-actions { opacity: 1; }
+    &.active td { background: var(--accent-soft); }
+  }
+  td a { color: var(--text); font-weight: 500; }
+  td a:hover { color: var(--accent); text-decoration: none; }
+  // Number columns (the wiki's dataset table).
+  th.num, td.num { text-align: right; }
+  // A header that sorts its column: reads as the header, not a link.
+  th .btn.sort {
+    padding: 0;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    &:hover { color: var(--text); }
+  }
+  // A totals row, or a group's heading row inside a tbody.
+  tfoot th, tr.group-row th { border-top: 1px solid var(--border); text-transform: none; letter-spacing: 0; }
+}
+.table-wrap { overflow-x: auto; }
+
+details > summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  user-select: none;
+  &:hover { color: var(--text); }
+}
+
+// --- Breadcrumb ---
+
+nav[aria-label="breadcrumb"] ul {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  list-style: none;
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  font-size: var(--fs-sm);
+
+  li {
+    margin: 0;
+    padding: 0;
+    color: var(--text-3);
+    a { color: var(--text-3); }
+    a:hover { color: var(--text); text-decoration: none; }
+    &:not(:last-child)::after { content: '/'; margin-left: var(--sp-1); color: var(--border-strong); }
+    &:last-child { color: var(--text); font-weight: 500; }
+  }
+}

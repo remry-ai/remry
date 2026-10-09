@@ -1,0 +1,39 @@
+#!/bin/sh
+# Remry CLI (see cli/main.ts). Follows symlinks to find the repo, so
+# `bun run setup` can link it onto PATH as `remry`.
+#   remry <procedure> [--key value]   call the API in-process
+#   remry backup [args]               scripts/backup/main.ts (list, restore, --force, install, ...)
+#   remry app                         the UI at http://127.0.0.1:5173
+#   remry app restart                 stop the running UI and start it again (cli/app-restart.ts)
+#   remry mcp                         the MCP server on stdio (cli/mcp.ts)
+set -e
+src=$0
+while [ -L "$src" ]; do
+  dir=$(cd -P "$(dirname "$src")" && pwd)
+  src=$(readlink "$src")
+  case $src in /*) ;; *) src=$dir/$src ;; esac
+done
+repo=$(cd -P "$(dirname "$src")/.." && pwd)
+
+# Apps such as Claude desktop start MCP servers with a minimal PATH, so also look
+# for Bun where its installers put it. REMRY_BUN overrides.
+bun=${REMRY_BUN:-${WONO_BUN:-${WNOTES_BUN:-}}}
+if [ -z "$bun" ]; then bun=$(command -v bun || true); fi
+if [ -z "$bun" ]; then
+  for candidate in "$HOME/.bun/bin/bun" /opt/homebrew/bin/bun /usr/local/bin/bun; do
+    if [ -x "$candidate" ]; then bun=$candidate; break; fi
+  done
+fi
+if [ -z "$bun" ]; then
+  echo "Remry needs Bun (https://bun.sh), and it isn't on PATH." >&2
+  exit 1
+fi
+
+case ${1:-} in
+  backup) shift; cd "$repo" && exec "$bun" scripts/backup/main.ts "$@" ;;
+  app)
+    if [ "${2:-}" = restart ]; then exec "$bun" "$repo/cli/app-restart.ts"; fi
+    cd "$repo" && exec "$bun" run dev ;;
+  mcp) shift; exec "$bun" "$repo/cli/mcp.ts" "$@" ;;
+esac
+exec "$bun" "$repo/cli/main.ts" "$@"

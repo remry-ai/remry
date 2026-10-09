@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The splash page gets no commands. The app itself is served from 127.0.0.1 and is never given access to Tauri's IPC.",
+  "windows": ["main"],
+  "permissions": []
+}

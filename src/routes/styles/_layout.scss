@@ -1,0 +1,186 @@
+@use '../_variables.scss' as *;
+
+// Page structure, cards, lists, badges, empty states, drawers, utilities.
+
+.page {
+  width: 100%;
+  max-width: var(--content-max);
+  min-width: 0;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-8) var(--sp-10);
+  @include mobile { padding: var(--sp-4); }
+  &.wide { max-width: none; }
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  h1 { margin: 0; }
+  p { margin: var(--sp-1) 0 0; font-size: var(--fs-md); color: var(--text-2); }
+  .actions { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+  @include mobile { flex-direction: column; align-items: flex-start; }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  &.hover { transition: border-color var(--ease), box-shadow var(--ease); }
+  &.hover:hover { border-color: var(--border-strong); box-shadow: var(--shadow-1); }
+  &.compact { padding: var(--sp-3); }
+}
+
+.section { margin-top: var(--sp-6); }
+.section:first-child { margin-top: 0; }
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: var(--control-h-sm);
+  margin-bottom: var(--sp-2);
+  h2, h3, h4 { margin: 0; }
+  .count { font-weight: 400; color: var(--text-3); margin-left: var(--sp-1); }
+}
+
+.eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+// Compact list rows (members, docs, todos, updates).
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 30px;
+  padding: 2px var(--sp-2);
+  margin: 0 calc(-1 * var(--sp-2));
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
+  &:hover { background: var(--surface-hover); }
+  .grow { flex: 1; min-width: 0; }
+  .meta { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; }
+  .row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--ease); }
+  &:hover .row-actions, &:focus-within .row-actions, .row-actions:has(.inline-error) { opacity: 1; }
+  &.active { background: var(--accent-soft); }
+}
+.list.divided .list-row {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  &:hover { background: transparent; }
+  &:last-child { border-bottom: 0; }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  &.accent { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+  &.success { color: var(--success); background: var(--success-soft); border-color: transparent; }
+  &.warning { color: var(--warning); background: var(--warning-soft); border-color: transparent; }
+  &.danger { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+  &.muted { color: var(--text-3); background: transparent; }
+  // Categorical tones, for statuses that need more colours than the status set (a project's proposed and done).
+  &.viz-1 { color: var(--viz-1); background: color-mix(in srgb, var(--viz-1) 12%, transparent); border-color: transparent; }
+  &.viz-2 { color: var(--viz-2); background: color-mix(in srgb, var(--viz-2) 12%, transparent); border-color: transparent; }
+  &.viz-3 { color: var(--viz-3); background: color-mix(in srgb, var(--viz-3) 12%, transparent); border-color: transparent; }
+  &.viz-4 { color: var(--viz-4); background: color-mix(in srgb, var(--viz-4) 12%, transparent); border-color: transparent; }
+  // A removable value (an active filter), with its × button inside.
+  &.chip { gap: var(--sp-1); height: auto; padding-right: 0; }
+}
+
+.empty {
+  font-size: var(--fs-md);
+  color: var(--text-3);
+  margin: 0;
+  &.boxed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-8) var(--sp-4);
+    text-align: center;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--r-lg);
+  }
+}
+
+// Mobile drawer handle shared by the detail sidebar and the notes panel.
+.drawer-handle {
+  display: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-drawer);
+  padding: var(--sp-3) 5px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  color: var(--text-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  transition: color var(--ease), background var(--ease);
+  &:hover, &.active { color: var(--text); background: var(--surface-hover); }
+  &[data-side="left"] { right: calc(-1 * var(--sp-6)); border-left: 0; border-radius: 0 var(--r-md) var(--r-md) 0; }
+  &[data-side="right"] { left: calc(-1 * var(--sp-6)); border-right: 0; border-radius: var(--r-md) 0 0 var(--r-md); }
+}
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drawer-backdrop);
+  background: var(--scrim);
+}
+
+// --- Utilities ---
+
+.muted { color: var(--text-3); }
+.text-2 { color: var(--text-2); }
+.text-xs { font-size: var(--fs-xs); }
+.text-sm { font-size: var(--fs-sm); }
+.mono { font-family: var(--font-mono); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+// Plain-text fields (descriptions) keep the line breaks they were written with.
+.pre-line { white-space: pre-line; }
+.ml-auto { margin-left: auto; }
+.sr-only { @include visually-hidden; }
+
+// Entity metadata (`<dl class="meta-list">` of `<div><dt/><dd/></div>`): label–value pairs in one row that wraps.
+.meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-6);
+  margin: 0;
+  font-size: var(--fs-md);
+  > div { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+  dt { color: var(--text-3); white-space: nowrap; }
+  dd { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 0; min-height: 22px; }
+}

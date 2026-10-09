@@ -1,0 +1,5 @@
+# Filled by scripts/desktop/prepare.ts from a release build (dist/plugin)
+src-tauri/binaries/
+src-tauri/resources/
+src-tauri/target/
+src-tauri/gen/

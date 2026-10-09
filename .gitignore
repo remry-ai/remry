@@ -1,0 +1,34 @@
+node_modules
+.DS_Store
+.svelte-kit
+build
+dist
+.vercel
+.output
+
+# Test artifacts
+playwright-report
+test-results
+coverage
+
+# Editor
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS
+Thumbs.db
+.env
+.env.prod
+
+# Prisma generated client
+generated/
+
+.claude
+
+# Local database and uploaded files
+data/
+
+# License signing keys (scripts/license/keygen.ts). Never commit a private key.
+*.pem
