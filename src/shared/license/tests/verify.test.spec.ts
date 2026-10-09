@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import { daysLeft, signLicenseKey, verifyLicenseKey } from '../verify.server';
 import { lockedMessage, type LicensePayload } from '../../types/license';
+import { REMRY_LINKS } from '../../types/site';
 
 const pair = () => generateKeyPairSync('ed25519', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -65,10 +66,12 @@ describe('daysLeft', () => {
 describe('lockedMessage', () => {
   it('says what to do, for each state', () => {
     expect(lockedMessage('search', { state: 'none', licensee: null, expires: null, daysLeft: null, problem: null }))
-      .toBe('Full-text search is part of Remry Pro. Add a license key in the app (License) or with license.activate.');
+      .toBe(`Full-text search is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
     expect(lockedMessage('pdf-export', { state: 'expired', licensee: { name: 'Dana', email: 'd@x' }, expires: '2027-10-03', daysLeft: -2, problem: null }))
-      .toContain('expired on 2027-10-03. Renew it');
+      .toContain(`expired on 2027-10-03. A renewed subscription emails a new key: add it in the app (License) or with license.activate. Otherwise renew (${REMRY_LINKS.buy}).`);
+    expect(lockedMessage('search', { state: 'invalid', licensee: null, expires: null, daysLeft: null, problem: 'this license was refunded or revoked' }))
+      .toContain(`help with keys: ${REMRY_LINKS.help}`);
     expect(lockedMessage('branding', { state: 'none', licensee: null, expires: null, daysLeft: null, problem: null }, 'app'))
-      .toBe('Branding is part of Remry Pro. Add a license key on the License page.');
+      .toBe('Branding is part of Remry Pro. Buy a license, then add its key on the License page.');
   });
 });

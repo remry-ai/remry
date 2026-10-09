@@ -8,6 +8,7 @@ import { createCallerFactory } from '../../src/shared/trpc/init';
 import { createNotebookContext } from '../../src/shared/trpc/context.server';
 import { resolveCurrentNotebook } from '../../src/shared/notebooks/current.server';
 import { activateLicense, currentLicense } from '../../src/shared/license/store.server';
+import { REMRY_LINKS } from '../../src/shared/types/site';
 import { testLicenseKey } from '../license-test-key';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
@@ -28,7 +29,7 @@ describe('license', () => {
     expect(await api.license.status()).toMatchObject({ ok: true, value: { state: 'none' } });
 
     const search = await api.search.query({ q: 'alice' });
-    expect(!search.ok && search.error.message).toBe('Full-text search is part of Remry Pro. Add a license key in the app (License) or with license.activate.');
+    expect(!search.ok && search.error.message).toBe(`Full-text search is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
     const branding = await api.branding.create({ name: 'Acme' });
     expect(!branding.ok && branding.error.message).toContain('Branding is part of Remry Pro');
 

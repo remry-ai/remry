@@ -1,6 +1,7 @@
 <script lang="ts">
   // Remry Pro: the license on this computer, what it unlocks, and where to
   // add or remove a key. The key is checked here, offline; nothing is sent anywhere.
+  // Buying happens on a Stripe Payment Link and help is on GitHub: these are only links.
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -9,6 +10,7 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { isProActive, PRO_FEATURES, PRO_FEATURE_LABELS, RENEWAL_NOTICE_DAYS } from '$shared/types/license';
+  import { REMRY_LINKS } from '$shared/types/site';
 
   const { data }: { data: PageData } = $props();
   const license = $derived(data.license);
@@ -47,7 +49,7 @@
     {#if active}
       <p class="headline"><span class="badge success">Pro</span> Licensed to <strong>{license.licensee?.name}</strong> <span class="text-2">({license.licensee?.email})</span></p>
       <p class="text-2" class:warning={renewSoon}>
-        Good through {license.expires} ({license.daysLeft} {license.daysLeft === 1 ? 'day' : 'days'} left).{#if renewSoon} Renew soon: when it lapses, the Pro features lock until you add the renewed key.{/if}
+        Good through {license.expires} ({license.daysLeft} {license.daysLeft === 1 ? 'day' : 'days'} left).{#if renewSoon} A subscription renews itself and emails the new key; add it here when it arrives. Until you do, the Pro features lock when this one lapses.{/if}
       </p>
     {:else if license.state === 'expired'}
       <p class="headline"><span class="badge warning">Expired</span> The license for <strong>{license.licensee?.name}</strong> ended on {license.expires}.</p>
@@ -59,6 +61,15 @@
       <p class="headline">No license on this computer.</p>
       <p class="text-2">Remry is free to use. Pro adds the features below.</p>
     {/if}
+
+    <div class="links">
+      {#if license.state === 'expired'}
+        <a class="btn primary sm" href={REMRY_LINKS.buy} target="_blank" rel="noopener">Renew Remry Pro</a>
+      {:else if !active}
+        <a class="btn primary sm" href={REMRY_LINKS.buy} target="_blank" rel="noopener">Buy Remry Pro</a>
+      {/if}
+      <a class="text-2" href={REMRY_LINKS.help} target="_blank" rel="noopener">Help with Remry Pro and lost keys</a>
+    </div>
 
     <ul class="list features">
       {#each PRO_FEATURES as feature (feature)}
@@ -94,6 +105,7 @@
   .headline { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0; }
   .card p { margin: 0; }
   .warning { color: var(--warning); }
+  .links { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-2); }
   .features { margin-top: var(--sp-2); }
   .remove { margin-top: var(--sp-2); }
   textarea { width: 100%; resize: vertical; }

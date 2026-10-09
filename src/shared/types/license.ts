@@ -1,6 +1,8 @@
 // Remry Pro: what a license unlocks, and the status the app, CLI and MCP see.
 // Client-safe; verifying a key is server-only (src/shared/license/verify.server.ts).
 
+import { REMRY_LINKS } from './site';
+
 export const PRO_FEATURES = ['branding', 'pdf-export', 'search'] as const;
 export type ProFeature = (typeof PRO_FEATURES)[number];
 
@@ -44,17 +46,19 @@ export const isProActive = (status: LicenseStatus): boolean => status.state === 
 
 /**
  * Why a Pro feature is locked, written for whoever hit it: Claude or the CLI through a
- * procedure (`tool`, the default), or the user in the app (`app`).
+ * procedure (`tool`, the default), or the user in the app (`app`). The tool message carries the
+ * buy and help links, for Claude to pass on; in the app, the License page has them.
  */
 export const lockedMessage = (feature: ProFeature, status: LicenseStatus, audience: 'tool' | 'app' = 'tool'): string => {
   const what = `${PRO_FEATURE_LABELS[feature]} is part of Remry Pro`;
   const where = audience === 'app' ? 'on the License page' : 'in the app (License) or with license.activate';
+  const at = (url: string): string => (audience === 'app' ? '' : ` (${url})`);
   switch (status.state) {
     case 'expired':
-      return `${what}, and the license for ${status.licensee?.name ?? 'this computer'} expired on ${status.expires}. Renew it, then add the new key ${where}.`;
+      return `${what}, and the license for ${status.licensee?.name ?? 'this computer'} expired on ${status.expires}. A renewed subscription emails a new key: add it ${where}. Otherwise renew${at(REMRY_LINKS.buy)}.`;
     case 'invalid':
-      return `${what}, and the license key on this computer isn't valid (${status.problem ?? 'unreadable'}). Add a valid key ${where}.`;
+      return `${what}, and the license key on this computer isn't valid (${status.problem ?? 'unreadable'}). Add a valid key ${where}${audience === 'app' ? '' : `; help with keys: ${REMRY_LINKS.help}`}.`;
     default:
-      return `${what}. Add a license key ${where}.`;
+      return `${what}. Buy a license${at(REMRY_LINKS.buy)}, then add its key ${where}.`;
   }
 };

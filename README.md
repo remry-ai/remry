@@ -197,6 +197,40 @@ can see them. Remry holds yours, privately, and can link back to them.
   to drive it yourself.
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — running from a clone, and how releases work.
 
+## Remry Pro
+
+Remry is free. **Remry Pro** is a yearly license that adds three things:
+
+- **Full-text search:** find anything by what it says, across notes, docs, wiki pages, todos and
+  comments, and ask Claude "what do I know about X".
+- **Branding:** your organisation's colours and icon, in the app and on what you print.
+- **PDF export:** docs and wiki pages, printed to PDF.
+
+It costs **$PRICE a year** <!-- TODO: the real price -->, and renews each year until you cancel.
+
+**[Buy Remry Pro →](https://buy.stripe.com/REMRY_PRO_PAYMENT_LINK)** <!-- TODO: the real Payment Link; also REMRY_LINKS.buy in src/shared/types/site.ts -->
+
+Checkout is run by Stripe, which handles the payment, sales tax and receipts. After paying you
+land on a page that shows your license key, and the same key is emailed to you. Each renewal
+emails a new key.
+
+**To activate it**, open Remry, choose **License** from the notebook menu (the chevron beside the
+notebook name), and paste the key. Or ask Claude to activate it: it runs `license.activate`.
+
+### Questions
+
+- **What happens when a license expires?** Search, branding and PDF export lock, and nothing
+  else changes. No data is lost: your brandings, docs and notes stay where they are, and it all
+  comes back when you add a renewed key.
+- **How many computers?** A license is for one computer. It's stored in Remry's settings on that
+  computer.
+- **Does Remry check in with a server?** No. The key is checked on your computer, offline, and
+  Remry never contacts anything: not to check the key, not for anything else.
+- **Refunds?** Ask within 30 days for a full refund <!-- TODO: confirm the refund window -->.
+  The refunded key stops working with the next Remry update.
+- **Lost your key?** [Open an issue](https://github.com/remry-ai/remry/issues) without posting
+  your email address, or email SUPPORT_EMAIL <!-- TODO: the support address -->. Either way, we'll send it again.
+
 ## Status
 
 Remry is one person's tool, built in the open. Expect it to change.
@@ -204,8 +238,8 @@ Remry is one person's tool, built in the open. Expect it to change.
 Reports — branded write-ups printed to PDF — are built but switched off while they are unfinished.
 Write-ups go in docs instead.
 
-Branding, PDF export and full-text search are part of Remry Pro, a yearly license that the
-app checks on your computer without contacting anything. Everything else is free.
+Branding, PDF export and full-text search are part of [Remry Pro](#remry-pro), a yearly license
+that the app checks on your computer without contacting anything. Everything else is free.
 
 Releases are built for Apple silicon Macs, with Windows and Linux builds in preview, and a desktop
 app for all three is on the way. On Windows, connecting Claude needs one extra step for now; see
