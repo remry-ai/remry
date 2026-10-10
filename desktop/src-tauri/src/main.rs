@@ -5,7 +5,7 @@
 //   1. `remry install` copies the bundled binary into <data dir>/App/<version> and
 //      points App/current at it, as the Claude plugin does. Everything after runs that
 //      installed copy, so an app update never has to replace a running binary.
-//   2. `remry app ensure` starts the server on 127.0.0.1:5173, or reuses (or, for a
+//   2. `remry app ensure` starts the server on 127.0.0.1:7369, or reuses (or, for a
 //      different version, replaces) one that's running, and prints its address.
 //   3. The window leaves its splash page for that address. The page gets no access to
 //      Tauri's IPC: it's the same web app a browser shows.
@@ -25,7 +25,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_opener::OpenerExt;
 
 const APP_ORIGIN_HOST: &str = "127.0.0.1";
-const APP_PORT: u16 = 5173;
+const APP_PORT: u16 = 7369;
 const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
 
@@ -119,7 +119,7 @@ fn start(app: AppHandle, window: WebviewWindow) {
 /// The installed binary, once `install` has run.
 struct Installed(PathBuf);
 
-/// The app's own pages: the splash page, and the server on 127.0.0.1:5173.
+/// The app's own pages: the splash page, and the server on 127.0.0.1:7369.
 fn is_app_url(url: &Url) -> bool {
     match url.scheme() {
         "tauri" => true,
@@ -230,7 +230,7 @@ mod tests {
         let url = |s: &str| Url::parse(s).unwrap();
         assert!(is_app_url(&url("tauri://localhost/index.html")));
         assert!(is_app_url(&url("http://tauri.localhost/index.html")));
-        assert!(is_app_url(&url("http://127.0.0.1:5173/app/projects")));
+        assert!(is_app_url(&url("http://127.0.0.1:7369/app/projects")));
         assert!(!is_app_url(&url("http://127.0.0.1:8080/")));
         assert!(!is_app_url(&url("https://linear.app/acme/issue/ENG-1")));
         assert!(!is_app_url(&url("file:///etc/passwd")));

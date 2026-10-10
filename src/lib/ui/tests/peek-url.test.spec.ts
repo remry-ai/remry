@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { peekHref } from '../peek-url';
 
 describe('peekHref', () => {
-  const base = 'http://127.0.0.1:5173';
+  const base = 'http://127.0.0.1:7369';
 
   it('sets the peek', () => {
     expect(peekHref(new URL(`${base}/app/projects`), 'p1')).toBe('/app/projects?peek=p1');

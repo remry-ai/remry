@@ -10,8 +10,8 @@ describe('parseEntityPath', () => {
   });
 
   it('accepts loopback origins, query strings and sub-paths', () => {
-    expect(parseEntityPath('http://127.0.0.1:5173/app/wiki/p1?popup=edit-page')).toEqual({ entityType: 'PAGE', entityId: 'p1' });
-    expect(parseEntityPath('http://localhost:5173/app/reports/r1/print')).toEqual({ entityType: 'REPORT', entityId: 'r1' });
+    expect(parseEntityPath('http://127.0.0.1:7369/app/wiki/p1?popup=edit-page')).toEqual({ entityType: 'PAGE', entityId: 'p1' });
+    expect(parseEntityPath('http://localhost:7369/app/reports/r1/print')).toEqual({ entityType: 'REPORT', entityId: 'r1' });
   });
 
   it('ignores other hosts and routes that are not entities', () => {
@@ -25,8 +25,8 @@ describe('extractEntityLinks', () => {
   it('finds markdown links, autolinks and bare loopback URLs, once each', () => {
     const md = [
       'We moved off [Jira](/app/wiki/jira) to [Linear](/app/wiki/linear "Linear").',
-      'Owner: <http://127.0.0.1:5173/app/teams/t1>',
-      'See http://localhost:5173/app/wiki/jira.'
+      'Owner: <http://127.0.0.1:7369/app/teams/t1>',
+      'See http://localhost:7369/app/wiki/jira.'
     ].join('\n');
     expect(extractEntityLinks(md)).toEqual([
       { entityType: 'PAGE', entityId: 'jira' },

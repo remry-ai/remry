@@ -34,19 +34,19 @@ describe('appControl', () => {
     appControl(new Request(`http://${host}/__remry/app/stop`, { method, headers }), '1.2.3');
 
   it('reports the version', () => {
-    expect(appControl(new Request('http://127.0.0.1:5173/__remry/app'), '1.2.3')).toEqual({ kind: 'version', body: { version: '1.2.3' } });
+    expect(appControl(new Request('http://127.0.0.1:7369/__remry/app'), '1.2.3')).toEqual({ kind: 'version', body: { version: '1.2.3' } });
   });
 
   it('stops only for a loopback POST with the local header', () => {
-    expect(stop('127.0.0.1:5173')).toEqual({ kind: 'stop' });
-    expect(stop('localhost:5173')).toEqual({ kind: 'stop' });
-    expect(stop('evil.example:5173')).toEqual({ kind: 'forbidden' });
-    expect(stop('127.0.0.1:5173', {})).toEqual({ kind: 'forbidden' });
-    expect(stop('127.0.0.1:5173', { 'x-remry': '1' }, 'GET')).toEqual({ kind: 'forbidden' });
+    expect(stop('127.0.0.1:7369')).toEqual({ kind: 'stop' });
+    expect(stop('localhost:7369')).toEqual({ kind: 'stop' });
+    expect(stop('evil.example:7369')).toEqual({ kind: 'forbidden' });
+    expect(stop('127.0.0.1:7369', {})).toEqual({ kind: 'forbidden' });
+    expect(stop('127.0.0.1:7369', { 'x-remry': '1' }, 'GET')).toEqual({ kind: 'forbidden' });
   });
 
   it('leaves every other request to the app', () => {
-    expect(appControl(new Request('http://127.0.0.1:5173/app'), '1.2.3')).toBeNull();
+    expect(appControl(new Request('http://127.0.0.1:7369/app'), '1.2.3')).toBeNull();
   });
 });
 
@@ -94,8 +94,8 @@ describe('app launch', () => {
   });
 
   it('links to a notebook', () => {
-    expect(appUrl(null)).toBe('http://127.0.0.1:5173/app');
-    expect(appUrl('work-work')).toBe('http://127.0.0.1:5173/app?notebook=work-work');
+    expect(appUrl(null)).toBe('http://127.0.0.1:7369/app');
+    expect(appUrl('work-work')).toBe('http://127.0.0.1:7369/app?notebook=work-work');
   });
 });
 

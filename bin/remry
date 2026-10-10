@@ -3,7 +3,7 @@
 # `bun run setup` can link it onto PATH as `remry`.
 #   remry <procedure> [--key value]   call the API in-process
 #   remry backup [args]               scripts/backup/main.ts (list, restore, --force, install, ...)
-#   remry app                         the UI at http://127.0.0.1:5173
+#   remry app                         the UI at http://127.0.0.1:7369
 #   remry app restart                 stop the running UI and start it again (cli/app-restart.ts)
 #   remry mcp                         the MCP server on stdio (cli/mcp.ts)
 set -e

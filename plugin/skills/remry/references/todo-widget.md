@@ -34,7 +34,7 @@ The user ticks todos done, moves dates and changes priorities. Nothing is saved 
 <script>
 const NOTEBOOK = 'work';
 const TODOS = [
-  {id:'abc123',title:'Book 1:1 with Dana',status:'PENDING',priority:2,targetDate:'2026-10-09',entityLabel:'Dana Park',url:'http://127.0.0.1:5173/app/todos?popup=todo&todo=abc123&notebook=work'}
+  {id:'abc123',title:'Book 1:1 with Dana',status:'PENDING',priority:2,targetDate:'2026-10-09',entityLabel:'Dana Park',url:'http://127.0.0.1:7369/app/todos?popup=todo&todo=abc123&notebook=work'}
 ];
 const PRIORITY = ['None','Low','Medium','High'];
 const today = new Date().toLocaleDateString('en-CA');

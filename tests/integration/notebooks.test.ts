@@ -89,25 +89,25 @@ describe('notebooks', () => {
   });
 
   it('switches with ?notebook=, remembers it in a cookie, and falls back to the default', async () => {
-    const link = fakeEvent('http://127.0.0.1:5173/app/reports/r1?notebook=other&popup=x');
+    const link = fakeEvent('http://127.0.0.1:7369/app/reports/r1?notebook=other&popup=x');
     const redirected = await notebookHandle({ event: link.event as never, resolve: page });
     expect(redirected.status).toBe(303);
     expect(redirected.headers.get('location')).toBe('/app/reports/r1?popup=x');
     expect(redirected.headers.get('set-cookie')).toBe(`${NOTEBOOK_COOKIE}=${OTHER_NOTEBOOK}`);
 
-    const data = fakeEvent('http://127.0.0.1:5173/app?notebook=other', undefined, true);
+    const data = fakeEvent('http://127.0.0.1:7369/app?notebook=other', undefined, true);
     expect((await notebookHandle({ event: data.event as never, resolve: page })).status).toBe(200);
     expect(data.setCookies).toEqual([[NOTEBOOK_COOKIE, OTHER_NOTEBOOK]]);
 
-    const remembered = fakeEvent('http://127.0.0.1:5173/app', OTHER_NOTEBOOK);
+    const remembered = fakeEvent('http://127.0.0.1:7369/app', OTHER_NOTEBOOK);
     expect((await notebookHandle({ event: remembered.event as never, resolve: page })).status).toBe(200);
     expect(remembered.event.locals.notebook.id).toBe(OTHER_NOTEBOOK);
 
-    const stale = fakeEvent('http://127.0.0.1:5173/app', 'gone');
+    const stale = fakeEvent('http://127.0.0.1:7369/app', 'gone');
     await notebookHandle({ event: stale.event as never, resolve: page });
     expect(stale.event.locals.notebook.id).toBe(TEST_NOTEBOOK);
 
-    const unknown = fakeEvent('http://127.0.0.1:5173/app?notebook=gone');
+    const unknown = fakeEvent('http://127.0.0.1:7369/app?notebook=gone');
     expect((await notebookHandle({ event: unknown.event as never, resolve: page })).status).toBe(404);
   });
 

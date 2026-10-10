@@ -63,21 +63,21 @@ Every call works on one notebook: the default, unless you name another.
    `backup_snapshot` with a reason like "before <what>", or `remry backup --force --reason "before <what>"`
 5. **Report back by name.** Say "Added Dana Park to Platform, reporting to Alice Johnson", not ids.
 6. **Keep the user's words.** A note records what they said. Don't embellish or summarise it unless asked.
-7. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](http://127.0.0.1:5173/app/people/<id>?notebook=<notebook id>)`. See **Links to what you changed** below.
+7. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](http://127.0.0.1:7369/app/people/<id>?notebook=<notebook id>)`. See **Links to what you changed** below.
 
 ## Links to what you changed
 
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
-- **Address:** `http://127.0.0.1:5173` + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Address:** `http://127.0.0.1:7369` + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
 - **Paths:** use the `path` in the result when there is one. Otherwise: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 
 ```markdown
 Added to Work:
-- [Dana Park](http://127.0.0.1:5173/app/people/abc123?notebook=work), on [Platform](http://127.0.0.1:5173/app/groups/def456?notebook=work)
-- Todo: [Book 1:1 with Dana](http://127.0.0.1:5173/app/todos?popup=todo&todo=ghi789&notebook=work)
+- [Dana Park](http://127.0.0.1:7369/app/people/abc123?notebook=work), on [Platform](http://127.0.0.1:7369/app/groups/def456?notebook=work)
+- Todo: [Book 1:1 with Dana](http://127.0.0.1:7369/app/todos?popup=todo&todo=ghi789&notebook=work)
 ```
 
 ## Showing todos

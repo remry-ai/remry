@@ -7,7 +7,7 @@ import { execFile, spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import pluginManifest from '../plugin/.claude-plugin/plugin.json';
-import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, LEGACY_APP_CONTROL_PATHS, LEGACY_APP_STOP_PATHS, LEGACY_LOCAL_HEADERS } from './app-server';
+import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, LEGACY_APP_CONTROL_PATHS, LEGACY_APP_PORTS, LEGACY_APP_STOP_PATHS, LEGACY_LOCAL_HEADERS } from './app-server';
 import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
 
@@ -57,14 +57,14 @@ export const planAppLaunch = (running: RunningApp, own: { readonly standalone: b
   return running.version === own.version ? 'reuse' : 'restart';
 };
 
-const base = `http://${APP_HOST}:${APP_PORT}`;
+const base = (port: number): string => `http://${APP_HOST}:${port}`;
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
-export const probeApp = async (): Promise<RunningApp> => {
-  if (!(await isPortListening(APP_PORT))) return null;
+export const probeApp = async (port = APP_PORT): Promise<RunningApp> => {
+  if (!(await isPortListening(port))) return null;
   try {
     for (const path of [APP_CONTROL_PATH, ...LEGACY_APP_CONTROL_PATHS]) {
-      const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(1_000) });
+      const response = await fetch(`${base(port)}${path}`, { signal: AbortSignal.timeout(1_000) });
       const body: unknown = response.ok ? await response.json().catch(() => null) : null;
       const version = typeof body === 'object' && body !== null ? (body as { version?: unknown }).version : undefined;
       if (typeof version === 'string') return { version };
@@ -75,24 +75,24 @@ export const probeApp = async (): Promise<RunningApp> => {
   }
 };
 
-const waitForPort = async (listening: boolean, timeoutMs: number): Promise<boolean> => {
+const waitForPort = async (port: number, listening: boolean, timeoutMs: number): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if ((await isPortListening(APP_PORT)) === listening) return true;
+    if ((await isPortListening(port)) === listening) return true;
     await sleep(250);
   }
   return false;
 };
 
-const stopApp = async (): Promise<void> => {
+const stopApp = async (port = APP_PORT): Promise<void> => {
   // An app from before a rename has an old path and header.
   const headers = Object.fromEntries([LOCAL_HEADER, ...LEGACY_LOCAL_HEADERS].map((header) => [header, '1']));
   for (const path of [APP_STOP_PATH, ...LEGACY_APP_STOP_PATHS]) {
-    const response = await fetch(`${base}${path}`, { method: 'POST', headers, signal: AbortSignal.timeout(2_000) }).catch(() => null);
+    const response = await fetch(`${base(port)}${path}`, { method: 'POST', headers, signal: AbortSignal.timeout(2_000) }).catch(() => null);
     if (response?.ok) break;
   }
-  if (!(await waitForPort(false, 5_000))) {
-    throw new Error(`An older Remry app is still running on ${APP_HOST}:${APP_PORT}. Quit it, then open the app again.`);
+  if (!(await waitForPort(port, false, 5_000))) {
+    throw new Error(`An older Remry app is still running on ${APP_HOST}:${port}. Quit it, then open the app again.`);
   }
 };
 
@@ -159,26 +159,42 @@ const commandLine = async (pid: number): Promise<string> =>
     : await run('ps', ['-o', 'command=', '-p', String(pid)]).then((r) => r.stdout, () => '')
   ).trim();
 
-/** Stops whatever Remry process listens on the app port, by pid (for apps without the stop endpoint). */
-const stopByPid = async (): Promise<void> => {
-  const pids = await listeningPids(APP_PORT);
+/** Stops whatever Remry process listens on a port, by pid (for apps without the stop endpoint). */
+const stopByPid = async (port: number): Promise<void> => {
+  const pids = await listeningPids(port);
   for (const pid of pids) {
     const command = await commandLine(pid);
     if (!isRemryCommand(command)) {
-      throw new Error(`Something other than Remry is using ${APP_HOST}:${APP_PORT} (${command || `pid ${pid}`}). Quit it, then restart the app.`);
+      throw new Error(`Something other than Remry is using ${APP_HOST}:${port} (${command || `pid ${pid}`}). Quit it, then restart the app.`);
     }
     process.kill(pid, 'SIGTERM');
   }
-  if (!(await waitForPort(false, 5_000))) {
-    throw new Error(`The Remry app on ${APP_HOST}:${APP_PORT} didn't stop. Quit it, then restart the app.`);
+  if (!(await waitForPort(port, false, 5_000))) {
+    throw new Error(`The Remry app on ${APP_HOST}:${port} didn't stop. Quit it, then restart the app.`);
+  }
+};
+
+/**
+ * Stops a Remry app left on a port apps used before 0.14.9, so it doesn't run old code
+ * beside this one. A release app says so through its control path; with `anyRemry` (an
+ * explicit restart), a clone's dev server goes too when its command line is Remry's.
+ * Anything else on that port is someone else's, and stays.
+ */
+const stopLegacyApps = async (anyRemry: boolean): Promise<void> => {
+  for (const port of LEGACY_APP_PORTS) {
+    const running = await probeApp(port);
+    if (running === null) continue;
+    if (running !== 'other') await stopApp(port);
+    else if (anyRemry && (await Promise.all((await listeningPids(port)).map(commandLine))).every(isRemryCommand)) await stopByPid(port);
   }
 };
 
 /** Stops the running app, whatever version it is, and starts this one. Starts it if nothing was running. */
 export const restartApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<{ readonly stopped: boolean }> => {
+  await stopLegacyApps(true);
   const running = await probeApp();
   if (running !== null) {
-    if (running === 'other') await stopByPid();
+    if (running === 'other') await stopByPid(APP_PORT);
     else await stopApp();
   }
   await startApp(owner.launch, timeoutMs);
@@ -191,6 +207,7 @@ export interface OpenAppResult {
 }
 
 export const openApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<OpenAppResult> => {
+  if (owner.standalone) await stopLegacyApps(false);
   const plan = planAppLaunch(await probeApp(), owner);
   if (plan === 'reuse') return { started: false, restarted: false };
   if (plan === 'restart') await stopApp();
@@ -204,6 +221,7 @@ export const openApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<Open
  * Wonos or Working Notes). True if it stopped one; start this version's app then with startOwnApp.
  */
 export const stopStaleApp = async (owner: AppOwner): Promise<boolean> => {
+  if (owner.standalone) await stopLegacyApps(false);
   if (planAppLaunch(await probeApp(), owner) !== 'restart') return false;
   await stopApp();
   return true;

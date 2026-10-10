@@ -7,7 +7,7 @@ git clone <repo-url> remry
 cd remry
 bun install
 bun run setup              # put `remry` on PATH and install the Claude plugin
-remry app                 # the UI at http://127.0.0.1:5173
+remry app                 # the UI at http://127.0.0.1:7369
 ```
 
 The database is created on first use. Try it:
@@ -45,7 +45,7 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Dev server on http://127.0.0.1:5173 |
+| `bun run dev` | Dev server on http://127.0.0.1:7369 |
 | `bun run build && bun run start` | Production server, loopback only |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
 | `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) |

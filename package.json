@@ -1,12 +1,12 @@
 {
   "name": "remry",
-  "version": "0.14.8",
+  "version": "0.14.9",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "start": "HOST=127.0.0.1 PORT=5173 BODY_SIZE_LIMIT=25M bun build/index.js",
+    "start": "HOST=127.0.0.1 PORT=7369 BODY_SIZE_LIMIT=25M bun build/index.js",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

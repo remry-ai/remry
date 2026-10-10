@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [sveltekit()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: 7369,
     strictPort: true
   },
   css: {

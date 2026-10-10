@@ -112,7 +112,7 @@ Ask Claude to "open Remry" and it will start the app and hand you the link. By h
 "$HOME/Library/Application Support/Remry/App/current/remry" app
 ```
 
-Then go to http://127.0.0.1:5173/app. The server binds to 127.0.0.1 and refuses any request that
+Then go to http://127.0.0.1:7369/app. The server binds to 127.0.0.1 and refuses any request that
 didn't come from this machine.
 
 ## The desktop app (preview)
@@ -133,7 +133,7 @@ no browser chrome. It still runs entirely on your machine, against the same loca
 
 Start the app first, then:
 
-- **Chrome or Edge:** open http://127.0.0.1:5173/app, then choose **Install Remry** — from
+- **Chrome or Edge:** open http://127.0.0.1:7369/app, then choose **Install Remry** — from
   the install icon at the right of the address bar, or from the ⋮ menu under **Cast, save and
   share**.
 - **Safari 17 or later:** open the same address, then **File → Add to Dock**.

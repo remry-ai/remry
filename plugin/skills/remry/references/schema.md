@@ -84,7 +84,7 @@ Those are the only kinds. Relationships between people are person relations (bel
 - For a link that's neither ("uses", "replaces"), use `RELATED` with a `note`.
 - `relation.forEntity` returns both directions, grouped by the label from that entity's side, and each item has the other entity's name and `path`.
 - `project.dependencies` (`--archived`) lists every project-to-project `DEPENDS_ON` link (`fromId` depends on `toId`), every goal–project link, and those goals' status and progress in one call. It feeds the projects page's dependency map (`/app/projects?view=map`).
-- **`MENTIONS` is derived.** When a page, doc, note or report's content is saved, each markdown link to an app path (`/app/wiki/<id>`, relative or on `http://127.0.0.1:5173`) becomes a `MENTIONS` relation from that page, doc, note or report to the target. Paths are `/app/people/`, `/app/groups/`, `/app/projects/`, `/app/goals/`, `/app/wiki/` and `/app/reports/`, each followed by the id. Links in code blocks and links to ids that don't exist are ignored. `relation.add`, `update` and `remove` refuse `MENTIONS`.
+- **`MENTIONS` is derived.** When a page, doc, note or report's content is saved, each markdown link to an app path (`/app/wiki/<id>`, relative or on `http://127.0.0.1:7369`) becomes a `MENTIONS` relation from that page, doc, note or report to the target. Paths are `/app/people/`, `/app/groups/`, `/app/projects/`, `/app/goals/`, `/app/wiki/` and `/app/reports/`, each followed by the id. Links in code blocks and links to ids that don't exist are ignored. `relation.add`, `update` and `remove` refuse `MENTIONS`.
 
 ## Person relations
 
