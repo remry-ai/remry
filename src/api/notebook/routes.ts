@@ -4,18 +4,16 @@ import { NOTEBOOK_PROFILES } from '$shared/types/notebook';
 import { getReadyRegistry } from '$shared/db/bootstrap.server';
 import type { NotebookProfile } from '$shared/types/notebook';
 import { notebookModel } from '$shared/modules/model';
-import { addStarterKinds } from '$api/page-kind/operations';
 import { seedGroupKinds } from '$api/group-kind/operations';
 import { seedPersonRelationKinds } from '$api/person-relation-kind/operations';
 import { createNotebook, listNotebooks, renameNotebook, setDefaultNotebook, setNotebookProfile } from './operations';
 
-/** The group and relation kinds a profile's modules bring, and the starter page kinds for work. */
+/** The group and relation kinds a profile's modules bring. */
 const setUpModules = async (notebookId: string, profile: NotebookProfile): Promise<void> => {
   const reg = await getReadyRegistry(notebookId);
   const model = notebookModel(profile);
   await seedGroupKinds(reg, model.groupKinds);
   await seedPersonRelationKinds(reg, model.personRelationKinds);
-  if (profile === 'work') await addStarterKinds(reg);
 };
 
 export const notebookRouter = router({
@@ -26,7 +24,7 @@ export const notebookRouter = router({
     .input(z.object({
       name: z.string().trim().min(1).max(100),
       id: z.string().max(40).optional(),
-      // work: the org chart and goals, with Team and Department groups and starter page kinds.
+      // work: the org chart and goals, with Team and Department groups.
       // home: personal life (birthdays, family relations), with Family and Friends groups.
       profile: z.enum(NOTEBOOK_PROFILES).default('work')
     }))

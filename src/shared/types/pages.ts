@@ -65,52 +65,6 @@ export const PAGE_FIELD_KEY = /^[a-z][a-zA-Z0-9]{0,39}$/;
 
 export const PAGE_KIND_LIMITS = { fields: 30, options: 50 } as const;
 
-/** The work notebook's starter kinds: what the wiki offered before kinds were data. */
-export const STARTER_KINDS: readonly Omit<PageKindDefinition, 'sortOrder'>[] = [
-  {
-    key: 'POLICY',
-    name: 'Policy',
-    description: null,
-    fields: [
-      { key: 'status', label: 'Status', input: 'select', options: ['DRAFT', 'ACTIVE', 'RETIRED'] },
-      { key: 'version', label: 'Version', input: 'text' },
-      { key: 'effectiveDate', label: 'Effective', input: 'date' },
-      { key: 'reviewDate', label: 'Review by', input: 'date' }
-    ]
-  },
-  {
-    key: 'PRODUCT',
-    name: 'Product',
-    description: null,
-    fields: [
-      { key: 'status', label: 'Status', input: 'select', options: ['IDEA', 'BUILDING', 'LIVE', 'SUNSET'] },
-      { key: 'url', label: 'URL', input: 'url' }
-    ]
-  },
-  {
-    key: 'SOFTWARE',
-    name: 'Software',
-    description: null,
-    fields: [
-      { key: 'vendor', label: 'Vendor', input: 'text' },
-      { key: 'url', label: 'URL', input: 'url' },
-      { key: 'annualCost', label: 'Annual cost', input: 'number' },
-      { key: 'currency', label: 'Currency', input: 'text' },
-      { key: 'renewalDate', label: 'Renews', input: 'date' },
-      { key: 'seats', label: 'Seats', input: 'number' }
-    ]
-  },
-  {
-    key: 'DECISION',
-    name: 'Decision',
-    description: null,
-    fields: [
-      { key: 'status', label: 'Status', input: 'select', options: ['PROPOSED', 'ACCEPTED', 'SUPERSEDED', 'REJECTED'] },
-      { key: 'decidedOn', label: 'Decided on', input: 'date' }
-    ]
-  }
-];
-
 export interface PageSummary {
   readonly id: string;
   readonly title: string;

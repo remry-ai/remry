@@ -12,7 +12,6 @@
   import DatasetTable from '$lib/page/components/DatasetTable.svelte';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
   import { formatPropertyValue, kindName } from '$lib/page/utils';
-  import { model } from '$lib/stores/notebook-model';
 
   const { data } = $props<{ data: PageData }>();
   const pages = $derived(data.pages as readonly PageSummary[]);
@@ -60,9 +59,7 @@
 <div class="page">
   <PageHeader
     title={currentKind ? currentKind.name : 'Wiki'}
-    description={currentKind?.description ?? ($model.profile === 'home'
-      ? 'Recipes, places, bills, home things and anything else worth keeping. Each kind of page has its own fields.'
-      : 'Policies, products, software, decisions and anything else worth writing down.')}
+    description={currentKind?.description ?? 'Plain pages for anything worth writing down. Define a page kind to keep a set of pages as a table.'}
   >
     <a class="btn" href="/app/wiki/kinds">Page kinds</a>
     <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add {currentKind && currentKind.key !== 'GENERAL' ? currentKind.name.toLowerCase() : 'page'}</button>

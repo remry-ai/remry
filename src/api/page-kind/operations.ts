@@ -10,7 +10,6 @@ import {
   GENERAL_KIND,
   PAGE_KIND_KEY,
   PAGE_KIND_KEY_RULE,
-  STARTER_KINDS,
   pageKindFieldsSchema,
   parsePageProperties,
   readPageKindFields,
@@ -282,16 +281,4 @@ export const deletePageKind = async (
     reg.prisma.pageKind.delete({ where: { key } })
   ]);
   return ok({ deleted: true as const, pagesMoved: pages.length });
-};
-
-/** Adds the work starter kinds a notebook doesn't have yet. */
-export const addStarterKinds = async (reg: Pick<Registry, 'prisma'>): Promise<Result<readonly string[]>> => {
-  const existing = new Set((await reg.prisma.pageKind.findMany({ select: { key: true } })).map((r) => r.key));
-  const missing = STARTER_KINDS.filter((k) => !existing.has(k.key));
-  for (const [i, kind] of missing.entries()) {
-    await reg.prisma.pageKind.create({
-      data: { key: kind.key, name: kind.name, description: kind.description, fields: JSON.stringify(kind.fields), sortOrder: existing.size + i }
-    });
-  }
-  return ok(missing.map((k) => k.key));
 };

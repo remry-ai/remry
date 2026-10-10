@@ -143,7 +143,7 @@ A notebook is a folder, `<data dir>/Notebooks/<id>/`, holding `notebook.json` (n
 
 There is no `notebook.delete`, on purpose: Claude should never be one tool call away from removing a whole notebook.
 
-`profile` (`work` or `home`; missing reads as `work`) is set by `notebook.create --profile` and `notebook.setProfile`, both of which seed the profile's group kinds (and the starter page kinds for work) through the `setUpModules` dep.
+`profile` (`work` or `home`; missing reads as `work`) is set by `notebook.create --profile` and `notebook.setProfile`, both of which seed the profile's group and person relation kinds through the `setUpModules` dep. No page kinds are seeded.
 
 ## Modules
 
@@ -160,7 +160,7 @@ A profile is a list of modules (`MODULES_BY_PROFILE`, `$shared/modules/model`): 
 
 ## Page kinds and datasets
 
-A page's `kind` is a key into the notebook's `page_kind` table (`key`, `name`, `description`, `fields` as JSON). `GENERAL` is built in (`GENERAL_KIND`, no fields) and never stored. Field definitions and their Zod schemas are in `$shared/types/pages` (`pageKindFieldSchema`, `parsePageProperties(kind, input)`); `page/operations.ts` loads the kind with `getPageKind` before every create, update or kind change. The `add_page_kinds` migration gave notebooks that already had data the four kinds that used to be constants (`STARTER_KINDS`).
+A page's `kind` is a key into the notebook's `page_kind` table (`key`, `name`, `description`, `fields` as JSON). `GENERAL` is built in (`GENERAL_KIND`, no fields) and never stored. Field definitions and their Zod schemas are in `$shared/types/pages` (`pageKindFieldSchema`, `parsePageProperties(kind, input)`); `page/operations.ts` loads the kind with `getPageKind` before every create, update or kind change. No kinds come preset: the `add_page_kinds` migration gave notebooks with data four starter kinds (POLICY, PRODUCT, SOFTWARE, DECISION), and `drop_starter_page_kinds` removed them again, turning their pages into `GENERAL` pages without properties.
 
 - `page-kind/operations.ts` keeps pages valid when a kind changes: `planFieldChange` (pure) refuses to drop an option or change an input while pages have values, naming them; removed fields are stripped from pages in the same transaction (`fitProperties`). `pageKind.delete` refuses while pages use the kind, unless `moveTo` names a kind to move them to.
 - `page.query` runs the pure `$shared/utils/dataset` (`filterRows`, `sortRows`, `groupRows`, `totalsFor`) over one kind's pages. Its filters, sort and aggregates are strings (`field:op:value`, `field:desc`, `field:sum`) so the CLI, MCP and the wiki's URL share one form; the parsers return errors that list the kind's fields.

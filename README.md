@@ -110,9 +110,9 @@ pace". The flag is a hint; it never changes the goal's status.
 > **You:** We pay Datadog $40k a year for 40 seats; it renews in March. Platform uses it for
 > alerting.
 
-Pages come in kinds. A software page takes a vendor, a cost and a renewal date; a policy page takes
-a version and an effective date. Remry turns away anything else, so pages of the same kind
-stay comparable.
+Pages are plain markdown to start with. When you keep several of the same sort, give them a kind
+of your own: a software kind with a vendor, a cost and a renewal date, say. Remry turns away
+anything else, so pages of the same kind stay comparable and work as a table.
 
 ![The Datadog page: vendor fields, notes, and a sidebar showing what relates to it and what mentions it](docs/images/wiki-page.png)
 

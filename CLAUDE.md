@@ -67,7 +67,7 @@ remry report.create --entityType PERSON --entityId <personId> --title "Q3 review
 remry goal.create --title "99.9% uptime" --ownerType GROUP --ownerId <groupId> --period 2026-H2 --target 99.9
 remry goal.checkIn --goalId <goalId> --value 99.7 --status AT_RISK
 remry pageKind.create --input '{"key":"EXPENSE","name":"Expense","fields":[{"key":"amount","label":"Amount","input":"number","format":"money","currency":"USD"}]}'
-remry page.create --title "Datadog" --kind SOFTWARE --properties '{"vendor":"Datadog","seats":40}'
+remry page.create --title "Netflix" --kind EXPENSE --properties '{"amount":15.49}'
 remry page.query --kind EXPENSE --filters '["amount:gte:100"]' --groupBy category --aggregates '["amount:sum"]'
 remry relation.add --fromType GROUP --fromId <groupId> --toType PAGE --toId <pageId> --note "Uses it for alerting"
 remry relation.add --fromType PROJECT --fromId <projectId> --toType PROJECT --toId <otherProjectId> --kind DEPENDS_ON

@@ -1,7 +1,7 @@
 // Integration test setup. Runs before each test file: wipes the test data
 // directory, lets the real bootstrap create the notebook layout and migrate the
 // database, adds an empty second notebook, and seeds the first (three people
-// and the work starter page kinds, as notebook.create gives a work notebook).
+// and a SOFTWARE page kind for the wiki tests).
 
 import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -10,7 +10,7 @@ import { settings } from '../../src/shared/settings/server/index.server';
 import { ensureDatabase } from '../../src/shared/db/bootstrap.server';
 import { getNotebookStore } from '../../src/shared/notebooks/current.server';
 import { closeRegistries, getRegistry } from '../../src/shared/registry.server';
-import { addStarterKinds } from '../../src/api/page-kind/operations';
+import { createPageKind } from '../../src/api/page-kind/operations';
 import { seedGroupKinds } from '../../src/api/group-kind/operations';
 import { seedPersonRelationKinds } from '../../src/api/person-relation-kind/operations';
 import { ORG_MODULE } from '../../src/shared/modules/org';
@@ -32,7 +32,15 @@ beforeAll(async () => {
       { id: 'person_carol', name: 'Carol Lee' }
     ]
   });
-  await addStarterKinds(getRegistry(TEST_NOTEBOOK));
+  await createPageKind(getRegistry(TEST_NOTEBOOK), {
+    key: 'SOFTWARE',
+    name: 'Software',
+    fields: [
+      { key: 'vendor', label: 'Vendor', input: 'text' },
+      { key: 'annualCost', label: 'Annual cost', input: 'number' },
+      { key: 'seats', label: 'Seats', input: 'number' }
+    ]
+  });
   await seedGroupKinds(getRegistry(TEST_NOTEBOOK), ORG_MODULE.groupKinds);
   await seedPersonRelationKinds(getRegistry(TEST_NOTEBOOK), ORG_MODULE.personRelationKinds);
 });

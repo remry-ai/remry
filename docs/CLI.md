@@ -72,8 +72,9 @@ is the place for that material.
 remry goal.create --title "99.9% uptime" --ownerType GROUP --ownerId <engineering> \
   --period 2026-H2 --unit % --baseline 99.5 --target 99.9
 remry goal.checkIn --goalId <goalId> --value 99.7 --status AT_RISK --comment "Two brownouts."
+remry pageKind.create --input '{"key":"SOFTWARE","name":"Software","fields":[{"key":"vendor","label":"Vendor","input":"text"},{"key":"annualCost","label":"Annual cost","input":"number","format":"money","currency":"USD"},{"key":"renewalDate","label":"Renews","input":"date"}]}'
 remry page.create --title Datadog --kind SOFTWARE \
-  --properties '{"vendor":"Datadog","annualCost":40000,"currency":"USD","renewalDate":"2027-03-01"}'
+  --properties '{"vendor":"Datadog","annualCost":40000,"renewalDate":"2027-03-01"}'
 ```
 
 A goal's `period` is a calendar year, half or quarter (`2026`, `2026-H2`, `2026-Q3`). The app reads
@@ -84,10 +85,9 @@ A check-in needs at least one of `value`, `status` or `comment`. If it carries a
 becomes the goal's status too. `goal.get` returns `current` and `progress`, and calculates progress
 correctly when a lower number is better, as in 480 ms down to 200 ms.
 
-Page `properties` are typed per kind and unknown keys are rejected, with the allowed list in the
-error. `POLICY` takes `status`/`version`/`effectiveDate`/`reviewDate`; `PRODUCT` `status`/`url`;
-`SOFTWARE` `vendor`/`url`/`annualCost`/`currency`/`renewalDate`/`seats`; `DECISION`
-`status`/`decidedOn`.
+Pages are plain (`GENERAL`) unless the notebook defines a kind with `pageKind.create`; no kinds
+come preset. Page `properties` are typed per kind and unknown keys are rejected, with the allowed
+list in the error.
 
 ## Linking things
 

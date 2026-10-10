@@ -51,14 +51,7 @@ Everything belongs to one user; there are no accounts, orgs or permissions. Ids 
 
 **Page**: `title`, `kind` (default `GENERAL`), `parentId?` (the page tree), `content` (markdown), and `properties` (a JSON object whose keys are the kind's fields). Procedures: `page.list` (filters `kind`, `parentId`), `page.get`, `page.create` (returns `{ id, path }`), `page.update`, `page.delete`, and `page.query` (below).
 
-**Page kind**: each notebook defines its own. `key` (`EXPENSE`: capitals, digits and `_`), `name`, `description?`, `fields`. `GENERAL` (no fields) always exists and can't be changed. A work notebook starts with these, a home notebook with none:
-
-| Kind | Fields |
-|---|---|
-| `POLICY` | `status` (`DRAFT ACTIVE RETIRED`), `version`, `effectiveDate`, `reviewDate` |
-| `PRODUCT` | `status` (`IDEA BUILDING LIVE SUNSET`), `url` |
-| `SOFTWARE` | `vendor`, `url`, `annualCost`, `currency`, `renewalDate`, `seats` |
-| `DECISION` | `status` (`PROPOSED ACCEPTED SUPERSEDED REJECTED`), `decidedOn` |
+**Page kind**: each notebook defines its own. `key` (`EXPENSE`: capitals, digits and `_`), `name`, `description?`, `fields`. `GENERAL` (no fields) always exists and can't be changed. A new notebook has no other kinds; the user adds them.
 
 A field is `{ "key": "amount", "label": "Amount", "input": "number" }` (key camelCase, up to 30 fields), where `input` is `text`, `number`, `date`, `url`, `select` or `multiselect` (both need `options`), or `checkbox`. A number can add `"format": "money", "currency": "USD"`. Procedures: `pageKind.list` (with `pageCount`), `pageKind.get --key`, `pageKind.create`, `pageKind.update --key` (the whole new `fields` list; removing a field clears its values; dropping an option or changing a type that pages use is refused, naming them), `pageKind.delete --key [--moveTo <kind>]` (refused while pages use the kind unless `moveTo` is given).
 

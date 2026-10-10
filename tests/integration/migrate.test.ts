@@ -55,7 +55,7 @@ describe('applyMigrations', () => {
     client.close();
   });
 
-  it('gives a notebook with data the four starter page kinds, and a new one none', async () => {
+  it('drops the old starter page kinds, turning their pages into plain pages', async () => {
     const kinds = async (client: ReturnType<typeof createClient>) =>
       (await client.execute('SELECT key FROM page_kind ORDER BY sort_order')).rows.map((r) => r[0]);
 
@@ -75,7 +75,9 @@ describe('applyMigrations', () => {
     await client.execute("INSERT INTO page (id, title, kind, updated_at) VALUES ('p1', 'Datadog', 'SOFTWARE', CURRENT_TIMESTAMP)");
     cpSync('prisma/migrations', migrations, { recursive: true });
     await applyMigrations(client, migrations, quiet);
-    expect(await kinds(client)).toEqual(['POLICY', 'PRODUCT', 'SOFTWARE', 'DECISION']);
+    expect(await kinds(client)).toEqual([]);
+    const page = (await client.execute("SELECT kind, properties FROM page WHERE id = 'p1'")).rows[0]!;
+    expect([page[0], page[1]]).toEqual(['GENERAL', '{}']);
     client.close();
   });
 
@@ -90,7 +92,7 @@ describe('applyMigrations', () => {
 
     await client.execute("INSERT INTO person (id, name, updated_at) VALUES ('p1', 'Ada Lovelace', CURRENT_TIMESTAMP)");
     await client.execute("INSERT INTO note (id, entity_type, entity_id, content, updated_at) VALUES ('n1', 'PERSON', 'p1', 'Analytical engine notes', CURRENT_TIMESTAMP)");
-    await client.execute(`INSERT INTO page (id, title, kind, properties, updated_at) VALUES ('w1', 'Babbage', 'SOFTWARE', '{"vendor":"Difference Ltd"}', CURRENT_TIMESTAMP)`);
+    await client.execute(`INSERT INTO page (id, title, kind, properties, updated_at) VALUES ('w1', 'Babbage', 'ENGINE', '{"vendor":"Difference Ltd"}', CURRENT_TIMESTAMP)`);
     for (const name of later) cpSync(join('prisma/migrations', name), join(migrations, name), { recursive: true });
     const result = await applyMigrations(client, migrations, quiet);
     expect(result.ok && result.value.applied).toEqual(later);

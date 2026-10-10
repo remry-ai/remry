@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   GENERAL_KIND,
-  STARTER_KINDS,
   pageKindFieldsSchema,
   parsePageProperties,
   readPageKindFields,
@@ -9,11 +8,23 @@ import {
   type PageKindDefinition
 } from '../pages';
 
-const kind = (key: string): PageKindDefinition => {
-  const found = STARTER_KINDS.find((k) => k.key === key);
-  if (!found) throw new Error(key);
-  return { ...found, sortOrder: 0 };
-};
+const kind = (key: string, fields: PageKindDefinition['fields']): PageKindDefinition =>
+  ({ key, name: key, description: null, sortOrder: 0, fields });
+
+const SOFTWARE = kind('SOFTWARE', [
+  { key: 'vendor', label: 'Vendor', input: 'text' },
+  { key: 'url', label: 'URL', input: 'url' },
+  { key: 'annualCost', label: 'Annual cost', input: 'number' },
+  { key: 'renewalDate', label: 'Renews', input: 'date' },
+  { key: 'seats', label: 'Seats', input: 'number' }
+]);
+
+const POLICY = kind('POLICY', [
+  { key: 'status', label: 'Status', input: 'select', options: ['DRAFT', 'ACTIVE', 'RETIRED'] },
+  { key: 'version', label: 'Version', input: 'text' },
+  { key: 'effectiveDate', label: 'Effective', input: 'date' },
+  { key: 'reviewDate', label: 'Review by', input: 'date' }
+]);
 
 const EXPENSE: PageKindDefinition = {
   key: 'EXPENSE',
@@ -29,7 +40,7 @@ const EXPENSE: PageKindDefinition = {
 
 describe('parsePageProperties', () => {
   it('accepts valid properties for the kind', () => {
-    const result = parsePageProperties(kind('SOFTWARE'), {
+    const result = parsePageProperties(SOFTWARE, {
       vendor: 'Acme',
       url: 'https://acme.test',
       annualCost: 1200,
@@ -39,11 +50,11 @@ describe('parsePageProperties', () => {
   });
 
   it('accepts the properties as JSON', () => {
-    expect(parsePageProperties(kind('POLICY'), '{"status":"ACTIVE","version":"2"}').ok).toBe(true);
+    expect(parsePageProperties(POLICY, '{"status":"ACTIVE","version":"2"}').ok).toBe(true);
   });
 
   it('rejects keys the kind does not have and lists the allowed ones', () => {
-    const result = parsePageProperties(kind('POLICY'), { vendor: 'Acme' });
+    const result = parsePageProperties(POLICY, { vendor: 'Acme' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain("'vendor'");
@@ -51,7 +62,7 @@ describe('parsePageProperties', () => {
   });
 
   it('names each bad value', () => {
-    const result = parsePageProperties(kind('SOFTWARE'), { seats: 'ten', renewalDate: 'next year' });
+    const result = parsePageProperties(SOFTWARE, { seats: 'ten', renewalDate: 'next year' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain('seats');
@@ -59,7 +70,7 @@ describe('parsePageProperties', () => {
   });
 
   it('rejects an option the select does not offer', () => {
-    expect(parsePageProperties(kind('DECISION'), { status: 'LIVE' }).ok).toBe(false);
+    expect(parsePageProperties(POLICY, { status: 'LIVE' }).ok).toBe(false);
   });
 
   it('gives GENERAL pages no properties', () => {
@@ -76,8 +87,8 @@ describe('parsePageProperties', () => {
 });
 
 describe('page kind fields', () => {
-  it('accepts the starter kinds', () => {
-    for (const k of STARTER_KINDS) expect(pageKindFieldsSchema.safeParse(k.fields).success).toBe(true);
+  it('accepts valid fields', () => {
+    for (const k of [SOFTWARE, POLICY, EXPENSE]) expect(pageKindFieldsSchema.safeParse(k.fields).success).toBe(true);
   });
 
   it('rejects duplicate keys, choices without options and misplaced money settings', () => {
