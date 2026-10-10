@@ -22,6 +22,8 @@ export interface AxisMonth {
   readonly offset: number;
   /** Null for a month left unlabelled so the labels don't crowd. */
   readonly label: string | null;
+  /** `'27` on the first labelled month of each new year; drawn under the month, so it never widens the label. */
+  readonly year: string | null;
 }
 
 export interface TimelineAxis {
@@ -86,14 +88,17 @@ export const timelineAxis = (items: readonly TimelineInput[], today: string): Ti
   const offset = (day: string): number => (dayNumber(day) - dayNumber(start)) / span;
 
   const months: AxisMonth[] = [];
-  for (let day = start, i = 0; day < end; day = addMonths(day, 1), i++) months.push({ offset: offset(day), label: null });
+  for (let day = start; day < end; day = addMonths(day, 1)) months.push({ offset: offset(day), label: null, year: null });
   const step = labelStep(months.length);
-  // Short labels so they fit a month's width: the year only on January, as `Jan '27`.
+  // Three-letter labels, so each fits a month's width; the year goes on a second line where it changes.
+  let lastYear = start.slice(0, 4);
   const labelled = months.map((m, i) => {
     if (i % step !== 0) return m;
     const day = addMonths(start, i);
-    const month = MONTH.format(asDate(day));
-    return { ...m, label: day.slice(5, 7) === '01' ? `${month} '${day.slice(2, 4)}` : month };
+    const year = day.slice(0, 4);
+    const changed = year !== lastYear;
+    lastYear = year;
+    return { ...m, label: MONTH.format(asDate(day)), year: changed ? `'${day.slice(2, 4)}` : null };
   });
 
   return { start, end, months: labelled, today: offset(today) };

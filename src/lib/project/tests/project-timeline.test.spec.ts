@@ -33,9 +33,18 @@ describe('timelineAxis', () => {
     expect(axis!.today).toBeLessThan(1);
   });
 
-  it('puts the year on January', () => {
+  it('keeps labels to the month, with the year apart on January', () => {
     const axis = timelineAxis([{ status: 'in-progress', startDate: '2026-11-01', endDate: '2027-02-01' }], '2026-11-02');
-    expect(axis?.months.map((m) => m.label)).toEqual(['Nov', 'Dec', "Jan '27", 'Feb']);
+    expect(axis?.months.map((m) => m.label)).toEqual(['Nov', 'Dec', 'Jan', 'Feb']);
+    expect(axis?.months.map((m) => m.year)).toEqual([null, null, "'27", null]);
+  });
+
+  it('puts the year on the first labelled month of a year when January is skipped', () => {
+    const axis = timelineAxis([{ status: 'in-progress', startDate: '2026-02-01', endDate: '2027-11-01' }], TODAY);
+    const labelled = axis!.months.filter((m) => m.label !== null);
+    expect(labelled.map((m) => m.label).slice(5, 7)).toEqual(['Dec', 'Feb']);
+    expect(labelled.map((m) => m.year).filter((y) => y !== null)).toEqual(["'27"]);
+    expect(labelled[6]?.year).toBe("'27");
   });
 
   it('labels fewer months on a long axis', () => {
