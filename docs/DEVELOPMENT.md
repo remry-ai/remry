@@ -97,13 +97,14 @@ Claude desktop starts MCP servers with a minimal PATH, so `.mcp.json` runs the s
 bun run release:version <x.y.z>
 ```
 
-It sets `plugin/.claude-plugin/plugin.json` and `package.json` together. `claude plugin update`
-and Cowork skip a version they already have.
+It sets `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `package.json`
+together. `claude plugin update` and Cowork skip a version they already have.
 
-`marketplace.json` names no version. Clients read it from `main` as soon as it's pushed, minutes
-before the release reaches the `dist` branch, so a version there let a client save the old plugin
-under the new number. They read it from `plugin.json` on `dist` instead, which arrives with the
-code. The release fails if `marketplace.json` names one.
+It also pins `marketplace.json` to the tag `dist-v<x.y.z>`, which the release workflow puts on the
+built `dist` commit. Claude desktop learns of an update from the version in `marketplace.json`, which
+goes live minutes before the build does; pinned to a tag that doesn't exist yet, a client that checks
+in between gets nothing rather than the old plugin under the new number. The release fails unless
+`marketplace.json` names the plugin's version and its tag.
 
 ## Releasing
 
@@ -129,10 +130,10 @@ since the last release without a new version.
   and the app (page, asset, API, guard).
 - **Publish:** the workflow builds and smoke-tests `darwin-arm64` (required), `windows-x64` and
   `linux-x64` on their own runners, packages them on Linux, force-pushes `dist/plugin` to the root
-  of the `dist` branch — Cowork's sync needs `.claude-plugin/plugin.json` at the root — then
-  creates GitHub release `v<version>` with the zips.
+  of the `dist` branch — Cowork's sync needs `.claude-plugin/plugin.json` at the root — tags that
+  commit `dist-v<version>`, then creates GitHub release `v<version>` with the zips.
 
-`marketplace.json` points at that branch, so Claude Code, Cowork and `bun run setup` all install the
+`marketplace.json` points at that tag, so Claude Code, Cowork and `bun run setup` all install the
 released plugin; a development machine's MCP server still runs its clone.
 
 **Native SQLite:** libsql picks its native module with a runtime `require`, which a bundler can't

@@ -4,13 +4,15 @@
     "name": "jweatherby"
   },
   "metadata": {
-    "description": "Remry: a local notebook that Claude keeps for you"
+    "description": "Remry: a local notebook that Claude keeps for you",
+    "version": "0.14.8"
   },
   "plugins": [
     {
       "name": "remry",
-      "source": { "source": "github", "repo": "remry-ai/remry", "ref": "dist" },
+      "source": { "source": "github", "repo": "remry-ai/remry", "ref": "dist-v0.14.8" },
       "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Releases include the app for Apple silicon Macs, so nothing else needs installing.",
+      "version": "0.14.8",
       "category": "productivity",
       "keywords": ["notes", "org-chart", "todos", "reports", "local-first"]
     }

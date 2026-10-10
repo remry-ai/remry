@@ -3,8 +3,10 @@
 #   1. builds the standalone plugin on macOS, Windows and Linux (scripts/release/build.ts),
 #      smoke-tests each on its own OS, then merges the binaries into one plugin and zips
 #      it per platform (scripts/release/package.ts)
-#   2. force-pushes the built plugin to the `dist` branch, which marketplace.json points
-#      Claude Code and Cowork at
+#   2. force-pushes the built plugin to the `dist` branch and tags that commit
+#      dist-v<version>, the tag marketplace.json pins Claude Code, Claude desktop and Cowork
+#      to: until it exists, a client that already sees the new version can't fetch an old
+#      plugin under it (scripts/release/versions.ts)
 #   3. creates GitHub release v<version> with the zip, for Claude desktop Chat uploads
 # The release tag is created last, so a failed run is retried by re-running it.
 name: Release
@@ -141,7 +143,7 @@ jobs:
           # Artifacts lose the execute bit; the shim restores it when it installs a binary.
           bun run release:package $builds
 
-      - name: Publish the built plugin to the dist branch
+      - name: Publish the built plugin to the dist branch, tagged dist-v<version>
         run: |
           # The plugin sits at the branch root: Cowork's marketplace sync ignores a
           # source `path` and requires .claude-plugin/plugin.json at the root.
@@ -154,7 +156,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Remry $VERSION, built from $RELEASE_SHA"
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dist
+          git tag "dist-v$VERSION"
+          # Both at once, and --force so a re-run replaces a tag from a failed attempt.
+          git push -q --force --atomic "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dist "refs/tags/dist-v$VERSION"
 
       - name: Create the GitHub release
         run: |

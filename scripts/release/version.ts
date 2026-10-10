@@ -1,12 +1,14 @@
 #!/usr/bin/env bun
-// Sets the plugin version in plugin/.claude-plugin/plugin.json, and keeps package.json's
-// version in step so no file names an older version. marketplace.json names none (see
-// versions.ts). Pushing that to main releases it.
+// Sets the plugin version in plugin/.claude-plugin/plugin.json and
+// .claude-plugin/marketplace.json, pins marketplace.json to the version's dist tag, and keeps
+// package.json's version in step so no file names an older version (see versions.ts).
+// Pushing that to main releases it.
 //   bun run release:version <x.y.z>
 
-import { compareVersions, isVersion, pluginVersion, withVersion } from './versions';
+import { compareVersions, distTag, isVersion, pluginVersion, withRef, withVersion } from './versions';
 
 const PLUGIN = 'plugin/.claude-plugin/plugin.json';
+const MARKETPLACE = '.claude-plugin/marketplace.json';
 const PACKAGE = 'package.json';
 
 const next = process.argv[2];
@@ -23,5 +25,6 @@ if (current.ok && compareVersions(next, current.value) <= 0) {
 }
 
 await Bun.write(PLUGIN, withVersion(plugin, next));
+await Bun.write(MARKETPLACE, withRef(withVersion(await Bun.file(MARKETPLACE).text(), next), distTag(next)));
 await Bun.write(PACKAGE, withVersion(await Bun.file(PACKAGE).text(), next));
 console.log(`Set the plugin version to ${next}${current.ok ? ` (was ${current.value})` : ''}. Commit and push to main to release it.`);

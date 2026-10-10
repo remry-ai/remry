@@ -6,21 +6,21 @@
 
 import { spawnSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
-import { checkMarketplace, pluginVersion, compareVersions, isVersion, planRelease } from './versions';
+import { checkMarketplace, compareVersions, isVersion, planRelease, pluginVersion } from './versions';
 
 const git = (...args: string[]): { readonly status: number | null; readonly stdout: string } => {
   const r = spawnSync('git', args, { encoding: 'utf8' });
   return { status: r.status, stdout: r.stdout ?? '' };
 };
 
-const marketplace = checkMarketplace(await Bun.file('.claude-plugin/marketplace.json').text());
-if (!marketplace.ok) {
-  console.error(marketplace.error.message);
-  process.exit(1);
-}
 const version = pluginVersion(await Bun.file('plugin/.claude-plugin/plugin.json').text());
 if (!version.ok) {
   console.error(version.error.message);
+  process.exit(1);
+}
+const marketplace = checkMarketplace(await Bun.file('.claude-plugin/marketplace.json').text(), version.value);
+if (!marketplace.ok) {
+  console.error(marketplace.error.message);
   process.exit(1);
 }
 

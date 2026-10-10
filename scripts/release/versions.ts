@@ -1,9 +1,11 @@
 // The plugin version and release decisions. Pure: plan.ts and version.ts read the
 // files and git tags. Claude Code and Cowork skip a version they already have, so a
-// changed plugin needs a new version. It lives only in plugin.json, which reaches the dist
-// branch with the code it names: a version in marketplace.json would go live on main
-// minutes before dist, and a client that synced in between would keep the old plugin
-// under the new version.
+// changed plugin needs a new version, in plugin.json and marketplace.json alike: Claude
+// desktop learns of an update only from marketplace.json. Its plugin entry is pinned to the
+// tag dist-v<version>, which the release workflow puts on the built dist commit. The version
+// goes live on main minutes before that build, and a client that synced in between, pinned
+// to the moving dist branch, kept the old plugin under the new version; pinned to a tag that
+// doesn't exist yet, it gets nothing until the release is there.
 
 import { ok, err, type Result } from '$shared/utils/result';
 
@@ -36,11 +38,30 @@ export const pluginVersion = (pluginJson: string): Result<string> => {
   return ok(found[0]);
 };
 
-/** marketplace.json must name no version (see the top of this file). */
-export const checkMarketplace = (marketplaceJson: string): Result<true> =>
-  versionsIn(marketplaceJson).length > 0
-    ? err(new Error('.claude-plugin/marketplace.json must not name a version: clients read it from main before the release reaches the dist branch. The version lives in plugin/.claude-plugin/plugin.json only.'))
-    : ok(true);
+/** The tag on the built dist commit of a release, which marketplace.json pins the plugin to. */
+export const distTag = (version: string): string => `dist-v${version}`;
+
+const REF_FIELD = /"ref"\s*:\s*"([^"]*)"/g;
+
+/** Every `"ref"` in a JSON file's text. */
+export const refsIn = (text: string): readonly string[] => [...text.matchAll(REF_FIELD)].map((m) => m[1] ?? '');
+
+/** marketplace.json names the plugin's version and pins its source to that version's dist tag. */
+export const checkMarketplace = (marketplaceJson: string, version: string): Result<true> => {
+  const versions = versionsIn(marketplaceJson);
+  const refs = refsIn(marketplaceJson);
+  if (versions.length === 0 || versions.some((v) => v !== version)) {
+    return err(new Error(`.claude-plugin/marketplace.json must name version ${version}, as plugin.json does (found ${versions.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
+  }
+  if (refs.length !== 1 || refs[0] !== distTag(version)) {
+    return err(new Error(`.claude-plugin/marketplace.json must pin the plugin to "ref": "${distTag(version)}" (found ${refs.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
+  }
+  return ok(true);
+};
+
+/** Replaces every `"ref"` value, keeping the file's formatting. */
+export const withRef = (text: string, ref: string): string =>
+  text.replace(REF_FIELD, (field, old: string) => field.replace(`"${old}"`, `"${ref}"`));
 
 /** Replaces every `"version"` value, keeping the file's formatting. */
 export const withVersion = (text: string, version: string): string =>
