@@ -1,6 +1,6 @@
 // What a doc's or wiki page's print page shows, read from and written to its URL:
 // ?branding=<id> picks a branding, ?branding=none turns it off (left out = the default),
-// and ?header=0 hides the branded header.
+// and ?header=1 adds the branded header, which is off until the user turns it on.
 
 export const NO_BRANDING = 'none';
 
@@ -22,7 +22,7 @@ export const resolvePrintOptions = (
   brandings: readonly BrandingRef[]
 ): PrintOptions => {
   const defaultId = brandings.find((b) => b.isDefault)?.id ?? null;
-  const header = params.get('header') !== '0';
+  const header = params.get('header') === '1';
   const requested = params.get('branding') ?? '';
   if (requested === NO_BRANDING) return { choice: NO_BRANDING, brandingId: null, header };
   // An unknown id (a deleted branding) falls back to the default.
@@ -33,17 +33,17 @@ export const resolvePrintOptions = (
 const printPath = (base: string, choice: string, header: boolean): string => {
   const params = new URLSearchParams();
   if (choice) params.set('branding', choice);
-  if (!header) params.set('header', '0');
+  if (header) params.set('header', '1');
   const query = params.toString();
   return `${base}/print${query ? `?${query}` : ''}`;
 };
 
 /** A doc's print page (its "Export PDF"). */
-export const printUrl = (docId: string, choice = '', header = true): string =>
+export const printUrl = (docId: string, choice = '', header = false): string =>
   printPath(`/app/docs/${encodeURIComponent(docId)}`, choice, header);
 
 /** A wiki page's print page, with the same options as a doc's. */
-export const wikiPrintUrl = (pageId: string, choice = '', header = true): string =>
+export const wikiPrintUrl = (pageId: string, choice = '', header = false): string =>
   printPath(`/app/wiki/${encodeURIComponent(pageId)}`, choice, header);
 
 /** Drops a first-line `# Title` that repeats the doc's title, which the print header already shows. */
