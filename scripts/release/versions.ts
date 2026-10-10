@@ -1,6 +1,9 @@
 // The plugin version and release decisions. Pure: plan.ts and version.ts read the
 // files and git tags. Claude Code and Cowork skip a version they already have, so a
-// changed plugin needs a new version, in plugin.json and marketplace.json alike.
+// changed plugin needs a new version. It lives only in plugin.json, which reaches the dist
+// branch with the code it names: a version in marketplace.json would go live on main
+// minutes before dist, and a client that synced in between would keep the old plugin
+// under the new version.
 
 import { ok, err, type Result } from '$shared/utils/result';
 
@@ -24,15 +27,20 @@ const VERSION_FIELD = /"version"\s*:\s*"([^"]*)"/g;
 /** Every `"version"` in a JSON file's text. */
 export const versionsIn = (text: string): readonly string[] => [...text.matchAll(VERSION_FIELD)].map((m) => m[1] ?? '');
 
-/** The one version plugin.json and marketplace.json agree on. */
-export const agreedVersion = (pluginJson: string, marketplaceJson: string): Result<string> => {
-  const all = [...versionsIn(pluginJson), ...versionsIn(marketplaceJson)];
-  const distinct = [...new Set(all)];
-  if (distinct.length !== 1 || !isVersion(distinct[0])) {
-    return err(new Error(`plugin/.claude-plugin/plugin.json and .claude-plugin/marketplace.json must share one x.y.z version (found ${distinct.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
+/** The plugin's version: the one x.y.z in plugin.json. */
+export const pluginVersion = (pluginJson: string): Result<string> => {
+  const found = versionsIn(pluginJson);
+  if (found.length !== 1 || !isVersion(found[0])) {
+    return err(new Error(`plugin/.claude-plugin/plugin.json must have one x.y.z version (found ${found.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
   }
-  return ok(distinct[0]);
+  return ok(found[0]);
 };
+
+/** marketplace.json must name no version (see the top of this file). */
+export const checkMarketplace = (marketplaceJson: string): Result<true> =>
+  versionsIn(marketplaceJson).length > 0
+    ? err(new Error('.claude-plugin/marketplace.json must not name a version: clients read it from main before the release reaches the dist branch. The version lives in plugin/.claude-plugin/plugin.json only.'))
+    : ok(true);
 
 /** Replaces every `"version"` value, keeping the file's formatting. */
 export const withVersion = (text: string, version: string): string =>

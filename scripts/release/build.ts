@@ -11,7 +11,7 @@
 import { spawnSync } from 'node:child_process';
 import { cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
-import { agreedVersion } from './versions';
+import { pluginVersion } from './versions';
 import { libsqlNativePlugin } from './libsql';
 
 const REPO = resolve(import.meta.dir, '..', '..');
@@ -44,10 +44,7 @@ const main = async (): Promise<void> => {
   const spec = TARGETS.get(target);
   if (!spec) throw new Error(`Can't build for ${target}. Targets: ${[...TARGETS.keys()].join(', ')}`);
 
-  const version = agreedVersion(
-    await Bun.file(join(REPO, 'plugin/.claude-plugin/plugin.json')).text(),
-    await Bun.file(join(REPO, '.claude-plugin/marketplace.json')).text()
-  );
+  const version = pluginVersion(await Bun.file(join(REPO, 'plugin/.claude-plugin/plugin.json')).text());
   if (!version.ok) throw version.error;
   console.log(`Building Remry ${version.value} for ${target}`);
 

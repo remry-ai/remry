@@ -97,8 +97,13 @@ Claude desktop starts MCP servers with a minimal PATH, so `.mcp.json` runs the s
 bun run release:version <x.y.z>
 ```
 
-It sets `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `package.json`
-together. `claude plugin update` and Cowork skip a version they already have.
+It sets `plugin/.claude-plugin/plugin.json` and `package.json` together. `claude plugin update`
+and Cowork skip a version they already have.
+
+`marketplace.json` names no version. Clients read it from `main` as soon as it's pushed, minutes
+before the release reaches the `dist` branch, so a version there let a client save the old plugin
+under the new number. They read it from `plugin.json` on `dist` instead, which arrives with the
+code. The release fails if `marketplace.json` names one.
 
 ## Releasing
 
