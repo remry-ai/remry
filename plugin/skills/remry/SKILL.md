@@ -80,6 +80,14 @@ Added to Work:
 - Todo: [Book 1:1 with Dana](http://127.0.0.1:5173/app/todos?popup=todo&todo=ghi789&notebook=work)
 ```
 
+## Showing todos
+
+Whenever you list todos in chat (what's due, a person's open todos, the result of `todo.list`), show them as an interactive widget the user can update, if this session can show one inline (the `show_widget` tool in Claude desktop Chat and Cowork; follow that tool's own setup first).
+
+- Build it from the template in [references/todo-widget.md](references/todo-widget.md), filled with the todos, their app links and the notebook id. Keep your explanation in the reply, not in the widget.
+- The user ticks todos done, moves dates and changes priorities, then presses **Save changes**. That sends you a message listing each change by todo id. Make each one with `todo_update` (`status`, `targetDate`, `priority`; `null` clears the date), without listing the todos again first. Then reply with the links, as for any write. Completing a recurring todo returns `nextId`: say when the next one is due.
+- For one or two todos, or without a widget tool (Claude Code in a terminal, say), list them in markdown with their links instead.
+
 ## Recipes
 
 These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `person_create` with `{"name": "Dana Park"}`.
