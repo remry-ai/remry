@@ -144,8 +144,8 @@ them. Mark one person as yourself and People shows how everyone relates to you; 
 opens on a graph with you in the middle. The projects page has a **Map** view that lays projects out
 by what depends on what, with the goals they deliver. Everything else gets a page of its own, with
 its docs down the middle, its todos, related things and links in the sidebar and its notes on the
-right. A link to Linear, Notion, GitHub
-or another tool shows the tool's mark, and when Claude last synced the page from it.
+right. A link to Linear, Notion, GitHub or another tool shows the tool's mark, and when Claude last
+synced the page from it.
 
 Press ⌘K to search. Start with `/` to look in one place only, as in `/person dana`.
 
