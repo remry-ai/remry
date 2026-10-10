@@ -5,6 +5,7 @@ import { validateChartBlocks } from '$shared/types/charts';
 import {
   parsePageProperties,
   readPageProperties,
+  type PageBodyType,
   type PageDetail,
   type PageKindDefinition,
   type PageKindField,
@@ -13,6 +14,7 @@ import {
   type PageSummary
 } from '$shared/types/pages';
 import { entityPath } from '$shared/utils/entity';
+import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
@@ -53,16 +55,37 @@ export const mergePageProperties = (
   );
 };
 
+/**
+ * Checks a body before it's stored and returns what to store: markdown as
+ * given (its chart blocks valid), or a sheet's JSON normalised (values filled
+ * in, rows padded) so search and print can rely on its shape.
+ */
+export const prepareContent = (bodyType: PageBodyType, content: string): Result<string> => {
+  if (bodyType === 'doc') {
+    const charts = validateChartBlocks(content);
+    return charts.ok ? ok(content) : err(charts.error);
+  }
+  const sheet = parseSheetContent(content);
+  return sheet.ok ? ok(JSON.stringify(sheet.value)) : err(sheet.error);
+};
+
+/** A document with no text, or a sheet with no filled cells. */
+export const isEmptyBody = (bodyType: PageBodyType, content: string): boolean =>
+  bodyType === 'doc' ? content.trim() === '' : readSheetContent(content).data.every((row) => row.every((cell) => cell.trim() === ''));
+
+const asBodyType = (value: string): PageBodyType => (value === 'sheet' ? 'sheet' : 'doc');
+
 // ----- Row mapping -----
 
 const ORDER = [{ sortOrder: 'asc' as const }, { title: 'asc' as const }];
 
-const SUMMARY_FIELDS = { id: true, title: true, kind: true, parentId: true, properties: true, archivedAt: true, updatedAt: true } as const;
+const SUMMARY_FIELDS = { id: true, title: true, kind: true, bodyType: true, parentId: true, properties: true, archivedAt: true, updatedAt: true } as const;
 
 interface PageRow {
   readonly id: string;
   readonly title: string;
   readonly kind: string;
+  readonly bodyType: string;
   readonly parentId: string | null;
   readonly properties: string;
   readonly archivedAt: Date | null;
@@ -73,6 +96,7 @@ const toSummary = (row: PageRow): PageSummary => ({
   id: row.id,
   title: row.title,
   kind: row.kind,
+  bodyType: asBodyType(row.bodyType),
   parentId: row.parentId,
   properties: readPageProperties(row.properties),
   path: entityPath('PAGE', row.id),
@@ -153,6 +177,8 @@ export const getPage = async (
 export interface CreatePageInput {
   readonly title: string;
   readonly kind?: string;
+  /** Default doc. */
+  readonly bodyType?: PageBodyType;
   readonly parentId?: string;
   readonly content?: string;
   readonly properties?: PropertyPatch;
@@ -167,9 +193,9 @@ export const createPage = async (
   const properties = parsePageProperties(kind.value, mergePageProperties(kind.value.fields, {}, input.properties));
   if (!properties.ok) return err(properties.error);
 
-  const content = input.content ?? '';
-  const charts = validateChartBlocks(content);
-  if (!charts.ok) return err(charts.error);
+  const bodyType = input.bodyType ?? 'doc';
+  const content = prepareContent(bodyType, input.content ?? '');
+  if (!content.ok) return err(content.error);
 
   if (input.parentId) {
     const parent = await checkParent(reg, null, input.parentId);
@@ -180,18 +206,21 @@ export const createPage = async (
     data: {
       title: input.title,
       kind: kind.value.key,
+      bodyType,
       parentId: input.parentId,
-      content,
+      content: content.value,
       properties: JSON.stringify(properties.value)
     }
   });
-  if (content) await syncMentions(reg, { entityType: 'PAGE', entityId: row.id }, content);
+  if (bodyType === 'doc' && content.value) await syncMentions(reg, { entityType: 'PAGE', entityId: row.id }, content.value);
   return ok({ id: row.id, path: entityPath('PAGE', row.id) });
 };
 
 export interface UpdatePageInput {
   readonly title?: string;
   readonly kind?: string;
+  /** Only while the page has no content, so a body is never converted by accident. */
+  readonly bodyType?: PageBodyType;
   readonly parentId?: string | null;
   readonly content?: string;
   /** Merged into the current properties; null removes a key. */
@@ -203,7 +232,7 @@ export const updatePage = async (
   id: string,
   input: UpdatePageInput
 ): Promise<Result<{ readonly id: string }>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { kind: true, properties: true } });
+  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { kind: true, bodyType: true, content: true, properties: true } });
   if (!existing) return err(new Error(`Page ${id} not found`));
   const writable = await ensureWritable(reg, 'PAGE', id);
   if (!writable.ok) return err(writable.error);
@@ -218,9 +247,17 @@ export const updatePage = async (
     properties = JSON.stringify(parsed.value);
   }
 
-  if (input.content !== undefined) {
-    const charts = validateChartBlocks(input.content);
-    if (!charts.ok) return err(charts.error);
+  const currentType = asBodyType(existing.bodyType);
+  const bodyType = input.bodyType ?? currentType;
+  if (bodyType !== currentType && !isEmptyBody(currentType, existing.content)) {
+    const was = currentType === 'doc' ? 'a document' : 'a spreadsheet';
+    return err(new Error(`This page already has content as ${was}, so it can't become a ${bodyType === 'doc' ? 'document' : 'spreadsheet'}. Clear its content first, or create a new page.`));
+  }
+  let content: string | undefined;
+  if (input.content !== undefined || bodyType !== currentType) {
+    const prepared = prepareContent(bodyType, input.content ?? '');
+    if (!prepared.ok) return err(prepared.error);
+    content = prepared.value;
   }
 
   if (input.parentId) {
@@ -234,11 +271,13 @@ export const updatePage = async (
       ...(input.title !== undefined && { title: input.title }),
       ...(input.kind !== undefined && { kind: input.kind }),
       ...(input.parentId !== undefined && { parentId: input.parentId }),
-      ...(input.content !== undefined && { content: input.content }),
+      ...(bodyType !== currentType && { bodyType }),
+      ...(content !== undefined && { content }),
       ...(properties !== undefined && { properties })
     }
   });
-  if (input.content !== undefined) await syncMentions(reg, { entityType: 'PAGE', entityId: id }, input.content);
+  // A sheet links nothing, so switching to one clears the page's mentions.
+  if (content !== undefined) await syncMentions(reg, { entityType: 'PAGE', entityId: id }, bodyType === 'doc' ? content : '');
   return ok({ id });
 };
 

@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { ARCHIVE_FILTERS } from '$shared/types/enums';
+import { PAGE_BODY_TYPES } from '$shared/types/pages';
 import { router, procedure } from '$shared/trpc/init';
 import { setArchived } from '$api/_archive';
 import { createPage, deletePage, getPage, listPages, queryPages, updatePage } from './operations';
 
 // A kind key; whether the notebook has that kind is checked in the operation.
 const kind = z.string().max(40);
+
+// doc: content is markdown. sheet: content is JSON, {"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]};
+// cells are strings, and a cell starting with = is a formula the app evaluates.
+const bodyType = z.enum(PAGE_BODY_TYPES);
 
 // Values are validated per kind in the operation (src/shared/types/pages.ts).
 const properties = z.record(z.union([z.string(), z.number(), z.boolean(), z.array(z.string()).readonly(), z.null()]));
@@ -41,6 +46,7 @@ export const pageRouter = router({
     .input(z.object({
       title: z.string().min(1).max(200),
       kind: kind.optional(),
+      bodyType: bodyType.optional(),
       parentId: z.string().optional(),
       content: z.string().optional(),
       properties: properties.optional()
@@ -52,6 +58,7 @@ export const pageRouter = router({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       kind: kind.optional(),
+      bodyType: bodyType.optional(),
       parentId: z.string().nullable().optional(),
       content: z.string().optional(),
       properties: properties.optional()

@@ -269,12 +269,14 @@ model GoalProject {
   @@map("goal_project")
 }
 
-// ----- Wiki pages (properties is JSON, validated against the page_kind row's fields) -----
+// ----- Wiki pages (properties is JSON, validated against the page_kind row's fields;
+// bodyType 'sheet' keeps a spreadsheet's JSON in content, see src/shared/utils/sheet.ts) -----
 
 model Page {
   id         String   @id @default(cuid())
   title      String
   kind       String   @default("GENERAL")
+  bodyType   String   @default("doc") @map("body_type")
   parentId   String?  @map("parent_id")
   content    String   @default("")
   properties String   @default("{}")

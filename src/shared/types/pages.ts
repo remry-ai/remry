@@ -16,6 +16,11 @@ export const PAGE_FIELD_INPUTS = ['text', 'number', 'date', 'url', 'select', 'mu
 
 export type PageFieldInput = (typeof PAGE_FIELD_INPUTS)[number];
 
+/** A page's body: markdown (`doc`) or a spreadsheet (`sheet`, JSON in `content`; see $shared/utils/sheet). */
+export const PAGE_BODY_TYPES = ['doc', 'sheet'] as const;
+
+export type PageBodyType = (typeof PAGE_BODY_TYPES)[number];
+
 export const NUMBER_FORMATS = ['plain', 'money'] as const;
 
 export type NumberFormat = (typeof NUMBER_FORMATS)[number];
@@ -69,6 +74,7 @@ export interface PageSummary {
   readonly id: string;
   readonly title: string;
   readonly kind: string;
+  readonly bodyType: PageBodyType;
   readonly parentId: string | null;
   readonly properties: PageProperties;
   readonly path: string;

@@ -49,7 +49,7 @@ Everything belongs to one user; there are no accounts, orgs or permissions. Ids 
 
 ## Wiki pages
 
-**Page**: `title`, `kind` (default `GENERAL`), `parentId?` (the page tree), `content` (markdown), and `properties` (a JSON object whose keys are the kind's fields). Procedures: `page.list` (filters `kind`, `parentId`), `page.get`, `page.create` (returns `{ id, path }`), `page.update`, `page.delete`, and `page.query` (below).
+**Page**: `title`, `kind` (default `GENERAL`), `bodyType` (`doc`, the default, or `sheet`), `parentId?` (the page tree), `content` (markdown for a `doc`; JSON for a `sheet`, below), and `properties` (a JSON object whose keys are the kind's fields). Procedures: `page.list` (filters `kind`, `parentId`), `page.get`, `page.create` (returns `{ id, path }`), `page.update`, `page.delete`, and `page.query` (below).
 
 **Page kind**: each notebook defines its own. `key` (`EXPENSE`: capitals, digits and `_`), `name`, `description?`, `fields`. `GENERAL` (no fields) always exists and can't be changed. A new notebook has no other kinds; the user adds them.
 
@@ -59,6 +59,7 @@ A field is `{ "key": "amount", "label": "Amount", "input": "number" }` (key came
 - `page.query --kind <key>`: the kind's pages as a dataset. `--filters` (a list, all must match) of `field:op[:value]`, ops `is not anyOf contains gte lte empty set` (`anyOf` values are split by `|`; `gte` and `lte` compare numbers and dates); `title` and `updatedAt` work too. `--sort field[:asc|desc]` (empty values last). `--groupBy` a select, multiselect, checkbox or text field (a multiselect page counts in each of its groups). `--aggregates` a list of `field:sum|avg|min|max` on number fields. Returns `{ kind, pages, count, totals, groups }`, totals keyed `field:fn`. The same view in the app is `/app/wiki?kind=<key>&f=<filter>&sort=…&group=…&agg=…`.
 - `page.update` merges `properties` into the current values: keys you pass are set, `null` removes a key, and the rest stay. Changing `kind` drops keys the new kind doesn't have.
 - Chart blocks in page content are validated like reports.
+- **Spreadsheet pages** (`bodyType: sheet`): `content` is JSON, `{"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]}`. Cells are strings (numbers are accepted and stored as text), up to 100 columns and 2000 rows, and a row may be shorter than the column list. A cell starting with `=` is a formula (`SUM`, `AVERAGE`, `MIN`, `MAX`, `IF`, cell references like `B2` and ranges like `B2:B5`); the app evaluates it. `page.get` also returns `values`: what each cell showed when the page was last saved in the app. Until then a formula you wrote reads as its text there and in search and print, so tell the user to open the page once. `page.update --content` replaces the whole sheet, so `page.get` it first and send it back changed. `bodyType` can change only while the page is empty (a document with no text, or a sheet with no filled cells). A sheet's content makes no mentions.
 - Deleting a page moves its sub-pages up to its parent. A parent that would make a loop is rejected.
 
 ## Relations

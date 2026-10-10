@@ -1,11 +1,12 @@
 <script lang="ts">
-  // Title, kind and the kind's properties. Content is edited on the page itself.
+  // Title, kind and the kind's properties, and on create whether the body is a
+  // document or a spreadsheet. Content is edited on the page itself.
   // Kinds are the notebook's own (pageKind.list), passed in by the page's load.
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import { submit } from '$lib/ui/submit';
-  import { GENERAL_KIND, type PageKindDefinition, type PageProperties, type PagePropertyValue } from '$shared/types/pages';
+  import { GENERAL_KIND, type PageBodyType, type PageKindDefinition, type PageProperties, type PagePropertyValue } from '$shared/types/pages';
   import { optionLabel } from '$lib/page/utils';
 
   interface PageData {
@@ -35,6 +36,7 @@
 
   let title = $state(initial.title ?? '');
   let kind = $state(initial.kind ?? 'GENERAL');
+  let bodyType = $state<PageBodyType>('doc');
   let values = $state<Record<string, FormValue>>(asValues(initial.properties));
   let submitting = $state(false);
   let error = $state('');
@@ -78,6 +80,7 @@
       : await submit(() => trpc().page.create.mutate({
           title: title.trim(),
           kind,
+          bodyType,
           parentId: initial.parentId ?? undefined,
           properties,
         }));
@@ -89,13 +92,14 @@
     if (!isEdit) {
       title = '';
       values = {};
+      bodyType = 'doc';
     }
     onSuccess(outcome.value);
   };
 </script>
 
 <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); handleSubmit(); }}>
-  <div class="form-row">
+  <div class="form-row" class:thirds={!isEdit}>
     <Field label="Title">
       {#snippet children({ id })}
         <input {id} type="text" bind:value={title} required placeholder="Page title" />
@@ -110,6 +114,16 @@
         </select>
       {/snippet}
     </Field>
+    {#if !isEdit}
+      <Field label="Body">
+        {#snippet children({ id })}
+          <select {id} bind:value={bodyType}>
+            <option value="doc">Document</option>
+            <option value="sheet">Spreadsheet</option>
+          </select>
+        {/snippet}
+      </Field>
+    {/if}
   </div>
 
   {#each fields as field (field.key)}

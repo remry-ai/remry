@@ -110,7 +110,7 @@
                     {:else}
                       <span class="disclosure-spacer"></span>
                     {/if}
-                    <a href={page.path}>{page.title}</a>{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <a href={page.path}>{page.title}</a>{#if page.bodyType === 'sheet'} <span class="badge muted">Sheet</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
                   </span>
                 </td>
                 <td><a class="badge" href="/app/wiki?kind={page.kind}">{kindName(kinds, page.kind)}</a></td>

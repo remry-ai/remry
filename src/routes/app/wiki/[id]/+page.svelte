@@ -7,6 +7,7 @@
   import DocEditor from '$lib/common/DocEditor.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
+  import SheetEditor from '$lib/page/components/SheetEditor.svelte';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -44,6 +45,7 @@
   );
 
   let editing = $state(false);
+  const isSheet = $derived(wikiPage.bodyType === 'sheet');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
   const handleSaveContent = async (content: string) => {
@@ -56,6 +58,17 @@
 
   const handleCloseEditor = async () => {
     editing = false;
+    await invalidateAll();
+  };
+
+  let sheetError = $state('');
+  const handleMakeSheet = async () => {
+    sheetError = '';
+    const outcome = await submit(() => trpc().page.update.mutate({ id: wikiPage.id, bodyType: 'sheet' }));
+    if (!outcome.ok) {
+      sheetError = outcome.error;
+      return;
+    }
     await invalidateAll();
   };
 
@@ -145,7 +158,19 @@
   renderMeta={editing ? undefined : pageMeta}
 >
   {#snippet renderOverview()}
-    {#if editing}
+    {#if isSheet}
+      <section class="section">
+        <div class="section-header">
+          <h4>Spreadsheet</h4>
+          <span class="content-actions">
+            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} target="_blank" rel="noopener">Export PDF <ProBadge /></a>
+          </span>
+        </div>
+        {#key wikiPage.id}
+          <SheetEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} />
+        {/key}
+      </section>
+    {:else if editing}
       <DocEditor
         title={wikiPage.title}
         content={wikiPage.content}
@@ -170,10 +195,14 @@
         {:else}
           <EmptyState message="This page is empty.">
             <button type="button" class="btn sm" onclick={() => { editing = true; }}>Write it</button>
+            <button type="button" class="btn ghost sm" onclick={handleMakeSheet}>Make it a spreadsheet</button>
           </EmptyState>
+          {#if sheetError}<p class="form-error">{sheetError}</p>{/if}
         {/if}
       </section>
+    {/if}
 
+    {#if !editing || isSheet}
       <section class="section">
         <div class="section-header">
           <h4>Sub-pages <span class="count">{wikiPage.children.length}</span></h4>

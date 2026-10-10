@@ -135,3 +135,41 @@ describe('docs', () => {
     expect((await getDoc(reg, 'doc_missing')).ok).toBe(false);
   });
 });
+
+describe('spreadsheet pages', () => {
+  it('store a sheet, index its values, and only change body type while empty', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const sheet = {
+      columns: [{ title: 'Item' }, { title: 'Cost' }],
+      data: [['Rent', '1200'], ['Groceries', '400'], ['Total', '=SUM(B1:B2)']],
+      values: [['Rent', '1200'], ['Groceries', '400'], ['Total', '1600']]
+    };
+    const page = await createPage(reg, { title: 'Household budget', bodyType: 'sheet', content: JSON.stringify(sheet) });
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+
+    const detail = await getPage(reg, page.value.id);
+    expect(detail.ok && detail.value.bodyType).toBe('sheet');
+    expect(detail.ok && JSON.parse(detail.value.content).values[2]).toEqual(['Total', '1600']);
+
+    // The index holds what the cells showed, not the JSON or the formulas.
+    const indexed = await reg.prisma.$queryRawUnsafe<{ body: string }[]>("SELECT body FROM search_index WHERE entity_type = 'PAGE' AND entity_id = ?", page.value.id);
+    expect(indexed[0]?.body).toContain('Groceries 400');
+    expect(indexed[0]?.body).toContain('1600');
+    expect(indexed[0]?.body).not.toContain('SUM');
+    expect(indexed[0]?.body).not.toContain('columns');
+
+    const bad = await updatePage(reg, page.value.id, { content: '# not a sheet' });
+    expect(!bad.ok && bad.error.message).toMatch(/sheet content/);
+    const convert = await updatePage(reg, page.value.id, { bodyType: 'doc' });
+    expect(!convert.ok && convert.error.message).toMatch(/already has content as a spreadsheet/);
+
+    // An empty document can become a sheet, which starts blank.
+    const blank = await createPage(reg, { title: 'Packing list' });
+    if (!blank.ok) throw new Error('setup failed');
+    expect((await updatePage(reg, blank.value.id, { bodyType: 'sheet' })).ok).toBe(true);
+    const converted = await getPage(reg, blank.value.id);
+    expect(converted.ok && converted.value.bodyType).toBe('sheet');
+    expect(converted.ok && JSON.parse(converted.value.content).columns).toHaveLength(5);
+  });
+});

@@ -4,9 +4,12 @@
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import ProLock from '$lib/ui/ProLock.svelte';
   import { formatPropertyValue } from '$lib/page/utils';
+  import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
 
   const { data }: { data: PageData } = $props();
   const wikiPage = $derived(data.page);
+  // A spreadsheet prints as a table of the values its cells showed.
+  const body = $derived(wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content)) : wikiPage.content);
   // The kind's details that are filled in, in the kind's order.
   const properties = $derived(
     data.fields
@@ -33,7 +36,7 @@
 {:else}
   <PrintView
     title={wikiPage.title}
-    content={wikiPage.content}
+    content={body}
     backHref={wikiPage.path}
     brandings={data.brandings}
     options={data.options}

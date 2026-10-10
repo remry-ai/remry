@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mergePageProperties } from '../operations';
+import { isEmptyBody, mergePageProperties, prepareContent } from '../operations';
+import { emptySheet } from '$shared/utils/sheet';
 import type { PageKindField } from '$shared/types/pages';
 
 const SOFTWARE: readonly PageKindField[] = [
@@ -19,5 +20,31 @@ describe('mergePageProperties', () => {
 
   it('keeps unknown keys from the patch so validation can name them', () => {
     expect(mergePageProperties(PRODUCT, {}, { vendor: 'Acme' })).toEqual({ vendor: 'Acme' });
+  });
+});
+
+describe('prepareContent', () => {
+  it('keeps markdown as given', () => {
+    const prepared = prepareContent('doc', '# Hello');
+    expect(prepared.ok && prepared.value).toBe('# Hello');
+  });
+
+  it('stores a sheet normalised, with values', () => {
+    const prepared = prepareContent('sheet', '{"columns":[{"title":"A"},{"title":"B"}],"data":[["x"]]}');
+    expect(prepared.ok && JSON.parse(prepared.value)).toEqual({ version: 1, columns: [{ title: 'A' }, { title: 'B' }], data: [['x', '']], values: [['x', '']] });
+  });
+
+  it('refuses a sheet that is not one', () => {
+    const prepared = prepareContent('sheet', '# Hello');
+    expect(!prepared.ok && prepared.error.message).toMatch(/sheet content: invalid JSON/);
+  });
+});
+
+describe('isEmptyBody', () => {
+  it('treats blank text and a sheet with no filled cells as empty', () => {
+    expect(isEmptyBody('doc', '  \n')).toBe(true);
+    expect(isEmptyBody('doc', 'x')).toBe(false);
+    expect(isEmptyBody('sheet', JSON.stringify(emptySheet()))).toBe(true);
+    expect(isEmptyBody('sheet', '{"columns":[{"title":"A"}],"data":[[""],["1"]]}')).toBe(false);
   });
 });
