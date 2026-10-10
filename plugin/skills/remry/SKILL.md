@@ -18,7 +18,9 @@ The notebooks are reachable in two ways, and the app does **not** need to be run
 **In Cowork, or any other sandbox, use only the MCP tools.** The notebooks live on the user's Mac, in `~/Library/Application Support/Remry`, which a sandbox can't see, and `remry` isn't installed there.
 - Never read, list, copy or `cat` that folder, open its database, or run `remry` from a sandbox.
 - Don't ask the user to attach that folder to the session: the database must not be opened from the sandbox and the Mac at once.
-- If the Remry tools (`notebook_list`, `person_list` and so on) aren't in this session, stop and tell the user. They need the current Remry plugin installed, and the Cowork session started on their Mac, not in the cloud, with the Claude desktop app open. Local MCP servers don't run in cloud sessions.
+- To start or open the app, call `app_open`; it starts the app on the Mac. Never try to start it any other way.
+- The tools may be deferred: if `notebook_list` isn't listed, search for "remry" with your tool-search tool before deciding they're missing.
+- If the Remry tools (`notebook_list`, `person_list` and so on) still aren't in this session, stop and tell the user. They need the current Remry plugin installed, and the Cowork session started on their Mac, not in the cloud, with the Claude desktop app open. Local MCP servers don't run in cloud sessions.
 
 **The `remry` CLI**, only in a shell on the user's own Mac (for example Claude Code), not in a sandbox:
 
