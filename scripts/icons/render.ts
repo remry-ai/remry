@@ -1,4 +1,5 @@
-// Renders every app icon PNG (and favicon.ico) from the two SVG sources in static/icons.
+// Renders every app icon PNG (and favicon.ico) from the two SVG sources in static/icons,
+// plus icons/icon-small.svg, the favicon drawing the nav shows without a branding icon.
 // Run with `bun run icons` after editing icon.svg or icon-maskable.svg.
 import { Resvg } from '@resvg/resvg-js';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -55,6 +56,9 @@ const main = (): void => {
     { path: 'favicon-32x32.png', size: 32, source: favicon },
     { path: 'favicon-16x16.png', size: 16, source: favicon }
   ];
+  const small = favicon.replace(/\s*<!--[\s\S]*?-->/g, '').replace('>', '>\n  <!-- Generated from icon.svg by `bun run icons`: edit that, not this. -->');
+  writeFileSync(join(staticDir, 'icons/icon-small.svg'), small);
+  console.log('wrote static/icons/icon-small.svg');
   for (const { path, size, source } of outputs) {
     writeFileSync(join(staticDir, path), renderPng(source, size));
     console.log(`wrote static/${path}`);

@@ -53,9 +53,8 @@
       <div class="nav-bar">
         <div class="nav-identity">
           <a href="/app" class="nav-brand" aria-label={notebook ? `Home: ${notebook.name}` : undefined} onclick={closeMenu}>
-            {#if brandIconUrl}
-              <img src={brandIconUrl} alt="" class="brand-icon" />
-            {/if}
+            <!-- The default branding's icon, or Remry's own without one. -->
+            <img src={brandIconUrl ?? '/icons/icon-small.svg'} alt="" class="brand-icon" />
             <span class="truncate">{notebook?.name ?? 'Remry'}</span>
           </a>
           {#if notebook}

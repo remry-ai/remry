@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 50 412 412" width="512" height="512">
+  <!-- Generated from icon.svg by `bun run icons`: edit that, not this. -->
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect x="50" y="50" width="412" height="412" rx="92" fill="#111111"/>
+  <g transform="translate(256 256) scale(0.9) translate(-256 -236)">
+    <g stroke="#acacac" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M200 236 H250 M278 136 H250 V336 H278"/>
+    </g>
+    <g fill="#acacac">
+      <rect x="278" y="104" width="150" height="64" rx="14"/>
+      <rect x="278" y="304" width="150" height="64" rx="14"/>
+    </g>
+    <rect x="278" y="204" width="150" height="64" rx="14" fill="#ffffff"/>
+    <rect x="296" y="220" width="32" height="32" rx="8" fill="#111111"/>
+    <path d="M304 236 L310 243 L321 229" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="340" y="230" width="68" height="12" rx="6" fill="#111111"/>
+    <rect x="84" y="181" width="110" height="110" rx="21" fill="#111111" stroke="#ffffff" stroke-width="12"/>
+    <g fill="#ffffff">
+      <rect x="103.8" y="209.325" width="70.4" height="9.35" rx="4.675"/>
+      <rect x="103.8" y="231.325" width="70.4" height="9.35" rx="4.675"/>
+      <rect x="103.8" y="253.325" width="42.24" height="9.35" rx="4.675"/>
+    </g>
+    <path d="M192 154.4 Q197.72 177.28 220.6 183 Q197.72 188.72 192 211.6 Q186.28 188.72 163.4 183 Q186.28 177.28 192 154.4Z" fill="#ffffff" stroke="#111111" stroke-width="12" paint-order="stroke"/>
+  </g>
+</svg>
