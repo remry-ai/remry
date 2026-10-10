@@ -19,11 +19,13 @@ on your own Mac.
 
 - **Running a team.** Who reports to whom, who sits on which team, what you agreed in the last 1:1,
   who is ready for more.
-- **Keeping track of the work.** Projects, who owns them, what blocks what, and what you said you
-  would do next.
+- **Keeping track of the work.** Projects, who owns them, where each one stands, when it is due,
+  what blocks what, and what you said you would do next.
 - **Goals with real numbers.** A target, a figure each month, and a chart of how it actually went.
 - **Remembering decisions.** Why you bought that tool, what it costs, when it renews, which policy
   applies.
+- **Home life.** Family and friends, birthdays, how you know someone, and the things a household
+  keeps track of, from expenses to recipes.
 - **Writing it up.** A quarter in review, a career plan, a summary for your boss — built from what
   is already there.
 
@@ -52,6 +54,8 @@ to the source, and updates the same entry next time instead of making a second o
 and opinions stay yours.
 
 **Work and side projects stay apart.** Each notebook is separate, and nothing links across them.
+A work notebook knows about titles, leads, teams, departments and goals; a home notebook knows about
+birthdays, family and friends, and who is whose partner, parent or sibling.
 
 ## What using it looks like
 
@@ -77,6 +81,17 @@ The note goes on Dana's page in your words, with the date. The reminder becomes 
 
 Ask "what do I know about Dana?" months later and Claude reads back her notes, todos, docs and
 goals.
+
+### A project at a glance
+
+> **You:** The search rewrite is blocked on the new index — push its target to March.
+
+Every project has one of six statuses — proposed, committed, in progress, blocked, done or
+abandoned — each with its own colour. The projects list draws every project's start-to-target bar on
+one shared timeline, late stretches in red against a line for today, beside a bar for its estimated
+size, with parent projects before their sub-projects. Peek at a row and its summary opens in the
+right-hand panel — status, owner, dates, goals, sub-projects, open todos and docs — without leaving
+the list. Drag the panel's edge to make it wider.
 
 ### A goal you check in on
 
@@ -108,7 +123,8 @@ project inside a page and the project gains a "Mentioned in" entry by itself.
 
 > **You:** Write up Platform's quarter as a doc — delivery and reliability, with charts.
 
-Docs are markdown, and a doc can hold charts drawn from figures you give Claude.
+Docs are markdown, and a doc can hold charts drawn from figures you give Claude. Each series in a
+chart can have a colour of its own; the rest take shades of your branding's colour.
 
 ![A doc on the Platform team: prose and a bar chart of committed against delivered story points](docs/images/doc-charts.png)
 
@@ -124,15 +140,18 @@ Mac so that it gets a Dock icon and a window of its own — see
 The home screen shows your open todos, what changed lately, and a graph with one thing in the
 middle and everything linked to it around it; click a neighbour to move there. The org map shows
 reporting lines, or switch it to **Work** for each owner's projects and goals and the arrows between
-them. The projects page has a **Map** view that lays projects out by what depends on what, with the
-goals they deliver. Everything else gets a page of its own, with its docs down the middle, its todos,
-related things and links in the sidebar and its notes on the right. A link to Linear, Notion, GitHub
+them. Mark one person as yourself and People shows how everyone relates to you; in a home notebook it
+opens on a graph with you in the middle. The projects page has a **Map** view that lays projects out
+by what depends on what, with the goals they deliver. Everything else gets a page of its own, with
+its docs down the middle, its todos, related things and links in the sidebar and its notes on the
+right. A link to Linear, Notion, GitHub
 or another tool shows the tool's mark, and when Claude last synced the page from it.
 
 Press ⌘K to search. Start with `/` to look in one place only, as in `/person dana`.
 
-Every page has a **Chat** tab for asking about what is on screen. It runs your own copy of Claude,
-and keeps each page's conversation in the notebook until you clear it or delete the page.
+The right-hand panel holds a page's **Notes**, a **Peek** at a project opened from the projects
+list, and a **Chat** tab. Chat is for asking about what is on screen. It runs your own copy of
+Claude, and keeps each page's conversation in the notebook until you clear it or delete the page.
 
 Nothing is lost by accident. Archiving keeps a thing and its history but takes it out of every list.
 Deleting takes its notes and todos with it, so Claude offers to archive first.
@@ -151,8 +170,8 @@ covers them for you.
 
 ## How is this different from…
 
-**…your assistant's own memory?** It decides for itself what to keep, and summarises it. Working
-Notes keeps exactly what you said, where you can see it, and your assistant looks it up instead of
+**…your assistant's own memory?** It decides for itself what to keep, and summarises it. Remry
+keeps exactly what you said, where you can see it, and your assistant looks it up instead of
 recalling it.
 
 **…a memory server, like the reference knowledge-graph server or Basic Memory?** Those store free
@@ -178,8 +197,7 @@ can see them. Remry holds yours, privately, and can link back to them.
 
 ## Status
 
-Remry is one person's tool, built in the open. Expect it to change. It was called Wonos, and
-Working Notes before that; [docs/INSTALL.md](docs/INSTALL.md#coming-from-wonos-or-working-notes) covers moving over.
+Remry is one person's tool, built in the open. Expect it to change.
 
 Reports — branded write-ups printed to PDF — are built but switched off while they are unfinished.
 Write-ups go in docs instead.
