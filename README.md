@@ -13,7 +13,7 @@ follow up on. It keeps them exactly as you said them, for as long as you need th
 You put things in by telling Claude. Claude looks them up when you ask, and you read them in an app
 on your own Mac.
 
-![The home dashboard: open todos, a feed of recent changes, and a graph of what links to one thing](docs/images/home.png)
+![A tour: telling Claude about a new hire, a note and a todo on a person and on a project, the projects timeline and side peek, a goal check-in, a wiki page, and a doc with coloured charts](docs/images/demo.gif)
 
 ## What you can use it for
 
@@ -146,6 +146,8 @@ by what depends on what, with the goals they deliver. Everything else gets a pag
 its docs down the middle, its todos, related things and links in the sidebar and its notes on the
 right. A link to Linear, Notion, GitHub or another tool shows the tool's mark, and when Claude last
 synced the page from it.
+
+![The home dashboard: open todos, a feed of recent changes, and a graph of what links to one thing](docs/images/home.png)
 
 Press ⌘K to search. Start with `/` to look in one place only, as in `/person dana`.
 
