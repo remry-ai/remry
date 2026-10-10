@@ -18,13 +18,12 @@ if (!version.ok) {
   console.error(version.error.message);
   process.exit(1);
 }
-const marketplace = checkMarketplace(await Bun.file('.claude-plugin/marketplace.json').text(), version.value);
+const released = git('tag', '--list', 'v*').stdout.split('\n').map((t) => t.trim().slice(1)).filter(isVersion);
+const marketplace = checkMarketplace(await Bun.file('.claude-plugin/marketplace.json').text(), released);
 if (!marketplace.ok) {
   console.error(marketplace.error.message);
   process.exit(1);
 }
-
-const released = git('tag', '--list', 'v*').stdout.split('\n').map((t) => t.trim().slice(1)).filter(isVersion);
 const newest = [...released].sort(compareVersions).at(-1);
 // `git diff --quiet` exits 1 when there are differences.
 const pluginChanged = newest ? git('diff', '--quiet', `v${newest}`, 'HEAD', '--', 'plugin').status === 1 : false;

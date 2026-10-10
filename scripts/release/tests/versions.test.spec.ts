@@ -18,14 +18,15 @@ describe('versions', () => {
     expect(pluginVersion('{"version": "v1"}').ok).toBe(false);
   });
 
-  it('wants marketplace.json at the plugin version, pinned to its dist tag', () => {
+  it('wants marketplace.json at one released version, pinned to its dist tag', () => {
     expect(distTag('0.5.0')).toBe('dist-v0.5.0');
-    expect(checkMarketplace(marketplace, '0.5.0')).toEqual({ ok: true, value: true });
-    const behind = checkMarketplace(marketplace, '0.6.0');
-    expect(!behind.ok && behind.error.message).toContain('must name version 0.6.0');
-    const branch = checkMarketplace(marketplace.replace('"ref": "dist-v0.5.0"', '"ref": "dist"'), '0.5.0');
+    expect(checkMarketplace(marketplace, ['0.4.0', '0.5.0'])).toEqual({ ok: true, value: true });
+    expect(checkMarketplace(marketplace, [])).toEqual({ ok: true, value: true });
+    const early = checkMarketplace(marketplace, ['0.4.0']);
+    expect(!early.ok && early.error.message).toContain('must name one released version');
+    const branch = checkMarketplace(marketplace.replace('"ref": "dist-v0.5.0"', '"ref": "dist"'), ['0.5.0']);
     expect(!branch.ok && branch.error.message).toContain('"ref": "dist-v0.5.0"');
-    const unversioned = checkMarketplace('{"plugins": [{ "ref": "dist-v0.5.0" }]}', '0.5.0');
+    const unversioned = checkMarketplace('{"plugins": [{ "ref": "dist-v0.5.0" }]}', ['0.5.0']);
     expect(!unversioned.ok && unversioned.error.message).toContain('found none');
   });
 
@@ -33,7 +34,7 @@ describe('versions', () => {
     const next = withRef(withVersion(marketplace, '0.6.0'), distTag('0.6.0'));
     expect(versionsIn(next)).toEqual(['0.6.0', '0.6.0']);
     expect(refsIn(next)).toEqual(['dist-v0.6.0']);
-    expect(checkMarketplace(next, '0.6.0').ok).toBe(true);
+    expect(checkMarketplace(next, ['0.6.0']).ok).toBe(true);
   });
 
   it('sets every version and keeps the formatting', () => {

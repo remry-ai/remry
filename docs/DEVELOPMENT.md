@@ -97,14 +97,13 @@ Claude desktop starts MCP servers with a minimal PATH, so `.mcp.json` runs the s
 bun run release:version <x.y.z>
 ```
 
-It sets `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and `package.json`
-together. `claude plugin update` and Cowork skip a version they already have.
+It sets `plugin/.claude-plugin/plugin.json` and `package.json` together. `claude plugin update`
+and Cowork skip a version they already have.
 
-It also pins `marketplace.json` to the tag `dist-v<x.y.z>`, which the release workflow puts on the
-built `dist` commit. Claude desktop learns of an update from the version in `marketplace.json`, which
-goes live minutes before the build does; pinned to a tag that doesn't exist yet, a client that checks
-in between gets nothing rather than the old plugin under the new number. The release fails unless
-`marketplace.json` names the plugin's version and its tag.
+Don't edit `.claude-plugin/marketplace.json`: Claude desktop learns of an update from its version,
+so the release workflow sets it (and the tag `dist-v<x.y.z>` it pins the plugin to) only once the
+build is there, and pushes that to `main` as `github-actions[bot]`. Pull before your next push. The
+release fails unless `marketplace.json` names one released version and its tag.
 
 ## Releasing
 

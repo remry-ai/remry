@@ -1,11 +1,10 @@
 // The plugin version and release decisions. Pure: plan.ts and version.ts read the
 // files and git tags. Claude Code and Cowork skip a version they already have, so a
-// changed plugin needs a new version, in plugin.json and marketplace.json alike: Claude
-// desktop learns of an update only from marketplace.json. Its plugin entry is pinned to the
-// tag dist-v<version>, which the release workflow puts on the built dist commit. The version
-// goes live on main minutes before that build, and a client that synced in between, pinned
-// to the moving dist branch, kept the old plugin under the new version; pinned to a tag that
-// doesn't exist yet, it gets nothing until the release is there.
+// changed plugin needs a new version, set in plugin.json. Claude desktop learns of an update
+// only from the version in marketplace.json on main, so that names the newest release, pinned
+// to its tag dist-v<version> on the built dist commit, and only the release workflow changes
+// it, after the build (scripts/release/advertise.ts). Bumped with the code, it went live
+// minutes before the build, and claude.ai served its stale copy under the new version.
 
 import { ok, err, type Result } from '$shared/utils/result';
 
@@ -46,15 +45,21 @@ const REF_FIELD = /"ref"\s*:\s*"([^"]*)"/g;
 /** Every `"ref"` in a JSON file's text. */
 export const refsIn = (text: string): readonly string[] => [...text.matchAll(REF_FIELD)].map((m) => m[1] ?? '');
 
-/** marketplace.json names the plugin's version and pins its source to that version's dist tag. */
-export const checkMarketplace = (marketplaceJson: string, version: string): Result<true> => {
-  const versions = versionsIn(marketplaceJson);
+const LEAVE_IT = 'Leave marketplace.json to the release workflow, which sets it once a release is built; bump plugin.json with `bun run release:version <x.y.z>`.';
+
+/**
+ * marketplace.json names one version that's already released (none before the first
+ * release), and pins the plugin to that version's dist tag.
+ */
+export const checkMarketplace = (marketplaceJson: string, released: readonly string[]): Result<true> => {
+  const versions = [...new Set(versionsIn(marketplaceJson))];
   const refs = refsIn(marketplaceJson);
-  if (versions.length === 0 || versions.some((v) => v !== version)) {
-    return err(new Error(`.claude-plugin/marketplace.json must name version ${version}, as plugin.json does (found ${versions.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
+  const [version] = versions;
+  if (versions.length !== 1 || !version || (released.length > 0 && !released.includes(version))) {
+    return err(new Error(`.claude-plugin/marketplace.json must name one released version (found ${versions.join(', ') || 'none'}). ${LEAVE_IT}`));
   }
   if (refs.length !== 1 || refs[0] !== distTag(version)) {
-    return err(new Error(`.claude-plugin/marketplace.json must pin the plugin to "ref": "${distTag(version)}" (found ${refs.join(', ') || 'none'}). Run \`bun run release:version <x.y.z>\`.`));
+    return err(new Error(`.claude-plugin/marketplace.json must pin the plugin to "ref": "${distTag(version)}" (found ${refs.join(', ') || 'none'}). ${LEAVE_IT}`));
   }
   return ok(true);
 };

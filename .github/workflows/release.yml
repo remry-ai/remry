@@ -4,10 +4,10 @@
 #      smoke-tests each on its own OS, then merges the binaries into one plugin and zips
 #      it per platform (scripts/release/package.ts)
 #   2. force-pushes the built plugin to the `dist` branch and tags that commit
-#      dist-v<version>, the tag marketplace.json pins Claude Code, Claude desktop and Cowork
-#      to: until it exists, a client that already sees the new version can't fetch an old
-#      plugin under it (scripts/release/versions.ts)
+#      dist-v<version>, the tag marketplace.json pins the plugin to
 #   3. creates GitHub release v<version> with the zip, for Claude desktop Chat uploads
+#   4. points marketplace.json on main at the release (scripts/release/advertise.ts): Claude
+#      desktop learns of an update from it, so it changes only once the build is there
 # The release tag is created last, so a failed run is retried by re-running it.
 name: Release
 
@@ -166,3 +166,21 @@ jobs:
             --target "$RELEASE_SHA" \
             --title "Remry $VERSION" \
             --generate-notes
+
+      # This commit starts no workflow: a push with GITHUB_TOKEN never does, [skip ci] says
+      # so again, and plan.ts would skip a version that's already released. If this step
+      # fails, the release is out: run advertise.ts <version> and push marketplace.json.
+      - name: Point marketplace.json on main at the release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch -q origin main
+            git checkout -q -B main origin/main
+            bun scripts/release/advertise.ts "$VERSION"
+            if git diff --quiet; then exit 0; fi
+            git commit -q -am "Point marketplace.json at Remry $VERSION [skip ci]"
+            git push -q origin main && exit 0
+            sleep 5
+          done
+          exit 1
