@@ -1,6 +1,8 @@
 <script lang="ts">
-  // Title, kind and the kind's properties, and on create whether the body is a
+  // Title and the kind's properties, and on create whether the body is a
   // document or a spreadsheet. Content is edited on the page itself.
+  // A new page takes its kind from where it's added (a kind's table view, else
+  // GENERAL) and doesn't ask for one; editing a page can change its kind.
   // Kinds are the notebook's own (pageKind.list), passed in by the page's load.
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
@@ -99,22 +101,23 @@
 </script>
 
 <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); handleSubmit(); }}>
-  <div class="form-row" class:thirds={!isEdit}>
+  <div class="form-row">
     <Field label="Title">
       {#snippet children({ id })}
         <input {id} type="text" bind:value={title} required placeholder="Page title" />
       {/snippet}
     </Field>
-    <Field label="Kind">
-      {#snippet children({ id })}
-        <select {id} bind:value={kind}>
-          {#each kindOptions as k (k.key)}
-            <option value={k.key}>{k.name}</option>
-          {/each}
-        </select>
-      {/snippet}
-    </Field>
-    {#if !isEdit}
+    {#if isEdit}
+      <Field label="Kind">
+        {#snippet children({ id })}
+          <select {id} bind:value={kind}>
+            {#each kindOptions as k (k.key)}
+              <option value={k.key}>{k.name}</option>
+            {/each}
+          </select>
+        {/snippet}
+      </Field>
+    {:else}
       <Field label="Body">
         {#snippet children({ id })}
           <select {id} bind:value={bodyType}>
