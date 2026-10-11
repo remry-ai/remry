@@ -2,10 +2,12 @@
 rem Remry plugin launcher for Windows: what scripts/remry does elsewhere.
 rem   cmd /d /c <plugin>\scripts\remry.cmd mcp
 rem It runs, in order of preference:
-rem   1. the clone named by %REMRY_HOME%, or recorded in <data dir>\app-path
+rem   1. the clone named by %REMRY_HOME%
 rem   2. the release binary in <plugin>\server, installed into <data dir>\App\<version>
 rem      with App\current pointing at it, so updating the plugin never has to replace
 rem      a running .exe
+rem   3. the clone recorded in <data dir>\app-path, for a plugin without a binary
+rem      (the remry-dev copy setup installs), as scripts/remry does
 setlocal EnableExtensions
 set "data=%LOCALAPPDATA%\Remry"
 if "%LOCALAPPDATA%"=="" set "data=%USERPROFILE%\AppData\Local\Remry"
@@ -15,15 +17,11 @@ set "setup=Install the Remry plugin from a release, which includes the app, or c
 set "app=%REMRY_HOME%"
 if not defined app set "app=%WONO_HOME%"
 if not defined app set "app=%WORKING_NOTES_HOME%"
-if not defined app if exist "%data%\app-path" set /p app=<"%data%\app-path"
-rem Its earlier names, Wonos and Working Notes. The app moves its data from there on first run.
-if not defined app if exist "%data%\..\Wonos\app-path" set /p app=<"%data%\..\Wonos\app-path"
-if not defined app if exist "%data%\..\Working Notes\app-path" set /p app=<"%data%\..\Working Notes\app-path"
 if defined app if exist "%app%\node_modules\" goto clone
 set "app="
 
 set "bundled=%plugin%\server\remry-windows-x64.exe"
-if not exist "%bundled%" goto missing
+if not exist "%bundled%" goto recorded
 set /p version=<"%plugin%\server\VERSION"
 set "dest=%data%\App\%version%"
 if exist "%dest%\remry.exe" goto run
@@ -55,6 +53,13 @@ if not defined bun (
 )
 "%bun%" "%app%\cli\clone-entry.ts" %*
 exit /b %ERRORLEVEL%
+
+:recorded
+if exist "%data%\app-path" set /p app=<"%data%\app-path"
+rem Its earlier names, Wonos and Working Notes. The app moves its data from there on first run.
+if not defined app if exist "%data%\..\Wonos\app-path" set /p app=<"%data%\..\Wonos\app-path"
+if not defined app if exist "%data%\..\Working Notes\app-path" set /p app=<"%data%\..\Working Notes\app-path"
+if defined app if exist "%app%\node_modules\" goto clone
 
 :missing
 if exist "%plugin%\server\" (

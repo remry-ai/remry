@@ -100,13 +100,10 @@ describe('plugin remry shim', () => {
     expect(readlinkSync(join(dataDirFor(home), 'App', 'current'))).toBe('9.9.10');
   });
 
-  it('prefers a clone set up on this computer over the release binary, unless the clone is gone', () => {
+  it('runs a release binary over a clone setup recorded, so the released plugin runs the release beside remry-dev', () => {
     const home = newHome();
     const plugin = fakeRelease('9.9.9');
     recordClone(home, fakeApp());
-    expect(runShim(join(plugin, 'scripts', 'remry'), { HOME: home }, 'person.list').stdout).toBe('person.list\n');
-
-    recordClone(home, '/nonexistent/remry');
     expect(runShim(join(plugin, 'scripts', 'remry'), { HOME: home }, 'person.list').stdout).toContain('release ');
   });
 

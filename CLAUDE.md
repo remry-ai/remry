@@ -105,7 +105,7 @@ The repo is a Claude Code plugin marketplace (`.claude-plugin/marketplace.json`)
 - `plugin/scripts/remry`, the shim `.mcp.json` runs to start the server. It isn't in `bin/`: claude.ai-hosted plugins (Cowork) reject a top-level `bin/`, so `bun run setup` puts `remry` on PATH instead
 - `plugin/.mcp.json`, which starts the `remry` MCP server
 
-The shim runs, in order: the clone named by `$REMRY_HOME`; the clone in `<data dir>/app-path`, which `bun run setup` writes (so a development machine runs its own code); or the standalone binary a release carries (see § Releases).
+The shim runs, in order: the clone named by `$REMRY_HOME`; the standalone binary a release carries (see § Releases); or, for a plugin without one, the clone in `<data dir>/app-path`, which `bun run setup` writes. Only `remry-dev` (setup's copy of `plugin/`) has no binary, so on a development machine it runs the clone while the released plugin runs the release, on its own port. `plugin/scripts/remry.cmd` keeps the same order on Windows.
 
 - **MCP server:** `remry mcp` (`cli/mcp.ts`) serves every procedure as a tool over stdio, with `.` written as `_` (`person_create`), plus `backup_snapshot` and `backup_list`. Every tool except `notebook_*` takes an optional `notebook` argument, which `callTool` strips before the call. It uses JSON-RPC and no SDK. The protocol is the pure `handleMessage` in `cli/mcp-protocol.ts`. Queries are marked read-only, and `delete`/`remove`/`detach` tools destructive. stdout carries protocol messages only; the app's logs go to stderr. It's stdio only: no port, no network.
 - **Shared calls:** the CLI and the MCP server both call procedures through `cli/api.ts`, so new procedures need no changes in either.

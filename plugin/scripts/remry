@@ -2,11 +2,12 @@
 # Remry plugin shim, started by .mcp.json as `sh <plugin>/scripts/remry mcp`.
 # It runs, in order of preference:
 #   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names)
-#   2. the clone `bun run setup` recorded in <data dir>/app-path, so a development
-#      machine always runs its own code
-#   3. the standalone binary a release carries in <plugin>/server. It's installed into
+#   2. the standalone binary a release carries in <plugin>/server. It's installed into
 #      <data dir>/App/<version>, with App/current pointing at it (for the backup
 #      LaunchAgent and terminals), so no clone or Bun is needed.
+#   3. the clone `bun run setup` recorded in <data dir>/app-path, for a plugin without
+#      a binary: the remry-dev copy setup installs. So on a development machine the
+#      released plugin still runs the release, beside the clone's remry-dev.
 # It isn't in bin/: claude.ai-hosted plugins (Cowork) reject bin/ executables.
 # On Windows, scripts/remry.cmd does the same.
 set -e
@@ -33,17 +34,6 @@ setup='Install the Remry plugin from a release, which includes the app, or clone
 
 # WONO_HOME and WORKING_NOTES_HOME: its earlier names.
 app=${REMRY_HOME:-${WONO_HOME:-${WORKING_NOTES_HOME:-}}}
-recorded=
-pointer="$data/app-path"
-[ -r "$pointer" ] || pointer="$legacy/app-path"
-[ -r "$pointer" ] || pointer="$older/app-path"
-if [ -z "$app" ] && [ -r "$pointer" ]; then
-  recorded=$(cat "$pointer")
-  # A recorded clone that has moved or lost its dependencies gives way to a release binary.
-  if [ -x "$recorded/bin/remry" ] && [ -d "$recorded/node_modules" ]; then
-    app=$recorded
-  fi
-fi
 
 plugin=$(cd "$(dirname "$0")/.." && pwd)
 case $(uname -m) in
@@ -73,7 +63,12 @@ if [ -z "$app" ] && [ -f "$bundled" ]; then
   exec "$dest/remry" "$@"
 fi
 
-app=${app:-$recorded}
+pointer="$data/app-path"
+[ -r "$pointer" ] || pointer="$legacy/app-path"
+[ -r "$pointer" ] || pointer="$older/app-path"
+if [ -z "$app" ] && [ -r "$pointer" ]; then
+  app=$(cat "$pointer")
+fi
 if [ -z "$app" ]; then
   if [ -d "$plugin/server" ]; then
     echo "This Remry plugin has no build for $os-$arch. Download remry-<version>-$os-$arch.zip from https://github.com/remry-ai/remry/releases/latest and add it as a plugin." >&2
