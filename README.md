@@ -149,7 +149,7 @@ synced the page from it.
 
 ![The home dashboard: open todos, a feed of recent changes, and a graph of what links to one thing](docs/images/home.png)
 
-Press ⌘K to search. Names fill in as you type; when nothing matches, press Enter to search titles, and with Remry Pro the full text of notes, docs and todos too.
+Press ⌘K to find people, groups, projects, goals and wiki pages by name; when nothing matches, press Enter to search titles. With Remry Pro, `/s budget review` searches the full text of notes, docs and todos, and `/ask who owns billing?` asks your local Claude a question about the notebook and answers with links.
 
 The right-hand panel holds a page's **Notes**, a **Peek** at a project or wiki page opened from its
 list, and a **Chat** tab. Chat is for asking about what is on screen. It runs your own copy of

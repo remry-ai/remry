@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
-import { CHAT_LIMITS } from '$shared/assist/claude-cli';
+import { gated } from '$api/_license';
+import { ASK_LIMITS, CHAT_LIMITS } from '$shared/assist/claude-cli';
+import { askNotebook } from './ask';
 import { sendChat, getChatStatus, getChat, clearChat } from './chat';
 
 const entity = {
@@ -29,6 +31,11 @@ export const chatRouter = router({
   status: procedure
     .input(z.object({ chatId: z.string().min(1) }))
     .query(({ ctx, input }) => getChatStatus(ctx.pageChat, ctx.notebook.id, input.chatId)),
+
+  // The ⌘K finder's /ask: one answer about the whole notebook, from full-text search (Pro).
+  ask: procedure
+    .input(z.object({ question: z.string().trim().min(1).max(ASK_LIMITS.question) }))
+    .mutation(({ ctx, input }) => gated(ctx, 'search', () => askNotebook(ctx.reg, ctx.pageChat, ctx.notebook.id, input.question))),
 
   clear: procedure
     .input(z.object(entity))

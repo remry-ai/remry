@@ -16,7 +16,7 @@ import { features } from '$shared/settings/base/features';
 // from the CLI or MCP, Claude reads the PDF (or the page) itself. report.* stays out while reports are switched off.
 export const procedures: readonly ProcedureMeta[] = listProcedures(
   appRouter,
-  new Set(['trpcMeta.list', 'doc.convertPdf', 'doc.pdfConversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear'])
+  new Set(['trpcMeta.list', 'doc.convertPdf', 'doc.pdfConversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask'])
 ).filter((p) => features.reports || !p.name.startsWith('report.'));
 
 export interface InputIssue {

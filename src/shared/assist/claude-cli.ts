@@ -124,6 +124,44 @@ export const chatPrompt = (input: ChatPromptInput): string => {
   ].join('\n');
 };
 
+// ----- Ask (the ⌘K finder's /ask) -----
+
+export const ASK_LIMITS = {
+  question: 2000,
+  /** Search hits given to Claude as sources. */
+  sources: 25
+} as const;
+
+export interface AskSource {
+  readonly name: string;
+  /** App path, for the answer's links. */
+  readonly path: string;
+  /** What it's attached to, for a note, doc, todo or comment. */
+  readonly on: string | null;
+  /** Matching text, with matches in **bold**. */
+  readonly snippet: string;
+}
+
+/** One question about the whole notebook, answered from search hits, with links to them. */
+export const askPrompt = (question: string, sources: readonly AskSource[]): string =>
+  [
+    'You are answering a question about Remry, the user\'s private notebook of people, teams, projects, goals, wiki pages, docs, notes and todos.',
+    'Below are the notebook entries a full-text search found for the question, each with its app path and the text that matched.',
+    'You cannot use tools, and the user cannot reply: answer once, from these entries only, and say plainly when they do not answer the question.',
+    'Link every entry you mention as a markdown link to its exact path, such as [Dana Park](/app/people/abc). Never invent a path.',
+    'Reply in concise GitHub-flavoured markdown.',
+    '',
+    '<entries>',
+    ...(sources.length === 0
+      ? ['(none found)']
+      : sources.map((s) => `- [${s.name}](${s.path})${s.on ? ` on ${s.on}` : ''}: ${s.snippet.replace(/\s+/g, ' ')}`)),
+    '</entries>',
+    '',
+    '<question>',
+    question,
+    '</question>'
+  ].join('\n');
+
 /** Arguments for a chat reply: the prompt comes on stdin, and no tools at all. */
 export const buildChatArgs = (): readonly string[] => [
   '-p',

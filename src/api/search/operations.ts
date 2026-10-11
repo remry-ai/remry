@@ -61,12 +61,14 @@ export interface IndexQuery {
   /** Leave out these entities and everything attached to them. */
   readonly hiddenIds: readonly string[];
   readonly limit: number;
+  /** Words of context in each snippet (FTS5 allows up to 64). */
+  readonly snippetTokens?: number;
 }
 
 const SELECT = `
 SELECT entity_type, entity_id, parent_type, parent_id, title,
        substr(body, 1, 400) AS body_start,
-       snippet(search_index, -1, '**', '**', '…', 16) AS snippet,
+       snippet(search_index, -1, '**', '**', '…', ?) AS snippet,
        bm25(search_index, 0, 0, 0, 0, 10.0, 1.0) AS score
 FROM search_index
 WHERE search_index MATCH ?
@@ -78,7 +80,7 @@ WHERE search_index MATCH ?
 export const queryIndex = async (reg: Pick<Registry, 'prisma'>, query: IndexQuery): Promise<readonly SearchHit[]> => {
   if (query.types.length === 0) return [];
   const hidden = JSON.stringify(query.hiddenIds);
-  const params: unknown[] = [query.match, JSON.stringify(query.types), hidden, hidden];
+  const params: unknown[] = [Math.min(query.snippetTokens ?? 16, 64), query.match, JSON.stringify(query.types), hidden, hidden];
   let sql = SELECT;
   if (query.within) {
     sql += '\n  AND ((entity_type = ? AND entity_id = ?) OR (parent_type = ? AND parent_id = ?))';

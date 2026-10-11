@@ -1,66 +1,61 @@
 <script lang="ts">
-  // ⌘K: search people, groups, projects, goals, wiki pages, the app's sections
-  // and notebooks. Typing autocompletes names; Enter with no match searches
-  // titles word by word and, with Remry Pro, full text under the title
-  // matches. Rows come from quick-finder.ts.
+  // ⌘K: find people, groups, projects, goals and wiki pages by name. Enter with
+  // no match searches titles word by word. "/s …" searches the full text and
+  // "/ask …" asks the local Claude a question about the notebook, answered once
+  // with links (both Remry Pro). Rows come from quick-finder.ts.
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { trpc } from '$shared/trpc/client';
   import { loadEntityOptions, type EntityOption } from '$shared/trpc/load-entity-options';
   import { RELATABLE_TYPES } from '$shared/types/enums';
   import { isProActive, type LicenseStatus } from '$shared/types/license';
-  import type { NotebookSummary } from '$shared/types/notebook';
   import type { SearchHit } from '$shared/types/search';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
   import { ENTITY_SEARCH_SCOPES, entityPath, parseTypedIdValue } from '$shared/utils/entity';
   import { model } from '$lib/stores/notebook-model';
   import { quickFinderOpen } from '$lib/stores/quick-finder';
-  import { switchNotebook } from '$lib/notebook/switch';
+  import { waitForReply } from '$lib/common/use-page-chat';
+  import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import { autocompleteRows, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from './quick-finder';
+  import { errorMessage, submitOrThrow } from '$lib/ui/submit';
+  import {
+    appLink,
+    autocompleteRows,
+    commandRows,
+    parseFinderQuery,
+    snippetParts,
+    submittedRows,
+    titleMatches,
+    type FinderEntry,
+    type FinderRow
+  } from './quick-finder';
 
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const HIT_LIMIT = 20;
   // One cache per notebook, so another notebook's entities never show up.
   const cacheKey = $derived(`quick-finder-cache:${$page.data.notebook?.id ?? ''}`);
 
-  // Every page the nav has, plus the ones it reaches through others (People and Groups under the Org Map).
-  const ROUTES: readonly { readonly name: string; readonly href: string }[] = $derived([
-    ...$model.nav.map((item) => ({ name: item.label, href: item.href })),
-    ...[
-      { name: 'People', href: '/app/people' },
-      { name: 'Groups', href: '/app/groups' },
-      { name: 'Group kinds', href: '/app/groups/kinds' },
-      { name: 'Page kinds', href: '/app/wiki/kinds' },
-      { name: 'Branding', href: '/app/branding' },
-      { name: 'Notebooks', href: '/app/notebooks' }
-    ].filter((r) => !$model.nav.some((item) => item.href === r.href))
-  ]);
-
-  const routeEntries: readonly FinderEntry[] = $derived(ROUTES.map((r) => ({ id: `route:${r.href}`, name: r.name, meta: 'Go to' })));
-
-  // From the /app layout. A page's own data can shadow the key, so check it's the list.
-  const notebookEntries = $derived.by((): readonly FinderEntry[] => {
-    const notebooks: unknown = $page.data.notebooks;
-    if (!Array.isArray(notebooks)) return [];
-    return (notebooks as readonly NotebookSummary[])
-      .filter((n) => !n.isCurrent)
-      .map((n) => ({ id: `notebook:${n.id}`, name: `Switch to ${n.name}`, meta: 'Notebook' }));
-  });
-
   const scopeLabel = (scope: string): string => ENTITY_SEARCH_SCOPES.find((s) => s.id === scope)?.label ?? '';
 
-  // Full-text search is Remry Pro; the /app layout loads the license.
+  // Full-text search and Ask are Remry Pro; the /app layout loads the license.
   const pro = $derived.by((): boolean => {
     const license = $page.data.license as LicenseStatus | undefined;
     return license ? isProActive(license) : false;
   });
 
-  /** A query sent with Enter: its title matches and, with Pro, full-text hits (null while they load). */
+  /** A query sent with Enter: title matches for a name, full-text hits for "/s" (null while they load). */
   interface Submitted {
     readonly query: string;
     readonly titles: readonly FinderEntry[];
     readonly hits: readonly SearchHit[] | null;
+    readonly error?: string;
+  }
+
+  /** "/ask": Claude's one answer to the question. */
+  interface Answer {
+    readonly query: string;
+    readonly state: 'running' | 'done' | 'failed';
+    readonly text: string;
   }
 
   let query = $state('');
@@ -68,22 +63,44 @@
   let entities = $state<readonly EntityOption[]>([]);
   let loading = $state(false);
   let submitted = $state<Submitted | null>(null);
+  let answer = $state<Answer | null>(null);
   let searching = $state(false);
   let inputEl = $state<HTMLInputElement | null>(null);
+  let polling: AbortController | null = null;
 
   // Types the notebook doesn't have (goals in a home notebook) are left out of the finder.
-  const entries = $derived([
-    ...entities.filter((e) => $model.shows(e.scope)).map((e) => ({ ...e, meta: scopeLabel(e.scope) })),
-    ...routeEntries,
-    ...notebookEntries
-  ]);
-
-  const rows = $derived(
-    submitted ? submittedRows(submitted.titles, submitted.hits ?? []) : autocompleteRows(query, entries, routeEntries)
+  const entries: readonly FinderEntry[] = $derived(
+    entities.filter((e) => $model.shows(e.scope)).map((e) => ({ ...e, meta: scopeLabel(e.scope) }))
   );
+
+  const parsed = $derived(parseFinderQuery(query));
+  const needsPro = $derived((parsed.kind === 's' || parsed.kind === 'ask') && !pro);
+
+  const rows = $derived.by((): readonly FinderRow[] => {
+    if (submitted) return submittedRows(submitted.titles, submitted.hits ?? []);
+    if (parsed.kind === 'names') return autocompleteRows(parsed.text, entries);
+    if (parsed.kind === 'commands') return commandRows(parsed.commands);
+    return [];
+  });
   const firstHit = $derived(rows.findIndex((row) => row.kind === 'hit'));
 
+  const emptyMessage = $derived.by((): string => {
+    if (loading || searching) return 'Searching…';
+    if (submitted?.error) return submitted.error;
+    if (submitted?.hits === null) return 'Searching full text…';
+    if (submitted) return 'No results';
+    if (parsed.kind === 's') return parsed.text.trim() ? 'Press ↵ to search the full text.' : 'Type words to find in notes, docs, wiki pages and todos.';
+    if (parsed.kind === 'ask') return parsed.text.trim() ? 'Press ↵ to ask Claude.' : 'Type a question about this notebook.';
+    if (parsed.kind === 'commands') return 'No such command. Try /s or /ask.';
+    return 'No matching names. Press ↵ to search titles.';
+  });
+
   const close = () => quickFinderOpen.set(false);
+
+  const stopPolling = () => {
+    polling?.abort();
+    polling = null;
+  };
 
   const handleInput = (value: string) => {
     query = value;
@@ -91,37 +108,92 @@
     active = 0;
   };
 
-  // Enter with nothing to pick: reload the names (the cache can be a day old) and
-  // match titles word by word, then, with Pro, add full-text hits beneath them.
-  const runSearch = async () => {
-    const q = query.trim();
-    if (!q || searching) return;
+  // Enter on a name with nothing to pick: reload the names (the cache can be a
+  // day old) and match titles word by word.
+  const searchTitles = async (q: string) => {
     searching = true;
     try {
       await loadEntities(true);
-      if (query.trim() !== q) return;
-      submitted = { query: q, titles: titleMatches(entries, q), hits: pro ? null : [] };
+      if (query !== q) return;
+      submitted = { query: q, titles: titleMatches(entries, q), hits: [] };
       active = 0;
-      if (!pro) return;
-      const result = await trpc().search.query.query({ q, limit: HIT_LIMIT }).catch(() => null);
-      if (submitted?.query !== q) return;
-      submitted = { ...submitted, hits: result?.ok ? result.value.results : [] };
     } finally {
       searching = false;
     }
   };
 
+  const searchText = async (q: string, text: string) => {
+    submitted = { query: q, titles: [], hits: null };
+    active = 0;
+    try {
+      const results = await submitOrThrow(() => trpc().search.query.query({ q: text, limit: HIT_LIMIT }));
+      if (submitted?.query === q) submitted = { ...submitted, hits: results.results };
+    } catch (e: unknown) {
+      if (submitted?.query === q) submitted = { ...submitted, hits: [], error: errorMessage(e) };
+    }
+  };
+
+  const ask = async (q: string, question: string) => {
+    stopPolling();
+    answer = { query: q, state: 'running', text: '' };
+    const controller = new AbortController();
+    polling = controller;
+    try {
+      const started = await submitOrThrow(() => trpc().chat.ask.mutate({ question }));
+      if (!started.started) {
+        answer = { query: q, state: 'failed', text: started.warning };
+        return;
+      }
+      const reply = await waitForReply(trpc().chat, started.chatId, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      answer = reply === null
+        ? { query: q, state: 'failed', text: "The answer didn't arrive. Ask again." }
+        : { query: q, state: 'done', text: reply };
+    } catch (e: unknown) {
+      if (!controller.signal.aborted) answer = { query: q, state: 'failed', text: errorMessage(e) };
+    }
+  };
+
   const openEntry = (id: string): void => {
     const target = parseTypedIdValue(id, RELATABLE_TYPES);
-    if (id.startsWith('route:')) void goto(id.slice('route:'.length));
-    else if (id.startsWith('notebook:')) void switchNotebook(id.slice('notebook:'.length));
-    else if (target) void goto(entityPath(target.type, target.id));
+    if (target) void goto(entityPath(target.type, target.id));
   };
 
   const select = (row: FinderRow) => {
+    if (row.kind === 'command') {
+      query = `/${row.command.id} `;
+      submitted = null;
+      active = 0;
+      inputEl?.focus();
+      return;
+    }
     close();
     if (row.kind === 'hit') void goto(row.hit.path);
     else openEntry(row.entry.id);
+  };
+
+  const submit = () => {
+    const row = rows[active];
+    if (row) {
+      select(row);
+      return;
+    }
+    if (submitted || searching || needsPro) return;
+    if (parsed.kind === 'names' && parsed.text.trim()) void searchTitles(query);
+    else if (parsed.kind === 's' && parsed.text.trim()) void searchText(query, parsed.text.trim());
+    else if (parsed.kind === 'ask' && parsed.text.trim() && !(answer?.query === query && answer.state === 'running')) {
+      void ask(query, parsed.text.trim());
+    }
+  };
+
+  // A link in Claude's answer opens in the app, and the finder closes.
+  const handleAnswerClick = (e: MouseEvent) => {
+    const anchor = (e.target as Element | null)?.closest('a');
+    const href = appLink(anchor?.getAttribute('href') ?? null);
+    if (!href || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    close();
+    void goto(href);
   };
 
   const handleKeydown = (e: KeyboardEvent) => {
@@ -143,9 +215,7 @@
       active = Math.max(active - 1, 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const row = rows[active];
-      if (row) select(row);
-      else if (!submitted) void runSearch();
+      submit();
     }
   };
 
@@ -206,8 +276,11 @@
     if ($quickFinderOpen) {
       query = '';
       submitted = null;
+      answer = null;
       active = 0;
       void loadEntities(false);
+    } else {
+      stopPolling();
     }
   });
 
@@ -237,7 +310,7 @@
           aria-controls="quick-finder-results"
           aria-expanded={rows.length > 0}
           aria-activedescendant={rows.length > 0 ? `quick-finder-row-${active}` : undefined}
-          placeholder="Search"
+          placeholder="Find by name, /s to search text, /ask a question"
           autocomplete="off"
           spellcheck="false"
           value={query}
@@ -247,7 +320,23 @@
           {#if loading}…{:else}↻{/if}
         </button>
       </div>
-      {#if rows.length > 0}
+      {#if needsPro}
+        <p class="pro-note">
+          {parsed.kind === 'ask' ? 'Ask' : 'Full-text search'} is part of Remry Pro. <a href="/app/license" onclick={close}>See the License page</a>.
+        </p>
+      {:else if parsed.kind === 'ask' && answer?.query === query}
+        <!-- Enter on a focused link fires click too, so the links work from the keyboard. -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div class="answer" role="presentation" onclick={handleAnswerClick}>
+          {#if answer.state === 'running'}
+            <EmptyState message="Asking Claude…" small />
+          {:else if answer.state === 'failed'}
+            <p class="form-error">{answer.text}</p>
+          {:else}
+            <MarkdownRenderer content={answer.text} />
+          {/if}
+        </div>
+      {:else if rows.length > 0}
         <ul class="results" id="quick-finder-results" role="listbox" aria-label="Results">
           {#each rows as row, i (row.key)}
             {#if submitted && i === 0 && row.kind === 'entry'}
@@ -267,7 +356,10 @@
               onmouseenter={() => (active = i)}
               onmousedown={(e) => { e.preventDefault(); select(row); }}
             >
-              {#if row.kind === 'hit'}
+              {#if row.kind === 'command'}
+                <span class="name mono">/{row.command.id}</span>
+                <span class="kind">{row.command.label}</span>
+              {:else if row.kind === 'hit'}
                 <span class="line">
                   <span class="name truncate">{row.hit.name}</span>
                   <span class="kind">{row.hit.on ? `on ${row.hit.on.name}` : ''}</span>
@@ -283,21 +375,17 @@
               {/if}
             </li>
           {/each}
-          {#if submitted && submitted.hits === null}
-            <li class="heading" role="presentation">Searching full text…</li>
-          {/if}
         </ul>
       {:else}
         <div class="no-results">
-          <EmptyState message={loading || searching ? 'Searching…' : submitted && submitted.hits === null ? 'Searching full text…' : submitted ? 'No results' : 'No matching names. Press ↵ to search.'} small />
+          <EmptyState message={emptyMessage} small />
         </div>
-      {/if}
-      {#if submitted && !pro}
-        <p class="pro-note"><a href="/app/license" onclick={close}>Remry Pro</a> also searches notes, docs and todos.</p>
       {/if}
       <div class="finder-footer">
         <span><kbd>↑↓</kbd> navigate</span>
         <span><kbd>↵</kbd> open or search</span>
+        <span><kbd>/s</kbd> full text</span>
+        <span><kbd>/ask</kbd> ask Claude</span>
         <span><kbd>esc</kbd> close</span>
       </div>
     </div>
@@ -402,10 +490,19 @@
     color: var(--text-3);
   }
 
+  .answer {
+    overflow-y: auto;
+    flex: 1;
+    padding: var(--sp-3);
+    :global(a) {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+  }
+
   .pro-note {
     margin: 0;
-    padding: var(--sp-2) var(--sp-3);
-    border-top: 1px solid var(--border);
+    padding: var(--sp-3);
     font-size: var(--fs-xs);
     color: var(--text-3);
   }
