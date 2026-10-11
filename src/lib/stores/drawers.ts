@@ -1,7 +1,9 @@
-import { get, writable, type Writable } from 'svelte/store';
+import { derived, get, writable, type Readable, type Writable } from 'svelte/store';
 import { parseStoredWidth } from '$lib/common/panel-width';
 import { toggledActive, type ActiveDrawer, type DrawerSide } from '$lib/common/drawer-state';
 import { mediaQuery } from '$lib/stores/media';
+import { layoutConfig } from '$lib/stores/layout';
+import { rightPanelTab } from '$lib/stores/right-panel';
 
 // The left drawer (an entity page's sidebar, `DetailLayout`) and the right one
 // (`RightPanel`). Each floats over the page below its own breakpoint and is
@@ -14,6 +16,12 @@ import { mediaQuery } from '$lib/stores/media';
 export const leftFloating = mediaQuery('(max-width: 1299px)');
 export const belowMd = mediaQuery('(max-width: 767px)');
 export const belowPanelFit = mediaQuery('(max-width: 1149px)');
+
+/** Whether the right panel floats: on list pages (`collapseInfoPanel`) up to 1150px, elsewhere up to 768px. */
+export const rightFloating: Readable<boolean> = derived(
+  [layoutConfig, belowMd, belowPanelFit],
+  ([$layout, $belowMd, $belowPanelFit]) => ($layout.collapseInfoPanel ? $belowPanelFit : $belowMd),
+);
 
 /** The floating drawer that's open, if any. */
 export const activeDrawer = writable<ActiveDrawer>(null);
@@ -85,6 +93,12 @@ export const toggleDrawer = (side: DrawerSide, floating: boolean): void => {
 export const openDrawer = (side: DrawerSide, floating: boolean): void => {
   if (floating) activeDrawer.set(side);
   else dockedStore(side).set(true);
+};
+
+/** Show the right panel on its Peek tab, whether or not a peek was already open there. */
+export const showPeekTab = (): void => {
+  rightPanelTab.set('peek');
+  openDrawer('right', get(rightFloating));
 };
 
 /** Close a floating drawer; a docked one stays as the user left it. */

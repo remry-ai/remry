@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import { page } from '$app/stores';
 import { goto } from '$app/navigation';
+import { showPeekTab } from '$lib/stores/drawers';
 
 // A side peek is URL-driven: `?peek=<id>` opens the <SidePeek> on the page.
 // Opening the first one pushes a history entry, so Back closes it; peeking at
@@ -16,8 +17,10 @@ export const peekHref = (url: URL, id: string | null, param: string = PEEK_PARAM
   return `${next.pathname}${next.search}${next.hash}`;
 };
 
+/** Open a peek, showing the right panel even if the user had closed it (or the same peek is already open). */
 export const openPeek = (id: string, param: string = PEEK_PARAM): Promise<void> => {
   const url = get(page).url;
+  showPeekTab();
   return goto(peekHref(url, id, param), { replaceState: url.searchParams.has(param), noScroll: true, keepFocus: true });
 };
 

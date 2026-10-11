@@ -6,7 +6,7 @@
   import type { NotebookInfo, NotebookSummary } from '$shared/types/notebook';
   import { notebookModel } from '$shared/modules/model';
   import {
-    activeDrawer, belowMd, belowPanelFit, leftDocked, leftDrawer, leftFloating, panelWidth, rightDocked, sidebarWidth,
+    activeDrawer, leftDocked, leftDrawer, leftFloating, panelWidth, rightDocked, rightFloating as rightFloatingStore, sidebarWidth,
   } from '$lib/stores/drawers';
   import { activeAfterResize, isDrawerOpen } from '$lib/common/drawer-state';
   import { drawerCssWidths } from '$lib/common/panel-width';
@@ -41,7 +41,7 @@
   const closeMenu = () => { menuOpen = false; };
 
   // ----- Drawers: docked beside the page, or floating over it below their breakpoints -----
-  const rightFloating = $derived(collapseInfoPanelOnMedium ? $belowPanelFit : $belowMd);
+  const rightFloating = $derived($rightFloatingStore);
   const rightOpen = $derived(showInfoPanel && isDrawerOpen('right', rightFloating, $rightDocked, $activeDrawer));
   const leftOpen = $derived($leftDrawer !== null && isDrawerOpen('left', $leftFloating, $leftDocked, $activeDrawer));
 

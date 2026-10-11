@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A wiki page in a side peek: its kind, properties, parent, content (a sheet
+  // A wiki page in a side peek: its properties, parent, content (a sheet
   // shows as a table), sub-pages and open todos. Read-only; Open goes to the
   // full page, and a sub-page opens in the peek.
   import { page } from '$app/state';
@@ -84,7 +84,6 @@
     <EmptyState message={error} />
   {:else if peeked && wikiPage}
     <dl class="meta-list">
-      <div><dt>Kind</dt><dd><a class="badge" href="/app/wiki?kind={wikiPage.kind}">{kindName(kinds, wikiPage.kind)}</a></dd></div>
       {#each fields as field (field.key)}
         {@const value = wikiPage.properties[field.key]}
         {#if value !== undefined}
