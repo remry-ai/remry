@@ -58,6 +58,28 @@
     }
   };
 
+  /**
+   * Enter on a selected cell opens its editor, keeping its value, as F2 does
+   * (Jspreadsheet would move down instead). Enter while editing still saves
+   * and moves down, and Shift+Enter moves up. It listens on window in the
+   * capture phase to run before the library's own document listener.
+   */
+  const enterToEdit = (lib: typeof jspreadsheet, event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+    // Enter in a field or on a button elsewhere on the page (the sub-page form) is that control's.
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) return;
+    const sheet = worksheet;
+    if (!sheet || !editable || lib.current !== sheet || sheet.edition) return;
+    const selected = sheet.selectedCell?.map(Number);
+    if (!selected || selected[0] !== selected[2] || selected[1] !== selected[3]) return;
+    const cell = sheet.records[selected[1]!]?.[selected[0]!]?.element;
+    if (!cell) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    sheet.openEditor(cell, false, event);
+  };
+
   // Saves run one after another, so an older snapshot never lands after a newer one.
   const schedule = () => {
     if (!editable) return;
@@ -67,6 +89,7 @@
 
   onMount(() => {
     let destroyed = false;
+    let removeKeys: (() => void) | undefined;
     const sheet = readSheetContent(content);
     (async () => {
       const lib = (await import('jspreadsheet-ce')).default;
@@ -105,10 +128,14 @@
         onredo: schedule
       });
       worksheet = instance ?? null;
+      const onKey = (event: KeyboardEvent) => enterToEdit(lib, event);
+      window.addEventListener('keydown', onKey, true);
+      removeKeys = () => window.removeEventListener('keydown', onKey, true);
     })();
 
     return () => {
       destroyed = true;
+      removeKeys?.();
       // Leaving the page with a save still waiting: send it now.
       if (timer !== undefined && worksheet) {
         clearTimeout(timer);
@@ -125,7 +152,7 @@
 <div class="sheet-editor">
   <div class="sheet-grid" bind:this={host}></div>
   <p class="sheet-status text-xs muted" aria-live="polite">
-    {#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Start a cell with = for a formula, like =SUM(B1:B5). Right-click to add or remove rows and columns; double-click a column header to rename it.{/if}
+    {#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Enter or double-click edits a cell; start it with = for a formula, like =SUM(B1:B5). Right-click to add or remove rows and columns; double-click a column header to rename it.{/if}
   </p>
   {#if error}<p class="form-error">{error}</p>{/if}
 </div>
