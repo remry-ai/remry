@@ -6,11 +6,11 @@
 //   bun run setup uninstall    undo that (your notebook data is untouched)
 
 import { spawnSync } from 'node:child_process';
-import { lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { appDataDir } from '$shared/settings/server/app-dirs';
-import { planInstall, planUninstall, repoPaths, type BinLink, type SetupState, type SetupStep } from './plan';
+import { DEV_NAME, DEV_PLUGIN_ENTRIES, devMarketplaceFiles, planInstall, planUninstall, repoPaths, type BinLink, type SetupState, type SetupStep } from './plan';
 
 const REPO = resolve(import.meta.dir, '..', '..');
 
@@ -62,7 +62,13 @@ const readState = async (): Promise<SetupState> => {
     binDirOnPath: (process.env.PATH ?? '').split(delimiter).includes(binDir),
     legacySkillPath,
     legacySkillTarget: legacy.kind === 'symlink' ? legacy.target : null,
-    claude: marketplaces && plugins ? { marketplaces: strings(marketplaces, 'name'), plugins: strings(plugins, 'id') } : null
+    claude: marketplaces && plugins
+      ? {
+          marketplaces: strings(marketplaces, 'name'),
+          plugins: strings(plugins, 'id'),
+          localMarketplaces: strings(marketplaces.filter((m) => strings([m], 'source').includes('directory')), 'name')
+        }
+      : null
   };
 };
 
@@ -91,6 +97,20 @@ const runStep = async (step: SetupStep): Promise<boolean> => {
       console.log(zipped.status === 0 ? `Built ${step.output}` : `Couldn't build ${step.output} (is \`zip\` installed?); skipping.`);
       return true;
     }
+    case 'devMarketplace': {
+      // Rebuilt each run from the clone's plugin/, then reinstalled (planInstall).
+      const manifest: unknown = JSON.parse(await readFile(join(step.pluginDir, '.claude-plugin', 'plugin.json'), 'utf8'));
+      const files = devMarketplaceFiles(typeof manifest === 'object' && manifest !== null ? (manifest as Record<string, unknown>) : {});
+      const plugin = join(step.dir, DEV_NAME);
+      await rm(step.dir, { recursive: true, force: true });
+      await mkdir(join(step.dir, '.claude-plugin'), { recursive: true });
+      await mkdir(join(plugin, '.claude-plugin'), { recursive: true });
+      await writeFile(join(step.dir, '.claude-plugin', 'marketplace.json'), files.marketplace);
+      await writeFile(join(plugin, '.claude-plugin', 'plugin.json'), files.plugin);
+      for (const entry of DEV_PLUGIN_ENTRIES) await cp(join(step.pluginDir, entry), join(plugin, entry), { recursive: true });
+      console.log(`Wrote the ${DEV_NAME} marketplace in ${step.dir}`);
+      return true;
+    }
     case 'claude':
       console.log(`\n$ claude ${step.args.join(' ')}`);
       return spawnSync('claude', [...step.args], { stdio: ['ignore', 'inherit', 'inherit'] }).status === 0;
@@ -117,7 +137,7 @@ const main = async (): Promise<number> => {
   }
   if (command === 'install') {
     console.log(`\nRemry is set up for ${REPO}.`);
-    console.log('- Claude Code: start a new session to use the skill and MCP tools.');
+    console.log(`- Claude Code: start a new session to use ${DEV_NAME}, this clone's plugin.`);
     console.log(`- Claude desktop (Chat and Cowork): add ${repoPaths(REPO).pluginZip} as a plugin.`);
   }
   return 0;

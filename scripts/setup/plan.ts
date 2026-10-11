@@ -1,8 +1,25 @@
 // What `bun run setup` does, decided from the current state. Pure, so it can be
 // tested without touching ~/.claude, PATH or the claude CLI.
 
+/**
+ * The released plugin. Chat and Cowork get it from claude.ai, and Claude desktop checks it
+ * for updates through Claude Code's `remry` marketplace, so that stays registered, from
+ * GitHub. The plugin itself isn't installed in Claude Code: remry-dev is.
+ */
 export const MARKETPLACE = 'remry';
 export const PLUGIN_ID = `remry@${MARKETPLACE}`;
+export const MARKETPLACE_REPO = 'remry-ai/remry';
+/**
+ * What setup installs in Claude Code: this clone's plugin under its own name, from a
+ * marketplace setup writes into dist/, so it isn't mistaken for the released `remry`.
+ */
+export const DEV_NAME = 'remry-dev';
+export const DEV_PLUGIN_ID = `${DEV_NAME}@${DEV_NAME}`;
+/**
+ * The plugin folder's entries the dev copy is made of. Copied, not linked: Claude Code's
+ * plugin cache leaves links out, so a linked skill went missing.
+ */
+export const DEV_PLUGIN_ENTRIES: readonly string[] = ['skills', 'scripts', '.mcp.json'];
 /** The marketplaces and plugins under earlier names (Wonos, Working Notes), which setup replaces. */
 export const LEGACY_MARKETPLACES: readonly string[] = ['wonos', 'working-notes'];
 export const LEGACY_PLUGIN_IDS: readonly string[] = LEGACY_MARKETPLACES.map((name) => `${name}@${name}`);
@@ -12,6 +29,8 @@ export interface ClaudePlugins {
   readonly marketplaces: readonly string[];
   /** Plugin ids (`name@marketplace`) from `claude plugin list`. */
   readonly plugins: readonly string[];
+  /** The marketplaces added from a local folder (`"source": "directory"`). */
+  readonly localMarketplaces: readonly string[];
 }
 
 /** What is at the PATH link location now. */
@@ -45,6 +64,8 @@ export type SetupStep =
   | { readonly kind: 'remove'; readonly path: string }
   | { readonly kind: 'link'; readonly path: string; readonly target: string }
   | { readonly kind: 'pack'; readonly pluginDir: string; readonly output: string }
+  /** Writes the remry-dev marketplace into `dir`, its plugin a renamed copy of `pluginDir` (devMarketplaceFiles). */
+  | { readonly kind: 'devMarketplace'; readonly dir: string; readonly pluginDir: string }
   | { readonly kind: 'claude'; readonly args: readonly string[] }
   | { readonly kind: 'note'; readonly message: string };
 
@@ -53,13 +74,38 @@ export interface RepoPaths {
   readonly pluginDir: string;
   /** The plugin zipped for Claude desktop (Chat and Cowork). */
   readonly pluginZip: string;
+  /** The remry-dev marketplace setup writes for Claude Code. */
+  readonly devMarketplace: string;
 }
 
 export const repoPaths = (repoDir: string): RepoPaths => ({
   cli: `${repoDir}/bin/remry`,
   pluginDir: `${repoDir}/plugin`,
-  pluginZip: `${repoDir}/dist/remry.zip`
+  pluginZip: `${repoDir}/dist/remry.zip`,
+  devMarketplace: `${repoDir}/dist/dev-marketplace`
 });
+
+export interface DevMarketplaceFiles {
+  /** `<dir>/.claude-plugin/marketplace.json` */
+  readonly marketplace: string;
+  /** `<dir>/remry-dev/.claude-plugin/plugin.json`: the plugin's manifest, renamed. */
+  readonly plugin: string;
+}
+
+/** The two files of the remry-dev marketplace, from the clone's plugin.json. */
+export const devMarketplaceFiles = (manifest: Readonly<Record<string, unknown>>): DevMarketplaceFiles => {
+  const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
+  const description = 'Remry from this clone, for development.';
+  return {
+    marketplace: json({
+      name: DEV_NAME,
+      owner: { name: 'jweatherby' },
+      metadata: { description },
+      plugins: [{ name: DEV_NAME, source: `./${DEV_NAME}`, description, version: manifest['version'] }]
+    }),
+    plugin: json({ ...manifest, name: DEV_NAME })
+  };
+};
 
 const isInside = (path: string, dir: string): boolean => path === dir || path.startsWith(`${dir}/`);
 
@@ -87,20 +133,46 @@ const binLinkSteps = (s: SetupState): readonly SetupStep[] => {
 };
 
 export const planInstall = (s: SetupState): readonly SetupStep[] => {
-  const { pluginDir, pluginZip } = repoPaths(s.repoDir);
+  const { pluginDir, pluginZip, devMarketplace } = repoPaths(s.repoDir);
   const pointer: readonly SetupStep[] = s.pointer === s.repoDir ? [] : [{ kind: 'write', path: s.pointerFile, contents: s.repoDir }];
-  const local: readonly SetupStep[] = [...pointer, ...binLinkSteps(s), ...legacyLink(s), { kind: 'pack', pluginDir, output: pluginZip }];
-  const addMarketplace = ['plugin', 'marketplace', 'add', s.repoDir];
-  const installPlugin = ['plugin', 'install', PLUGIN_ID];
+  const local: readonly SetupStep[] = [
+    ...pointer,
+    ...binLinkSteps(s),
+    ...legacyLink(s),
+    { kind: 'pack', pluginDir, output: pluginZip },
+    { kind: 'devMarketplace', dir: devMarketplace, pluginDir }
+  ];
+  const addMarketplace = ['plugin', 'marketplace', 'add', devMarketplace];
+  const installPlugin = ['plugin', 'install', DEV_PLUGIN_ID];
 
   if (!s.claude) {
     const commands = [addMarketplace, installPlugin].map((args) => `  claude ${args.map(shellQuote).join(' ')}`).join('\n');
     return [...local, { kind: 'note', message: `claude isn't on PATH. To install the plugin in Claude Code, run:\n${commands}` }];
   }
 
-  const marketplace = s.claude.marketplaces.includes(MARKETPLACE) ? ['plugin', 'marketplace', 'update', MARKETPLACE] : addMarketplace;
-  const plugin = s.claude.plugins.includes(PLUGIN_ID) ? ['plugin', 'update', PLUGIN_ID] : installPlugin;
-  return [...local, ...legacyPlugin(s.claude), { kind: 'claude', args: marketplace }, { kind: 'claude', args: plugin }];
+  // Reinstalled each run: the version rarely changes between runs, and Claude Code only
+  // refreshes its cached copy of the skill on a new version or a fresh install.
+  const marketplace = s.claude.marketplaces.includes(DEV_NAME) ? ['plugin', 'marketplace', 'update', DEV_NAME] : addMarketplace;
+  const plugin: readonly SetupStep[] = [
+    ...(s.claude.plugins.includes(DEV_PLUGIN_ID) ? [{ kind: 'claude', args: ['plugin', 'uninstall', DEV_PLUGIN_ID] } as const] : []),
+    { kind: 'claude', args: installPlugin }
+  ];
+  return [...local, ...legacyPlugin(s.claude), ...released(s.claude), { kind: 'claude', args: marketplace }, ...plugin];
+};
+
+/**
+ * Removes the released `remry` plugin an earlier setup installed in Claude Code, so it
+ * doesn't run beside remry-dev, and keeps its marketplace registered from GitHub (an
+ * earlier setup added it from this clone's folder): without it, Claude desktop can't
+ * check the released plugin for updates.
+ */
+const released = (claude: ClaudePlugins): readonly SetupStep[] => {
+  const local = claude.localMarketplaces.includes(MARKETPLACE);
+  return [
+    ...(claude.plugins.includes(PLUGIN_ID) ? [{ kind: 'claude', args: ['plugin', 'uninstall', PLUGIN_ID] } as const] : []),
+    ...(local ? [{ kind: 'claude', args: ['plugin', 'marketplace', 'remove', MARKETPLACE] } as const] : []),
+    ...(local || !claude.marketplaces.includes(MARKETPLACE) ? [{ kind: 'claude', args: ['plugin', 'marketplace', 'add', MARKETPLACE_REPO] } as const] : [])
+  ];
 };
 
 /** Removes the plugins and marketplaces from before the renames, so Claude doesn't run two. */
@@ -112,8 +184,9 @@ const legacyPlugin = (claude: ClaudePlugins | null): readonly SetupStep[] => [
 ];
 
 export const planUninstall = (s: SetupState): readonly SetupStep[] => [
-  ...(s.claude?.plugins.includes(PLUGIN_ID) ? [{ kind: 'claude', args: ['plugin', 'uninstall', PLUGIN_ID] } as const] : []),
-  ...(s.claude?.marketplaces.includes(MARKETPLACE) ? [{ kind: 'claude', args: ['plugin', 'marketplace', 'remove', MARKETPLACE] } as const] : []),
+  ...(s.claude?.plugins.includes(DEV_PLUGIN_ID) ? [{ kind: 'claude', args: ['plugin', 'uninstall', DEV_PLUGIN_ID] } as const] : []),
+  ...(s.claude?.marketplaces.includes(DEV_NAME) ? [{ kind: 'claude', args: ['plugin', 'marketplace', 'remove', DEV_NAME] } as const] : []),
+  // The GitHub `remry` marketplace stays: Claude desktop checks the released plugin through it.
   ...legacyPlugin(s.claude),
   // Another clone may have claimed the pointer or the PATH link since; leave those alone.
   ...(s.pointer === s.repoDir ? [{ kind: 'remove', path: s.pointerFile } as const] : []),

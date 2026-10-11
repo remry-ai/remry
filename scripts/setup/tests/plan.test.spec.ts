@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { PLUGIN_ID, planInstall, planUninstall, type SetupState } from '../plan';
+import { DEV_PLUGIN_ID, MARKETPLACE_REPO, PLUGIN_ID, devMarketplaceFiles, planInstall, planUninstall, type SetupState } from '../plan';
 
 const repo = '/Users/me/code/remry';
 const cli = `${repo}/bin/remry`;
 const pack = { kind: 'pack', pluginDir: `${repo}/plugin`, output: `${repo}/dist/remry.zip` } as const;
+const devDir = `${repo}/dist/dev-marketplace`;
+const dev = { kind: 'devMarketplace', dir: devDir, pluginDir: `${repo}/plugin` } as const;
 
 const base: SetupState = {
   repoDir: repo,
@@ -14,33 +16,60 @@ const base: SetupState = {
   binDirOnPath: true,
   legacySkillPath: '/Users/me/.claude/skills/working-notes',
   legacySkillTarget: null,
-  claude: { marketplaces: [], plugins: [] }
+  claude: { marketplaces: [], plugins: [], localMarketplaces: [] }
 };
 
 const installed: SetupState = {
   ...base,
   pointer: repo,
   binLink: { kind: 'symlink', target: cli },
-  claude: { marketplaces: ['remry'], plugins: [PLUGIN_ID] }
+  claude: { marketplaces: ['remry', 'remry-dev'], plugins: [DEV_PLUGIN_ID], localMarketplaces: ['remry-dev'] }
 };
 
 describe('planInstall', () => {
-  it('writes the pointer, links remry, builds the zip, adds the marketplace and installs on a fresh machine', () => {
+  it('writes the pointer, links remry, builds the zip and the remry-dev marketplace, and installs remry-dev on a fresh machine', () => {
     expect(planInstall(base)).toEqual([
       { kind: 'write', path: '/data/app-path', contents: repo },
       { kind: 'link', path: '/Users/me/.bun/bin/remry', target: cli },
       pack,
-      { kind: 'claude', args: ['plugin', 'marketplace', 'add', repo] },
-      { kind: 'claude', args: ['plugin', 'install', PLUGIN_ID] }
+      dev,
+      { kind: 'claude', args: ['plugin', 'marketplace', 'add', MARKETPLACE_REPO] },
+      { kind: 'claude', args: ['plugin', 'marketplace', 'add', devDir] },
+      { kind: 'claude', args: ['plugin', 'install', DEV_PLUGIN_ID] }
     ]);
   });
 
-  it('only rebuilds the zip and updates when everything is already in place', () => {
+  it('rebuilds the zip and the marketplace and reinstalls remry-dev when everything is already in place', () => {
     expect(planInstall(installed)).toEqual([
       pack,
-      { kind: 'claude', args: ['plugin', 'marketplace', 'update', 'remry'] },
-      { kind: 'claude', args: ['plugin', 'update', PLUGIN_ID] }
+      dev,
+      { kind: 'claude', args: ['plugin', 'marketplace', 'update', 'remry-dev'] },
+      { kind: 'claude', args: ['plugin', 'uninstall', DEV_PLUGIN_ID] },
+      { kind: 'claude', args: ['plugin', 'install', DEV_PLUGIN_ID] }
     ]);
+  });
+
+  it('uninstalls the released remry an earlier setup installed, and moves its marketplace from the folder to GitHub', () => {
+    const steps = planInstall({ ...base, claude: { marketplaces: ['remry'], plugins: [PLUGIN_ID], localMarketplaces: ['remry'] } });
+    expect(steps.flatMap((step) => (step.kind === 'claude' ? [step.args.join(' ')] : []))).toEqual([
+      `plugin uninstall ${PLUGIN_ID}`,
+      'plugin marketplace remove remry',
+      `plugin marketplace add ${MARKETPLACE_REPO}`,
+      `plugin marketplace add ${devDir}`,
+      `plugin install ${DEV_PLUGIN_ID}`
+    ]);
+  });
+
+  it('keeps a GitHub remry marketplace, which Claude desktop checks the released plugin through', () => {
+    const claude = planInstall(installed).flatMap((step) => (step.kind === 'claude' ? [step.args.join(' ')] : []));
+    expect(claude.some((c) => c.includes('marketplace remove remry') || c.includes(MARKETPLACE_REPO))).toBe(false);
+    expect(planUninstall(installed).flatMap((step) => (step.kind === 'claude' ? [step.args.join(' ')] : []))).not.toContain('plugin marketplace remove remry');
+  });
+
+  it('names the dev copy remry-dev in both files, and keeps the rest of the manifest', () => {
+    const files = devMarketplaceFiles({ name: 'remry', version: '1.2.3', description: 'Notebooks' });
+    expect(JSON.parse(files.plugin)).toEqual({ name: 'remry-dev', version: '1.2.3', description: 'Notebooks' });
+    expect(JSON.parse(files.marketplace)).toMatchObject({ name: 'remry-dev', plugins: [{ name: 'remry-dev', source: './remry-dev', version: '1.2.3' }] });
   });
 
   it("moves another clone's PATH link, but leaves other commands named remry alone", () => {
@@ -70,16 +99,16 @@ describe('planInstall', () => {
     const steps = planInstall({ ...base, repoDir: '/Users/me/My Code/remry', claude: null });
     expect(steps.some((s) => s.kind === 'claude')).toBe(false);
     const note = steps.find((s) => s.kind === 'note');
-    expect(note?.kind === 'note' && note.message).toContain(`claude plugin marketplace add '/Users/me/My Code/remry'`);
-    expect(note?.kind === 'note' && note.message).toContain(`claude plugin install ${PLUGIN_ID}`);
+    expect(note?.kind === 'note' && note.message).toContain(`claude plugin marketplace add '/Users/me/My Code/remry/dist/dev-marketplace'`);
+    expect(note?.kind === 'note' && note.message).toContain(`claude plugin install ${DEV_PLUGIN_ID}`);
   });
 });
 
 describe('planUninstall', () => {
   it('uninstalls the plugin and marketplace and removes our pointer and PATH link', () => {
     expect(planUninstall(installed)).toEqual([
-      { kind: 'claude', args: ['plugin', 'uninstall', PLUGIN_ID] },
-      { kind: 'claude', args: ['plugin', 'marketplace', 'remove', 'remry'] },
+      { kind: 'claude', args: ['plugin', 'uninstall', DEV_PLUGIN_ID] },
+      { kind: 'claude', args: ['plugin', 'marketplace', 'remove', 'remry-dev'] },
       { kind: 'remove', path: '/data/app-path' },
       { kind: 'remove', path: '/Users/me/.bun/bin/remry' }
     ]);
@@ -93,7 +122,7 @@ describe('planUninstall', () => {
 describe('the plugins from before the renames to Wonos and Remry', () => {
   const legacy: SetupState = {
     ...installed,
-    claude: { marketplaces: ['working-notes', 'wonos', 'remry'], plugins: ['working-notes@working-notes', 'wonos@wonos', PLUGIN_ID] }
+    claude: { marketplaces: ['working-notes', 'wonos', 'remry', 'remry-dev'], plugins: ['working-notes@working-notes', 'wonos@wonos', DEV_PLUGIN_ID], localMarketplaces: [] }
   };
 
   it('are removed on install, before the new one is updated', () => {
@@ -103,8 +132,9 @@ describe('the plugins from before the renames to Wonos and Remry', () => {
       'plugin uninstall working-notes@working-notes',
       'plugin marketplace remove wonos',
       'plugin marketplace remove working-notes',
-      'plugin marketplace update remry',
-      `plugin update ${PLUGIN_ID}`
+      'plugin marketplace update remry-dev',
+      `plugin uninstall ${DEV_PLUGIN_ID}`,
+      `plugin install ${DEV_PLUGIN_ID}`
     ]);
   });
 
