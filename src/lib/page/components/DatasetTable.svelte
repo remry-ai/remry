@@ -5,6 +5,8 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import PeekIcon from '$lib/ui/PeekIcon.svelte';
+  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { formatNumber, formatPropertyValue, optionLabel } from '$lib/page/utils';
   import { DATASET_PARAMS, readDatasetParams, withDatasetParam } from '$lib/page/dataset-url';
   import {
@@ -34,6 +36,7 @@
   const { kind, pages, count, totals, groups }: Props = $props();
 
   const fields = $derived(kind.fields);
+  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
   const view = $derived(readDatasetParams(page.url.searchParams));
   const TITLE: PageKindField = { key: 'title', label: 'Title', input: 'text' };
   const filterFields = $derived([TITLE, ...fields]);
@@ -221,8 +224,15 @@
             </tr>
           {/if}
           {#each section.rows as row (row.id)}
-            <tr>
-              <td><a href={row.path}>{row.title}</a>{#if row.archivedAt} <span class="badge muted">Archived</span>{/if}</td>
+            <tr class:active={peekId === row.id}>
+              <td>
+                <span class="title-cell">
+                  <a href={row.path}>{row.title}</a>{#if row.archivedAt} <span class="badge muted">Archived</span>{/if}
+                  <span class="row-actions">
+                    <button type="button" class="btn icon sm" aria-label="Peek at {row.title}" title="Peek" onclick={() => openPeek(row.id)}><PeekIcon /></button>
+                  </span>
+                </span>
+              </td>
               {#each fields as field (field.key)}
                 <td class="text-2" class:num={field.input === 'number'}>
                   {#if field.input === 'url' && row.properties[field.key] !== undefined}
@@ -270,6 +280,11 @@
 {/if}
 
 <style lang="scss">
+  .title-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
   .total {
     display: inline-flex;
     align-items: center;

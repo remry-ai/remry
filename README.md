@@ -151,7 +151,7 @@ synced the page from it.
 
 Press ⌘K to search. Start with `/` to look in one place only, as in `/person dana`.
 
-The right-hand panel holds a page's **Notes**, a **Peek** at a project opened from the projects
+The right-hand panel holds a page's **Notes**, a **Peek** at a project or wiki page opened from its
 list, and a **Chat** tab. Chat is for asking about what is on screen. It runs your own copy of
 Claude, and keeps each page's conversation in the notebook until you clear it or delete the page.
 

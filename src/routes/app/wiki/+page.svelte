@@ -12,6 +12,10 @@
   import DatasetTable from '$lib/page/components/DatasetTable.svelte';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
   import { formatPropertyValue, kindName } from '$lib/page/utils';
+  import { page as appPage } from '$app/state';
+  import PagePeek from '$lib/page/components/PagePeek.svelte';
+  import PeekIcon from '$lib/ui/PeekIcon.svelte';
+  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
 
   const { data } = $props<{ data: PageData }>();
   const pages = $derived(data.pages as readonly PageSummary[]);
@@ -50,6 +54,8 @@
       .join(' · ');
 
   const formatDate = (d: Date | string): string => new Date(d).toLocaleDateString('en-CA');
+
+  const peekId = $derived(appPage.url.searchParams.get(PEEK_PARAM));
 
   const handleCreated = () => closePopup({ invalidate: true });
 </script>
@@ -101,7 +107,7 @@
           </thead>
           <tbody>
             {#each rows as { item: page, depth, children } (page.id)}
-              <tr>
+              <tr class:active={peekId === page.id}>
                 <td>
                   <span class="page-name" style="--depth: {depth}">
                     {#if depth > 0}<span class="tree-indent">└</span>{/if}
@@ -111,6 +117,9 @@
                       <span class="disclosure-spacer"></span>
                     {/if}
                     <a href={page.path}>{page.title}</a>{#if page.bodyType === 'sheet'} <span class="badge muted">Sheet</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <span class="row-actions">
+                      <button type="button" class="btn icon sm" aria-label="Peek at {page.title}" title="Peek" onclick={() => openPeek(page.id)}><PeekIcon /></button>
+                    </span>
                   </span>
                 </td>
                 <td><a class="badge" href="/app/wiki?kind={page.kind}">{kindName(kinds, page.kind)}</a></td>
@@ -130,6 +139,10 @@
     </EmptyState>
   {/if}
 </div>
+
+{#if peekId}
+  <PagePeek id={peekId} {kinds} />
+{/if}
 
 <Popup id="new-page" title="Add page">
   <PageForm initial={{ kind: currentKind?.key ?? 'GENERAL' }} {kinds} onSuccess={handleCreated} onCancel={() => closePopup()} />
