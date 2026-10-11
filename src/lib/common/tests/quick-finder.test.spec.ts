@@ -1,44 +1,65 @@
 import { describe, it, expect } from 'vitest';
-import { finderRows, type FinderRow, type FinderSources } from '../quick-finder';
+import type { SearchHit } from '$shared/types/search';
+import { autocompleteRows, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
 
-const sources: FinderSources = {
-  scopes: [
-    { id: 'TEAM', label: 'Team', slash: 'team' },
-    { id: 'PROJECT', label: 'Project', slash: 'project' }
-  ],
-  commands: [
-    { id: 'todo', label: 'New todo', slash: 'todo' },
-    { id: 'notebook', label: 'New notebook', slash: 'notebook' }
-  ],
-  entries: [
-    { id: 'TEAM:1', name: 'Console', scope: 'TEAM', meta: 'Team' },
-    { id: 'PROJECT:1', name: 'Console migration', scope: 'PROJECT', meta: 'Project' },
-    { id: 'route:/app/teams', name: 'Teams', meta: 'Go to' },
-    { id: 'notebook:side', name: 'Switch to side', meta: 'Notebook' }
-  ],
-  home: [{ id: 'route:/app/teams', name: 'Teams', meta: 'Go to' }]
-};
+const entries: readonly FinderEntry[] = [
+  { id: 'GROUP:1', name: 'Console', scope: 'GROUP', meta: 'Team' },
+  { id: 'PROJECT:1', name: 'Console migration', scope: 'PROJECT', meta: 'Project' },
+  { id: 'PROJECT:2', name: 'Migrate the web console', scope: 'PROJECT', meta: 'Project' },
+  { id: 'route:/app/teams', name: 'Teams', meta: 'Go to' },
+  { id: 'notebook:side', name: 'Switch to side', meta: 'Notebook' }
+];
+const home = [entries[3]!];
+
+const hit = (entityType: SearchHit['entityType'], entityId: string): SearchHit => ({
+  entityType,
+  entityId,
+  name: entityId,
+  path: `/app/x/${entityId}`,
+  on: null,
+  snippet: '',
+  score: 0
+});
 
 const keys = (rows: readonly FinderRow[]): readonly string[] => rows.map((row) => row.key);
 
-describe('finderRows', () => {
-  it('lists the commands, then the app sections, before anything is typed', () => {
-    expect(keys(finderRows('', sources))).toEqual(['command:todo', 'command:notebook', 'route:/app/teams']);
+describe('autocompleteRows', () => {
+  it('lists the app sections before anything is typed', () => {
+    expect(keys(autocompleteRows('', entries, home))).toEqual(['route:/app/teams']);
   });
 
-  it('lists types, then commands, for a slash', () => {
-    expect(keys(finderRows('/', sources))).toEqual(['scope:TEAM', 'scope:PROJECT', 'command:todo', 'command:notebook']);
-    expect(keys(finderRows('/t', sources))).toEqual(['scope:TEAM', 'command:todo']);
-    expect(keys(finderRows('/todo ', sources))).toEqual(['command:todo']);
+  it('lists names containing the query, those starting with it first', () => {
+    expect(keys(autocompleteRows('con', entries, home))).toEqual(['GROUP:1', 'PROJECT:1', 'PROJECT:2']);
+    expect(keys(autocompleteRows('side', entries, home))).toEqual(['notebook:side']);
   });
 
-  it('searches everything for plain text', () => {
-    expect(keys(finderRows('con', sources))).toEqual(['TEAM:1', 'PROJECT:1']);
-    expect(keys(finderRows('side', sources))).toEqual(['notebook:side']);
+  it('treats a slash as plain text', () => {
+    expect(keys(autocompleteRows('/team', entries, home))).toEqual([]);
   });
+});
 
-  it('searches one type after a slash word and a space', () => {
-    expect(keys(finderRows('/project con', sources))).toEqual(['PROJECT:1']);
-    expect(keys(finderRows('/team ', sources))).toEqual(['TEAM:1']);
+describe('titleMatches', () => {
+  it('matches every word in any order', () => {
+    expect(titleMatches(entries, 'console migra').map((e) => e.id)).toEqual(['PROJECT:1', 'PROJECT:2']);
+    expect(titleMatches(entries, 'web migrate').map((e) => e.id)).toEqual(['PROJECT:2']);
+    expect(titleMatches(entries, '   ')).toEqual([]);
+  });
+});
+
+describe('submittedRows', () => {
+  it('lists title matches, then full-text hits that are not already listed', () => {
+    const rows = submittedRows([entries[2]!], [hit('PROJECT', '2'), hit('NOTE', 'n1')]);
+    expect(keys(rows)).toEqual(['PROJECT:2', 'hit:NOTE:n1']);
+  });
+});
+
+describe('snippetParts', () => {
+  it('splits out the bold matches', () => {
+    expect(snippetParts('the **web** console **move**')).toEqual([
+      { text: 'the ', match: false },
+      { text: 'web', match: true },
+      { text: ' console ', match: false },
+      { text: 'move', match: true }
+    ]);
   });
 });

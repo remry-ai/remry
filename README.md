@@ -149,7 +149,7 @@ synced the page from it.
 
 ![The home dashboard: open todos, a feed of recent changes, and a graph of what links to one thing](docs/images/home.png)
 
-Press ⌘K to search. Start with `/` to look in one place only, as in `/person dana`.
+Press ⌘K to search. Names fill in as you type; when nothing matches, press Enter to search titles, and with Remry Pro the full text of notes, docs and todos too.
 
 The right-hand panel holds a page's **Notes**, a **Peek** at a project or wiki page opened from its
 list, and a **Chat** tab. Chat is for asking about what is on screen. It runs your own copy of
