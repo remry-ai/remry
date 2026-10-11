@@ -12,7 +12,7 @@ import { getRegistry } from '$shared/registry.server';
 import { ok, err, type Result } from '$shared/utils/result';
 import { createSnapshot, listSnapshots } from './snapshot';
 import { isPortListening } from './port';
-import { APP_PORT, LEGACY_APP_PORTS } from '../../cli/app-server';
+import { APP_PORT, DEV_PORT, LEGACY_APP_PORTS } from '../../cli/app-server';
 
 export interface RestoreOptions {
   readonly appPort?: number;
@@ -24,7 +24,7 @@ export const restoreSnapshot = async (
   target: string,
   options: RestoreOptions = {}
 ): Promise<Result<{ readonly restored: string; readonly safetySnapshot: string | null }>> => {
-  for (const port of options.appPort ? [options.appPort] : [APP_PORT, ...LEGACY_APP_PORTS]) {
+  for (const port of options.appPort ? [options.appPort] : [...new Set([APP_PORT, DEV_PORT, ...LEGACY_APP_PORTS])]) {
     if (await isPortListening(port)) {
       return err(new Error(`Remry is running on 127.0.0.1:${port}. Quit it, then restore.`));
     }

@@ -114,7 +114,7 @@ The shim runs, in order: the clone named by `$REMRY_HOME`; the clone in `<data d
   - writes the pointer
   - links `remry` into Bun's global bin folder
   - zips `plugin/` into `dist/remry.zip` for Claude desktop Chat and Cowork
-  - installs or updates the Claude Code plugin
+  - installs this clone's plugin in Claude Code as **`remry-dev`** (`remry-dev@remry-dev`), so it isn't mistaken for the released `remry` that Chat and Cowork get from claude.ai. It writes a marketplace into `dist/dev-marketplace` whose plugin is a copy of `plugin/` renamed (`devMarketplaceFiles`; copied, since Claude Code's cache leaves links out), and reinstalls it each run, so re-run setup after changing the skill. It uninstalls a released `remry` plugin an earlier setup installed in Claude Code, but keeps the `remry` marketplace registered from GitHub (`remry-ai/remry`): Claude desktop checks the released plugin for updates through it (`claude plugin marketplace update remry`), and fails with `NOT_REGISTERED` without it. Its tools are `mcp__plugin_remry-dev_remry__*`
 
   `bun run setup uninstall` undoes that. The logic is the pure `planInstall`/`planUninstall` in `scripts/setup/plan.ts`.
 - **Why a subdirectory:** the plugin's cache copy holds only the skill, the shim and `.mcp.json`. At the repo root, the whole app would be copied, including the `bin/` folder that claude.ai-hosted plugins reject.
@@ -137,7 +137,7 @@ Releases include the app, so a computer that installs the plugin needs no clone 
 - **The binary:** `cli/standalone.ts` sets `REMRY_STANDALONE` and `REMRY_MIGRATIONS_DIR`, then runs `mcp`, `backup`, `app` (`cli/app-server.ts`: the SvelteKit server plus static files, on 127.0.0.1:7369) or a procedure. `cli/main.ts` and `cli/mcp.ts` don't chdir to a repo when `REMRY_STANDALONE` is set.
 - **Native SQLite:** libsql picks its native module with a runtime `require`, which a bundler can't follow. `scripts/release/libsql.ts` rewrites it into a static require so Bun embeds the module, and fails the build if libsql changes that line.
 - **Cowork:** sessions run in a sandbox (a VM on the Mac, or the cloud) that can't see `~/Library/Application Support`. Claude desktop runs the plugin's MCP server on the Mac and bridges its tools into local sessions only, so the tools are the only way in. The skill and the MCP instructions tell Claude never to read the data folder, run `remry` from a sandbox, or ask for the folder to be attached; a SQLite database opened from both the VM and the Mac isn't safe.
-- **On the user's computer:** the shim copies the binary (with `cat`, which drops a download quarantine flag) and `migrations/` into `<data dir>/App/<version>`, and points `App/current` at it. On Windows, `plugin/scripts/remry.cmd` does the same with `copy` and a directory junction, so a plugin update never replaces a running `.exe`; under Git Bash the `sh` shim hands over to it. A clone on Windows runs through `cli/clone-entry.ts`, which does what `bin/remry` does. `remry backup install` from a release makes the LaunchAgent run `App/current/remry backup`, which keeps working across updates. The MCP tool `app_open` starts the app in the background. A release app reports its version (`GET /__remry/app`); when the MCP server starts, and on `app_open`, a release replaces an app of a different version (`POST /__remry/app/stop`, loopback and the local header only), so updating the plugin and restarting Claude desktop updates the app too. It never stops what it can't identify, such as a clone's dev server. The plan is the pure `planAppLaunch` in `cli/app-launch.ts`. `app_restart` (MCP) and `remry app restart` (`cli/app-restart.ts`) stop the app explicitly, whatever its version: through the stop endpoint, or by pid for an app without it (a clone's dev server, a release before 0.6.6), and never a process that isn't Remry (`isRemryCommand`). It finds the pid with `lsof` and `ps`, or PowerShell on Windows.
+- **On the user's computer:** the shim copies the binary (with `cat`, which drops a download quarantine flag) and `migrations/` into `<data dir>/App/<version>`, and points `App/current` at it. On Windows, `plugin/scripts/remry.cmd` does the same with `copy` and a directory junction, so a plugin update never replaces a running `.exe`; under Git Bash the `sh` shim hands over to it. A clone on Windows runs through `cli/clone-entry.ts`, which does what `bin/remry` does. `remry backup install` from a release makes the LaunchAgent run `App/current/remry backup`, which keeps working across updates. The MCP tool `app_open` starts the app in the background. A release app reports its version (`GET /__remry/app`); when the MCP server starts, and on `app_open`, a release replaces an app of a different version (`POST /__remry/app/stop`, loopback and the local header only), so updating the plugin and restarting Claude desktop updates the app too. It never stops what it can't identify, such as a clone's dev server. A clone's app is its dev server on `DEV_PORT` (5173) and a release's on `APP_PORT` (7369): `AppOwner.port`, which `app_open` and `app_restart` use and report, so a dev server and a release app run side by side. Releases before 0.14.9 ran on 5173 too; a release stops one it finds there (`stopLegacyApps`), but only an app that reports its version, never the dev server. The plan is the pure `planAppLaunch` in `cli/app-launch.ts`. `app_restart` (MCP) and `remry app restart` (`cli/app-restart.ts`) stop the app explicitly, whatever its version: through the stop endpoint, or by pid for an app without it (a clone's dev server, a release before 0.6.6), and never a process that isn't Remry (`isRemryCommand`). It finds the pid with `lsof` and `ps`, or PowerShell on Windows.
 
 ## Remry Pro (licenses)
 
@@ -188,7 +188,7 @@ Three features need a yearly license: **full-text search** (`search.query`, `sea
 - `bun run backup install` (macOS) also adds one hourly LaunchAgent (`dev.jweatherby.remry.backup`), for backups while nothing else is running; `uninstall` removes it. It shares the hour, and the lock, with the processes above. The log is `~/Library/Logs/Remry/backup.log`. A manual `backup` run takes the lock too, and says so when another process holds it.
 - `bun run backup --force --reason "<why>"` snapshots regardless. Do this before bulk or destructive changes.
 - `bun run backup list` shows snapshots with counts, per notebook.
-- `bun run backup restore <id|latest> --notebook <id>` refuses while the app is running on 7369, checks the snapshot's integrity, snapshots the current data first, then restores and migrates forward. `--notebook` may be left out only when there is one notebook.
+- `bun run backup restore <id|latest> --notebook <id>` refuses while the app is running (on 7369, or a dev server on 5173), checks the snapshot's integrity, snapshots the current data first, then restores and migrates forward. `--notebook` may be left out only when there is one notebook.
 - **Retention:** per notebook, everything from the last 48h, then one per day for 30 days, then one per week for 26 weeks, and always the 3 newest.
 - **Snapshots stay on this disk,** so they don't protect against disk failure. Time Machine does, and it backs up Application Support automatically.
 
@@ -196,13 +196,13 @@ Three features need a yearly license: **full-text search** (`search.query`, `sea
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Dev server on http://127.0.0.1:7369 |
+| `bun run dev` | Dev server on http://127.0.0.1:5173 (`DEV_PORT`; a release's app is on 7369, `APP_PORT`, so both can run) |
 | `bun run build && bun run start` | Production server, loopback only |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
 | `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) |
 | `bun run test:integration` | Integration tests against `./data/test` |
 | `remry <procedure> [--field value] [--notebook <id>]` | Call the API in-process (also `bin/remry`, `bun run remry`) |
-| `remry app` | Dev server, from any directory |
+| `remry app` | Dev server on 5173, from any directory |
 | `remry app restart` | Stop the running app and start it again |
 | `remry mcp` | MCP server on stdio, for Claude desktop Chat, Cowork and Claude Code |
 | `bun run backup [list\|restore\|install\|uninstall] [--notebook <id>]` | Snapshots and restore (also `remry backup`) |

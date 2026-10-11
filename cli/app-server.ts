@@ -13,7 +13,15 @@ export interface SvelteKitServer {
 export const APP_HOST = '127.0.0.1';
 /** 7369 spells REMY on a phone keypad. Not 5173, Vite's default, which other dev servers take. */
 export const APP_PORT = 7369;
-/** Where apps before 0.14.9 ran; a newer one stops a Remry app it finds there (cli/app-launch.ts). */
+/**
+ * A clone's dev server (`bun run dev`, `remry app` from a clone): SvelteKit's usual port, so a
+ * release app and a dev server can run side by side.
+ */
+export const DEV_PORT = 5173;
+/**
+ * Where release apps before 0.14.9 ran; a newer release stops one it finds there
+ * (cli/app-launch.ts). It's DEV_PORT too, so only an app that reports a version goes.
+ */
 export const LEGACY_APP_PORTS: readonly number[] = [5173];
 
 const IMMUTABLE = '/_app/immutable/';

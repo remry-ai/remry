@@ -7,7 +7,7 @@ git clone <repo-url> remry
 cd remry
 bun install
 bun run setup              # put `remry` on PATH and install the Claude plugin
-remry app                 # the UI at http://127.0.0.1:7369
+remry app                 # the dev server at http://127.0.0.1:5173
 ```
 
 The database is created on first use. Try it:
@@ -27,7 +27,9 @@ Four things, and it's safe to re-run:
 1. Writes a pointer at this clone (`<data dir>/app-path`).
 2. Links `remry` into Bun's global bin folder (`~/.bun/bin`), so it works from any directory.
 3. Zips `plugin/` into `dist/remry.zip`, for Claude desktop Chat and Cowork.
-4. Installs or updates the Claude Code plugin, from this clone as a local marketplace.
+4. Installs this clone's plugin in Claude Code as `remry-dev`, from a marketplace it writes into
+   `dist/dev-marketplace`, so it isn't mistaken for the released `remry` that Chat and Cowork get from
+   claude.ai. Re-run setup after changing the skill: it reinstalls `remry-dev` each time.
 
 The pointer matters: because of it, the plugin's MCP server runs **this clone's code** instead of a
 release's. The shim, `plugin/scripts/remry`, tries three sources in order — `$REMRY_HOME`,
@@ -45,7 +47,7 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Dev server on http://127.0.0.1:7369 |
+| `bun run dev` | Dev server on http://127.0.0.1:5173 (a release's app uses 7369, so both can run) |
 | `bun run build && bun run start` | Production server, loopback only |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
 | `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) |

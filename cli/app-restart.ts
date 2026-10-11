@@ -5,8 +5,9 @@ import { resolve } from 'node:path';
 import { appUrl, currentAppOwner, restartApp } from './app-launch';
 
 try {
-  const { stopped } = await restartApp(currentAppOwner(resolve(import.meta.dir, '..')));
-  console.log(`${stopped ? 'Restarted' : 'Started'} Remry at ${appUrl(null)}`);
+  const owner = currentAppOwner(resolve(import.meta.dir, '..'));
+  const { stopped } = await restartApp(owner);
+  console.log(`${stopped ? 'Restarted' : 'Started'} Remry at ${appUrl(null, owner.port)}`);
   process.exit(0);
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

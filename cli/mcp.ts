@@ -106,12 +106,12 @@ const callExtraTool = async (name: string, args: Readonly<Record<string, unknown
 
   if (name === 'app_open') {
     const launched = await openApp(appOwner);
-    return textResult({ url: appUrl(id), notebook: id, started: launched.started, restarted: launched.restarted });
+    return textResult({ url: appUrl(id, appOwner.port), notebook: id, started: launched.started, restarted: launched.restarted });
   }
   if (name === 'app_restart') {
     try {
       const { stopped } = await restartApp(appOwner);
-      return textResult({ url: appUrl(id), notebook: id, restarted: stopped, started: !stopped });
+      return textResult({ url: appUrl(id, appOwner.port), notebook: id, restarted: stopped, started: !stopped });
     } catch (error) {
       return textResult(error instanceof Error ? error.message : String(error), true);
     }

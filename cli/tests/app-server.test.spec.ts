@@ -96,6 +96,7 @@ describe('app launch', () => {
   it('links to a notebook', () => {
     expect(appUrl(null)).toBe('http://127.0.0.1:7369/app');
     expect(appUrl('work-work')).toBe('http://127.0.0.1:7369/app?notebook=work-work');
+    expect(appUrl('work-work', 5173)).toBe('http://127.0.0.1:5173/app?notebook=work-work');
   });
 });
 

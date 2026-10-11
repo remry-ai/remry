@@ -66,8 +66,9 @@ const install = async (): Promise<{ readonly version: string; readonly binary: s
 
 const ensureApp = async (): Promise<{ readonly url: string; readonly started: boolean; readonly restarted: boolean }> => {
   const { appUrl, currentAppOwner, openApp } = await import('./app-launch');
-  const opened = await openApp(currentAppOwner(process.cwd()));
-  return { url: appUrl(null), ...opened };
+  const owner = currentAppOwner(process.cwd());
+  const opened = await openApp(owner);
+  return { url: appUrl(null, owner.port), ...opened };
 };
 
 const connectClaudeDesktop = async (binary: string): Promise<{ readonly change: string; readonly configPath: string }> => {
