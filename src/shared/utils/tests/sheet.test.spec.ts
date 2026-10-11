@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { columnLetter, emptySheet, parseSheetContent, readSheetContent, sheetToMarkdown } from '../sheet';
+import { columnLetter, emptySheet, normaliseFormula, parseSheetContent, readSheetContent, sheetToMarkdown } from '../sheet';
+
+describe('normaliseFormula', () => {
+  it('uppercases a formula outside quoted text and leaves other cells alone', () => {
+    expect(normaliseFormula('=sum(b2:c2)')).toBe('=SUM(B2:C2)');
+    expect(normaliseFormula('=if(a1>0, "yes", "no way")')).toBe('=IF(A1>0, "yes", "no way")');
+    expect(normaliseFormula('rent b2')).toBe('rent b2');
+  });
+});
 
 describe('columnLetter', () => {
   it('counts like a spreadsheet', () => {
@@ -28,6 +36,11 @@ describe('parseSheetContent', () => {
     if (!parsed.ok) return;
     expect(parsed.value.data).toEqual([['Rent', '1200'], ['', '']]);
     expect(parsed.value.values).toEqual(parsed.value.data);
+  });
+
+  it('uppercases formulas in stored data', () => {
+    const parsed = parseSheetContent({ columns: [{ title: 'A' }], data: [['=sum(a2:a3)']] });
+    expect(parsed.ok && parsed.value.data).toEqual([['=SUM(A2:A3)']]);
   });
 
   it('keeps computed values of the same shape', () => {

@@ -9,7 +9,7 @@
   import 'jspreadsheet-ce/dist/jspreadsheet.css';
   import 'jspreadsheet-ce/dist/jspreadsheet.themes.css';
   import type jspreadsheet from 'jspreadsheet-ce';
-  import { columnLetter, readSheetContent, type SheetContent } from '$shared/utils/sheet';
+  import { columnLetter, normaliseFormula, readSheetContent, type SheetContent } from '$shared/utils/sheet';
 
   interface Props {
     readonly content: string;
@@ -90,6 +90,8 @@
           while (kept.length > 0 && kept[kept.length - 1]!.type === 'line') kept.pop();
           return kept;
         },
+        // Typed or pasted =sum(b2:c2) is stored and evaluated as =SUM(B2:C2).
+        onbeforechange: (_sheet, _cell, _x, _y, value) => (typeof value === 'string' ? normaliseFormula(value) : value),
         onafterchanges: schedule,
         oninsertrow: schedule,
         ondeleterow: schedule,

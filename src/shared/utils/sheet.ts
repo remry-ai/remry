@@ -72,6 +72,16 @@ export const emptySheet = (columns = 5, rowCount = 10): SheetContent => {
 };
 
 /** Pads every row to the column count, so the grid and the markdown agree. */
+/**
+ * A formula as Excel stores it: uppercased outside "quoted text", so =sum(b2:c2)
+ * becomes =SUM(B2:C2). Jspreadsheet only finds uppercase cell references, so a
+ * lowercase one would show #ERROR. Anything that isn't a formula is unchanged.
+ */
+export const normaliseFormula = (value: string): string => {
+  if (!value.startsWith('=')) return value;
+  return value.split('"').map((part, i) => (i % 2 === 0 ? part.toUpperCase() : part)).join('"');
+};
+
 const padRows = (input: SheetRows, width: number): SheetRows =>
   input.map((row) => (row.length >= width ? row.slice(0, width) : [...row, ...Array.from({ length: width - row.length }, () => '')]));
 
@@ -92,7 +102,7 @@ export const parseSheetContent = (input: unknown): Result<SheetContent> => {
     return err(new Error(`sheet content: ${issues}`));
   }
   const width = parsed.data.columns.length;
-  const data = padRows(parsed.data.data, width);
+  const data = padRows(parsed.data.data, width).map((row) => row.map(normaliseFormula));
   // Values the grid computed only stand in for data of the same shape.
   const values = parsed.data.values && parsed.data.values.length === data.length ? padRows(parsed.data.values, width) : data;
   return ok({ version: 1, columns: parsed.data.columns, data, values });
