@@ -65,7 +65,9 @@ const readState = async (): Promise<SetupState> => {
     claude: marketplaces && plugins
       ? {
           marketplaces: strings(marketplaces, 'name'),
-          plugins: strings(plugins, 'id'),
+          // User scope only: what setup installs and may remove. A plugin a project's
+          // .claude/settings.json enables (Claude desktop writes one) is the project's.
+          plugins: strings(plugins.filter((p) => strings([p], 'scope').every((scope) => scope === 'user')), 'id'),
           localMarketplaces: strings(marketplaces.filter((m) => strings([m], 'source').includes('directory')), 'name')
         }
       : null

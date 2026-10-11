@@ -27,7 +27,7 @@ export const LEGACY_PLUGIN_IDS: readonly string[] = LEGACY_MARKETPLACES.map((nam
 export interface ClaudePlugins {
   /** Marketplace names from `claude plugin marketplace list`. */
   readonly marketplaces: readonly string[];
-  /** Plugin ids (`name@marketplace`) from `claude plugin list`. */
+  /** Plugin ids (`name@marketplace`) from `claude plugin list`, installed at user scope. */
   readonly plugins: readonly string[];
   /** The marketplaces added from a local folder (`"source": "directory"`). */
   readonly localMarketplaces: readonly string[];
