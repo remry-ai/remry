@@ -37,13 +37,14 @@ jobs:
       - name: Integration tests
         run: bun run test:integration
 
-  # Unit tests on the other platforms the release builds for. Windows support is new, so
-  # a failure here shows up without blocking main (or the release, which waits on CI).
+  # Unit tests on the other platforms the release builds for, without blocking main (or
+  # the release, which waits on CI). Windows is skipped for now: add windows-latest back
+  # to the matrix when its build returns.
   portability:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest]
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     steps:

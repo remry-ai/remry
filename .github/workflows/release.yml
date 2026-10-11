@@ -1,6 +1,6 @@
 # Publishes the plugin after CI passes on main, when the plugin version is new
 # (set it with `bun run release:version <x.y.z>`):
-#   1. builds the standalone plugin on macOS, Windows and Linux (scripts/release/build.ts),
+#   1. builds the standalone plugin on macOS and Linux (scripts/release/build.ts),
 #      smoke-tests each on its own OS, then merges the binaries into one plugin and zips
 #      it per platform (scripts/release/package.ts)
 #   2. force-pushes the built plugin to the `dist` branch and tags that commit
@@ -59,14 +59,14 @@ jobs:
     if: needs.plan.outputs.release == 'true'
     # Each target builds on its own OS, because the binary embeds the host's libsql
     # native module. Each binary is over 100 MB, so the plugin carries three: Intel Macs
-    # and ARM Linux are left out until someone needs them. Windows and Linux are new, so
-    # a failure there doesn't hold back the macOS release.
+    # and ARM Linux are left out until someone needs them. Windows is skipped for now:
+    # add back `- { target: windows-x64, os: windows-latest, required: false }` to build
+    # it again. Linux is new, so a failure there doesn't hold back the macOS release.
     strategy:
       fail-fast: false
       matrix:
         include:
           - { target: darwin-arm64, os: macos-latest, required: true }
-          - { target: windows-x64, os: windows-latest, required: false }
           - { target: linux-x64, os: ubuntu-latest, required: false }
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ !matrix.required }}
