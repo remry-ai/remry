@@ -9,9 +9,9 @@ import { mediaQuery } from '$lib/stores/media';
 
 // Not mixins: these are shell breakpoints, and the drawers' CSS repeats them as
 // media queries so the first paint is right before these stores run. The three-column detail layout needs
-// ~850px before the sidebar floats; the right panel fits beside list pages from
+// ~1300px before the sidebar docks; the right panel fits beside list pages from
 // ~1150px and beside detail pages from 768px.
-export const leftFloating = mediaQuery('(max-width: 849px)');
+export const leftFloating = mediaQuery('(max-width: 1299px)');
 export const belowMd = mediaQuery('(max-width: 767px)');
 export const belowPanelFit = mediaQuery('(max-width: 1149px)');
 

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { activeDrawer, closeFloating, leftDrawer, leftFloating, sidebarWidth } from '$lib/stores/drawers';
+  import { activeDrawer, closeFloating, leftDocked, leftDrawer, leftFloating, sidebarWidth, toggleDrawer } from '$lib/stores/drawers';
+  import { isDrawerOpen } from '$lib/common/drawer-state';
   import { clampDrawerWidth, SIDEBAR_MIN_W } from '$lib/common/panel-width';
+  import ChevronIcon from '$lib/ui/ChevronIcon.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
 
   interface Props {
@@ -12,26 +14,29 @@
 
   const { leftLabel = 'Details', sidebar, children }: Props = $props();
 
-  // The top bar's toggle shows while this page has a sidebar.
+  // AppShell counts a docked sidebar when it clamps the right panel's width.
   $effect(() => { leftDrawer.set({ label: leftLabel }); });
   onDestroy(() => { leftDrawer.set(null); closeFloating('left'); });
 
-  // Docked open/closed is `<html data-left-closed>`, which the CSS reads; floating is a media query there too.
+  // The CSS reads docked open/closed from `<html data-left-closed>` and floating from a
+  // media query, so the first paint is right; JS only adds `.float-open`.
   const floatOpen = $derived($leftFloating && $activeDrawer === 'left');
+  const open = $derived(isDrawerOpen('left', $leftFloating, $leftDocked, $activeDrawer));
+  const toggleLabel = $derived(`${open ? 'Hide' : 'Show'} ${leftLabel.toLowerCase()}`);
 
   // Kept within the window here; AppShell also leaves room for a docked right panel.
   const setWidth = (width: number) =>
     sidebarWidth.set(clampDrawerWidth(width, { min: SIDEBAR_MIN_W, viewport: window.innerWidth, floating: $leftFloating }));
 </script>
 
-<div class="page-wrap">
+<div class="page-wrap" class:float-open={floatOpen}>
   {#if floatOpen}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="drawer-backdrop" onclick={() => activeDrawer.set(null)}></div>
   {/if}
 
-  <div class="columns" class:float-open={floatOpen}>
+  <div class="columns">
     <section id="left-drawer" class="col col-left" aria-label={leftLabel}>
       <ResizeHandle edge="right" width={$sidebarWidth} label="Resize {leftLabel.toLowerCase()}" onResize={setWidth} onReset={() => sidebarWidth.set(null)} />
       <div class="col-scroll">
@@ -42,6 +47,19 @@
       {@render children()}
     </section>
   </div>
+
+  <!-- After the drawer, so it sits on top of the drawer's edge. -->
+  <button
+    type="button"
+    class="drawer-toggle left-toggle"
+    aria-controls="left-drawer"
+    aria-expanded={open}
+    aria-label={toggleLabel}
+    title={toggleLabel}
+    onclick={() => toggleDrawer('left', $leftFloating)}
+  >
+    <ChevronIcon size={12} />
+  </button>
 </div>
 
 <style lang="scss">
@@ -69,29 +87,45 @@
   .col-left { position: relative; }
   .col-scroll { height: 100%; }
 
+  // The toggle stays on the window's left edge: in the page's margin beside a docked
+  // sidebar, in a floating one's padding, or alone while it's closed. Only the chevron
+  // turns: pointing left to hide the sidebar, right to show it. 18px wide fits the
+  // floating drawer's padding (--sp-5); 14px on a phone fits the page's (--sp-4).
+  .left-toggle {
+    position: absolute;
+    top: var(--sp-4);
+    left: 0;
+    z-index: var(--z-drawer-toggle);
+    width: 18px;
+    border-left-width: 0;
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    :global(svg) { rotate: 180deg; }
+    @include mobile { width: 14px; }
+  }
+
   // Docked and closed (set on <html> before the first paint).
-  @media (min-width: 850px) {
+  @media (min-width: 1300px) {
     :global(:root[data-left-closed]) .columns {
       grid-template-columns: minmax(0, 1fr);
       .col-left { display: none; }
     }
+    :global(:root[data-left-closed]) .left-toggle :global(svg) { rotate: 0deg; }
   }
 
-  // Below 850px (`leftFloating` in stores/drawers.ts, a media query here so the
-  // server's render is already right) the sidebar covers the page instead.
-  @media (max-width: 849px) {
+  // Below 1300px (`leftFloating` in stores/drawers.ts, a media query here so the
+  // server's render is already right) the sidebar covers the page, top bar included.
+  @media (max-width: 1299px) {
     .columns {
       display: block;
       height: auto;
     }
     .col-left {
       position: fixed;
-      // Below the top bar, which would otherwise cover the top of the drawer.
-      top: var(--nav-h);
+      top: 0;
       left: 0;
       z-index: var(--z-drawer);
       width: min(var(--sidebar-drag-w, 360px), calc(100vw - 48px)); // 48px: FLOAT_GUTTER
-      height: calc(100dvh - var(--nav-h));
+      height: 100dvh;
       background: var(--surface);
       border-right: 1px solid var(--border);
       box-shadow: var(--shadow-3);
@@ -101,5 +135,16 @@
     }
     .col-scroll { padding: var(--sp-5); }
     .float-open .col-left { transform: translateX(0); visibility: visible; transition: transform 250ms ease; }
+
+    .left-toggle {
+      position: fixed;
+      top: calc(var(--nav-h) + var(--sp-4));
+      :global(svg) { rotate: 0deg; }
+    }
+    // Over the open drawer, in its padding.
+    .float-open .left-toggle {
+      z-index: calc(var(--z-drawer) + 1);
+      :global(svg) { rotate: 180deg; }
+    }
   }
 </style>

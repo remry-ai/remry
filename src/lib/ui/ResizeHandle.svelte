@@ -94,5 +94,5 @@
   }
   // No text selection or transitions while dragging.
   :global(body.resizing-drawer) { user-select: none; cursor: col-resize; }
-  :global(body.resizing-drawer .right-panel), :global(body.resizing-drawer .col-left) { transition: none; }
+  :global(body.resizing-drawer .right-panel), :global(body.resizing-drawer .col-left), :global(body.resizing-drawer .drawer-toggle) { transition: none; }
 </style>

@@ -5,9 +5,8 @@
   import { quickFinderOpen } from '$lib/stores/quick-finder';
   import type { NotebookInfo, NotebookSummary } from '$shared/types/notebook';
   import { notebookModel } from '$shared/modules/model';
-  import { rightPanelTab } from '$lib/stores/right-panel';
   import {
-    activeDrawer, belowMd, belowPanelFit, leftDocked, leftDrawer, leftFloating, panelWidth, rightDocked, sidebarWidth, toggleDrawer,
+    activeDrawer, belowMd, belowPanelFit, leftDocked, leftDrawer, leftFloating, panelWidth, rightDocked, sidebarWidth,
   } from '$lib/stores/drawers';
   import { activeAfterResize, isDrawerOpen } from '$lib/common/drawer-state';
   import { drawerCssWidths } from '$lib/common/panel-width';
@@ -45,7 +44,6 @@
   const rightFloating = $derived(collapseInfoPanelOnMedium ? $belowPanelFit : $belowMd);
   const rightOpen = $derived(showInfoPanel && isDrawerOpen('right', rightFloating, $rightDocked, $activeDrawer));
   const leftOpen = $derived($leftDrawer !== null && isDrawerOpen('left', $leftFloating, $leftDocked, $activeDrawer));
-  const rightLabel = $derived($rightPanelTab === 'chat' ? 'Chat' : $rightPanelTab === 'peek' ? 'Peek' : 'Notes');
 
   $effect(() => {
     const next = activeAfterResize($activeDrawer, $leftFloating, rightFloating);
@@ -71,23 +69,10 @@
   style:--sidebar-drag-w={widths.sidebar}
 >
   {#if showInfoPanel}
-    <RightPanel floating={rightFloating} floatOpen={rightFloating && rightOpen} collapseMedium={collapseInfoPanelOnMedium} />
+    <RightPanel floating={rightFloating} open={rightOpen} floatOpen={rightFloating && rightOpen} collapseMedium={collapseInfoPanelOnMedium} />
   {/if}
   <div class="app-main">
     <nav class="topnav" aria-label="Main">
-      {#if $leftDrawer}
-        <button
-          type="button"
-          class="btn icon drawer-toggle"
-          aria-label="{leftOpen ? 'Hide' : 'Show'} {$leftDrawer.label.toLowerCase()}"
-          title="{leftOpen ? 'Hide' : 'Show'} {$leftDrawer.label.toLowerCase()}"
-          aria-pressed={leftOpen}
-          aria-controls="left-drawer"
-          onclick={() => toggleDrawer('left', $leftFloating)}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M6 2.5v11"/>{#if leftOpen}<path d="M2.5 5h2M2.5 7h2M2.5 9h2" stroke-linecap="round"/>{/if}</svg>
-        </button>
-      {/if}
       <div class="nav-bar">
         <div class="nav-identity">
           <a href="/app" class="nav-brand" aria-label={notebook ? `Home: ${notebook.name}` : undefined} onclick={closeMenu}>
@@ -128,19 +113,6 @@
           </button>
         </li>
       </ul>
-      {#if showInfoPanel}
-        <button
-          type="button"
-          class="btn icon drawer-toggle"
-          aria-label="{rightOpen ? 'Hide' : 'Show'} {rightLabel.toLowerCase()}"
-          title="{rightOpen ? 'Hide' : 'Show'} {rightLabel.toLowerCase()}"
-          aria-pressed={rightOpen}
-          aria-controls="right-panel"
-          onclick={() => toggleDrawer('right', rightFloating)}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M10 2.5v11"/>{#if rightOpen}<path d="M11.5 5h2M11.5 7h2M11.5 9h2" stroke-linecap="round"/>{/if}</svg>
-        </button>
-      {/if}
     </nav>
     {#if menuOpen}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -234,11 +206,6 @@
     &.secondary { color: var(--text-3); &:hover { color: var(--text); } }
   }
   .nav-search kbd { margin-left: 2px; }
-  .drawer-toggle {
-    flex-shrink: 0;
-    &[aria-pressed='true'] { color: var(--text); }
-    &[aria-pressed='false'] { color: var(--text-3); }
-  }
   .nav-mobile-actions { display: none; align-items: center; gap: var(--sp-1); }
   .hamburger {
     flex-direction: column;
@@ -259,7 +226,6 @@
 
   @include below-md {
     .topnav { gap: 0; }
-    .drawer-toggle:first-child { margin-right: var(--sp-2); }
     .nav-bar { flex: 1; justify-content: space-between; }
     .nav-mobile-actions { display: flex; }
     .nav-links {

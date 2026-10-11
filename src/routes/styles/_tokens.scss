@@ -97,9 +97,11 @@
 
   // --- Layers ---
   --z-sticky: 10;
-  --z-drawer-backdrop: 48;
-  --z-drawer: 50;
-  --z-nav: 60;
+  --z-drawer-toggle: 30;
+  --z-nav: 40;
+  // Floating drawers cover the top bar, so they're defined from it.
+  --z-drawer-backdrop: calc(var(--z-nav) + 8);
+  --z-drawer: calc(var(--z-nav) + 10);
   --z-modal: 100;
   --z-finder: 1000;
   --z-loading: 1100;

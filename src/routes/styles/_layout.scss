@@ -130,6 +130,24 @@
   }
 }
 
+// The small tab that shows or hides a drawer, holding a `ChevronIcon`. The drawer
+// positions it: on its inner edge while it's open, on the window's edge while it's closed.
+.drawer-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 28px;
+  color: var(--text-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  transition: color var(--ease), background var(--ease);
+  &:hover { color: var(--text); background: var(--surface-hover); }
+  svg { transition: rotate 250ms ease; }
+}
+
 // The scrim behind a floating drawer (the detail sidebar and the right panel).
 .drawer-backdrop {
   position: fixed;

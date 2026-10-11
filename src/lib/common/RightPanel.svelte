@@ -1,22 +1,28 @@
 <script lang="ts">
   import { rightPanelNotes, rightPanelPage, rightPanelPeek, rightPanelTab } from '$lib/stores/right-panel';
-  import { panelWidth, activeDrawer, openDrawer, closeFloating } from '$lib/stores/drawers';
+  import { panelWidth, activeDrawer, openDrawer, closeFloating, toggleDrawer } from '$lib/stores/drawers';
   import { clampDrawerWidth, PANEL_MIN_W } from '$lib/common/panel-width';
   import NotesList from '$lib/common/NotesList.svelte';
   import PageChat from '$lib/common/PageChat.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
+  import ChevronIcon from '$lib/ui/ChevronIcon.svelte';
 
   interface Props {
     /** Over the page instead of beside it. The CSS works this out itself for the first paint. */
     readonly floating: boolean;
-    /** Floating and open. Docked open/closed is `<html data-right-closed>`. */
+    /** Open in its current mode, for the toggle's aria state. */
+    readonly open: boolean;
+    /** Floating and open. The CSS reads docked open/closed from `<html data-right-closed>`. */
     readonly floatOpen: boolean;
     /** Float up to 1150px rather than 768px (list pages). */
     readonly collapseMedium: boolean;
   }
 
-  const { floating, floatOpen, collapseMedium }: Props = $props();
+  const { floating, open, floatOpen, collapseMedium }: Props = $props();
+
+  const tabLabel = $derived($rightPanelTab === 'chat' ? 'chat' : $rightPanelTab === 'peek' ? 'peek' : 'notes');
+  const toggleLabel = $derived(`${open ? 'Hide' : 'Show'} ${tabLabel}`);
 
   // A peek opening switches to its tab and shows the panel; closing it goes back to Notes.
   let hadPeek = false;
@@ -101,6 +107,20 @@
     </div>
   {/if}
 </aside>
+<!-- After the panel, so it sits on top of the panel's edge. -->
+<button
+  type="button"
+  class="drawer-toggle right-toggle"
+  class:float-open={floatOpen}
+  class:collapse-medium={collapseMedium}
+  aria-controls="right-panel"
+  aria-expanded={open}
+  aria-label={toggleLabel}
+  title={toggleLabel}
+  onclick={() => toggleDrawer('right', floating)}
+>
+  <ChevronIcon size={12} />
+</button>
 
 <style lang="scss">
   .right-panel {
@@ -115,6 +135,8 @@
     background: var(--surface);
     border-left: 1px solid var(--border);
     overflow: visible;
+    // Above the top bar even when docked, so a nav too wide for its column never paints over it.
+    z-index: var(--z-drawer);
   }
 
   .panel-header {
@@ -153,20 +175,42 @@
     h3 { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-lg); }
   }
 
+  // The toggle: on the panel's left edge while it's open (chevron pointing in, to
+  // hide it), on the window's right edge while it's closed (pointing out, to show it).
+  // 10px is half the toggle's width, so it straddles the edge.
+  .right-toggle {
+    position: fixed;
+    top: calc(var(--nav-h) + var(--sp-4));
+    right: calc(var(--panel-drag-w, var(--panel-w)) - 10px);
+    // On the panel's edge, so above the panel.
+    z-index: calc(var(--z-drawer) + 1);
+    transition: right 250ms ease, color var(--ease), background var(--ease);
+  }
+  // Narrower on the window's edge, so it clears the page's padding on a phone.
+  @mixin toggle-on-window-edge {
+    right: 0;
+    z-index: var(--z-drawer-toggle);
+    width: 14px;
+    border-right-width: 0;
+    border-radius: var(--r-md) 0 0 var(--r-md);
+    :global(svg) { rotate: 180deg; }
+  }
+
   // Docked and closed (set on <html> before the first paint).
   @media (min-width: 1150px) {
     :global(:root[data-right-closed]) .right-panel { display: none; }
+    :global(:root[data-right-closed]) .right-toggle { @include toggle-on-window-edge; }
   }
   @media (min-width: 768px) and (max-width: 1149px) {
     :global(:root[data-right-closed]) .right-panel:not(.collapse-medium) { display: none; }
+    :global(:root[data-right-closed]) .right-toggle:not(.collapse-medium) { @include toggle-on-window-edge; }
   }
 
   // Floating: the breakpoints in stores/drawers.ts, as media queries so the
   // server's render is already right. Closed until `activeDrawer` opens it.
   @mixin floating {
-    // Below the top bar, which would otherwise cover the panel header.
-    top: var(--nav-h);
-    height: calc(100dvh - var(--nav-h));
+    // Over the top bar too, like the floating sidebar.
+    height: 100dvh;
     width: min(var(--panel-drag-w, 520px), calc(100vw - 48px)); // 48px: FLOAT_GUTTER
     z-index: var(--z-drawer);
     box-shadow: var(--shadow-3);
@@ -175,10 +219,23 @@
     transition: transform 250ms ease, visibility 0s linear 250ms;
     &.float-open { transform: translateX(0); visibility: visible; transition: transform 250ms ease; }
   }
+  @mixin floating-toggle {
+    @include toggle-on-window-edge;
+    &.float-open {
+      right: calc(min(var(--panel-drag-w, 520px), calc(100vw - 48px)) - 10px);
+      z-index: calc(var(--z-drawer) + 1);
+      width: 20px;
+      border-right-width: 1px;
+      border-radius: var(--r-md);
+      :global(svg) { rotate: 0deg; }
+    }
+  }
   @include below-md {
     .right-panel { @include floating; }
+    .right-toggle { @include floating-toggle; }
   }
   @media (min-width: 768px) and (max-width: 1149px) {
     .right-panel.collapse-medium { @include floating; }
+    .right-toggle.collapse-medium { @include floating-toggle; }
   }
 </style>
