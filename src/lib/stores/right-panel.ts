@@ -1,6 +1,5 @@
 import { writable } from 'svelte/store';
 import type { Snippet } from 'svelte';
-import { parseStoredWidth } from '$lib/common/panel-width';
 import type { EntityType } from '$shared/types/enums';
 
 interface Note {
@@ -43,28 +42,3 @@ export const rightPanelNotes = writable<RightPanelNotes | null>(null);
 export const rightPanelPage = writable<RightPanelPage | null>(null);
 export const rightPanelPeek = writable<RightPanelPeek | null>(null);
 export const rightPanelTab = writable<RightPanelTabId>('notes');
-
-export type ActiveDrawer = 'left' | 'right' | null;
-export const activeDrawer = writable<ActiveDrawer>(null);
-
-// The panel's width in px once the user has dragged its edge, or null for the
-// default (`--panel-w`). A per-browser preference, so localStorage is enough.
-const PANEL_WIDTH_KEY = 'remry:panel-width';
-
-const readPanelWidth = (): number | null => {
-  try {
-    return typeof localStorage === 'undefined' ? null : parseStoredWidth(localStorage.getItem(PANEL_WIDTH_KEY));
-  } catch {
-    return null;
-  }
-};
-
-export const panelWidth = writable<number | null>(readPanelWidth());
-
-panelWidth.subscribe((width) => {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    if (width === null) localStorage.removeItem(PANEL_WIDTH_KEY);
-    else localStorage.setItem(PANEL_WIDTH_KEY, String(width));
-  } catch { /* storage unavailable: the width lasts this session only */ }
-});

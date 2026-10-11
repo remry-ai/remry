@@ -21,7 +21,8 @@
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
-  import { rightPanelNotes, rightPanelPage, activeDrawer } from '$lib/stores/right-panel';
+  import { rightPanelNotes, rightPanelPage } from '$lib/stores/right-panel';
+  import { activeDrawer } from '$lib/stores/drawers';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { errorMessage, submit } from '$lib/ui/submit';
@@ -132,20 +133,6 @@
 
   const editPopupId = $derived(`edit-${entityType.toLowerCase()}`);
 
-  // ----- Left drawer state -----
-  let leftOpen = $state(false);
-
-  const toggleLeft = () => {
-    leftOpen = !leftOpen;
-    activeDrawer.set(leftOpen ? 'left' : null);
-  };
-
-  $effect(() => {
-    if ($activeDrawer !== 'left' && leftOpen) {
-      leftOpen = false;
-    }
-  });
-
   // ----- Center pane state -----
   // The open doc lives in the URL (`?doc=<id>`, or `?doc=new` for a draft) and
   // takes the pane over everything else. Notes and todos are local state.
@@ -195,7 +182,7 @@
     center = { type: 'overview' };
     void openDocUrl(id);
   };
-  // Close the notes drawer (mobile) so the editor in the center pane is reachable.
+  // Close a floating drawer so the editor in the center pane is reachable.
   const openNote = (id: string) => { showInCenter({ type: 'note', id }); activeDrawer.set(null); };
   const openNewNote = () => { showInCenter({ type: 'newNote' }); activeDrawer.set(null); };
   const openNewDoc = () => {
@@ -354,7 +341,7 @@
 
 <svelte:head><title>{entityName}</title></svelte:head>
 
-<DetailLayout {leftOpen} onToggleLeft={toggleLeft}>
+<DetailLayout>
   {#snippet sidebar()}
     <div class="section">
       <TodoWidget

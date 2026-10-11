@@ -1,87 +1,50 @@
 <script lang="ts">
-  import { rightPanelNotes, rightPanelPage, rightPanelPeek, rightPanelTab, activeDrawer, panelWidth } from '$lib/stores/right-panel';
-  import { clampPanelWidth, PANEL_KEY_STEP } from '$lib/common/panel-width';
+  import { rightPanelNotes, rightPanelPage, rightPanelPeek, rightPanelTab } from '$lib/stores/right-panel';
+  import { panelWidth, activeDrawer, openDrawer, closeFloating } from '$lib/stores/drawers';
+  import { clampDrawerWidth, PANEL_MIN_W } from '$lib/common/panel-width';
   import NotesList from '$lib/common/NotesList.svelte';
   import PageChat from '$lib/common/PageChat.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
 
-  let drawerOpen = $state(false);
-  let panel = $state<HTMLElement | null>(null);
+  interface Props {
+    /** Over the page instead of beside it. The CSS works this out itself for the first paint. */
+    readonly floating: boolean;
+    /** Floating and open. Docked open/closed is `<html data-right-closed>`. */
+    readonly floatOpen: boolean;
+    /** Float up to 1150px rather than 768px (list pages). */
+    readonly collapseMedium: boolean;
+  }
 
-  $effect(() => {
-    if ($activeDrawer !== 'right' && drawerOpen) {
-      drawerOpen = false;
-    }
-  });
+  const { floating, floatOpen, collapseMedium }: Props = $props();
 
-  const closeDrawer = () => { drawerOpen = false; activeDrawer.set(null); };
-  const toggleDrawer = () => { drawerOpen = !drawerOpen; activeDrawer.set(drawerOpen ? 'right' : null); };
-
-  // A peek opening switches to its tab (and opens the drawer where the panel is one); closing it goes back to Notes.
+  // A peek opening switches to its tab and shows the panel; closing it goes back to Notes.
   let hadPeek = false;
   $effect(() => {
     const hasPeek = $rightPanelPeek !== null;
     if (hasPeek && !hadPeek) {
       rightPanelTab.set('peek');
-      drawerOpen = true;
-      activeDrawer.set('right');
+      openDrawer('right', floating);
     } else if (!hasPeek && hadPeek && $rightPanelTab === 'peek') {
       rightPanelTab.set('notes');
-      closeDrawer();
+      closeFloating('right');
     }
     hadPeek = hasPeek;
   });
 
-  // ----- Resizing: drag the left edge; arrow keys step; double-click resets -----
-  let dragging = $state(false);
-
-  const setWidth = (width: number) => panelWidth.set(clampPanelWidth(width, window.innerWidth));
-
-  const startDrag = (e: PointerEvent) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragging = true;
-  };
-  const drag = (e: PointerEvent) => {
-    if (dragging) setWidth(window.innerWidth - e.clientX);
-  };
-  const endDrag = () => { dragging = false; };
-
-  const handleResizeKey = (e: KeyboardEvent) => {
-    const current = panel?.offsetWidth ?? 0;
-    if (e.key === 'ArrowLeft') setWidth(current + PANEL_KEY_STEP);
-    else if (e.key === 'ArrowRight') setWidth(current - PANEL_KEY_STEP);
-    else return;
-    e.preventDefault();
-  };
+  // Kept within the window here; AppShell also leaves room for a docked sidebar.
+  const setWidth = (width: number) =>
+    panelWidth.set(clampDrawerWidth(width, { min: PANEL_MIN_W, viewport: window.innerWidth, floating }));
 </script>
 
 <!-- Outside the panel: its transform would make a fixed backdrop cover the panel itself. -->
-{#if drawerOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="drawer-backdrop notes-backdrop" onclick={closeDrawer}></div>
+{#if floatOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="drawer-backdrop" onclick={() => activeDrawer.set(null)}></div>
 {/if}
-<aside class="right-panel" class:drawer-open={drawerOpen} class:resizing={dragging} bind:this={panel}>
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex a11y_no_noninteractive_element_interactions -->
-  <div
-    class="resize-handle"
-    role="separator"
-    aria-orientation="vertical"
-    aria-label="Resize panel"
-    aria-valuenow={$panelWidth ?? undefined}
-    tabindex="0"
-    title="Drag to resize, double-click to reset"
-    onpointerdown={startDrag}
-    onpointermove={drag}
-    onpointerup={endDrag}
-    onpointercancel={endDrag}
-    ondblclick={() => panelWidth.set(null)}
-    onkeydown={handleResizeKey}
-  ></div>
-  <button type="button" class="drawer-handle" data-side="right" class:active={drawerOpen} onclick={toggleDrawer} title="Notes and chat">
-    {$rightPanelTab === 'chat' ? 'Chat' : $rightPanelTab === 'peek' ? 'Peek' : 'Notes'}
-  </button>
+<aside id="right-panel" class="right-panel" class:float-open={floatOpen} class:collapse-medium={collapseMedium}>
+  <ResizeHandle edge="left" width={$panelWidth} label="Resize panel" onResize={setWidth} onReset={() => panelWidth.set(null)} />
 
   <div class="panel-header">
     <div class="tabs" role="tablist">
@@ -145,7 +108,7 @@
     position: fixed;
     top: 0;
     right: 0;
-    width: var(--panel-w);
+    width: var(--panel-drag-w, var(--panel-w));
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -153,7 +116,6 @@
     border-left: 1px solid var(--border);
     overflow: visible;
   }
-  .drawer-backdrop { display: none; }
 
   .panel-header {
     display: flex;
@@ -191,48 +153,32 @@
     h3 { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-lg); }
   }
 
-  // A strip over the left border: drag it to resize the panel.
-  .resize-handle {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -3px;
-    width: 6px;
-    z-index: var(--z-sticky);
-    cursor: col-resize;
-    touch-action: none;
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 2px;
-      width: 2px;
-      background: transparent;
-      transition: background var(--ease);
-    }
-    &:hover::after, &:focus-visible::after { background: var(--accent); }
-    &:focus-visible { outline: none; }
+  // Docked and closed (set on <html> before the first paint).
+  @media (min-width: 1150px) {
+    :global(:root[data-right-closed]) .right-panel { display: none; }
   }
-  .resizing {
-    user-select: none;
-    .resize-handle::after { background: var(--accent); }
+  @media (min-width: 768px) and (max-width: 1149px) {
+    :global(:root[data-right-closed]) .right-panel:not(.collapse-medium) { display: none; }
   }
 
+  // Floating: the breakpoints in stores/drawers.ts, as media queries so the
+  // server's render is already right. Closed until `activeDrawer` opens it.
+  @mixin floating {
+    // Below the top bar, which would otherwise cover the panel header.
+    top: var(--nav-h);
+    height: calc(100dvh - var(--nav-h));
+    width: min(var(--panel-drag-w, 520px), calc(100vw - 48px)); // 48px: FLOAT_GUTTER
+    z-index: var(--z-drawer);
+    box-shadow: var(--shadow-3);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 250ms ease, visibility 0s linear 250ms;
+    &.float-open { transform: translateX(0); visibility: visible; transition: transform 250ms ease; }
+  }
   @include below-md {
-    .resize-handle { display: none; }
-    .drawer-handle { display: flex; }
-    .drawer-backdrop { display: block; }
-    .right-panel {
-      // Below the top bar, which would otherwise cover the panel header.
-      top: var(--nav-h);
-      height: calc(100dvh - var(--nav-h));
-      width: min(520px, 92vw);
-      z-index: var(--z-drawer);
-      box-shadow: var(--shadow-3);
-      transform: translateX(100%);
-      transition: transform 250ms ease;
-      &.drawer-open { transform: translateX(0); }
-    }
+    .right-panel { @include floating; }
+  }
+  @media (min-width: 768px) and (max-width: 1149px) {
+    .right-panel.collapse-medium { @include floating; }
   }
 </style>

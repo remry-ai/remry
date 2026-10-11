@@ -5,8 +5,12 @@
   import { quickFinderOpen } from '$lib/stores/quick-finder';
   import type { NotebookInfo, NotebookSummary } from '$shared/types/notebook';
   import { notebookModel } from '$shared/modules/model';
-  import { panelWidth } from '$lib/stores/right-panel';
-  import { clampPanelWidth } from '$lib/common/panel-width';
+  import { rightPanelTab } from '$lib/stores/right-panel';
+  import {
+    activeDrawer, belowMd, belowPanelFit, leftDocked, leftDrawer, leftFloating, panelWidth, rightDocked, sidebarWidth, toggleDrawer,
+  } from '$lib/stores/drawers';
+  import { activeAfterResize, isDrawerOpen } from '$lib/common/drawer-state';
+  import { drawerCssWidths } from '$lib/common/panel-width';
 
   interface Props {
     readonly children: any;
@@ -37,19 +41,53 @@
 
   const closeMenu = () => { menuOpen = false; };
 
-  // The width the user dragged the right panel to, kept within the window as it resizes.
+  // ----- Drawers: docked beside the page, or floating over it below their breakpoints -----
+  const rightFloating = $derived(collapseInfoPanelOnMedium ? $belowPanelFit : $belowMd);
+  const rightOpen = $derived(showInfoPanel && isDrawerOpen('right', rightFloating, $rightDocked, $activeDrawer));
+  const leftOpen = $derived($leftDrawer !== null && isDrawerOpen('left', $leftFloating, $leftDocked, $activeDrawer));
+  const rightLabel = $derived($rightPanelTab === 'chat' ? 'Chat' : $rightPanelTab === 'peek' ? 'Peek' : 'Notes');
+
+  $effect(() => {
+    const next = activeAfterResize($activeDrawer, $leftFloating, rightFloating);
+    if (next !== $activeDrawer) activeDrawer.set(next);
+  });
+
+  // The widths the user dragged the drawers to, kept within the window as it resizes.
   let innerWidth = $state(0);
-  const panelW = $derived($panelWidth !== null && innerWidth > 0 ? `${clampPanelWidth($panelWidth, innerWidth)}px` : undefined);
+  const widths = $derived(drawerCssWidths({
+    viewport: innerWidth,
+    sidebar: { stored: $sidebarWidth, floating: $leftFloating, dockedOpen: leftOpen && !$leftFloating },
+    panel: { stored: $panelWidth, floating: rightFloating, dockedOpen: rightOpen && !rightFloating },
+  }));
 </script>
 
 <svelte:window bind:innerWidth />
 
-<div class="app-layout" class:has-panel={showInfoPanel} class:collapse-medium={collapseInfoPanelOnMedium} style:--panel-w={panelW}>
+<div
+  class="app-layout"
+  class:has-panel={showInfoPanel}
+  class:collapse-medium={collapseInfoPanelOnMedium}
+  style:--panel-drag-w={widths.panel}
+  style:--sidebar-drag-w={widths.sidebar}
+>
   {#if showInfoPanel}
-    <RightPanel />
+    <RightPanel floating={rightFloating} floatOpen={rightFloating && rightOpen} collapseMedium={collapseInfoPanelOnMedium} />
   {/if}
   <div class="app-main">
     <nav class="topnav" aria-label="Main">
+      {#if $leftDrawer}
+        <button
+          type="button"
+          class="btn icon drawer-toggle"
+          aria-label="{leftOpen ? 'Hide' : 'Show'} {$leftDrawer.label.toLowerCase()}"
+          title="{leftOpen ? 'Hide' : 'Show'} {$leftDrawer.label.toLowerCase()}"
+          aria-pressed={leftOpen}
+          aria-controls="left-drawer"
+          onclick={() => toggleDrawer('left', $leftFloating)}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M6 2.5v11"/>{#if leftOpen}<path d="M2.5 5h2M2.5 7h2M2.5 9h2" stroke-linecap="round"/>{/if}</svg>
+        </button>
+      {/if}
       <div class="nav-bar">
         <div class="nav-identity">
           <a href="/app" class="nav-brand" aria-label={notebook ? `Home: ${notebook.name}` : undefined} onclick={closeMenu}>
@@ -90,6 +128,19 @@
           </button>
         </li>
       </ul>
+      {#if showInfoPanel}
+        <button
+          type="button"
+          class="btn icon drawer-toggle"
+          aria-label="{rightOpen ? 'Hide' : 'Show'} {rightLabel.toLowerCase()}"
+          title="{rightOpen ? 'Hide' : 'Show'} {rightLabel.toLowerCase()}"
+          aria-pressed={rightOpen}
+          aria-controls="right-panel"
+          onclick={() => toggleDrawer('right', rightFloating)}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M10 2.5v11"/>{#if rightOpen}<path d="M11.5 5h2M11.5 7h2M11.5 9h2" stroke-linecap="round"/>{/if}</svg>
+        </button>
+      {/if}
     </nav>
     {#if menuOpen}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -183,6 +234,11 @@
     &.secondary { color: var(--text-3); &:hover { color: var(--text); } }
   }
   .nav-search kbd { margin-left: 2px; }
+  .drawer-toggle {
+    flex-shrink: 0;
+    &[aria-pressed='true'] { color: var(--text); }
+    &[aria-pressed='false'] { color: var(--text-3); }
+  }
   .nav-mobile-actions { display: none; align-items: center; gap: var(--sp-1); }
   .hamburger {
     flex-direction: column;
@@ -203,6 +259,7 @@
 
   @include below-md {
     .topnav { gap: 0; }
+    .drawer-toggle:first-child { margin-right: var(--sp-2); }
     .nav-bar { flex: 1; justify-content: space-between; }
     .nav-mobile-actions { display: flex; }
     .nav-links {
@@ -245,7 +302,16 @@
     // minmax(0, 1fr) so wide content scrolls inside the page instead of pushing the panel off-screen.
     grid-template-columns: minmax(0, 1fr);
     min-height: 100dvh;
-    &.has-panel { grid-template-columns: minmax(0, 1fr) var(--panel-w); }
+  }
+  // Where the right panel docks, it takes a column unless it's closed. Media queries
+  // (the breakpoints in stores/drawers.ts) and <html data-right-closed>, set before
+  // the first paint, so the server's render is already right.
+  @media (min-width: 768px) {
+    .app-layout.has-panel { grid-template-columns: minmax(0, 1fr) var(--panel-drag-w, var(--panel-w)); }
+    :global(:root[data-right-closed]) .app-layout.has-panel { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (min-width: 768px) and (max-width: 1149px) {
+    .app-layout.has-panel.collapse-medium { grid-template-columns: minmax(0, 1fr); }
   }
   .app-main {
     display: flex;
@@ -257,33 +323,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  // Not a mixin: the notes panel only fits beside list pages from ~1150px, so it collapses in this band.
-  @media (min-width: 768px) and (max-width: 1149px) {
-    .app-layout.has-panel.collapse-medium {
-      grid-template-columns: minmax(0, 1fr);
-      :global(.notes-backdrop) { display: block; }
-      :global(.right-panel .drawer-handle) { display: flex; }
-      :global(.right-panel .resize-handle) { display: none; }
-      :global(.right-panel) {
-        top: var(--nav-h);
-        height: calc(100dvh - var(--nav-h));
-        width: min(520px, 92vw);
-        z-index: var(--z-drawer);
-        box-shadow: var(--shadow-3);
-        transform: translateX(100%);
-        transition: transform 250ms ease;
-      }
-      :global(.right-panel.drawer-open) { transform: translateX(0); }
-    }
-  }
-
-  @include below-md {
-    .app-layout.has-panel {
-      display: flex;
-      flex-direction: column;
-    }
   }
 
   .site-footer {

@@ -1,28 +1,42 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { activeDrawer, closeFloating, leftDrawer, leftFloating, sidebarWidth } from '$lib/stores/drawers';
+  import { clampDrawerWidth, SIDEBAR_MIN_W } from '$lib/common/panel-width';
+  import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
+
   interface Props {
-    readonly leftOpen: boolean;
-    readonly onToggleLeft: () => void;
     readonly leftLabel?: string;
     readonly sidebar: any;
     readonly children: any;
   }
 
-  const { leftOpen, onToggleLeft, leftLabel = 'Details', sidebar, children }: Props = $props();
+  const { leftLabel = 'Details', sidebar, children }: Props = $props();
+
+  // The top bar's toggle shows while this page has a sidebar.
+  $effect(() => { leftDrawer.set({ label: leftLabel }); });
+  onDestroy(() => { leftDrawer.set(null); closeFloating('left'); });
+
+  // Docked open/closed is `<html data-left-closed>`, which the CSS reads; floating is a media query there too.
+  const floatOpen = $derived($leftFloating && $activeDrawer === 'left');
+
+  // Kept within the window here; AppShell also leaves room for a docked right panel.
+  const setWidth = (width: number) =>
+    sidebarWidth.set(clampDrawerWidth(width, { min: SIDEBAR_MIN_W, viewport: window.innerWidth, floating: $leftFloating }));
 </script>
 
 <div class="page-wrap">
-  {#if leftOpen}
+  {#if floatOpen}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="drawer-backdrop" onclick={onToggleLeft}></div>
+    <div class="drawer-backdrop" onclick={() => activeDrawer.set(null)}></div>
   {/if}
 
-  <div class="columns">
-    <section class="col col-left" class:drawer-open={leftOpen}>
-      <button type="button" class="drawer-handle" data-side="left" class:active={leftOpen} onclick={onToggleLeft} title={leftLabel}>
-        {leftLabel}
-      </button>
-      {@render sidebar()}
+  <div class="columns" class:float-open={floatOpen}>
+    <section id="left-drawer" class="col col-left" aria-label={leftLabel}>
+      <ResizeHandle edge="right" width={$sidebarWidth} label="Resize {leftLabel.toLowerCase()}" onResize={setWidth} onReset={() => sidebarWidth.set(null)} />
+      <div class="col-scroll">
+        {@render sidebar()}
+      </div>
     </section>
     <section class="col col-center">
       {@render children()}
@@ -39,41 +53,53 @@
 
   .columns {
     display: grid;
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-drag-w, var(--sidebar-w)) minmax(0, 1fr);
     gap: var(--sp-8);
     height: calc(100dvh - var(--nav-h) - 7rem);
   }
   .col {
     min-width: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
     height: 100%;
   }
+  .col-center, .col-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  // The handle sits outside the scroller, so it stays put while the sidebar scrolls.
   .col-left { position: relative; }
-  .drawer-backdrop { display: none; }
+  .col-scroll { height: 100%; }
 
-  // Not a mixin: the three-column layout needs ~850px before the sidebar becomes a drawer.
+  // Docked and closed (set on <html> before the first paint).
+  @media (min-width: 850px) {
+    :global(:root[data-left-closed]) .columns {
+      grid-template-columns: minmax(0, 1fr);
+      .col-left { display: none; }
+    }
+  }
+
+  // Below 850px (`leftFloating` in stores/drawers.ts, a media query here so the
+  // server's render is already right) the sidebar covers the page instead.
   @media (max-width: 849px) {
-    .columns { display: block; height: auto; }
-    .drawer-backdrop { display: block; }
+    .columns {
+      display: block;
+      height: auto;
+    }
     .col-left {
       position: fixed;
       // Below the top bar, which would otherwise cover the top of the drawer.
       top: var(--nav-h);
       left: 0;
       z-index: var(--z-drawer);
-      width: 92vw;
-      max-width: 520px;
+      width: min(var(--sidebar-drag-w, 360px), calc(100vw - 48px)); // 48px: FLOAT_GUTTER
       height: calc(100dvh - var(--nav-h));
-      padding: var(--sp-5);
-      overflow: visible;
       background: var(--surface);
       border-right: 1px solid var(--border);
       box-shadow: var(--shadow-3);
       transform: translateX(-100%);
-      transition: transform 250ms ease;
-      &.drawer-open { transform: translateX(0); }
-      .drawer-handle { display: flex; }
+      visibility: hidden;
+      transition: transform 250ms ease, visibility 0s linear 250ms;
     }
+    .col-scroll { padding: var(--sp-5); }
+    .float-open .col-left { transform: translateX(0); visibility: visible; transition: transform 250ms ease; }
   }
 </style>

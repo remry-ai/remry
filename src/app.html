@@ -22,6 +22,20 @@
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#111111" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18181b" />
 
+    <!-- The drawers' remembered state, before the first paint, so a collapsed or resized
+         drawer doesn't flash at its default (stores/drawers.ts keeps it in sync after). -->
+    <script>
+      try {
+        var root = document.documentElement, store = localStorage;
+        if (store.getItem('remry:left-open') === 'false') root.setAttribute('data-left-closed', '');
+        if (store.getItem('remry:right-open') === 'false') root.setAttribute('data-right-closed', '');
+        var w = Number(store.getItem('remry:sidebar-width'));
+        if (w > 0) root.style.setProperty('--sidebar-drag-w', w + 'px');
+        w = Number(store.getItem('remry:panel-width'));
+        if (w > 0) root.style.setProperty('--panel-drag-w', w + 'px');
+      } catch (e) { /* storage unavailable: defaults */ }
+    </script>
+
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
