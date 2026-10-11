@@ -1,0 +1,93 @@
+#!/bin/sh
+# Remry plugin shim, started by .mcp.json as `sh <plugin>/scripts/remry mcp`.
+# It runs, in order of preference:
+#   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names)
+#   2. the clone `bun run setup` recorded in <data dir>/app-path, so a development
+#      machine always runs its own code
+#   3. the standalone binary a release carries in <plugin>/server. It's installed into
+#      <data dir>/App/<version>, with App/current pointing at it (for the backup
+#      LaunchAgent and terminals), so no clone or Bun is needed.
+# It isn't in bin/: claude.ai-hosted plugins (Cowork) reject bin/ executables.
+# On Windows, scripts/remry.cmd does the same.
+set -e
+
+# Under Git Bash, MSYS or Cygwin on Windows, the Windows launcher does the work.
+case $(uname -s) in
+  MINGW* | MSYS* | CYGWIN*)
+    # //d //c: Git Bash would otherwise rewrite /d and /c as paths.
+    exec cmd.exe //d //c "$(cygpath -w "$(dirname "$0")/remry.cmd")" "$@"
+    ;;
+esac
+
+if [ "$(uname -s)" = Darwin ]; then
+  data="$HOME/Library/Application Support/Remry"
+  # Its earlier names, Wonos and Working Notes. The app moves its data from there on first run.
+  legacy="$HOME/Library/Application Support/Wonos"
+  older="$HOME/Library/Application Support/Working Notes"
+else
+  data="${XDG_DATA_HOME:-$HOME/.local/share}/remry"
+  legacy="${XDG_DATA_HOME:-$HOME/.local/share}/wonos"
+  older="${XDG_DATA_HOME:-$HOME/.local/share}/working-notes"
+fi
+setup='Install the Remry plugin from a release, which includes the app, or clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
+
+# WONO_HOME and WORKING_NOTES_HOME: its earlier names.
+app=${REMRY_HOME:-${WONO_HOME:-${WORKING_NOTES_HOME:-}}}
+recorded=
+pointer="$data/app-path"
+[ -r "$pointer" ] || pointer="$legacy/app-path"
+[ -r "$pointer" ] || pointer="$older/app-path"
+if [ -z "$app" ] && [ -r "$pointer" ]; then
+  recorded=$(cat "$pointer")
+  # A recorded clone that has moved or lost its dependencies gives way to a release binary.
+  if [ -x "$recorded/bin/remry" ] && [ -d "$recorded/node_modules" ]; then
+    app=$recorded
+  fi
+fi
+
+plugin=$(cd "$(dirname "$0")/.." && pwd)
+case $(uname -m) in
+  arm64 | aarch64) arch=arm64 ;;
+  x86_64 | amd64) arch=x64 ;;
+  *) arch=$(uname -m) ;;
+esac
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+bundled="$plugin/server/remry-$os-$arch"
+
+if [ -z "$app" ] && [ -f "$bundled" ]; then
+  version=$(cat "$plugin/server/VERSION")
+  dest="$data/App/$version"
+  if [ ! -e "$dest" ]; then
+    tmp="$data/App/.install-$version-$$"
+    rm -rf "$tmp"
+    mkdir -p "$tmp"
+    # cat, not cp: the copy doesn't inherit a download's quarantine flag, and chmod
+    # restores the execute bit that an unzipped or cloned plugin may have lost.
+    cat "$bundled" > "$tmp/remry"
+    chmod 755 "$tmp/remry"
+    cp -R "$plugin/server/migrations" "$plugin/server/VERSION" "$tmp/"
+    # Another start may have installed this version meanwhile.
+    if [ -e "$dest" ]; then rm -rf "$tmp"; else mv "$tmp" "$dest"; fi
+  fi
+  ln -sfn "$version" "$data/App/current"
+  exec "$dest/remry" "$@"
+fi
+
+app=${app:-$recorded}
+if [ -z "$app" ]; then
+  if [ -d "$plugin/server" ]; then
+    echo "This Remry plugin has no build for $os-$arch. Download remry-<version>-$os-$arch.zip from https://github.com/remry-ai/remry/releases/latest and add it as a plugin." >&2
+  else
+    echo "Remry isn't set up on this computer. $setup" >&2
+  fi
+  exit 1
+fi
+if [ ! -x "$app/bin/remry" ]; then
+  echo "Remry isn't at $app any more (no bin/remry there). $setup" >&2
+  exit 1
+fi
+if [ ! -d "$app/node_modules" ]; then
+  echo "Remry at $app has no dependencies installed. Run \`bun install\` in $app." >&2
+  exit 1
+fi
+exec "$app/bin/remry" "$@"
