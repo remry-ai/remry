@@ -134,9 +134,9 @@ since the last release without a new version.
   `bun run desktop:prepare` puts it into the Tauri app as its sidecar, and `bun run desktop:build`
   makes the installer. Build each platform on its own OS: the binary embeds the host's SQLite
   native module.
-- **Updates:** run `bun run desktop:updater-key` once, commit the public key it writes into
-  `desktop/src-tauri/tauri.conf.json`, and add the private key as the `TAURI_SIGNING_PRIVATE_KEY`
-  secret. Builds then make signed updates, and the release publishes `latest.json`, which installed
+- **Updates:** run `bun run desktop:updater-key` once (it asks nothing; the key has no password),
+  commit the public key it writes into `desktop/src-tauri/tauri.conf.json`, and set the private key
+  as the `TAURI_SIGNING_PRIVATE_KEY` secret from the file it prints, with `gh secret set`. Builds then make signed updates, and the release publishes `latest.json`, which installed
   apps check when they open. Without the secret, installed apps keep their version.
 - **Not code-signed** yet: macOS and Windows warn on first open (see INSTALL.md).
 - **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
