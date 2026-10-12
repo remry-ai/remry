@@ -1,0 +1,51 @@
+#!/bin/sh
+# Remry plugin shim, started by .mcp.json as `sh <plugin>/scripts/remry mcp`.
+# It runs, in order of preference:
+#   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names)
+#   2. the clone `bun run setup` recorded in <data dir>/app-path
+# It isn't in bin/: claude.ai-hosted plugins (Cowork) reject bin/ executables.
+# On Windows, scripts/remry.cmd does the same.
+set -e
+
+# Under Git Bash, MSYS or Cygwin on Windows, the Windows launcher does the work.
+case $(uname -s) in
+  MINGW* | MSYS* | CYGWIN*)
+    # //d //c: Git Bash would otherwise rewrite /d and /c as paths.
+    exec cmd.exe //d //c "$(cygpath -w "$(dirname "$0")/remry.cmd")" "$@"
+    ;;
+esac
+
+if [ "$(uname -s)" = Darwin ]; then
+  data="$HOME/Library/Application Support/Remry"
+  # Its earlier names, Wonos and Working Notes. The app moves its data from there on first run.
+  legacy="$HOME/Library/Application Support/Wonos"
+  older="$HOME/Library/Application Support/Working Notes"
+else
+  data="${XDG_DATA_HOME:-$HOME/.local/share}/remry"
+  legacy="${XDG_DATA_HOME:-$HOME/.local/share}/wonos"
+  older="${XDG_DATA_HOME:-$HOME/.local/share}/working-notes"
+fi
+setup='Clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
+
+# WONO_HOME and WORKING_NOTES_HOME: its earlier names.
+app=${REMRY_HOME:-${WONO_HOME:-${WORKING_NOTES_HOME:-}}}
+
+pointer="$data/app-path"
+[ -r "$pointer" ] || pointer="$legacy/app-path"
+[ -r "$pointer" ] || pointer="$older/app-path"
+if [ -z "$app" ] && [ -r "$pointer" ]; then
+  app=$(cat "$pointer")
+fi
+if [ -z "$app" ]; then
+  echo "Remry isn't set up on this computer. $setup" >&2
+  exit 1
+fi
+if [ ! -x "$app/bin/remry" ]; then
+  echo "Remry isn't at $app any more (no bin/remry there). $setup" >&2
+  exit 1
+fi
+if [ ! -d "$app/node_modules" ]; then
+  echo "Remry at $app has no dependencies installed. Run \`bun install\` in $app." >&2
+  exit 1
+fi
+exec "$app/bin/remry" "$@"
