@@ -50,7 +50,7 @@
   };
 
   $effect(() => {
-    notes;
+    void notes;
     requestAnimationFrame(() => requestAnimationFrame(recheckOverflows));
   });
 
@@ -87,6 +87,7 @@
           data-note-body={note.id}
           style="--max-height: {maxHeight}px"
         >
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- the user's own markdown, in a local app -->
           {@html marked.parse(note.content)}
         </div>
         {#if !expandedNotes.has(note.id) && overflowingNotes.has(note.id)}

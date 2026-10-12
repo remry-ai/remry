@@ -32,6 +32,8 @@
     const preprocessed = markdown.replace(/\[chart:([^\]]+)\]/g, (_match: string, key: string) =>
       `<div data-chart-key="${escapeAttr(key)}"></div>`
     );
+    // Charts mount into the rendered HTML, so it's written directly rather than through {@html}.
+    // eslint-disable-next-line svelte/no-dom-manipulating
     container.innerHTML = marked.parse(preprocessed) as string;
     charts = mountCharts(container, branding, sections);
   };

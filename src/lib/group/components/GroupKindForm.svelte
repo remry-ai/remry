@@ -68,7 +68,7 @@
   </div>
   <Field label="Key" hint={isEdit ? "A kind's key can't change." : 'Used by Claude and the CLI.'}>
     {#snippet children({ id })}
-      <input {id} type="text" class="mono" bind:value={key} oninput={() => { autoKey = false; }} disabled={isEdit} required pattern={'[A-Z][A-Z0-9_]*'} />
+      <input {id} type="text" class="mono" bind:value={key} oninput={() => { autoKey = false; }} disabled={isEdit} required pattern="[A-Z][A-Z0-9_]*" />
     {/snippet}
   </Field>
   <Field label="One per person" hint="Like a department: joining one leaves the other.">

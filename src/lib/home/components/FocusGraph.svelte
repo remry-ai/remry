@@ -144,7 +144,7 @@
     <svg viewBox="0 0 {WIDTH} {height}" role="group" aria-label="Everything linked to {graph.focus.label}">
       <g class="edges">
         {#each graph.groups as group, gi (group.label)}
-          {#each layout.nodes[gi] ?? [] as p, ni}
+          {#each layout.nodes[gi] ?? [] as p, ni (ni)}
             <line
               x1={layout.centre.x}
               y1={layout.centre.y}
@@ -158,7 +158,7 @@
         {#each graph.groups as group, gi (group.label)}
           {#each group.nodes as n, ni (`${n.type}:${n.id}`)}
             {@const from = layout.nodes[gi]?.[ni]}
-            {#each layout.outer[gi]?.[ni] ?? [] as p, ci}
+            {#each layout.outer[gi]?.[ni] ?? [] as p, ci (ci)}
               {#if from}
                 <line
                   class="branch"

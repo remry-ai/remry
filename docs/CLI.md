@@ -68,6 +68,10 @@ Notes, docs, todos, links, tags, comments and emoji attach to any of these throu
 `entityId` — with one exception: **docs don't attach to a `PAGE`**, because a page's own `content`
 is the place for that material.
 
+A person, a group (within its kind) or a project can't be created with a name already in use,
+ignoring case and spacing and counting archived ones. The error names the one that exists, so
+update that one; pass `--allowDuplicate true` for a namesake.
+
 ```bash
 remry goal.create --title "99.9% uptime" --ownerType GROUP --ownerId <engineering> \
   --period 2026-H2 --unit % --baseline 99.5 --target 99.9
@@ -152,9 +156,14 @@ backlink by removing the link.
 Archiving keeps history; deleting doesn't.
 
 ```bash
-remry project.archive --id <project>
+remry entity.archive --entityType PROJECT --id <project>
+remry entity.archive --entityType PROJECT --id <project> --archived false   # unarchive
 remry project.list --archived only        # also include, or the default exclude
+remry entity.delete --entityType NOTE --id <note>
 ```
+
+`entity.archive` works on people, groups, projects, goals and pages, and `entity.delete` on those
+plus todos, docs, notes and links.
 
 An archived entity disappears from every `list`, from the org map, from the home feed and from the
 todo list. `get` still returns it. Any write to it — **or to anything attached to it** — fails with
@@ -277,8 +286,9 @@ remry mcp
 ```
 
 This runs a server that talks over standard input and output. It opens no port and uses no network.
-It offers every procedure as a tool, with `.` written as `_`, so `person.create` becomes
-`person_create`. Queries are marked read-only, and the `delete`, `remove` and `detach` tools are
+It offers the procedures as tools, with `.` written as `_`, so `person.create` becomes
+`person_create`, each described in one line. A few the app alone uses are left out: archiving and
+deleting go through `entity_archive` and `entity_delete` for every type. Queries are marked read-only, and the `delete`, `remove` and `detach` tools are
 marked destructive. Every tool except `notebook_*` accepts an optional `notebook` argument.
 
 On top of the procedures it adds `backup_snapshot`, `backup_list`, `app_open` (starts the app and

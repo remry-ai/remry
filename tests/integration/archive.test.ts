@@ -40,7 +40,7 @@ describe('archiving', () => {
 
     const update = await updatePerson(reg, 'person_bob', { extensions: { org: { title: 'Staff' } } });
     expect(update.ok).toBe(false);
-    if (!update.ok) expect(update.error.message).toContain('person.unarchive --id person_bob');
+    if (!update.ok) expect(update.error.message).toContain('entity.archive --entityType PERSON --id person_bob --archived false');
     expect((await addNote(reg, 'PERSON', 'person_bob', { content: 'Too late' })).ok).toBe(false);
     expect((await addTeamMember(reg, team.value.id, { personId: 'person_bob' })).ok).toBe(false);
 

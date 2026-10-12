@@ -89,7 +89,7 @@ describe('ensureWritable', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toContain('Group "Platform" is archived');
-      expect(result.error.message).toContain('group.unarchive --id t1');
+      expect(result.error.message).toContain('entity.archive --entityType GROUP --id t1 --archived false');
     }
   });
 

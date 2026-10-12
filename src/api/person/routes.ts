@@ -21,22 +21,27 @@ const checkModules = (model: NotebookModel, patch: PersonExtensionsPatch | undef
 
 export const personRouter = router({
   list: procedure
+    .meta({ description: 'Lists people with their module fields and how each relates to the user (toMe).' })
     .input(z.object({ archived: z.enum(ARCHIVE_FILTERS).default('exclude') }).default({}))
     .query(({ ctx, input }) => listPersons(ctx.reg, input.archived)),
 
   get: procedure
+    .meta({ description: 'One person with their groups, relationships and module fields.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getPerson(ctx.reg, input.id)),
 
   create: procedure
+    .meta({ description: 'Creates a person. Module fields go under extensions ({"org":{"title":…}}). Refuses a name already in use unless allowDuplicate.' })
     .input(z.object({
       name: z.string().min(1).max(200),
       email: z.string().email().optional(),
-      extensions
+      extensions,
+      allowDuplicate: z.boolean().optional().describe('Create it even though one with this name exists')
     }))
     .mutation(async ({ ctx, input }) => checkModules(ctx.model, input.extensions) ?? createPerson(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a person\'s name, email or module fields. null clears one.' })
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).max(200).optional(),
@@ -47,6 +52,7 @@ export const personRouter = router({
 
   // The notebook's owner: relations to them read as "your …". null: nobody.
   setMe: procedure
+    .meta({ description: 'Marks a person as the user, so relationships read as "your …". null clears it.' })
     .input(z.object({ id: z.string().nullable() }))
     .mutation(({ ctx, input }) => setMe(ctx.reg, input.id)),
 

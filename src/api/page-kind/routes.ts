@@ -10,13 +10,16 @@ const fields = z.array(pageKindFieldSchema).readonly().transform((value) => valu
 
 export const pageKindRouter = router({
   list: procedure
+    .meta({ description: 'Lists the notebook\'s page kinds with their fields.' })
     .query(({ ctx }) => listPageKinds(ctx.reg)),
 
   get: procedure
+    .meta({ description: 'One page kind with its fields.' })
     .input(z.object({ key: z.string() }))
     .query(({ ctx, input }) => getPageKind(ctx.reg, input.key)),
 
   create: procedure
+    .meta({ description: 'Defines a page kind (EXPENSE, RECIPE…) and its typed fields. Propose the fields to the user first.' })
     .input(z.object({
       key: z.string().max(40),
       name: z.string().trim().min(1).max(60),
@@ -26,6 +29,7 @@ export const pageKindRouter = router({
     .mutation(({ ctx, input }) => createPageKind(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a page kind\'s name, description, fields or order.' })
     .input(z.object({
       key: z.string(),
       name: z.string().trim().min(1).max(60).optional(),
@@ -36,6 +40,7 @@ export const pageKindRouter = router({
     .mutation(({ ctx, input: { key, ...data } }) => updatePageKind(ctx.reg, key, data)),
 
   delete: procedure
+    .meta({ description: 'Deletes a page kind, moving its pages to another kind (moveTo).' })
     .input(z.object({ key: z.string(), moveTo: z.string().optional() }))
     .mutation(({ ctx, input }) => deletePageKind(ctx.reg, input.key, input.moveTo))
 });

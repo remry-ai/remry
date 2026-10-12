@@ -15,16 +15,13 @@
 
   const { initial, onSuccess, onCancel }: Props = $props();
 
-  let name = $state(initial?.name ?? '');
+  // Follows `initial` (another notebook to rename) until the user types.
+  let name = $derived(initial?.name ?? '');
   let id = $state('');
   let submitting = $state(false);
   let error = $state('');
 
   const suggestedId = $derived(notebookIdFromName(name));
-
-  $effect(() => {
-    name = initial?.name ?? '';
-  });
 
   const handleSubmit = async () => {
     submitting = true;

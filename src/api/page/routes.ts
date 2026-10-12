@@ -17,6 +17,7 @@ const properties = z.record(z.union([z.string(), z.number(), z.boolean(), z.arra
 
 export const pageRouter = router({
   list: procedure
+    .meta({ description: 'Lists wiki pages (titles, kinds, the page tree), optionally of one kind or under one parent.' })
     .input(z.object({
       kind: kind.optional(),
       parentId: z.string().nullable().optional(),
@@ -25,6 +26,7 @@ export const pageRouter = router({
     .query(({ ctx, input }) => listPages(ctx.reg, input)),
 
   get: procedure
+    .meta({ description: 'One wiki page with its content and properties.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getPage(ctx.reg, input.id)),
 
@@ -32,6 +34,7 @@ export const pageRouter = router({
   // anyOf with values split by |, contains, gte, lte, empty, set), sort is
   // `field[:asc|desc]`, aggregates are `field:sum|avg|min|max` on number fields.
   query: procedure
+    .meta({ description: 'Queries a page kind\'s pages as a dataset: filters (field:op:value), sort, groupBy and aggregates (field:sum).' })
     .input(z.object({
       kind,
       filters: z.array(z.string()).readonly().optional(),
@@ -43,6 +46,7 @@ export const pageRouter = router({
     .query(({ ctx, input }) => queryPages(ctx.reg, input)),
 
   create: procedure
+    .meta({ description: 'Creates a wiki page of a kind, with markdown content and the kind\'s properties.' })
     .input(z.object({
       title: z.string().min(1).max(200),
       kind: kind.optional(),
@@ -54,6 +58,7 @@ export const pageRouter = router({
     .mutation(({ ctx, input }) => createPage(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a page\'s title, kind, parent, content or properties.' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),

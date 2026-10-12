@@ -4,13 +4,14 @@ import { PROTOCOL_VERSIONS, handleMessage, notebookArgumentSchema, resultFromOut
 const personCreate = toolFromProcedure({
   name: 'person.create',
   type: 'mutation',
+  description: 'Creates a person.',
   inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'], additionalProperties: false, $schema: 'http://json-schema.org/draft-07/schema#' }
 });
 
 const calls: Array<{ name: string; args: unknown }> = [];
 const ctx: McpContext = {
   info: { name: 'remry', version: '1.2.3', instructions: 'Be careful.' },
-  tools: [personCreate, toolFromProcedure({ name: 'boom.now', type: 'mutation', inputSchema: { type: 'object' } })],
+  tools: [personCreate, toolFromProcedure({ name: 'boom.now', type: 'mutation', description: null, inputSchema: { type: 'object' } })],
   callTool: async (name, args) => {
     if (name === 'boom_now') throw new Error('database is locked');
     calls.push({ name, args });
@@ -29,24 +30,27 @@ describe('toolFromProcedure', () => {
       required: ['name'],
       additionalProperties: false
     });
-    expect(personCreate.description).toContain('`remry person.create`');
+    expect(personCreate.description).toBe('Creates a person.');
+  });
+
+  it('falls back to naming the procedure when it has no description', () => {
+    expect(ctx.tools[1]?.description).toContain('`remry boom.now`');
   });
 
   it('adds the notebook argument to procedures without inputs, but not to the notebook procedures', () => {
-    expect(toolFromProcedure({ name: 'home.todos', type: 'query', inputSchema: { type: 'object' } }).inputSchema).toEqual({
+    expect(toolFromProcedure({ name: 'home.todos', type: 'query', description: null, inputSchema: { type: 'object' } }).inputSchema).toEqual({
       type: 'object',
       properties: { notebook: notebookArgumentSchema }
     });
-    const create = toolFromProcedure({ name: 'notebook.create', type: 'mutation', inputSchema: { type: 'object', properties: { name: { type: 'string' } } } });
+    const create = toolFromProcedure({ name: 'notebook.create', type: 'mutation', description: null, inputSchema: { type: 'object', properties: { name: { type: 'string' } } } });
     expect(create.inputSchema).toEqual({ type: 'object', properties: { name: { type: 'string' } } });
-    expect(create.description).toContain('Manages');
   });
 
   it('marks queries read-only and deletes, removes and detaches destructive', () => {
-    const tool = (name: string, type: 'query' | 'mutation') => toolFromProcedure({ name, type, inputSchema: {} }).annotations;
+    const tool = (name: string, type: 'query' | 'mutation') => toolFromProcedure({ name, type, description: null, inputSchema: {} }).annotations;
     expect(tool('person.list', 'query')).toEqual({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });
     expect(personCreate.annotations.destructiveHint).toBe(false);
-    for (const name of ['person.delete', 'note.remove', 'team.removeMember', 'tag.detach']) {
+    for (const name of ['entity.delete', 'person.delete', 'note.remove', 'team.removeMember', 'tag.detach']) {
       expect(tool(name, 'mutation').destructiveHint).toBe(true);
     }
   });

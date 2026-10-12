@@ -9,6 +9,7 @@ import type { PersonDetail, PersonExtensionsPatch, PersonSummary } from '$shared
 import { entityPath } from '$shared/utils/entity';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
+import { duplicateNameError, findPersonNamed } from '$api/_duplicates';
 import { listPersonGroups } from '$api/group/operations';
 import { ORG_PERSON, PERSONAL_PERSON } from '$api/modules/person-extensions';
 import { relationsToPerson } from '$api/person-relation/operations';
@@ -95,9 +96,15 @@ export interface CreatePersonInput {
   readonly name: string;
   readonly email?: string;
   readonly extensions?: PersonExtensionsPatch;
+  /** Create it even though one with this name exists (a namesake). */
+  readonly allowDuplicate?: boolean;
 }
 
 export const createPerson = async (reg: Reg, input: CreatePersonInput): Promise<Result<{ readonly id: string; readonly path: string }>> => {
+  if (!input.allowDuplicate) {
+    const existing = await findPersonNamed(reg, input.name);
+    if (existing) return err(duplicateNameError('Person', 'person.update', existing));
+  }
   if (input.extensions?.org?.leadId && !(await reg.prisma.person.findUnique({ where: { id: input.extensions.org.leadId }, select: { id: true } }))) {
     return err(new Error(`Lead ${input.extensions.org.leadId} not found. Find ids with person.list.`));
   }

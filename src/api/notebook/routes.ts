@@ -18,9 +18,11 @@ const setUpModules = async (notebookId: string, profile: NotebookProfile): Promi
 
 export const notebookRouter = router({
   list: procedure
+    .meta({ description: 'Lists the user\'s notebooks (id, name, profile) and which is the default. Call it first.' })
     .query(({ ctx }) => listNotebooks(ctx, ctx.notebook.id)),
 
   create: procedure
+    .meta({ description: 'Creates a notebook: a separate database with its own people, projects and files. profile picks its modules (work or home).' })
     .input(z.object({
       name: z.string().trim().min(1).max(100),
       id: z.string().max(40).optional(),
@@ -32,6 +34,7 @@ export const notebookRouter = router({
       createNotebook({ notebooks: ctx.notebooks, now: ctx.reg.now, setUpModules }, input)),
 
   setProfile: procedure
+    .meta({ description: 'Changes a notebook\'s profile (work or home), and so which modules it has. Data from a module it no longer has stays stored.' })
     .input(z.object({
       id: z.string(),
       profile: z.enum(NOTEBOOK_PROFILES)
@@ -39,6 +42,7 @@ export const notebookRouter = router({
     .mutation(({ ctx, input }) => setNotebookProfile({ notebooks: ctx.notebooks, setUpModules }, input.id, input.profile)),
 
   rename: procedure
+    .meta({ description: 'Renames a notebook. Its id stays the same.' })
     .input(z.object({
       id: z.string(),
       name: z.string().trim().min(1).max(100)
@@ -46,6 +50,7 @@ export const notebookRouter = router({
     .mutation(({ ctx, input }) => renameNotebook(ctx, input.id, input.name)),
 
   setDefault: procedure
+    .meta({ description: 'Makes a notebook the default for tools called without `notebook`.' })
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => setDefaultNotebook(ctx, input.id)),
 });

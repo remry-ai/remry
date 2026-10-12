@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { marked, Renderer } from 'marked';
   import type { Chart } from 'chart.js';
   import { mountCharts } from '$lib/report/chart-render';
@@ -81,9 +80,12 @@
 </script>
 
 <div class="md-rendered" bind:this={container}>
+  <!-- The user's own markdown, in a local app. -->
   {#if content}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html marked.parse(content, { renderer })}
   {:else}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html marked.parse(placeholder, { renderer })}
   {/if}
 </div>

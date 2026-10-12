@@ -307,7 +307,6 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if $quickFinderOpen}
-  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
   <div class="backdrop" onclick={(e) => { if (e.target === e.currentTarget) close(); }} onkeydown={handleModalKeydown}>
     <div class="finder">
       <div class="finder-header">
@@ -337,7 +336,6 @@
         </p>
       {:else if parsed.kind === 'ask' && answer?.query === query}
         <!-- Enter on a focused link fires click too, so the links work from the keyboard. -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div class="answer" role="presentation" onclick={handleAnswerClick}>
           {#if answer.state === 'running'}
             <EmptyState message="Asking Claude… this can take a minute." small />

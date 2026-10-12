@@ -8,6 +8,7 @@ const EXCLUDE = new Set(['trpcMeta.list']);
 export const trpcMetaRouter = router({
   list: procedure.query((): readonly ProcedureMeta[] => {
     // Import lazily to avoid a circular dependency at module level
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { appRouter } = require('$shared/trpc/router');
     return listProcedures(appRouter, EXCLUDE);
   })

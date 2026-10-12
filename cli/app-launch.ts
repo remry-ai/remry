@@ -7,7 +7,7 @@ import { execFile, spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import pluginManifest from '../plugin/.claude-plugin/plugin.json';
-import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, DEV_PORT, LEGACY_APP_CONTROL_PATHS, LEGACY_APP_PORTS, LEGACY_APP_STOP_PATHS, LEGACY_LOCAL_HEADERS } from './app-server';
+import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, DEV_PORT, LEGACY_APP_CONTROL_PATHS, LEGACY_APP_PORTS, LEGACY_APP_STOP_PATHS, LEGACY_LOCAL_HEADERS } from './app-ports';
 import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
 

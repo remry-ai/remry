@@ -102,7 +102,27 @@
     busy = true;
     error = '';
     try {
-      const input: Record<string, unknown> = {
+      // undefined leaves an image as it is, null removes it.
+      let iconUrl: string | null | undefined;
+      let logoUrl: string | null | undefined;
+
+      if (pendingIconBlob) {
+        const key = await uploadBlob(pendingIconBlob, 'icon');
+        if (!key) return;
+        iconUrl = key;
+      } else if (iconRemoved) {
+        iconUrl = null;
+      }
+
+      if (pendingLogoBlob) {
+        const key = await uploadBlob(pendingLogoBlob, 'logo');
+        if (!key) return;
+        logoUrl = key;
+      } else if (logoRemoved) {
+        logoUrl = null;
+      }
+
+      const outcome = await submit(() => trpc().branding.update.mutate({
         id: brand.id,
         name,
         primaryColor,
@@ -110,25 +130,9 @@
         primaryFontColor,
         accentFontColor,
         isDefault,
-      };
-
-      if (pendingIconBlob) {
-        const key = await uploadBlob(pendingIconBlob, 'icon');
-        if (!key) return;
-        input.iconUrl = key;
-      } else if (iconRemoved) {
-        input.iconUrl = null;
-      }
-
-      if (pendingLogoBlob) {
-        const key = await uploadBlob(pendingLogoBlob, 'logo');
-        if (!key) return;
-        input.logoUrl = key;
-      } else if (logoRemoved) {
-        input.logoUrl = null;
-      }
-
-      const outcome = await submit(() => trpc().branding.update.mutate(input as any));
+        iconUrl,
+        logoUrl
+      }));
       if (!outcome.ok) {
         error = outcome.error;
         return;

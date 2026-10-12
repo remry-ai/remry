@@ -8,6 +8,7 @@ import { toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shar
 import { loadOwner, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
+import { duplicateNameError, findProjectNamed } from '$api/_duplicates';
 
 // ----- Types -----
 
@@ -149,6 +150,8 @@ interface CreateProjectInput extends OwnerInput {
   readonly daysLikely?: number;
   readonly daysPessimistic?: number;
   readonly parentId?: string;
+  /** Create it even though one with this name exists (a namesake). */
+  readonly allowDuplicate?: boolean;
 }
 
 /** A status as given (a synonym such as `active` maps to `in-progress`), or an error naming the six. */
@@ -164,6 +167,10 @@ export const createProject = async (
 ): Promise<Result<{ readonly id: string; readonly path: string }>> => {
   const status = resolveStatus(input.status);
   if (!status.ok) return err(status.error);
+  if (!input.allowDuplicate) {
+    const existing = await findProjectNamed(reg, input.name);
+    if (existing) return err(duplicateNameError('Project', 'project.update', existing));
+  }
   const owner = await resolveOwnerInput(reg, input);
   if (!owner.ok) return err(owner.error);
   if (input.parentId) {

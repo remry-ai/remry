@@ -28,25 +28,32 @@ const MAX_IMAGE_BASE64_CHARS = 4_000_000;
 
 // Creating and changing brandings is Remry Pro (src/api/_license.ts); listing them isn't.
 export const brandingRouter = router({
-  list: procedure.query(({ ctx }) => listBrandings(ctx.reg)),
+  list: procedure
+    .meta({ description: 'Lists brandings (colours, icon and logo used by the app and on printed docs). Remry Pro.' })
+    .query(({ ctx }) => listBrandings(ctx.reg)),
 
   get: procedure
+    .meta({ description: 'One branding by id.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getBranding(ctx.reg, input.id)),
 
   create: procedure
+    .meta({ description: 'Creates a branding: colours as #rrggbb, optional icon and logo URLs, and whether it is the default. Remry Pro.' })
     .input(brandingInput)
     .mutation(({ ctx, input }) => gated(ctx, 'branding', () => createBranding(ctx.reg, input))),
 
   update: procedure
+    .meta({ description: 'Changes a branding\'s name, colours, images or default flag. Remry Pro.' })
     .input(z.object({ id: z.string() }).merge(brandingInput.partial()))
     .mutation(({ ctx, input: { id, ...data } }) => gated(ctx, 'branding', () => updateBranding(ctx.reg, id, data))),
 
   delete: procedure
+    .meta({ description: 'Deletes a branding. Remry Pro.' })
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => gated(ctx, 'branding', () => deleteBranding(ctx.reg, input.id))),
 
   uploadImage: procedure
+    .meta({ description: 'Uploads a branding\'s icon or logo as base64 PNG or JPEG. Remry Pro.' })
     .input(z.object({
       brandingId: z.string(),
       type: z.enum(['icon', 'logo']),

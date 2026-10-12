@@ -48,14 +48,20 @@ describe('remry mcp', () => {
     expect(init.result?.['serverInfo']).toMatchObject({ name: 'remry' });
     server.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
 
-    const tools = (await request('tools/list')).result?.['tools'] as Array<{ name: string; inputSchema: { properties?: Record<string, unknown> }; annotations: { destructiveHint: boolean; readOnlyHint: boolean } }>;
+    const tools = (await request('tools/list')).result?.['tools'] as Array<{ name: string; description: string; inputSchema: { properties?: Record<string, unknown> }; annotations: { destructiveHint: boolean; readOnlyHint: boolean } }>;
     const byName = new Map(tools.map((t) => [t.name, t]));
     expect(tools.length).toBeGreaterThan(60);
+    // Every tool's schema sits in Claude's context: keep the list lean (cli/api.ts APP_ONLY).
+    expect(tools.length).toBeLessThanOrEqual(110);
+    expect(tools.filter((t) => t.description.includes('with the same inputs as')).map((t) => t.name)).toEqual([]);
+    for (const hidden of ['person_delete', 'project_archive', 'goal_unarchive', 'note_remove', 'emoji_toggle', 'home_graph']) {
+      expect(byName.has(hidden)).toBe(false);
+    }
     expect(byName.get('person_list')?.annotations.readOnlyHint).toBe(true);
     expect(byName.get('search_query')?.annotations.readOnlyHint).toBe(true);
     expect(byName.get('search_recall')?.annotations.readOnlyHint).toBe(true);
-    expect(byName.get('person_delete')?.annotations.destructiveHint).toBe(true);
-    expect(byName.get('goal_delete')?.annotations.destructiveHint).toBe(true);
+    expect(byName.get('entity_delete')?.annotations.destructiveHint).toBe(true);
+    expect(byName.get('entity_archive')?.annotations.destructiveHint).toBe(false);
     expect(byName.get('relation_remove')?.annotations.destructiveHint).toBe(true);
     expect(byName.get('goal_checkIn')?.annotations.destructiveHint).toBe(false);
     expect(byName.has('backup_snapshot')).toBe(true);

@@ -1,13 +1,11 @@
 # Publishes the plugin after CI passes on main, when the plugin version is new
 # (set it with `bun run release:version <x.y.z>`):
-#   1. builds the standalone plugin on macOS and Linux (scripts/release/build.ts),
-#      smoke-tests each on its own OS, then merges the binaries into one plugin and zips
-#      it per platform (scripts/release/package.ts)
-#   2. force-pushes the built plugin to the `dist` branch and tags that commit
-#      dist-v<version>, the tag marketplace.json pins the plugin to
-#   3. creates GitHub release v<version> with the zip, for Claude desktop Chat uploads
-#   4. points marketplace.json on main at the release (scripts/release/advertise.ts): Claude
-#      desktop learns of an update from it, so it changes only once the build is there
+#   1. force-pushes plugin/ to the `dist` branch and tags that commit dist-v<version>,
+#      the tag marketplace.json pins the plugin to
+#   2. creates GitHub release v<version> with the plugin zipped, for Claude desktop Chat uploads
+#   3. points marketplace.json on main at the release (scripts/release/advertise.ts): Claude
+#      desktop learns of an update from it, so it changes only once the plugin is published
+# The plugin carries no app: its shim runs the clone `bun run setup` recorded.
 # The release tag is created last, so a failed run is retried by re-running it.
 name: Release
 
@@ -54,64 +52,9 @@ jobs:
         id: plan
         run: bun scripts/release/plan.ts
 
-  build:
+  publish:
     needs: plan
     if: needs.plan.outputs.release == 'true'
-    # Each target builds on its own OS, because the binary embeds the host's libsql
-    # native module. Each binary is over 100 MB, so the plugin carries three: Intel Macs
-    # and ARM Linux are left out until someone needs them. Windows is skipped for now:
-    # add back `- { target: windows-x64, os: windows-latest, required: false }` to build
-    # it again. Linux is new, so a failure there doesn't hold back the macOS release.
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { target: darwin-arm64, os: macos-latest, required: true }
-          - { target: linux-x64, os: ubuntu-latest, required: false }
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ !matrix.required }}
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_SHA }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install
-        run: bun install --frozen-lockfile
-
-      - name: Generate the Prisma client
-        run: bunx prisma generate
-
-      - name: Build the standalone plugin
-        run: bun run release:build --target ${{ matrix.target }}
-
-      - name: Smoke test
-        run: bun run release:smoke dist/plugin
-
-      # A signed record that this workflow built the binary from RELEASE_SHA, so anyone
-      # (or an organisation's reviewer) can check a copy with
-      # `gh attestation verify <binary> --repo <owner>/<repo>`.
-      - name: Attest the binary's provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: dist/plugin/server/remry-${{ matrix.target }}*
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: plugin-${{ matrix.target }}
-          path: dist/plugin
-          include-hidden-files: true
-          if-no-files-found: error
-
-  publish:
-    needs: [plan, build]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.plan.outputs.version }}
@@ -128,41 +71,31 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # One directory per platform that built; the macOS build is required, so it's always there.
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: plugin-*
-          path: dist/builds
-
-      - name: Merge the platforms and zip them
+      - name: Zip the plugin
         run: |
-          builds="dist/builds/plugin-darwin-arm64"
-          for dir in dist/builds/plugin-*; do
-            [ "$dir" = dist/builds/plugin-darwin-arm64 ] || builds="$builds $dir"
-          done
-          # Artifacts lose the execute bit; the shim restores it when it installs a binary.
-          bun run release:package $builds
+          mkdir -p dist
+          (cd plugin && zip -qr "../dist/remry-$VERSION.zip" .)
 
-      - name: Publish the built plugin to the dist branch, tagged dist-v<version>
+      - name: Publish the plugin to the dist branch, tagged dist-v<version>
         run: |
           # The plugin sits at the branch root: Cowork's marketplace sync ignores a
           # source `path` and requires .claude-plugin/plugin.json at the root.
           site=$(mktemp -d)
-          cp -R dist/plugin/. "$site/"
+          cp -R plugin/. "$site/"
           test -f "$site/.claude-plugin/plugin.json"
           cd "$site"
           git init -q -b dist
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "Remry $VERSION, built from $RELEASE_SHA"
+          git commit -q -m "Remry $VERSION, from $RELEASE_SHA"
           git tag "dist-v$VERSION"
           # Both at once, and --force so a re-run replaces a tag from a failed attempt.
           git push -q --force --atomic "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dist "refs/tags/dist-v$VERSION"
 
       - name: Create the GitHub release
         run: |
-          gh release create "v$VERSION" dist/remry-*.zip \
+          gh release create "v$VERSION" "dist/remry-$VERSION.zip" \
             --target "$RELEASE_SHA" \
             --title "Remry $VERSION" \
             --generate-notes

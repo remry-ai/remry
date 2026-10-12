@@ -10,7 +10,6 @@
   import { submit } from '$lib/ui/submit';
   import { nextStatus, formatTodoDate, type TodoStatus, type EntityType } from '$lib/todo/utils';
   import { entityPath, entityTypeLabel } from '$shared/utils/entity';
-  import { model } from '$lib/stores/notebook-model';
 
   const { data } = $props<{ data: PageData }>();
   const todos = $derived(data.todos);

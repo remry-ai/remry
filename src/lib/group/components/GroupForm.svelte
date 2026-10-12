@@ -87,9 +87,7 @@
     </Field>
   </div>
   <Field label="Description">
-    {#snippet children({ id })}
-      <MarkdownEditor value={description} onChange={(md: string) => { description = md; }} />
-    {/snippet}
+    <MarkdownEditor value={description} onChange={(md: string) => { description = md; }} />
   </Field>
 
   {#if error}<p class="form-error">{error}</p>{/if}

@@ -16,6 +16,7 @@
     pending?: readonly PickedLink[];
   }
 
+  // eslint-disable-next-line prefer-const -- pending is $bindable, so it must be let
   let { todoId, pending = $bindable([]) }: Props = $props();
 
   let groups = $state<readonly RelationGroup[]>([]);

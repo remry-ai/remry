@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { page } from '$app/stores';
   import RightPanel from '$lib/common/RightPanel.svelte';
   import NotebookSwitcher from '$lib/notebook/components/NotebookSwitcher.svelte';
@@ -12,7 +13,7 @@
   import { drawerCssWidths } from '$lib/common/panel-width';
 
   interface Props {
-    readonly children: any;
+    readonly children: Snippet;
     readonly showInfoPanel?: boolean;
     readonly collapseInfoPanelOnMedium?: boolean;
     readonly brandIconUrl?: string | null;

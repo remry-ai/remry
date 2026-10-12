@@ -115,9 +115,7 @@
     {/snippet}
   </Field>
   <Field label="Description">
-    {#snippet children({ id })}
-      <MarkdownEditor value={description} onChange={(md: string) => { description = md; }} />
-    {/snippet}
+    <MarkdownEditor value={description} onChange={(md: string) => { description = md; }} />
   </Field>
   <div class="form-row">
     <Field label="Owner">

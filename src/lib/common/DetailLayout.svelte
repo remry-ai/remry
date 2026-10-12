@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { onDestroy } from 'svelte';
   import { activeDrawer, closeFloating, leftDocked, leftDrawer, leftFloating, sidebarWidth, toggleDrawer } from '$lib/stores/drawers';
   import { isDrawerOpen } from '$lib/common/drawer-state';
@@ -8,8 +9,8 @@
 
   interface Props {
     readonly leftLabel?: string;
-    readonly sidebar: any;
-    readonly children: any;
+    readonly sidebar: Snippet;
+    readonly children: Snippet;
   }
 
   const { leftLabel = 'Details', sidebar, children }: Props = $props();

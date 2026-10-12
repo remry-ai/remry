@@ -12,7 +12,7 @@ import { getRegistry } from '$shared/registry.server';
 import { ok, err, type Result } from '$shared/utils/result';
 import { createSnapshot, listSnapshots } from './snapshot';
 import { isPortListening } from './port';
-import { APP_PORT, DEV_PORT, LEGACY_APP_PORTS } from '../../cli/app-server';
+import { APP_PORT, DEV_PORT, LEGACY_APP_PORTS } from '../../cli/app-ports';
 
 export interface RestoreOptions {
   readonly appPort?: number;

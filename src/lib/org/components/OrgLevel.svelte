@@ -57,7 +57,7 @@
           {#if node.person.title}<span class="title">{node.person.title}</span>{/if}
           {#if visibleGroups(node.person.id).length > 0}
             <span class="chips">
-              {#each visibleGroups(node.person.id) as g}<span class="chip">{g}</span>{/each}
+              {#each visibleGroups(node.person.id) as g (g)}<span class="chip">{g}</span>{/each}
             </span>
           {/if}
           <button type="button" class="edit" aria-label="Edit {node.person.name}" title="Edit" onclick={() => onEdit(node.person.id)}><PencilIcon /></button>

@@ -57,6 +57,7 @@ export const planPageStarts = (
 
 /** A file name for the PDF: the title without characters that trouble file systems. */
 export const pdfFileName = (title: string): string => {
+  // eslint-disable-next-line no-control-regex -- control characters are what it removes
   const cleaned = title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
   return `${cleaned || 'document'}.pdf`;
 };

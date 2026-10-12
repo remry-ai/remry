@@ -18,6 +18,7 @@ Current domains, grouped into folders:
 - `person` (core fields only) and `group` + `group-kind` (groups of kinds the notebook defines)
 - `modules/`: what modules add to the core, today `person-extensions.ts` (org: title and lead in `org_person`; personal: birthday and known-as in `personal_person`)
 - `entities/`: `ports.ts`, each type's label and archive state, which `_entity-labels` and `_archive` dispatch to
+- `entity`: `entity.archive` and `entity.delete`, one archive and one delete for every type, dispatching to `setArchived` and each domain's delete. The CLI and MCP offer these instead of the per-type procedures (`APP_ONLY` in `cli/api.ts`), which the app keeps using
 - `attached/` (named so, not `aux`, which Windows reserves as a device name; attach to any entity via `entityType` + `entityId`): `doc`, `note`, `todo`, `link`, `tag`, `comment`, `emoji`, `report`
 - flat (infra + top-level entities): `project`, `goal`, `page` (wiki pages), `page-kind` (each notebook's page kinds), `relation`, `branding`, `home`, `search`, `health`, `trpc-meta`
 - `notebook`: lists, creates and renames notebooks and sets the default. It works on the notebook store (`ctx.notebooks`), not on a database. See § Notebooks.
@@ -26,6 +27,7 @@ Loose backend helpers that aren't domains use an underscore prefix:
 
 - `_entity-labels.ts`: entity reference → display name. Also the existence check for owners, relations and mentions.
 - `_owners.ts`: `resolveOwnerInput` validates a goal or project owner (`ownerType` + `ownerId`, set together or both null); `loadOwner` returns its name and path.
+- `_duplicates.ts`: the duplicate-name guard on `person.create`, `group.create` and `project.create` (`allowDuplicate` skips it).
 - `_entity-cleanup.ts`: `planEntityCleanup`, `relationCleanupOp` and `removeFiles`, for deletes (see § Deletes).
 
 ## The Registry

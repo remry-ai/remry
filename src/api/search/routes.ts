@@ -9,6 +9,7 @@ import { recallEntity, RECALL_LIMITS } from './recall';
 // Full-text search and recall are Remry Pro (src/api/_license.ts).
 export const searchRouter = router({
   query: procedure
+    .meta({ description: 'Full-text search over names, notes, docs, pages, todos, comments, links and check-ins. Supports quoted phrases and -exclusions. Remry Pro.' })
     .input(z.object({
       q: z.string().min(1).max(SEARCH_LIMITS.query)
         .describe('Words to find (all must match; each also matches as a prefix). "exact phrase", a OR b, -exclude'),
@@ -21,6 +22,7 @@ export const searchRouter = router({
     .query(({ ctx, input }) => gated(ctx, 'search', () => searchNotebook(ctx.reg, input))),
 
   recall: procedure
+    .meta({ description: 'Everything about one entity: its notes, todos, docs, links, tags, relations, owned goals and projects, and text elsewhere that names it. Remry Pro.' })
     .input(z.object({
       entityType: z.enum(RELATABLE_TYPES),
       entityId: z.string().min(1),

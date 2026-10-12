@@ -11,7 +11,7 @@
     {
       "name": "remry",
       "source": { "source": "github", "repo": "remry-ai/remry", "ref": "dist-v0.14.25" },
-      "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Releases include the app for Apple silicon Macs, so nothing else needs installing.",
+      "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Runs a clone of the Remry repo, set up with bun run setup.",
       "version": "0.14.25",
       "category": "productivity",
       "keywords": ["notes", "org-chart", "todos", "reports", "local-first"]

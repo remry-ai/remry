@@ -8,6 +8,7 @@ const todoStatusEnum = z.enum(TODO_STATUSES);
 
 export const todoRouter = router({
   list: procedure
+    .meta({ description: 'Lists todos across the notebook, filtered by status or by the type of entity they hang on.' })
     .input(z.object({
       status: todoStatusEnum.optional(),
       entityType: entityTypeEnum.optional(),
@@ -16,6 +17,7 @@ export const todoRouter = router({
     .query(({ ctx, input }) => listTodos(ctx.reg, input)),
 
   forEntity: procedure
+    .meta({ description: 'One entity\'s todos.' })
     .input(z.object({
       entityType: entityTypeEnum,
       entityId: z.string()
@@ -23,6 +25,7 @@ export const todoRouter = router({
     .query(({ ctx, input }) => listTodosForEntity(ctx.reg, input.entityType, input.entityId)),
 
   create: procedure
+    .meta({ description: 'Creates a todo on an entity, with a priority 0-3, a target date and an optional recurrence.' })
     .input(z.object({
       title: z.string().min(1).max(500),
       description: z.string().max(5000).optional(),
@@ -36,6 +39,7 @@ export const todoRouter = router({
     .mutation(({ ctx, input }) => createTodo(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a todo; status COMPLETE marks it done (a recurring todo then creates the next one).' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(500).optional(),

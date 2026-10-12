@@ -2,12 +2,7 @@
 # Remry plugin shim, started by .mcp.json as `sh <plugin>/scripts/remry mcp`.
 # It runs, in order of preference:
 #   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names)
-#   2. the standalone binary a release carries in <plugin>/server. It's installed into
-#      <data dir>/App/<version>, with App/current pointing at it (for the backup
-#      LaunchAgent and terminals), so no clone or Bun is needed.
-#   3. the clone `bun run setup` recorded in <data dir>/app-path, for a plugin without
-#      a binary: the remry-dev copy setup installs. So on a development machine the
-#      released plugin still runs the release, beside the clone's remry-dev.
+#   2. the clone `bun run setup` recorded in <data dir>/app-path
 # It isn't in bin/: claude.ai-hosted plugins (Cowork) reject bin/ executables.
 # On Windows, scripts/remry.cmd does the same.
 set -e
@@ -30,38 +25,10 @@ else
   legacy="${XDG_DATA_HOME:-$HOME/.local/share}/wonos"
   older="${XDG_DATA_HOME:-$HOME/.local/share}/working-notes"
 fi
-setup='Install the Remry plugin from a release, which includes the app, or clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
+setup='Clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
 
 # WONO_HOME and WORKING_NOTES_HOME: its earlier names.
 app=${REMRY_HOME:-${WONO_HOME:-${WORKING_NOTES_HOME:-}}}
-
-plugin=$(cd "$(dirname "$0")/.." && pwd)
-case $(uname -m) in
-  arm64 | aarch64) arch=arm64 ;;
-  x86_64 | amd64) arch=x64 ;;
-  *) arch=$(uname -m) ;;
-esac
-os=$(uname -s | tr '[:upper:]' '[:lower:]')
-bundled="$plugin/server/remry-$os-$arch"
-
-if [ -z "$app" ] && [ -f "$bundled" ]; then
-  version=$(cat "$plugin/server/VERSION")
-  dest="$data/App/$version"
-  if [ ! -e "$dest" ]; then
-    tmp="$data/App/.install-$version-$$"
-    rm -rf "$tmp"
-    mkdir -p "$tmp"
-    # cat, not cp: the copy doesn't inherit a download's quarantine flag, and chmod
-    # restores the execute bit that an unzipped or cloned plugin may have lost.
-    cat "$bundled" > "$tmp/remry"
-    chmod 755 "$tmp/remry"
-    cp -R "$plugin/server/migrations" "$plugin/server/VERSION" "$tmp/"
-    # Another start may have installed this version meanwhile.
-    if [ -e "$dest" ]; then rm -rf "$tmp"; else mv "$tmp" "$dest"; fi
-  fi
-  ln -sfn "$version" "$data/App/current"
-  exec "$dest/remry" "$@"
-fi
 
 pointer="$data/app-path"
 [ -r "$pointer" ] || pointer="$legacy/app-path"
@@ -70,11 +37,7 @@ if [ -z "$app" ] && [ -r "$pointer" ]; then
   app=$(cat "$pointer")
 fi
 if [ -z "$app" ]; then
-  if [ -d "$plugin/server" ]; then
-    echo "This Remry plugin has no build for $os-$arch. Download remry-<version>-$os-$arch.zip from https://github.com/remry-ai/remry/releases/latest and add it as a plugin." >&2
-  else
-    echo "Remry isn't set up on this computer. $setup" >&2
-  fi
+  echo "Remry isn't set up on this computer. $setup" >&2
   exit 1
 fi
 if [ ! -x "$app/bin/remry" ]; then

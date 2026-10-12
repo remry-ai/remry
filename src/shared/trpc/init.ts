@@ -5,8 +5,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { notInModelMessage } from '$shared/modules/model';
 import type { Context } from './context.server';
+import type { ProcedureDoc } from './meta';
 
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().meta<ProcedureDoc>().create();
 
 /** Procedures a module owns (goal.*) are refused in a notebook without that module. */
 const moduleGate = t.middleware(({ ctx, path, next }) => {

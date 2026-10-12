@@ -28,6 +28,7 @@ import { notebookRouter } from '$api/notebook/routes';
 import { chatRouter } from '$api/assist/routes';
 import { searchRouter } from '$api/search/routes';
 import { licenseRouter } from '$api/license/routes';
+import { entityRouter } from '$api/entity/routes';
 
 export const appRouter = router({
   notebook: notebookRouter,
@@ -35,6 +36,7 @@ export const appRouter = router({
   home: homeRouter,
   search: searchRouter,
   license: licenseRouter,
+  entity: entityRouter,
   branding: brandingRouter,
   project: projectRouter,
   goal: goalRouter,

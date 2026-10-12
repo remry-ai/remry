@@ -5,9 +5,10 @@
   import NewNotebookPopup from "$lib/notebook/components/NewNotebookPopup.svelte";
   import { layoutConfig } from "$lib/stores/layout";
 
+  import type { Snippet } from "svelte";
   import type { LayoutData } from "./$types";
 
-  let { children, data } = $props<{ children: any; data: LayoutData }>();
+  const { children, data } = $props<{ children: Snippet; data: LayoutData }>();
 </script>
 
 <!-- The notebook's default branding recolours the accent and selected tokens for everything below, popups included. -->

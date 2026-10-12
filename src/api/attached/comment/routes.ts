@@ -7,10 +7,12 @@ const entityTypeEnum = z.enum(ENTITY_TYPES);
 
 export const commentRouter = router({
   list: procedure
+    .meta({ description: 'An entity\'s comments (the user\'s discussion in the app).' })
     .input(z.object({ entityType: entityTypeEnum, entityId: z.string() }))
     .query(({ ctx, input }) => listComments(ctx.reg, input.entityType, input.entityId)),
 
   add: procedure
+    .meta({ description: 'Adds a comment to an entity.' })
     .input(z.object({
       entityType: entityTypeEnum,
       entityId: z.string(),
@@ -19,6 +21,7 @@ export const commentRouter = router({
     .mutation(({ ctx, input }) => addComment(ctx.reg, input.entityType, input.entityId, input)),
 
   remove: procedure
+    .meta({ description: 'Deletes a comment.' })
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => removeComment(ctx.reg, input.id)),
 });

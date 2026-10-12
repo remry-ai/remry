@@ -63,7 +63,7 @@ export const NOTEBOOK_ARGUMENT = 'notebook';
 
 export const notebookArgumentSchema = {
   type: 'string',
-  description: 'Notebook id or name. Omit to use the default notebook; notebook_list shows them.'
+  description: 'Notebook id or name; the default if omitted.'
 } as const;
 
 /** The `notebook.*` procedures manage notebooks themselves, so they take no notebook argument. */
@@ -73,7 +73,6 @@ export const toolFromProcedure = (procedure: ProcedureMeta): McpTool => {
   const reads = procedure.type === 'query';
   const destructive = !reads && DESTRUCTIVE.test(procedure.name);
   const schema = isRecord(procedure.inputSchema) ? procedure.inputSchema : {};
-  const verb = reads ? 'Reads from' : destructive ? 'Deletes from' : 'Writes to';
   const base: Record<string, unknown> = { type: 'object', ...Object.fromEntries(Object.entries(schema).filter(([key]) => key !== '$schema')) };
   const scoped = isNotebookScoped(procedure.name);
   if (scoped) {
@@ -81,9 +80,8 @@ export const toolFromProcedure = (procedure: ProcedureMeta): McpTool => {
   }
   return {
     name: toolName(procedure.name),
-    description: scoped
-      ? `${verb} one of the user's Remry notebooks (the default unless you pass \`notebook\`): the \`${procedure.name}\` procedure, with the same inputs as \`remry ${procedure.name}\`.`
-      : `Manages the user's Remry notebooks: the \`${procedure.name}\` procedure, with the same inputs as \`remry ${procedure.name}\`.`,
+    // The procedure's own description; the server instructions say the rest once, not 100 times.
+    description: procedure.description ?? `The \`${procedure.name}\` procedure, with the same inputs as \`remry ${procedure.name}\`.`,
     inputSchema: base,
     annotations: { readOnlyHint: reads, destructiveHint: destructive, openWorldHint: false }
   };

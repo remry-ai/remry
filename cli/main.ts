@@ -48,7 +48,7 @@ const printHelp = (name: string | undefined): number => {
   }
   const schema = meta.inputSchema as JsonSchema;
   const required = new Set(schema.required ?? []);
-  process.stdout.write(`${meta.name} (${meta.type})\n`);
+  process.stdout.write(`${meta.name} (${meta.type})${meta.description ? `: ${meta.description}` : ''}\n`);
   for (const [key, prop] of Object.entries(schema.properties ?? {})) {
     const limits = [
       prop.minimum !== undefined ? `min ${prop.minimum}` : '',

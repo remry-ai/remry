@@ -9,7 +9,6 @@ import { ARCHIVABLE_TYPES, type ArchivableType, type ArchiveFilter } from '$shar
 import { ENTITY_DESCRIPTORS } from '$shared/entities/descriptors';
 import { ARCHIVABLE_PORTS } from '$api/entities/ports';
 
-const procedurePrefix = (type: ArchivableType): string => type.toLowerCase();
 const typeName = (type: ArchivableType): string => ENTITY_DESCRIPTORS[type].singular;
 
 export const isArchivableType = (entityType: string): entityType is ArchivableType =>
@@ -41,7 +40,7 @@ export const ensureWritable = async (
   if (!state?.archivedAt) return ok(undefined);
   return err(new Error(
     `${typeName(entityType)} "${state.name}" is archived, so it and what's attached to it are read-only. ` +
-    `Unarchive it first with ${procedurePrefix(entityType)}.unarchive --id ${entityId}`
+    `Unarchive it first with entity.archive --entityType ${entityType} --id ${entityId} --archived false`
   ));
 };
 

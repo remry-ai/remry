@@ -10,6 +10,7 @@ import { entityPath } from '$shared/utils/entity';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureAllWritable, ensureWritable } from '$api/_archive';
 import { getGroupKind } from '$api/group-kind/operations';
+import { duplicateNameError, findGroupNamed } from '$api/_duplicates';
 
 type Reg = Pick<Registry, 'prisma'>;
 
@@ -106,11 +107,17 @@ export interface CreateGroupInput {
   readonly kind: string;
   readonly name: string;
   readonly description?: string;
+  /** Create it even though one with this name exists (a namesake). */
+  readonly allowDuplicate?: boolean;
 }
 
 export const createGroup = async (reg: Reg, input: CreateGroupInput): Promise<Result<{ readonly id: string; readonly path: string }>> => {
   const kind = await getGroupKind(reg, input.kind);
   if (!kind.ok) return err(kind.error);
+  if (!input.allowDuplicate) {
+    const existing = await findGroupNamed(reg, kind.value.key, input.name);
+    if (existing) return err(duplicateNameError(kind.value.name, 'group.update', existing));
+  }
   const row = await reg.prisma.group.create({ data: { kind: kind.value.key, name: input.name, description: input.description } });
   return ok({ id: row.id, path: entityPath('GROUP', row.id) });
 };

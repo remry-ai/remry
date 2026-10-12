@@ -191,8 +191,8 @@ can see them. Remry holds yours, privately, and can link back to them.
 
 ## Getting started
 
-- **[docs/INSTALL.md](docs/INSTALL.md)** — install it for Claude Code, Cowork or the Claude desktop
-  app. A release brings the app with it, so there is nothing else to install.
+- **[docs/INSTALL.md](docs/INSTALL.md)** — set up the app from a clone (it needs [Bun](https://bun.sh)),
+  then install the plugin for Claude Code, Cowork or the Claude desktop app.
 - **[docs/CLI.md](docs/CLI.md)** — the `remry` command and the tools Claude uses, for when you want
   to drive it yourself.
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — running from a clone, and how releases work.
@@ -241,6 +241,5 @@ Write-ups go in docs instead.
 Branding, PDF export and full-text search are part of [Remry Pro](#remry-pro), a yearly license
 that the app checks on your computer without contacting anything. Everything else is free.
 
-Releases are built for Apple silicon Macs, with Windows and Linux builds in preview, and a desktop
-app for all three is on the way. On Windows, connecting Claude needs one extra step for now; see
-[docs/INSTALL.md](docs/INSTALL.md).
+Remry runs from a clone of this repository, with [Bun](https://bun.sh); the plugin points Claude at
+it. Lint, type checks and tests run on every push.

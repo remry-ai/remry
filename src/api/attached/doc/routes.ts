@@ -10,14 +10,17 @@ const MAX_IMAGE_BASE64_CHARS = 14_000_000; // ~10 MB image
 
 export const docRouter = router({
   list: procedure
+    .meta({ description: 'An entity\'s docs (titles, no content).' })
     .input(z.object({ entityType: z.enum(ENTITY_TYPES), entityId: z.string() }))
     .query(({ ctx, input }) => listDocs(ctx.reg, input.entityType, input.entityId)),
 
   get: procedure
+    .meta({ description: 'One doc with its markdown content.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getDoc(ctx.reg, input.id)),
 
   add: procedure
+    .meta({ description: 'Creates an empty doc on an entity. Write its content with doc.update.' })
     .input(z.object({
       entityType: z.enum(ENTITY_TYPES),
       entityId: z.string(),
@@ -26,6 +29,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => addDoc(ctx.reg, input.entityType, input.entityId, input)),
 
   update: procedure
+    .meta({ description: 'Changes a doc\'s title or markdown content (fenced chart and mermaid blocks render).' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -38,6 +42,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => removeDoc(ctx.reg, input.id)),
 
   reorder: procedure
+    .meta({ description: 'Sets the order of an entity\'s docs.' })
     .input(z.object({
       entityType: z.enum(ENTITY_TYPES),
       entityId: z.string(),
@@ -46,6 +51,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => reorderDocs(ctx.reg, input.entityType, input.entityId, input.docIds)),
 
   attachSource: procedure
+    .meta({ description: 'Attaches the original PDF (base64) to a doc whose markdown you wrote from it.' })
     .input(z.object({
       docId: z.string(),
       contentType: z.literal('application/pdf'),
@@ -54,6 +60,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.contentType, input.dataBase64)),
 
   uploadImage: procedure
+    .meta({ description: 'Uploads an image (base64) for a doc and returns its key; embed it in the content as ![alt](storage://<key>).' })
     .input(z.object({
       docId: z.string(),
       contentType: z.enum(DOC_IMAGE_TYPES),
@@ -62,6 +69,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.contentType, input.dataBase64)),
 
   getReadUrl: procedure
+    .meta({ description: 'The app URL of a doc\'s attached PDF.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getDocReadUrl(ctx.reg, input.id)),
 

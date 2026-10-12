@@ -31,10 +31,8 @@ Four things, and it's safe to re-run:
    `dist/dev-marketplace`, so it isn't mistaken for the released `remry` that Chat and Cowork get from
    claude.ai. Re-run setup after changing the skill: it reinstalls `remry-dev` each time.
 
-The pointer matters: because of it, the plugin's MCP server runs **this clone's code** instead of a
-release's. The shim, `plugin/scripts/remry`, tries three sources in order — `$REMRY_HOME`,
-the clone named by `app-path`, then the standalone binary inside a release. A development machine
-therefore always runs the code it has checked out.
+The pointer matters: the plugin carries no app, so its MCP server runs **this clone's code**. The
+shim, `plugin/scripts/remry`, tries `$REMRY_HOME`, then the clone named by `app-path`.
 
 - **Moved the clone?** Run `bun run setup` again from the new location.
 - **Update:** `git pull && bun install && bun run setup`.
@@ -47,8 +45,9 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Dev server on http://127.0.0.1:5173 (a release's app uses 7369, so both can run) |
+| `bun run dev` | Dev server on http://127.0.0.1:5173 |
 | `bun run build && bun run start` | Production server, loopback only |
+| `bun run lint` | ESLint for TypeScript and Svelte (`lint:fix` fixes what it can) |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
 | `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) |
 | `bun run test:integration` | Integration tests against `./data/test` |
@@ -56,7 +55,6 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 | `bun run db:migrate --name <change>` | Author a migration against the default notebook |
 | `bun run db:studio` | Prisma Studio, on the same notebook |
 | `bun run setup [uninstall]` | PATH, plugin zip, Claude Code plugin |
-| `bun run desktop:prepare` then `desktop:dev` / `desktop:build` | The Tauri desktop app in `desktop/` (after `release:build`) |
 
 You author migrations against a real notebook, so run `bun run backup --force` first. Every other
 notebook migrates forward the next time a process opens it. If a migration reports "database is
@@ -109,7 +107,8 @@ release fails unless `marketplace.json` names one released version and its tag.
 
 ## Releasing
 
-A release includes the app, so a Mac that installs the plugin needs no clone and no Bun.
+A release is the plugin alone: the skill, the shim and `.mcp.json`. The shim runs the clone that
+`bun run setup` recorded, so every computer that uses Remry has a clone and Bun.
 
 1. `bun run release:version <x.y.z>`
 2. Commit and push to `main`.
@@ -118,28 +117,24 @@ A release includes the app, so a Mac that installs the plugin needs no clone and
 `scripts/release/plan.ts` skips a version that's already released, and fails if `plugin/` changed
 since the last release without a new version.
 
-- **CI** (`.github/workflows/ci.yml`): `check`, unit and integration tests on every push and PR,
-  on Linux, plus the unit tests on macOS and Windows (not blocking).
-- **Build** (`bun run release:build [--target <t>]`): builds the UI, then compiles
-  `cli/standalone.ts` and the built SvelteKit server into one `remry-<target>` binary with Bun
-  embedded. Build each target on its own OS: the binary embeds the host's SQLite native module.
-  Writes `dist/plugin/`.
-- **Package** (`bun run release:package [<built plugin dirs>]`): merges several builds' binaries
-  into `dist/plugin` and writes one `dist/remry-<version>-<target>.zip` per platform.
-- **Smoke test** (`bun run release:smoke`): installs this machine's binary through the shim
-  (`remry.cmd` on Windows) into an empty home folder, then checks a procedure, the MCP tool list
-  and the app (page, asset, API, guard).
-- **Publish:** the workflow builds and smoke-tests `darwin-arm64` (required), `windows-x64` and
-  `linux-x64` on their own runners, packages them on Linux, force-pushes `dist/plugin` to the root
-  of the `dist` branch — Cowork's sync needs `.claude-plugin/plugin.json` at the root — tags that
-  commit `dist-v<version>`, then creates GitHub release `v<version>` with the zips.
+- **CI** (`.github/workflows/ci.yml`): lint, `check`, unit and integration tests on every push and
+  PR, on Linux.
+- **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
+  `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates GitHub
+  release `v<version>` with `plugin/` zipped, for Claude desktop Chat.
 
 `marketplace.json` points at that tag, so Claude Code, Cowork and `bun run setup` all install the
-released plugin; a development machine's MCP server still runs its clone.
+released plugin.
 
-**Native SQLite:** libsql picks its native module with a runtime `require`, which a bundler can't
-follow. `scripts/release/libsql.ts` rewrites it into a static require so Bun embeds the module, and
-fails the build if libsql changes that line.
+## Adding a procedure
+
+Claude sees every procedure the CLI and MCP offer, as a tool whose schema sits in its context, so:
+
+- Give it a one-line `.meta({ description })` saying what it does. The MCP test fails without one.
+- Prefer a parameter on an existing procedure to a new procedure. A procedure only the app needs
+  goes in `APP_ONLY` in `cli/api.ts`.
+- Archiving and deleting go through `entity.archive` and `entity.delete`; a new archivable or
+  deletable type joins those rather than adding its own.
 
 ## Ground rules
 

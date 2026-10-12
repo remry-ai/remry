@@ -7,6 +7,7 @@ import { listProjectDependencies } from './dependencies';
 
 export const projectRouter = router({
   list: procedure
+    .meta({ description: 'Lists projects, optionally those one person or group owns.' })
     .input(z.object({
       ownerType: z.enum(OWNER_TYPES).optional(),
       ownerId: z.string().optional(),
@@ -15,14 +16,17 @@ export const projectRouter = router({
     .query(({ ctx, input }) => listProjects(ctx.reg, input)),
 
   dependencies: procedure
+    .meta({ description: 'Every DEPENDS_ON link between projects, for "what blocks what".' })
     .input(z.object({ archived: z.enum(ARCHIVE_FILTERS).default('exclude') }).default({}))
     .query(({ ctx, input }) => listProjectDependencies(ctx.reg, input.archived)),
 
   get: procedure
+    .meta({ description: 'One project with its owner, status, dates, sub-projects and goals.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getProject(ctx.reg, input.id)),
 
   create: procedure
+    .meta({ description: 'Creates a project, optionally with an owner (person or group), status, dates, estimates and a parent project. Refuses a name already in use unless allowDuplicate.' })
     .input(z.object({
       name: z.string().min(1).max(200),
       description: z.string().max(5000).optional(),
@@ -34,11 +38,13 @@ export const projectRouter = router({
       daysPessimistic: z.number().int().min(0).optional(),
       parentId: z.string().optional(),
       ownerType: z.enum(OWNER_TYPES).optional(),
-      ownerId: z.string().optional()
+      ownerId: z.string().optional(),
+      allowDuplicate: z.boolean().optional().describe('Create it even though one with this name exists')
     }))
     .mutation(({ ctx, input }) => createProject(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a project\'s fields. null clears one.' })
     .input(z.object({
       id: z.string(),
       name: z.string().min(1).max(200).optional(),

@@ -56,28 +56,28 @@ Every call works on one notebook: the default, unless you name another.
 
 ## Rules
 
-1. **Look before you write**, in the notebook you're writing to. Find ids with `person.list`, `group.list` (`--kind TEAM`), `project.list`, `goal.list` and `page.list`, or `search.query` when you only know roughly what it's called. Match names and titles case-insensitively. Never create a second person, group or project with a name that already exists, or a second goal or page with a title that already exists.
+1. **Look before you write**, in the notebook you're writing to. Find ids with `person.list`, `group.list` (`--kind TEAM`), `project.list`, `goal.list` and `page.list`, or `search.query` when you only know roughly what it's called. Match names and titles case-insensitively. Never create a second goal or page with a title that already exists. `person.create`, `group.create` and `project.create` refuse a name already in use (archived ones too) and name the one that exists: update that one instead. Pass `allowDuplicate: true` only when the user confirms it's a different person or thing with the same name.
 2. **Ask when it's ambiguous.** For example, two people match "Sam", or it's unclear which project a note belongs to.
 3. **Confirm before deleting anything**, and say exactly what will be removed. When someone leaves, or a group, project, goal or page is finished, offer to **archive** it instead: archiving keeps its history, and deleting removes everything attached to it.
 4. **Snapshot before bulk or destructive changes.** That means any delete, or more than about five writes in one go:
    `backup_snapshot` with a reason like "before <what>", or `remry backup --force --reason "before <what>"`
 5. **Report back by name.** Say "Added Dana Park to Platform, reporting to Alice Johnson", not ids.
 6. **Keep the user's words.** A note records what they said. Don't embellish or summarise it unless asked.
-7. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](http://127.0.0.1:7369/app/people/<id>?notebook=<notebook id>)`. See **Links to what you changed** below.
+7. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>)`. See **Links to what you changed** below.
 
 ## Links to what you changed
 
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
-- **Address:** `http://127.0.0.1:7369` + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Address:** the app's address from `app_open` (for example `http://127.0.0.1:5173`) + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
 - **Paths:** use the `path` in the result when there is one. Otherwise: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 
 ```markdown
 Added to Work:
-- [Dana Park](http://127.0.0.1:7369/app/people/abc123?notebook=work), on [Platform](http://127.0.0.1:7369/app/groups/def456?notebook=work)
-- Todo: [Book 1:1 with Dana](http://127.0.0.1:7369/app/todos?popup=todo&todo=ghi789&notebook=work)
+- [Dana Park](http://127.0.0.1:5173/app/people/abc123?notebook=work), on [Platform](http://127.0.0.1:5173/app/groups/def456?notebook=work)
+- Todo: [Book 1:1 with Dana](http://127.0.0.1:5173/app/todos?popup=todo&todo=ghi789&notebook=work)
 ```
 
 ## Showing todos
@@ -101,8 +101,8 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "This is me" / "I'm Jamie" | `person.setMe --id <person>` (one per notebook). Then relationships with that person read as "To you" on People, and `person.list` gives each person's `toMe` |
 | "Dana is on Platform" | `group.list --kind TEAM` to find it (`group.create --kind TEAM --name Platform` if it's new), then `group.addMember --groupId <platform> --personId <dana>` (people can be in many groups) |
 | "Dana moved from Platform to Payments" | `group.removeMember` from Platform, then `group.addMember` to Payments |
-| "Dana left the company" | Ask whether to archive or delete; archiving keeps their notes and history. `person.archive --id <dana>` (first move or close anything that must change: archived people are read-only) |
-| "The Q4 migration is finished, archive it" | `project.update --id <project> --status done` first if the status should change, then `project.archive --id <project>` |
+| "Dana left the company" | Ask whether to archive or delete; archiving keeps their notes and history. `entity.archive --entityType PERSON --id <dana>` (first move or close anything that must change: archived people are read-only) |
+| "The Q4 migration is finished, archive it" | `project.update --id <project> --status done` first if the status should change, then `entity.archive --entityType PROJECT --id <project>` |
 | "What did we archive?" / "Show old projects" | `project.list --archived only` (also `person`, `group`, `goal`, `page`); `--archived include` lists both |
 | "Dana is in Engineering" | `group.addMember --groupId <engineering> --personId <dana>`. DEPARTMENT is an exclusive kind (one per person), so this moves her out of her old department; the result's `replaced` names it |
 | "Note that Dana wants to lead the migration" | `note.add --entityType PERSON --entityId <dana> --content "..."` |
@@ -142,7 +142,7 @@ Wiki pages have a kind, and each notebook defines its own kinds: a key (`EXPENSE
 - **Changing a kind:** `pageKind.update --key <key> --fields '[...]'` takes the whole field list, matched by key. Adding is always fine. Removing a field clears its values from every page (say so first). It refuses to drop an option or change a type while pages use it, and names those pages. `pageKind.delete --key <key> --moveTo GENERAL` moves its pages first; confirm before deleting.
 - **Querying:** `page.query --kind <key>` takes `--filters` (`field:op[:value]`; ops `is not anyOf contains gte lte empty set`; `anyOf` values split by `|`; `gte`/`lte` work on numbers and dates), `--sort amount:desc`, `--groupBy <select, multiselect, checkbox or text field>` and `--aggregates '["amount:sum"]'` (`sum avg min max` on number fields). It returns the pages, `count`, `totals` and `groups`. Use it for "how much", "which are due", "what's left to do" rather than listing every page.
 
-Entity types for notes, docs, todos, links and tags: `PERSON GROUP PROJECT GOAL PAGE`, except that docs don't attach to a `PAGE` (put the material in the page's content, or a sub-page). They also accept `DOC NOTE REPORT TODO LINK TAG COMMENT EMOJI`. Archived entities are left out of every `list` unless you pass `--archived only` or `--archived include`, and writes to them (or to anything attached to them) fail with an error saying to unarchive first. `get` still works. The full data model is in [references/schema.md](references/schema.md).
+Entity types for notes, docs, todos, links and tags: `PERSON GROUP PROJECT GOAL PAGE`, except that docs don't attach to a `PAGE` (put the material in the page's content, or a sub-page). They also accept `DOC NOTE REPORT TODO LINK TAG COMMENT EMOJI`. Archived entities are left out of every `list` unless you pass `--archived only` or `--archived include`, and writes to them (or to anything attached to them) fail with an error saying to unarchive first (`entity.archive --archived false`). `get` still works. The full data model is in [references/schema.md](references/schema.md).
 
 ## Searching
 

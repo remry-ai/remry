@@ -2,9 +2,10 @@
   import "./styles.scss";
   import { navigating } from "$app/stores";
 
+  import type { Snippet } from "svelte";
   import type { LayoutData } from "./$types";
 
-  let { children, data } = $props<{ children: any; data: LayoutData }>();
+  const { children } = $props<{ children: Snippet; data: LayoutData }>();
 
   const LOADING_MESSAGES: readonly string[] = [
     "Loading…",

@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { signLicenseKey } from '../../src/shared/license/verify.server';
 import { licensePeriod } from './period';
 import { defaultPrivateKeyPath } from './key-file';

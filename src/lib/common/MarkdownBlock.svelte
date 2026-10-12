@@ -54,6 +54,7 @@
     onclick={startEdit}
   >
     {#if value}
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -- the user's own markdown, in a local app -->
       {@html marked.parse(value)}
     {:else}
       <span class="placeholder">{placeholder}</span>

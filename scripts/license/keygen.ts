@@ -10,7 +10,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { defaultPrivateKeyPath, publicKeyModule } from './key-file';
 
 const option = (name: string): string | undefined => {

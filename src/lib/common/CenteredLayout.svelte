@@ -1,6 +1,7 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   interface Props {
-    readonly children: any;
+    readonly children: Snippet;
   }
 
   const { children }: Props = $props();

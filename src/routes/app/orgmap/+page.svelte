@@ -18,7 +18,7 @@
   import { page } from '$app/state';
   import type { PageData } from './$types';
 
-  const { data } = $props<{ data: PageData }>();
+  const { data }: { data: PageData } = $props();
   const departments = $derived(data.departments);
   const teams = $derived(data.teams);
   const persons = $derived(data.persons);
@@ -50,9 +50,9 @@
   let editTeamId = $state<string | null>(null);
   let editPersonId = $state<string | null>(null);
 
-  const editDept = $derived(editDeptId ? departments.find((d: any) => d.id === editDeptId) ?? null : null);
-  const editTeam = $derived(editTeamId ? teams.find((t: any) => t.id === editTeamId) ?? null : null);
-  const editPerson = $derived(editPersonId ? persons.find((p: any) => p.id === editPersonId) ?? null : null);
+  const editDept = $derived(editDeptId ? departments.find((d) => d.id === editDeptId) ?? null : null);
+  const editTeam = $derived(editTeamId ? teams.find((t) => t.id === editTeamId) ?? null : null);
+  const editPerson = $derived(editPersonId ? persons.find((p) => p.id === editPersonId) ?? null : null);
 
   const startEditDept = (id: string | null) => { editDeptId = id; openPopup('edit-department'); };
   const startEditTeam = (id: string | null) => { editTeamId = id; openPopup('edit-team'); };
@@ -91,30 +91,30 @@
   const personDeptMemberships = $derived(
     editPersonId
       ? departments
-          .filter((d: any) => d.members.some((m: any) => m.personId === editPersonId))
-          .map((d: any) => ({ id: d.id, name: d.name }))
+          .filter((d) => d.members.some((m) => m.personId === editPersonId))
+          .map((d) => ({ id: d.id, name: d.name }))
       : []
   );
 
   const personTeamMemberships = $derived(
     editPersonId
       ? teams
-          .filter((t: any) => t.members.some((m: any) => m.personId === editPersonId))
-          .map((t: any) => ({ id: t.id, name: t.name }))
+          .filter((t) => t.members.some((m) => m.personId === editPersonId))
+          .map((t) => ({ id: t.id, name: t.name }))
       : []
   );
 
   const availablePersonsForDept = $derived(
-    editDept ? persons.filter((p: any) => !editDept.members.some((m: any) => m.personId === p.id)) : []
+    editDept ? persons.filter((p) => !editDept.members.some((m) => m.personId === p.id)) : []
   );
   const availablePersonsForTeam = $derived(
-    editTeam ? persons.filter((p: any) => !editTeam.members.some((m: any) => m.personId === p.id)) : []
+    editTeam ? persons.filter((p) => !editTeam.members.some((m) => m.personId === p.id)) : []
   );
   const availableDeptsForPerson = $derived(
-    editPersonId ? departments.filter((d: any) => !d.members.some((m: any) => m.personId === editPersonId)) : []
+    editPersonId ? departments.filter((d) => !d.members.some((m) => m.personId === editPersonId)) : []
   );
   const availableTeamsForPerson = $derived(
-    editPersonId ? teams.filter((t: any) => !t.members.some((m: any) => m.personId === editPersonId)) : []
+    editPersonId ? teams.filter((t) => !t.members.some((m) => m.personId === editPersonId)) : []
   );
   // Departments are an exclusive group kind, so adding a person to one moves them.
   const addMember = async (groupId: string, personId: string) => {

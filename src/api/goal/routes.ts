@@ -21,6 +21,7 @@ const goalProject = z.object({ goalId: z.string(), projectId: z.string() });
 
 export const goalRouter = router({
   list: procedure
+    .meta({ description: 'Lists goals, filtered by owner, period, status, parent goal or linked project.' })
     .input(z.object({
       ownerType: z.enum(OWNER_TYPES).optional(),
       ownerId: z.string().optional(),
@@ -33,10 +34,12 @@ export const goalRouter = router({
     .query(({ ctx, input }) => listGoals(ctx.reg, input)),
 
   get: procedure
+    .meta({ description: 'One goal with its check-ins, sub-goals and linked projects.' })
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => getGoal(ctx.reg, input.id)),
 
   create: procedure
+    .meta({ description: 'Creates a goal with an owner, a period (2026-H2, 2026-Q3, 2026), and optionally a unit, baseline and target.' })
     .input(z.object({
       title: z.string().min(1).max(200),
       description: z.string().max(5000).optional(),
@@ -52,6 +55,7 @@ export const goalRouter = router({
     .mutation(({ ctx, input }) => createGoal(ctx.reg, input)),
 
   update: procedure
+    .meta({ description: 'Changes a goal\'s fields. null clears one.' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -80,6 +84,7 @@ export const goalRouter = router({
     .mutation(({ ctx, input }) => deleteGoal(ctx.reg, input.id)),
 
   checkIn: procedure
+    .meta({ description: 'Records a goal\'s progress on a date: a value, a status and a comment.' })
     .input(z.object({
       goalId: z.string(),
       date: z.coerce.date().optional(),
@@ -90,14 +95,17 @@ export const goalRouter = router({
     .mutation(({ ctx, input }) => addCheckIn(ctx.reg, input)),
 
   removeCheckIn: procedure
+    .meta({ description: 'Deletes one check-in.' })
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => removeCheckIn(ctx.reg, input.id)),
 
   addProject: procedure
+    .meta({ description: 'Links a project to a goal it contributes to.' })
     .input(goalProject)
     .mutation(({ ctx, input }) => addGoalProject(ctx.reg, input.goalId, input.projectId)),
 
   removeProject: procedure
+    .meta({ description: 'Unlinks a project from a goal.' })
     .input(goalProject)
     .mutation(({ ctx, input }) => removeGoalProject(ctx.reg, input.goalId, input.projectId))
 });

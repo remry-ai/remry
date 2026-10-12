@@ -12,12 +12,24 @@ import { notebookFromEnv } from '$shared/notebooks/resolve';
 import { closeRegistries } from '$shared/registry.server';
 import { features } from '$shared/settings/base/features';
 
-// doc.convertPdf, doc.pdfConversion and chat.* run the Claude Code CLI for the web app;
-// from the CLI or MCP, Claude reads the PDF (or the page) itself. report.* stays out while reports are switched off.
-export const procedures: readonly ProcedureMeta[] = listProcedures(
-  appRouter,
-  new Set(['trpcMeta.list', 'doc.convertPdf', 'doc.pdfConversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask'])
-).filter((p) => features.reports || !p.name.startsWith('report.'));
+/**
+ * Procedures the app uses that the CLI and MCP leave out, so Claude chooses among fewer tools.
+ * Every tool's schema is in Claude's context, so each one has to earn its place.
+ */
+export const APP_ONLY: ReadonlySet<string> = new Set([
+  'trpcMeta.list',
+  // These run the Claude Code CLI for the web app; from the CLI or MCP, Claude reads the PDF (or the page) itself.
+  'doc.convertPdf', 'doc.pdfConversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask',
+  // entity.archive and entity.delete do these for every type.
+  ...['person', 'group', 'project', 'goal', 'page'].flatMap((type) => [`${type}.archive`, `${type}.unarchive`, `${type}.delete`]),
+  'todo.delete', 'doc.remove', 'note.remove', 'link.remove',
+  // The app's own views: reactions and the home graph.
+  'emoji.list', 'emoji.toggle', 'home.graph'
+]);
+
+// report.* stays out while reports are switched off.
+export const procedures: readonly ProcedureMeta[] = listProcedures(appRouter, APP_ONLY)
+  .filter((p) => features.reports || !p.name.startsWith('report.'));
 
 export interface InputIssue {
   /** Dotted path of the offending field; empty for the input as a whole. */
