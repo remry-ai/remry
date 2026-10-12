@@ -33,6 +33,9 @@ jobs:
           - { target: windows-x64, os: windows-latest, required: false, bundles: nsis }
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ !matrix.required }}
+    # A build takes about 10 minutes. Without a limit, a stuck step holds the release for GitHub's
+    # 6-hour default, since publishing waits for every platform to finish, pass or fail.
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash
@@ -61,6 +64,7 @@ jobs:
         run: bun run release:build --target ${{ matrix.target }}
 
       - name: Smoke test the binary
+        timeout-minutes: 5
         run: bun run release:smoke
 
       # Tauri's build script needs the sidecar in place, so tests come after this.
