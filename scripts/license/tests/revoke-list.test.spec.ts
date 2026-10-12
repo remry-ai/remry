@@ -23,6 +23,8 @@ describe('planRevocation', () => {
 
   it("refuses ids and dates that aren't", () => {
     expect(planRevocation([], entry("x'); evil()", '2027-10-03'), '2026-10-05').ok).toBe(false);
+    // Stripe-issued ids carry an underscore: `stripe-<subscription id>`.
+    expect(planRevocation([], entry('stripe-sub_1ABCdef', '2027-10-03'), '2026-10-05').ok).toBe(true);
     expect(planRevocation([], entry('a', 'next year'), '2026-10-05').ok).toBe(false);
   });
 });
