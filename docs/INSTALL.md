@@ -18,9 +18,9 @@ Older versions are on the [releases page](https://github.com/remry-ai/remry/rele
 
 The installers aren't code-signed yet, so the first time you open Remry:
 
-- **Mac:** macOS says it can't check the app. Open **System Settings → Privacy & Security**, and
-  choose **Open Anyway** beside Remry's entry. (Or right-click Remry in Applications and choose
-  **Open**.)
+- **Mac:** macOS says it can't check the app. Open **System Settings → Privacy & Security**, scroll
+  to Security, and choose **Open Anyway** beside Remry's entry (it appears after the first try to
+  open it). Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Remry.app`.
 - **Windows:** SmartScreen says it protected your PC. Choose **More info → Run anyway**.
 
 Open the app once. It sets Remry up in your data folder, starts it, and shows your notebook.

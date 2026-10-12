@@ -5,10 +5,8 @@ description = "Remry desktop app: a window on the local Remry server"
 edition = "2021"
 publish = false
 
-[[bin]]
-name = "remry"
-path = "src/main.rs"
-
+# The app's own executable is remry-desktop (the package name): the `remry` sidecar sits beside
+# it in the same folder, so a shell also named `remry` would overwrite it in the bundle.
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
 

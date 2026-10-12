@@ -76,7 +76,11 @@ fn run_remry(binary: &Path, args: &[&str], envs: &[(&str, String)]) -> Result<Va
 /// The sidecar sits next to this app's own executable (Tauri strips its target suffix when bundling).
 fn bundled_binary() -> Result<PathBuf, String> {
     let exe = std::env::current_exe().map_err(|error| error.to_string())?;
-    Ok(exe.with_file_name(binary_name()))
+    let sidecar = exe.with_file_name(binary_name());
+    if sidecar == exe {
+        return Err("This app's executable has the same name as the remry binary it bundles.".to_string());
+    }
+    Ok(sidecar)
 }
 
 /// Installs the bundled binary and returns the installed copy's path.
@@ -321,6 +325,14 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_shell_is_not_named_like_its_sidecar() {
+        // Both sit in Contents/MacOS (or the install folder), so the same name loses one of them.
+        let shell = env!("CARGO_BIN_NAME").to_lowercase();
+        assert_ne!(shell, "remry");
+        assert_ne!(format!("{shell}.exe"), binary_name());
+    }
 
     #[test]
     fn keeps_the_app_in_the_window_and_sends_everything_else_out() {

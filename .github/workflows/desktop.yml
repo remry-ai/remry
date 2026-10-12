@@ -88,6 +88,19 @@ jobs:
             bun run desktop:build --bundles ${{ matrix.bundles }}
           fi
 
+      # 0.16.2 shipped a shell named like its sidecar, so the bundle held one of them and macOS
+      # refused the broken signature. Check both are there and the signature holds.
+      - name: Check the macOS app
+        if: matrix.target == 'darwin-arm64'
+        run: |
+          app=desktop/src-tauri/target/release/bundle/macos/Remry.app
+          ls -la "$app/Contents/MacOS"
+          for f in remry remry-desktop; do
+            if [ ! -s "$app/Contents/MacOS/$f" ]; then echo "Remry.app is missing Contents/MacOS/$f"; exit 1; fi
+          done
+          if [ "$(stat -f %z "$app/Contents/MacOS/remry")" -lt 20000000 ]; then echo "Contents/MacOS/remry is too small to be the remry binary"; exit 1; fi
+          codesign --verify --deep --strict --verbose=2 "$app"
+
       # Names with the version, which latest.json points at, and a copy of each installer
       # without it, so the README links to releases/latest/download/<name> stay valid.
       - name: Collect the installer and update
