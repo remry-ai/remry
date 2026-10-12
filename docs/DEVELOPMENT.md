@@ -35,7 +35,9 @@ The pointer matters: the plugin carries no app, so its MCP server runs **this cl
 shim, `plugin/scripts/remry`, tries `$REMRY_HOME`, then the clone named by `app-path`.
 
 - **Moved the clone?** Run `bun run setup` again from the new location.
-- **Update:** `git pull && bun install && bun run setup`.
+- **Update:** `git pull && bun install`. When the plugin version changed, the next Claude session's
+  MCP server runs `bun run setup` in the background (log: `<data dir>/setup.log`) and restarts an
+  app it started on the old version. Running setup yourself still works.
 - **Uninstall:** `bun run setup uninstall`. Your notebook data is not touched.
 
 The install and uninstall logic is the pure `planInstall`/`planUninstall` in

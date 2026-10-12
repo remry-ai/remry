@@ -10,6 +10,7 @@ import { cp, lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from 'no
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { appDataDir } from '$shared/settings/server/app-dirs';
+import { setupMarkerPath, writeMarker } from '../../cli/version-check';
 import { DEV_NAME, DEV_PLUGIN_ENTRIES, devMarketplaceFiles, planInstall, planUninstall, repoPaths, type BinLink, type SetupState, type SetupStep } from './plan';
 
 const REPO = resolve(import.meta.dir, '..', '..');
@@ -131,6 +132,7 @@ const main = async (): Promise<number> => {
   const state = await readState();
   const steps = command === 'install' ? planInstall(state) : planUninstall(state);
   if (steps.length === 0) console.log('Nothing to remove.');
+  if (command === 'uninstall') await rm(setupMarkerPath(), { force: true });
   for (const step of steps) {
     if (!(await runStep(step))) {
       console.error('\nSetup stopped because that command failed.');
@@ -138,6 +140,9 @@ const main = async (): Promise<number> => {
     }
   }
   if (command === 'install') {
+    // The MCP server runs setup again when the clone's version moves past this (cli/version-check.ts).
+    const manifest = JSON.parse(await readFile(join(REPO, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8')) as { version: string };
+    await writeMarker(setupMarkerPath(), { version: manifest.version, repoDir: REPO });
     console.log(`\nRemry is set up for ${REPO}.`);
     console.log(`- Claude Code: start a new session to use ${DEV_NAME}, this clone's plugin.`);
     console.log(`- Claude desktop (Chat and Cowork): add ${repoPaths(REPO).pluginZip} as a plugin.`);
@@ -145,4 +150,11 @@ const main = async (): Promise<number> => {
   return 0;
 };
 
-process.exit(await main());
+// The MCP server's background run holds a lock (cli/version-check.ts); release it however setup ends.
+const lock = process.env['REMRY_SETUP_LOCK'];
+const code = await main().catch((error: unknown) => {
+  console.error(error);
+  return 1;
+});
+if (lock) await rm(lock, { force: true });
+process.exit(code);

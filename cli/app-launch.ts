@@ -10,6 +10,7 @@ import pluginManifest from '../plugin/.claude-plugin/plugin.json';
 import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, DEV_PORT, LEGACY_APP_CONTROL_PATHS, LEGACY_APP_PORTS, LEGACY_APP_STOP_PATHS, LEGACY_LOCAL_HEADERS } from './app-ports';
 import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
+import { appMarkerPath, writeMarker } from './version-check';
 
 export interface LaunchCommand {
   readonly command: string;
@@ -109,7 +110,11 @@ const startApp = async (launch: LaunchCommand, port: number, timeoutMs: number):
   while (Date.now() < deadline) {
     await sleep(250);
     if (failure) throw new Error(`Couldn't start Remry: ${(failure as Error).message}`);
-    if (await isPortListening(port)) return;
+    if (await isPortListening(port)) {
+      // Which version this app runs, so a later MCP server can tell it's stale (cli/version-check.ts).
+      await writeMarker(appMarkerPath(), { version: pluginManifest.version }).catch(() => undefined);
+      return;
+    }
   }
   throw new Error(`Remry didn't start within ${timeoutMs / 1000} seconds. Run \`remry app\` in a terminal to see why.`);
 };

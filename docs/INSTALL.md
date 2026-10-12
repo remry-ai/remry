@@ -18,7 +18,9 @@ bun run setup
 plugin in Claude Code. The plugin, wherever you install it, runs this clone. Re-run it after you
 move the clone.
 
-To update, `git pull` and `bun install` in the clone, then update the plugin as below.
+To update, `git pull` and `bun install` in the clone. The next Claude session runs setup again for
+you when the version changed, and restarts the app if Claude started it. Then update the plugin
+in Chat or Cowork as below.
 
 ## Install the plugin
 

@@ -44,6 +44,19 @@ const { createSnapshot, listSnapshots } = await import('../scripts/backup/snapsh
 const { resolveCurrentNotebook } = await import('../src/shared/notebooks/current.server');
 const { notebookFromEnv } = await import('../src/shared/notebooks/resolve');
 if (staleAppStopped) void startOwnApp(appOwner).catch((error: unknown) => console.error(error));
+// After a `git pull`: run setup again for the new version, and restart an app running the old one.
+// Not under APP_ENV=test, where setup would touch the real Claude config and PATH.
+if (process.env['APP_ENV'] !== 'test') {
+  const { checkVersions } = await import('./version-check');
+  const { isPortListening } = await import('../scripts/backup/port');
+  void checkVersions({
+    version: pluginManifest.version,
+    repoDir: REPO,
+    appRunning: () => isPortListening(appOwner.port),
+    restartApp: () => restartApp(appOwner),
+    log: (message) => console.error(message)
+  }).catch((error: unknown) => console.error(error));
+}
 // Hourly snapshots while Claude has the server open, on every platform (see scripts/backup/schedule.ts).
 const { startBackupSchedule } = await import('../scripts/backup/schedule');
 startBackupSchedule((message) => console.error(message));
