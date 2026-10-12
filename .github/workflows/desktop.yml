@@ -100,6 +100,16 @@ jobs:
           done
           if [ "$(stat -f %z "$app/Contents/MacOS/remry")" -lt 20000000 ]; then echo "Contents/MacOS/remry is too small to be the remry binary"; exit 1; fi
           codesign --verify --deep --strict --verbose=2 "$app"
+          # 0.16.3 signed the sidecar with the hardened runtime, whose library validation refuses
+          # the libsql module Bun unpacks from it, so the server never started. The builds are
+          # ad hoc, not notarized: keep the runtime off (tauri.conf.json, hardenedRuntime), and
+          # check the sidecar can open a database.
+          if codesign -dv "$app/Contents/MacOS/remry" 2>&1 | grep -q 'flags=.*runtime'; then
+            echo "Contents/MacOS/remry is signed with the hardened runtime; it can't load libsql"; exit 1
+          fi
+          home=$(mktemp -d)
+          HOME="$home" REMRY_MIGRATIONS_DIR="$app/Contents/Resources/migrations" "$app/Contents/MacOS/remry" notebook.list > "$home/out.json"
+          grep -q '"ok": *true' "$home/out.json" || { cat "$home/out.json"; exit 1; }
 
       # Names with the version, which latest.json points at, and a copy of each installer
       # without it, so the README links to releases/latest/download/<name> stay valid.
