@@ -23,9 +23,9 @@
         <li class="list-row update-row">
           <span class="badge muted kind">{kindLabel(u.kind)}</span>
           <div class="body">
-            <a href={u.href} class="title truncate">{u.title}</a>
+            <a href={u.href} class="title wrap">{u.title}</a>
             <div class="meta">
-              <span>{u.isNew ? 'added' : 'updated'}{#if u.parentLabel} on {u.parentLabel}{/if}</span>
+              <span>{u.isNew ? 'added' : 'updated'}{u.parentLabel ? ` on ${u.parentLabel}` : ''}</span>
               <time datetime={new Date(u.at).toISOString()}>{timeAgo(u.at)}</time>
             </div>
           </div>

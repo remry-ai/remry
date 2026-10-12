@@ -57,7 +57,7 @@
         <li class="list-row todo-row">
           <StatusDot status={todo.status} clickable onclick={() => advance(todo.id, todo.status)} />
           <div class="body">
-            <button type="button" class="title truncate" onclick={() => openEdit(todo.id)}>
+            <button type="button" class="title wrap" onclick={() => openEdit(todo.id)}>
               {todo.title} <PriorityBadge priority={todo.priority} />
             </button>
             <div class="meta">

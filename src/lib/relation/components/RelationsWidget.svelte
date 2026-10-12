@@ -71,7 +71,7 @@
       <ul class="list">
         {#each group.items as item (item.id)}
           <li class="list-row">
-            <a class="grow truncate" href={item.other.path}>{item.other.label}</a>
+            <a class="grow wrap" href={item.other.path}>{item.other.label}</a>
             <span class="meta truncate" title={item.note ?? undefined}>{item.note ?? entityTypeLabel(item.other.entityType)}</span>
             {#if item.kind !== 'MENTIONS' && !item.goalProject}
               <span class="row-actions">

@@ -24,9 +24,10 @@
 <style lang="scss">
   .home-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    // minmax(0, …): a long title truncates inside its panel instead of widening the column past the screen.
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--sp-6);
     align-items: start;
-    @include below-md { grid-template-columns: 1fr; }
+    @include below-md { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

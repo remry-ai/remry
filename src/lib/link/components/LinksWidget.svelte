@@ -57,7 +57,7 @@
     {#each rows as row (row.id)}
       <li class="list-row">
         <SourceIcon source={row.source} />
-        <a class="grow truncate" href={row.url} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
+        <a class="grow wrap" href={row.url} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
         {#if row.synced}
           <span class="meta synced" class:stale={row.synced.stale} title={row.synced.stale ? `${row.synced.title}. More than a week ago: ask Claude to re-sync it.` : row.synced.title}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Synced">

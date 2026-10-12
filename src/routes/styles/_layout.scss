@@ -164,6 +164,8 @@
 .text-sm { font-size: var(--fs-sm); }
 .mono { font-family: var(--font-mono); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+// Long text wraps onto more lines instead; a long unbroken word (a URL) breaks rather than widening its box.
+.wrap { min-width: 0; overflow-wrap: anywhere; }
 // Plain-text fields (descriptions) keep the line breaks they were written with.
 .pre-line { white-space: pre-line; }
 .ml-auto { margin-left: auto; }

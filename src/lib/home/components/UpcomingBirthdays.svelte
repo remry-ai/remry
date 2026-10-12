@@ -28,7 +28,7 @@
     <ul class="list divided">
       {#each birthdays as b (b.id)}
         <li class="list-row">
-          <a class="grow truncate" href="/app/people/{b.id}">{b.name}</a>
+          <a class="grow wrap" href="/app/people/{b.id}">{b.name}</a>
           <span class="meta">{formatBirthday(b.birthday.replace(/^\d{4}-/, '--'))}{#if b.turns !== null} · turns {b.turns}{/if}</span>
           <span class="badge" class:accent={b.inDays <= 7}>{when(b.inDays)}</span>
         </li>

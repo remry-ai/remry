@@ -53,7 +53,7 @@
     <ul class="list">
       {#each reports as report (report.id)}
         <li class="list-row">
-          <a class="grow truncate" href="/app/reports/{report.id}">{report.title}</a>
+          <a class="grow wrap" href="/app/reports/{report.id}">{report.title}</a>
           <span class="meta">{formatDate(report.updatedAt)}</span>
         </li>
       {/each}

@@ -77,7 +77,7 @@
               <StatusDot status={todo.status} clickable onclick={() => handleStatusChange(todo.id, nextStatus(todo.status))} />
             </span>
             <div class="grow todo-main">
-              <button type="button" class="truncate todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
+              <button type="button" class="wrap todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
               {#if due && todo.targetDate}
                 <span class="due" class:overdue={due.overdue} title="Due {formatDueDateFull(todo.targetDate)}">{due.label}</span>
               {/if}
@@ -99,7 +99,7 @@
           {#each completedTodos as todo (todo.id)}
             <li class="list-row todo-row done">
               <StatusDot status={todo.status} />
-              <button type="button" class="grow truncate todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
+              <button type="button" class="grow wrap todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
               {#if todo.completedAt}<span class="meta">{formatTodoDate(todo.completedAt)}</span>{/if}
             </li>
           {/each}
@@ -119,7 +119,7 @@
   // Title on top, due date underneath: the sidebar is too narrow for both on one line.
   .todo-main { display: flex; flex-direction: column; }
   // The toggle and priority sit level with the title's first line, not the middle of the row.
-  .todo-row:not(.done) { align-items: flex-start; }
+  .todo-row { align-items: flex-start; }
   .first-line {
     display: flex;
     align-items: center;
