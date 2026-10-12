@@ -3,7 +3,7 @@
 import { ok, err, type Result } from '../../src/shared/utils/result';
 import type { RevokedLicense } from '../../src/shared/license/revoked';
 
-const ID = /^[A-Za-z0-9-]{1,64}$/;
+const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface RevocationPlan {
@@ -23,7 +23,7 @@ export const planRevocation = (
   today: string
 ): Result<RevocationPlan> => {
   if (revoke) {
-    if (!ID.test(revoke.id)) return err(new Error(`"${revoke.id}" isn't a license id (letters, digits and dashes, as printed by license:issue)`));
+    if (!ID.test(revoke.id)) return err(new Error(`"${revoke.id}" isn't a license id (letters, digits, dashes and underscores, as printed by license:issue)`));
     if (!DATE.test(revoke.expires)) return err(new Error(`"${revoke.expires}" isn't a date like 2027-10-03`));
   }
   const listed = entries.find((e) => e.id === revoke?.id);
