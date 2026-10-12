@@ -73,8 +73,8 @@ jobs:
 
       - name: Build the desktop app
         env:
+          # The key has no password (scripts/desktop-updater-key.ts).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           # A signed update for the updater, only when there's a key to sign it with.
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
