@@ -31,8 +31,10 @@ Four things, and it's safe to re-run:
    `dist/dev-marketplace`, so it isn't mistaken for the released `remry` that Chat and Cowork get from
    claude.ai. Re-run setup after changing the skill: it reinstalls `remry-dev` each time.
 
-The pointer matters: the plugin carries no app, so its MCP server runs **this clone's code**. The
-shim, `plugin/scripts/remry`, tries `$REMRY_HOME`, then the clone named by `app-path`.
+The pointer matters: the plugin carries no app. Its shim, `plugin/scripts/remry`, tries
+`$REMRY_HOME`, then the desktop app's installed binary, then the clone named by `app-path`.
+`remry-dev`, setup's copy of the plugin, sets `REMRY_HOME` to this clone, so it runs **this clone's
+code** even where the desktop app is installed.
 
 - **Moved the clone?** Run `bun run setup` again from the new location.
 - **Update:** `git pull && bun install`. When the plugin version changed, the next Claude session's
@@ -47,7 +49,7 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 
 | Command | What it does |
 |---|---|
-| `bun run dev` | Dev server on http://127.0.0.1:5173 |
+| `bun run dev` | Dev server on http://127.0.0.1:5173 (the desktop app's is on 7369, so both can run) |
 | `bun run build && bun run start` | Production server, loopback only |
 | `bun run lint` | ESLint for TypeScript and Svelte (`lint:fix` fixes what it can) |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
@@ -57,6 +59,9 @@ The install and uninstall logic is the pure `planInstall`/`planUninstall` in
 | `bun run db:migrate --name <change>` | Author a migration against the default notebook |
 | `bun run db:studio` | Prisma Studio, on the same notebook |
 | `bun run setup [uninstall]` | PATH, plugin zip, Claude Code plugin |
+| `bun run release:build` then `release:smoke` | This platform's `remry` binary in `dist/app/`, smoke-tested |
+| `bun run desktop:prepare` then `desktop:dev` / `desktop:build` | The Tauri desktop app in `desktop/` (after `release:build`) |
+| `bun run desktop:updater-key` | The keypair desktop updates are signed with (once) |
 
 You author migrations against a real notebook, so run `bun run backup --force` first. Every other
 notebook migrates forward the next time a process opens it. If a migration reports "database is
@@ -109,21 +114,35 @@ release fails unless `marketplace.json` names one released version and its tag.
 
 ## Releasing
 
-A release is the plugin alone: the skill, the shim and `.mcp.json`. The shim runs the clone that
-`bun run setup` recorded, so every computer that uses Remry has a clone and Bun.
+A release is the desktop app for macOS (Apple silicon) and Windows (x64), with the `remry` binary
+inside it, and the plugin: the skill, the shim and `.mcp.json`. The plugin's shim runs the desktop
+app's installed binary, or a clone.
 
 1. `bun run release:version <x.y.z>`
 2. Commit and push to `main`.
-3. After CI passes, `.github/workflows/release.yml` publishes it.
+3. After CI passes, `.github/workflows/release.yml` builds the desktop app on each platform
+   (`.github/workflows/desktop.yml`) and publishes it.
 
 `scripts/release/plan.ts` skips a version that's already released, and fails if `plugin/` changed
 since the last release without a new version.
 
 - **CI** (`.github/workflows/ci.yml`): lint, `check`, unit and integration tests on every push and
   PR, on Linux.
+- **Build** (`desktop.yml`, which you can also run by hand from the Actions tab to try a build):
+  `bun run release:build` compiles `cli/standalone.ts` and the built UI into one `remry` binary
+  with Bun embedded (`dist/app/`), `bun run release:smoke` installs and exercises it,
+  `bun run desktop:prepare` puts it into the Tauri app as its sidecar, and `bun run desktop:build`
+  makes the installer. Build each platform on its own OS: the binary embeds the host's SQLite
+  native module.
+- **Updates:** run `bun run desktop:updater-key` once, commit the public key it writes into
+  `desktop/src-tauri/tauri.conf.json`, and add the private key as the `TAURI_SIGNING_PRIVATE_KEY`
+  secret. Builds then make signed updates, and the release publishes `latest.json`, which installed
+  apps check when they open. Without the secret, installed apps keep their version.
+- **Not code-signed** yet: macOS and Windows warn on first open (see INSTALL.md).
 - **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
-  `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates GitHub
-  release `v<version>` with `plugin/` zipped, for Claude desktop Chat.
+  `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates
+  GitHub release `v<version>` with the installers, the signed updates, `latest.json` and the
+  plugin zipped, for Claude desktop Chat.
 
 `marketplace.json` points at that tag, so Claude Code, Cowork and `bun run setup` all install the
 released plugin.

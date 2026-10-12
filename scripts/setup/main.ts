@@ -102,8 +102,10 @@ const runStep = async (step: SetupStep): Promise<boolean> => {
     }
     case 'devMarketplace': {
       // Rebuilt each run from the clone's plugin/, then reinstalled (planInstall).
+      const record = (value: unknown): Record<string, unknown> => (typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {});
       const manifest: unknown = JSON.parse(await readFile(join(step.pluginDir, '.claude-plugin', 'plugin.json'), 'utf8'));
-      const files = devMarketplaceFiles(typeof manifest === 'object' && manifest !== null ? (manifest as Record<string, unknown>) : {});
+      const mcpConfig: unknown = JSON.parse(await readFile(join(step.pluginDir, '.mcp.json'), 'utf8'));
+      const files = devMarketplaceFiles(record(manifest), record(mcpConfig), REPO);
       const plugin = join(step.dir, DEV_NAME);
       await rm(step.dir, { recursive: true, force: true });
       await mkdir(join(step.dir, '.claude-plugin'), { recursive: true });
@@ -111,6 +113,7 @@ const runStep = async (step: SetupStep): Promise<boolean> => {
       await writeFile(join(step.dir, '.claude-plugin', 'marketplace.json'), files.marketplace);
       await writeFile(join(plugin, '.claude-plugin', 'plugin.json'), files.plugin);
       for (const entry of DEV_PLUGIN_ENTRIES) await cp(join(step.pluginDir, entry), join(plugin, entry), { recursive: true });
+      await writeFile(join(plugin, '.mcp.json'), files.mcp);
       console.log(`Wrote the ${DEV_NAME} marketplace in ${step.dir}`);
       return true;
     }

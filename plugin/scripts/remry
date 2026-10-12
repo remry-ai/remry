@@ -1,8 +1,11 @@
 #!/bin/sh
 # Remry plugin shim, started by .mcp.json as `sh <plugin>/scripts/remry mcp`.
 # It runs, in order of preference:
-#   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names)
-#   2. the clone `bun run setup` recorded in <data dir>/app-path
+#   1. the clone named by $REMRY_HOME (or $WONO_HOME or $WORKING_NOTES_HOME, its earlier names);
+#      setup's remry-dev copy sets it, so a development machine runs its clone
+#   2. the desktop app's binary, which it installs as <data dir>/App/current/remry and
+#      keeps up to date
+#   3. the clone `bun run setup` recorded in <data dir>/app-path
 # It isn't in bin/: claude.ai-hosted plugins (Cowork) reject bin/ executables.
 # On Windows, scripts/remry.cmd does the same.
 set -e
@@ -25,10 +28,14 @@ else
   legacy="${XDG_DATA_HOME:-$HOME/.local/share}/wonos"
   older="${XDG_DATA_HOME:-$HOME/.local/share}/working-notes"
 fi
-setup='Clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
+setup='Install the Remry desktop app (https://github.com/remry-ai/remry/releases/latest) and open it once, or clone the Remry repo and run `bun install` and `bun run setup` in the clone.'
 
 # WONO_HOME and WORKING_NOTES_HOME: its earlier names.
 app=${REMRY_HOME:-${WONO_HOME:-${WORKING_NOTES_HOME:-}}}
+
+if [ -z "$app" ] && [ -x "$data/App/current/remry" ]; then
+  exec "$data/App/current/remry" "$@"
+fi
 
 pointer="$data/app-path"
 [ -r "$pointer" ] || pointer="$legacy/app-path"

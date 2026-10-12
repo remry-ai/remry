@@ -1,13 +1,14 @@
 @echo off
 rem Remry plugin launcher for Windows: what scripts/remry does elsewhere.
 rem   cmd /d /c <plugin>\scripts\remry.cmd mcp
-rem It runs, in order of preference:
+rem It runs, in order of preference, as scripts/remry does:
 rem   1. the clone named by %REMRY_HOME%
-rem   2. the clone `bun run setup` recorded in <data dir>\app-path, as scripts/remry does
+rem   2. the desktop app's binary, <data dir>\App\current\remry.exe
+rem   3. the clone `bun run setup` recorded in <data dir>\app-path
 setlocal EnableExtensions
 set "data=%LOCALAPPDATA%\Remry"
 if "%LOCALAPPDATA%"=="" set "data=%USERPROFILE%\AppData\Local\Remry"
-set "setup=Clone the Remry repo and run `bun install` and `bun run setup` in the clone."
+set "setup=Install the Remry desktop app (https://github.com/remry-ai/remry/releases/latest) and open it once, or clone the Remry repo and run `bun install` and `bun run setup` in the clone."
 
 set "app=%REMRY_HOME%"
 if not defined app set "app=%WONO_HOME%"
@@ -15,6 +16,10 @@ if not defined app set "app=%WORKING_NOTES_HOME%"
 if defined app if exist "%app%\node_modules\" goto clone
 set "app="
 
+if exist "%data%\App\current\remry.exe" (
+  "%data%\App\current\remry.exe" %*
+  exit /b %ERRORLEVEL%
+)
 goto recorded
 
 :clone

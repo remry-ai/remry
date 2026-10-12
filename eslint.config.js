@@ -9,7 +9,7 @@ import svelteConfig from './svelte.config.js';
 
 export default ts.config(
   {
-    ignores: ['build/', 'dist/', '.svelte-kit/', 'generated/', 'data/', 'node_modules/', 'static/', 'coverage/']
+    ignores: ['build/', 'dist/', 'desktop/src-tauri/target/', 'desktop/src-tauri/gen/', '.svelte-kit/', 'generated/', 'data/', 'node_modules/', 'static/', 'coverage/']
   },
   js.configs.recommended,
   ...ts.configs.recommended,

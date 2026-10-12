@@ -1,6 +1,6 @@
 {
   "name": "remry",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -25,6 +25,12 @@
     "license:keygen": "bun scripts/license/keygen.ts",
     "license:issue": "bun scripts/license/issue.ts",
     "license:revoke": "bun scripts/license/revoke.ts",
+    "release:build": "bun scripts/release/build.ts",
+    "release:smoke": "bun scripts/release/smoke.ts",
+    "desktop:prepare": "bun scripts/desktop-prepare.ts",
+    "desktop:dev": "cd desktop && tauri dev",
+    "desktop:build": "cd desktop && tauri build",
+    "desktop:updater-key": "bun scripts/desktop-updater-key.ts",
     "icons": "bun scripts/icons/render.ts",
     "remry": "bun cli/main.ts"
   },
@@ -58,6 +64,7 @@
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/kit": "^2.5.0",
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@tauri-apps/cli": "^2.12.0",
     "@types/bun": "latest",
     "eslint": "^9.0.0",
     "eslint-plugin-svelte": "^3.23.1",

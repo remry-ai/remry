@@ -67,9 +67,12 @@ describe('planInstall', () => {
   });
 
   it('names the dev copy remry-dev in both files, and keeps the rest of the manifest', () => {
-    const files = devMarketplaceFiles({ name: 'remry', version: '1.2.3', description: 'Notebooks' });
+    const mcp = { mcpServers: { remry: { command: 'sh', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/remry', 'mcp'] } } };
+    const files = devMarketplaceFiles({ name: 'remry', version: '1.2.3', description: 'Notebooks' }, mcp, repo);
     expect(JSON.parse(files.plugin)).toEqual({ name: 'remry-dev', version: '1.2.3', description: 'Notebooks' });
     expect(JSON.parse(files.marketplace)).toMatchObject({ name: 'remry-dev', plugins: [{ name: 'remry-dev', source: './remry-dev', version: '1.2.3' }] });
+    // remry-dev runs the clone, even where the desktop app is installed.
+    expect(JSON.parse(files.mcp)).toEqual({ mcpServers: { remry: { ...mcp.mcpServers.remry, env: { REMRY_HOME: repo } } } });
   });
 
   it("moves another clone's PATH link, but leaves other commands named remry alone", () => {

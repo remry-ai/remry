@@ -90,10 +90,23 @@ export interface DevMarketplaceFiles {
   readonly marketplace: string;
   /** `<dir>/remry-dev/.claude-plugin/plugin.json`: the plugin's manifest, renamed. */
   readonly plugin: string;
+  /**
+   * `<dir>/remry-dev/.mcp.json`: the plugin's, with REMRY_HOME set to the clone, so
+   * remry-dev runs the clone even where the desktop app is installed (which the
+   * released plugin's shim prefers).
+   */
+  readonly mcp: string;
 }
 
-/** The two files of the remry-dev marketplace, from the clone's plugin.json. */
-export const devMarketplaceFiles = (manifest: Readonly<Record<string, unknown>>): DevMarketplaceFiles => {
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The files of the remry-dev marketplace, from the clone's plugin.json and .mcp.json. */
+export const devMarketplaceFiles = (
+  manifest: Readonly<Record<string, unknown>>,
+  mcpConfig: Readonly<Record<string, unknown>>,
+  repoDir: string
+): DevMarketplaceFiles => {
   const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
   const description = 'Remry from this clone, for development.';
   return {
@@ -103,7 +116,16 @@ export const devMarketplaceFiles = (manifest: Readonly<Record<string, unknown>>)
       metadata: { description },
       plugins: [{ name: DEV_NAME, source: `./${DEV_NAME}`, description, version: manifest['version'] }]
     }),
-    plugin: json({ ...manifest, name: DEV_NAME })
+    plugin: json({ ...manifest, name: DEV_NAME }),
+    mcp: json({
+      ...mcpConfig,
+      mcpServers: Object.fromEntries(
+        Object.entries(isRecord(mcpConfig['mcpServers']) ? mcpConfig['mcpServers'] : {}).map(([name, server]) => [
+          name,
+          isRecord(server) ? { ...server, env: { ...(isRecord(server['env']) ? server['env'] : {}), REMRY_HOME: repoDir } } : server
+        ])
+      )
+    })
   };
 };
 

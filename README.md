@@ -43,9 +43,10 @@ check-ins with dates and values. That is what lets you ask "what do I know about
 depends on the payments API?" and get an answer instead of a search result — the same answer
 each time.
 
-**Nothing leaves your Mac.** No accounts, no keys, no sync, nothing sent anywhere. The app itself
-never calls a language model — Claude works on it from outside. That matters when the notes are
-about people.
+**Nothing leaves your computer.** No accounts, no keys, no sync, nothing about you or your notes
+sent anywhere. The app itself never calls a language model — Claude works on it from outside. That
+matters when the notes are about people. The one request it makes is the desktop app asking GitHub
+whether there's a newer version.
 
 **It sits beside your other tools.** Linear, Notion and the rest hold the team's version of things;
 Remry holds yours.
@@ -191,8 +192,16 @@ can see them. Remry holds yours, privately, and can link back to them.
 
 ## Getting started
 
-- **[docs/INSTALL.md](docs/INSTALL.md)** — set up the app from a clone (it needs [Bun](https://bun.sh)),
-  then install the plugin for Claude Code, Cowork or the Claude desktop app.
+**Download the desktop app:**
+[Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg) ·
+[Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe) ·
+[all releases](https://github.com/remry-ai/remry/releases)
+
+Open it once, then connect Claude: [docs/INSTALL.md](docs/INSTALL.md) has the steps, and how to get
+past the first-open warning while the installers aren't code-signed.
+
+- **[docs/INSTALL.md](docs/INSTALL.md)** — install the desktop app for Mac or Windows, which brings
+  everything it needs and keeps itself up to date, then connect Claude Code, Cowork or Claude desktop.
 - **[docs/CLI.md](docs/CLI.md)** — the `remry` command and the tools Claude uses, for when you want
   to drive it yourself.
 - **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — running from a clone, and how releases work.
@@ -224,8 +233,9 @@ notebook name), and paste the key. Or ask Claude to activate it: it runs `licens
   comes back when you add a renewed key.
 - **How many computers?** A license is for one computer. It's stored in Remry's settings on that
   computer.
-- **Does Remry check in with a server?** No. The key is checked on your computer, offline, and
-  Remry never contacts anything: not to check the key, not for anything else.
+- **Does Remry check in with a server?** No. The key is checked on your computer, offline. The only
+  request Remry makes is the desktop app asking GitHub for the latest version, which sends nothing
+  about you, your license or your notebooks.
 - **Refunds?** Ask within 30 days for a full refund <!-- TODO: confirm the refund window -->.
   The refunded key stops working with the next Remry update.
 - **Lost your key?** [Open an issue](https://github.com/remry-ai/remry/issues) without posting
@@ -241,5 +251,7 @@ Write-ups go in docs instead.
 Branding, PDF export and full-text search are part of [Remry Pro](#remry-pro), a yearly license
 that the app checks on your computer without contacting anything. Everything else is free.
 
-Remry runs from a clone of this repository, with [Bun](https://bun.sh); the plugin points Claude at
-it. Lint, type checks and tests run on every push.
+The desktop app is built for Apple silicon Macs and for Windows (x64). Its installers aren't
+code-signed yet, so macOS and Windows ask before opening it the first time; see
+[docs/INSTALL.md](docs/INSTALL.md). It checks GitHub for updates when it opens, which is the only
+request Remry makes.

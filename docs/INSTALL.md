@@ -1,11 +1,69 @@
 # Install
 
-Remry runs on your own computer, from a copy of this repository. You need
-[Bun](https://bun.sh) and git, and Claude.
+Remry runs on your own computer. The desktop app brings everything it needs, so Claude is the only
+other thing to install. It's built for Macs with Apple silicon and for Windows (x64).
 
-To work on the code, read [DEVELOPMENT.md](DEVELOPMENT.md) too.
+To work on the code instead, read [DEVELOPMENT.md](DEVELOPMENT.md).
 
-## Set up the app
+## 1. Install the desktop app
+
+Download the latest version:
+
+- **Mac (Apple silicon):** [Remry-macos-arm64.dmg](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg).
+  Open it and drag Remry to Applications.
+- **Windows:** [Remry-windows-x64-setup.exe](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe).
+  It installs for you alone; no administrator rights needed.
+
+Older versions are on the [releases page](https://github.com/remry-ai/remry/releases).
+
+The installers aren't code-signed yet, so the first time you open Remry:
+
+- **Mac:** macOS says it can't check the app. Open **System Settings → Privacy & Security**, and
+  choose **Open Anyway** beside Remry's entry. (Or right-click Remry in Applications and choose
+  **Open**.)
+- **Windows:** SmartScreen says it protected your PC. Choose **More info → Run anyway**.
+
+Open the app once. It sets Remry up in your data folder, starts it, and shows your notebook.
+
+**Updates.** When a new version is out, the app asks whether to install it and restart. It checks
+when it opens, and from **Updates → Check for Updates…**. That check is the only request Remry
+makes to the internet: it asks GitHub for the latest release, and sends nothing about you or your
+notebooks. Updates are signed, and the app installs only one signed by Remry's release.
+
+## 2. Connect Claude
+
+**With the plugin (recommended).** It brings the skill that teaches Claude how the notebook works,
+as well as the tools. Its tools run the desktop app's copy of Remry, which the app keeps up to date.
+
+- **Claude Code:**
+
+  ```bash
+  claude plugin marketplace add remry-ai/remry
+  claude plugin install remry@remry
+  ```
+
+  To update: `claude plugin marketplace update remry && claude plugin update remry@remry`, or turn
+  on auto-update for the marketplace in `/plugin`.
+- **Cowork:** Customize → **+** → **Add marketplace from GitHub** → `remry-ai/remry`, then
+  install Remry.
+- **Claude desktop Chat:** download `remry-<version>.zip` from the
+  [latest release](https://github.com/remry-ai/remry/releases/latest) and add it as a plugin.
+  Repeat with each new release — Chat takes uploads only.
+
+**Without the plugin, or on Windows.** The plugin starts its server with `sh`, which Windows
+doesn't have unless Git Bash is on your PATH. In the desktop app, choose **Claude → Connect to
+Claude desktop…** or **Connect to Claude Code…**. It asks first, then adds Remry's tools to that
+Claude's settings, pointing at the app's copy of Remry. You get the tools without the skill.
+
+Start Cowork sessions **on your computer, not in the cloud**, and keep Claude desktop open. A Cowork
+session runs in a sandbox that cannot see your data folder, so the plugin's tools are the only route
+to your notebooks. Claude desktop runs those tools on your computer for local sessions.
+
+Do not attach the data folder to a session. Two programs must never open the same database at once.
+
+## From a clone
+
+Developers can run Remry from a clone instead, with [Bun](https://bun.sh):
 
 ```bash
 git clone git@github.com:remry-ai/remry.git
@@ -15,71 +73,11 @@ bun run setup
 ```
 
 `bun run setup` records where the clone is, puts the `remry` command on your PATH, and installs the
-plugin in Claude Code. The plugin, wherever you install it, runs this clone. Re-run it after you
-move the clone.
+clone's own copy of the plugin in Claude Code, as `remry-dev`, which always runs the clone. The
+released plugin runs the desktop app when it's installed, and the clone otherwise.
 
-To update, `git pull` and `bun install` in the clone. The next Claude session runs setup again for
-you when the version changed, and restarts the app if Claude started it. Then update the plugin
-in Chat or Cowork as below.
-
-## Install the plugin
-
-Follow the instructions for the Claude you use. All three install the same plugin, which contains
-two things: a skill that teaches Claude how the notebook works, and an MCP server that lets Claude
-read and write it.
-
-**Claude Code**
-
-`bun run setup` already installed it, as `remry-dev`. To use the released plugin instead:
-
-```bash
-claude plugin marketplace add remry-ai/remry
-claude plugin install remry@remry
-```
-
-To update: `claude plugin marketplace update remry && claude plugin update remry@remry`, or turn on
-auto-update for the marketplace in `/plugin`. The repo is private, so Claude Code needs git access to
-it; for background auto-update, use SSH.
-
-**Cowork**
-
-Customize → **+** → **Add marketplace from GitHub** → `remry-ai/remry`, then install
-Remry. Uploading the release zip works too, as for Chat.
-
-Start Cowork sessions **on your Mac, not in the cloud**, and keep Claude desktop open. A Cowork
-session runs in a sandbox that cannot see `~/Library/Application Support`, so the plugin's tools are
-the only route to your notebooks. Claude desktop runs those tools on your Mac for local sessions.
-
-Do not attach the data folder to a session. Two programs must never open the same database at once.
-
-**Claude desktop Chat**
-
-Download `remry-<version>.zip` from the
-[latest release](https://github.com/remry-ai/remry/releases/latest) and add it as a
-plugin, or add `dist/remry.zip`, which `bun run setup` builds. Repeat with each new release — Chat
-takes uploads only.
-
-**Windows**
-
-The plugin starts its server with `sh`, which Windows doesn't have unless Git Bash is on your
-PATH; Claude's plugin settings can't name a different command per system yet. Add the server
-yourself after installing the plugin, pointing at the Windows launcher inside it:
-
-```powershell
-claude mcp add remry -- cmd /d /c "<plugin folder>\scripts\remry.cmd" mcp
-```
-
-In Claude desktop, the same goes in `claude_desktop_config.json` under `mcpServers`, as
-`"command": "cmd"` with `"args": ["/d", "/c", "<plugin folder>\\scripts\\remry.cmd", "mcp"]`.
-
-## Coming from a release with the app built in
-
-Releases before 0.15.0 carried the app as a program of their own. They don't any more: the plugin
-runs a clone. Set one up as above, then update the plugin. Your notebooks stay where they are.
-
-If the old app is still running, `remry app restart` stops it and starts the clone's. An hourly
-backup LaunchAgent from an old release runs a program that no longer updates: run
-`remry backup install` again to point it at the clone.
+To update, `git pull` and `bun install`. The next Claude session runs setup again when the version
+changed, and restarts the app if Claude started it.
 
 ## Coming from Wonos or Working Notes
 
@@ -103,24 +101,23 @@ Your notebooks carry over:
 ## First run
 
 The first time Remry runs, it creates a notebook called `notebook` in your data folder (see
-[Where your data lives](#where-your-data-lives)). Your notebooks stay in that folder, whatever
-happens to the clone.
+[Where your data lives](#where-your-data-lives)). Your notebooks stay in that folder when the app
+updates, and if you uninstall it.
 
 Nothing else to set up. Try it by telling Claude something like *"Dana Park joined Platform as a
 senior engineer, reporting to Alice"*.
 
 ## The app
 
-Ask Claude to "open Remry" and it will start the app and hand you the link. By hand, run
-`remry app` and go to http://127.0.0.1:5173/app. The server binds to 127.0.0.1 and refuses any
-request that didn't come from this machine.
+Open the desktop app, or ask Claude to "open Remry" and it will start the app and hand you the
+link. The desktop app's server is at http://127.0.0.1:7369/app (a clone's is
+http://127.0.0.1:5173/app, from `remry app`). Closing the window leaves it running for Claude. It
+binds to 127.0.0.1 and refuses any request that didn't come from this machine.
 
-## Install it as a Mac app
+## Install it as a browser app
 
-The web app can be installed as a desktop app, so it gets its own Dock icon and its own window with
-no browser chrome. It still runs entirely on your machine, against the same local server.
-
-Start the app first, then:
+From a clone, without the desktop app, the web app can be installed from the browser instead, so it
+gets its own Dock icon and window. Start the app first, then:
 
 - **Chrome or Edge:** open http://127.0.0.1:5173/app, then choose **Install Remry** — from
   the install icon at the right of the address bar, or from the ⋮ menu under **Cast, save and
@@ -136,14 +133,16 @@ ask Claude to open Remry, or run `remry app` — and reload.
 
 ## Hourly backups
 
-Remry snapshots every notebook that changed, once an hour, whenever Claude is open, on every
-system. There's nothing to set up.
+Remry snapshots every notebook that changed, once an hour, whenever Claude or the desktop app is
+open, on every system. There's nothing to set up.
 
-On a Mac you can also add a LaunchAgent, so backups carry on while Claude isn't running:
+On a Mac you can also add a LaunchAgent, so backups carry on while neither is running:
 
 ```bash
-remry backup install
+"$HOME/Library/Application Support/Remry/App/current/remry" backup install
 ```
+
+(From a clone, `remry backup install`.)
 
 The LaunchAgent snapshots every notebook hourly, when something changed. It shares the hour with
 Claude, so nothing is snapshotted twice. The log is `~/Library/Logs/Remry/backup.log`, and `backup
@@ -164,17 +163,21 @@ Windows, and `$XDG_DATA_HOME/remry` (usually `~/.local/share/remry`) on Linux:
 | `Notebooks/<id>/files/` | uploaded PDFs and branding images |
 | `Backups/<id>/` | that notebook's snapshots, kept outside its folder so they outlive it |
 | `settings.json` | which notebook is the default, and your Pro license key |
-| `app-path` | the clone the plugin runs, written by `bun run setup` |
+| `App/<version>/`, `App/current` | the desktop app's copy of Remry, which Claude's tools run |
+| `app-path` | the clone the plugin runs without the desktop app, written by `bun run setup` |
 
 ## Troubleshooting
 
-**`remry: command not found`.** Run `bun run setup` in the clone, or use `bin/remry` inside it.
+**`remry: command not found`.** With the desktop app, use its copy:
+`"$HOME/Library/Application Support/Remry/App/current/remry"` on a Mac, or
+`& "$env:LOCALAPPDATA\Remry\App\current\remry.exe"` on Windows. From a clone, run
+`bun run setup`, or use `bin/remry` inside it.
 
-**"Remry isn't set up on this computer".** The plugin can't find a clone. Run `bun run setup` in
-one, then restart Claude.
+**"Remry isn't set up on this computer".** The plugin can't find the desktop app or a clone. Open
+the desktop app once, then restart Claude.
 
-**The app is stuck, or shows an old version.** Run `remry app restart`. It stops the running app
-and starts the clone's. Claude can do the same with its `app_restart` tool.
+**The app is stuck, or shows an old version.** Quit and reopen the desktop app, or ask Claude to
+restart it (its `app_restart` tool).
 
 **Claude does not have the Remry tools.** Install the plugin, then start a *new* session. In
 Cowork, the session must also be running on your Mac with Claude desktop open, because a cloud

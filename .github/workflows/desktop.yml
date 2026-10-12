@@ -1,0 +1,115 @@
+# Builds the desktop app (desktop/, Tauri 2) for macOS (Apple silicon) and Windows (x64),
+# each on its own runner: the `remry` binary it bundles (scripts/release/build.ts), a smoke
+# test of that binary, then the installer. release.yml calls it for every release; run it by
+# hand from the Actions tab to try a build without publishing.
+# The builds aren't code-signed: macOS asks before opening a downloaded copy, and Windows
+# SmartScreen warns. With the TAURI_SIGNING_PRIVATE_KEY secret set (bun run desktop:updater-key),
+# each build also makes a signed update for the app's updater.
+name: Desktop
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to build
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: 1.3.13
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows is new, so a failure there doesn't hold back the macOS release.
+          - { target: darwin-arm64, os: macos-latest, required: true, bundles: 'app,dmg' }
+          - { target: windows-x64, os: windows-latest, required: false, bundles: nsis }
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ !matrix.required }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Generate the Prisma client
+        run: bunx prisma generate
+
+      - name: Build the remry binary
+        run: bun run release:build --target ${{ matrix.target }}
+
+      - name: Smoke test the binary
+        run: bun run release:smoke
+
+      # Tauri's build script needs the sidecar in place, so tests come after this.
+      - name: Put the binary in the desktop app
+        run: bun run desktop:prepare
+
+      - name: Rust tests
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      - name: Build the desktop app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          # A signed update for the updater, only when there's a key to sign it with.
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            bun run desktop:build --bundles ${{ matrix.bundles }} --config '{"bundle":{"createUpdaterArtifacts":true}}'
+          else
+            echo "No TAURI_SIGNING_PRIVATE_KEY secret: building without a signed update."
+            bun run desktop:build --bundles ${{ matrix.bundles }}
+          fi
+
+      # Names with the version, which latest.json points at, and a copy of each installer
+      # without it, so the README links to releases/latest/download/<name> stay valid.
+      - name: Collect the installer and update
+        run: |
+          version=$(cat dist/app/VERSION)
+          bundle=desktop/src-tauri/target/release/bundle
+          mkdir -p dist/desktop
+          case "${{ matrix.target }}" in
+            darwin-arm64)
+              cp "$bundle"/dmg/*.dmg "dist/desktop/Remry-$version-macos-arm64.dmg"
+              cp "$bundle"/dmg/*.dmg dist/desktop/Remry-macos-arm64.dmg
+              for f in "$bundle"/macos/*.app.tar.gz "$bundle"/macos/*.app.tar.gz.sig; do
+                if [ -e "$f" ]; then cp "$f" "dist/desktop/Remry-$version-macos-arm64.app.tar.gz${f##*.app.tar.gz}"; fi
+              done
+              ;;
+            windows-x64)
+              for f in "$bundle"/nsis/*-setup.exe "$bundle"/nsis/*-setup.exe.sig; do
+                if [ -e "$f" ]; then cp "$f" "dist/desktop/Remry-$version-windows-x64-setup.exe${f##*-setup.exe}"; fi
+              done
+              cp "$bundle"/nsis/*-setup.exe dist/desktop/Remry-windows-x64-setup.exe
+              ;;
+          esac
+          ls -la dist/desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: dist/desktop
+          if-no-files-found: error

@@ -32,9 +32,9 @@ remry person.create --name "Dana Park" --extensions '{"org":{"title":"Senior Eng
 ```
 
 - If the shell says `remry: command not found`, use the first of these that exists, wherever this skill says `remry`:
-  - the app a release installed: `"$HOME/Library/Application Support/Remry/App/current/remry"`
+  - the desktop app's copy: `"$HOME/Library/Application Support/Remry/App/current/remry"` (on Windows, `"$env:LOCALAPPDATA\Remry\App\current\remry.exe"`)
   - a clone set up with `bun run setup`: `"$(cat "$HOME/Library/Application Support/Remry/app-path")/bin/remry"` (on Linux, `"$(cat "${XDG_DATA_HOME:-$HOME/.local/share}/remry/app-path")/bin/remry"`)
-- If neither the tools nor `remry` work, or they say Remry isn't set up, tell the user what you saw and stop. Setup is theirs to do: install the Remry plugin from a release, which includes the app. Don't look for the data folder yourself.
+- If neither the tools nor `remry` work, or they say Remry isn't set up, tell the user what you saw and stop. Setup is theirs to do: install the Remry desktop app from https://github.com/remry-ai/remry/releases/latest and open it once. Don't look for the data folder yourself.
 - stdout is JSON. Most calls return `{"ok": true, "value": ...}` or `{"ok": false, "error": {"message": ...}}`. Exit code 1 means failure; read the message and fix the call.
 - Values are typed by each procedure's schema: `--priority 2` is a number, `--title 2024` stays a string, and `null` clears a field (`--email null`, or `{"org":{"title":null}}` in `--extensions`).
 - For long text, write it to a file and pass `--content-file path.md` (any `--<field>-file`). For awkward input, pass `--input '{"...": ...}'`.

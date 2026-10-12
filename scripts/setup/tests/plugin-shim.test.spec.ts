@@ -1,4 +1,4 @@
-// The plugin's `remry` shim: runs a clone, or explains how to set up.
+// The plugin's `remry` shim: runs a clone or the desktop app's installed binary, or explains how to set up.
 
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -63,6 +63,19 @@ describe('plugin remry shim', () => {
     const noDeps = run({ REMRY_HOME: app });
     expect(noDeps.status).toBe(1);
     expect(noDeps.stderr).toContain(`Run \`bun install\` in ${app}`);
+  });
+
+  it("runs the desktop app's installed binary before a recorded clone, but after REMRY_HOME", () => {
+    const home = newHome();
+    recordClone(home, fakeApp());
+    const current = join(dataDirFor(home), 'App', 'current');
+    mkdirSync(current, { recursive: true });
+    writeFileSync(join(current, 'remry'), '#!/bin/sh\necho "app $1"\n');
+    chmodSync(join(current, 'remry'), 0o755);
+
+    expect(run({ HOME: home }, 'person.list').stdout).toBe('app person.list\n');
+    // remry-dev sets REMRY_HOME, so a development machine keeps running its clone.
+    expect(run({ HOME: home, REMRY_HOME: fakeApp() }, 'person.list').stdout).toBe('person.list\n');
   });
 
   it('keeps the plugin free of a top-level bin/, which claude.ai-hosted plugins reject', () => {
