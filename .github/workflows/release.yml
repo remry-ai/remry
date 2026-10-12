@@ -79,8 +79,15 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      # A failed package download once stopped a release here, after both builds had passed.
       - name: Install
-        run: bun install --frozen-lockfile
+        run: |
+          for attempt in 1 2 3; do
+            bun install --frozen-lockfile && exit 0
+            echo "bun install failed (attempt $attempt); retrying."
+            sleep 10
+          done
+          exit 1
 
       # One directory per platform that built; the macOS build is required, so it's always there.
       - uses: actions/download-artifact@v4

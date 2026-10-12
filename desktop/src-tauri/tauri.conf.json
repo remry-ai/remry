@@ -48,7 +48,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFMkE1NDAwNDcxOTE2N0EKUldSNkZobEhBRlFxVG14WG1Ocng0YUw0REJlM3VEZjRXbks1K0FkYjl3UTJsdG10eGpRbmRmWVYK",
       "endpoints": [
         "https://github.com/remry-ai/remry/releases/latest/download/latest.json"
       ],
