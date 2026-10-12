@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { page } from '$app/state';
   import Popup from '$lib/common/Popup.svelte';
   import PageHeader from '$lib/ui/PageHeader.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -7,6 +8,9 @@
   import ParamToggle from '$lib/ui/ParamToggle.svelte';
   import FocusGraph from '$lib/home/components/FocusGraph.svelte';
   import PersonForm from '$lib/person/components/PersonForm.svelte';
+  import PersonPeek from '$lib/person/components/PersonPeek.svelte';
+  import PeekIcon from '$lib/ui/PeekIcon.svelte';
+  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { model } from '$lib/stores/notebook-model';
   import { fieldText } from '$lib/person/fields';
@@ -18,6 +22,9 @@
   const fields = $derived($model.personFields);
   // How each person relates to you, once someone is marked as you.
   const hasMe = $derived(persons.some((p) => p.isMe));
+
+  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
+  const peeked = $derived(persons.find((p) => p.id === peekId) ?? null);
 
   const handleCreated = () => closePopup({ invalidate: true });
 
@@ -62,8 +69,15 @@
         </thead>
         <tbody>
           {#each persons as person (person.id)}
-            <tr>
-              <td><a href={person.path}>{person.name}</a>{#if person.isMe} <span class="badge accent">You</span>{/if}{#if person.archivedAt} <span class="badge muted">Archived</span>{/if}</td>
+            <tr class:active={peekId === person.id}>
+              <td>
+                <span class="person-name">
+                  <a href={person.path}>{person.name}</a>{#if person.isMe} <span class="badge accent">You</span>{/if}{#if person.archivedAt} <span class="badge muted">Archived</span>{/if}
+                  <span class="row-actions">
+                    <button type="button" class="btn icon sm" aria-label="Peek at {person.name}" title="Peek" onclick={() => openPeek(person.id)}><PeekIcon /></button>
+                  </span>
+                </span>
+              </td>
               {#if hasMe}<td class="text-2">{person.toMe.join(', ')}</td>{/if}
               {#each fields as f (`${f.module}.${f.key}`)}<td class="text-2">{fieldText(person.extensions, f) ?? ''}</td>{/each}
               <td class="text-2">{person.email ?? ''}</td>
@@ -79,6 +93,18 @@
   {/if}
 </div>
 
+{#if peekId}
+  <PersonPeek id={peekId} toMe={peeked?.toMe ?? []} />
+{/if}
+
 <Popup id="new-person" title="Add person">
   <PersonForm personOptions={persons} onSuccess={handleCreated} onCancel={() => closePopup()} />
 </Popup>
+
+<style lang="scss">
+  .person-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+</style>

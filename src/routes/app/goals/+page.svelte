@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { page } from '$app/state';
   import Popup from '$lib/common/Popup.svelte';
   import PageHeader from '$lib/ui/PageHeader.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ArchiveFilter from '$lib/ui/ArchiveFilter.svelte';
   import ProgressBar from '$lib/ui/ProgressBar.svelte';
   import GoalForm from '$lib/goal/components/GoalForm.svelte';
+  import GoalPeek from '$lib/goal/components/GoalPeek.svelte';
+  import PeekIcon from '$lib/ui/PeekIcon.svelte';
+  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { GOAL_STATUSES, type GoalStatus, type OwnerType } from '$shared/types/enums';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
@@ -62,6 +66,8 @@
       ),
     ),
   );
+
+  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
 
   const handleCreated = () => closePopup({ invalidate: true });
 </script>
@@ -128,11 +134,14 @@
           <tbody>
             {#each rows as { item: goal, depth } (goal.id)}
               {@const timeFlag = goalTimeFlag(goal, today)}
-              <tr>
+              <tr class:active={peekId === goal.id}>
                 <td>
                   <span class="goal-name" style="--depth: {depth}">
                     {#if depth > 0}<span class="tree-indent">└</span>{/if}
                     <a href={goal.path}>{goal.title}</a>{#if goal.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <span class="row-actions">
+                      <button type="button" class="btn icon sm" aria-label="Peek at {goal.title}" title="Peek" onclick={() => openPeek(goal.id)}><PeekIcon /></button>
+                    </span>
                   </span>
                 </td>
                 <td class="text-2">
@@ -168,6 +177,10 @@
     </EmptyState>
   {/if}
 </div>
+
+{#if peekId}
+  <GoalPeek id={peekId} />
+{/if}
 
 <Popup id="new-goal" title="Add goal">
   <GoalForm ownerOptions={data.ownerOptions} onSuccess={handleCreated} onCancel={() => closePopup()} />
