@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SearchHit } from '$shared/types/search';
-import { appLink, autocompleteRows, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
+import { appLink, autocompleteRows, completeCommand, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
 
 const entries: readonly FinderEntry[] = [
   { id: 'GROUP:1', name: 'Console', scope: 'GROUP', meta: 'Team' },
@@ -26,22 +26,46 @@ describe('parseFinderQuery', () => {
   });
 
   it('offers the commands a "/" word could be', () => {
-    expect(parseFinderQuery('/')).toMatchObject({ kind: 'commands', commands: [{ id: 's' }, { id: 'ask' }] });
+    expect(parseFinderQuery('/')).toMatchObject({ kind: 'commands', commands: [{ id: 'search' }, { id: 'ask' }] });
     expect(parseFinderQuery('/a')).toMatchObject({ kind: 'commands', commands: [{ id: 'ask' }] });
     expect(parseFinderQuery('/x')).toEqual({ kind: 'commands', commands: [] });
     expect(parseFinderQuery('/x y')).toEqual({ kind: 'commands', commands: [] });
   });
 
-  it('reads /s and /ask with what follows', () => {
-    expect(parseFinderQuery('/s budget review')).toEqual({ kind: 's', text: 'budget review' });
+  it('reads /search and /ask with what follows', () => {
+    expect(parseFinderQuery('/search budget review')).toEqual({ kind: 'search', text: 'budget review' });
     expect(parseFinderQuery('/ask who owns billing?')).toEqual({ kind: 'ask', text: 'who owns billing?' });
-    expect(parseFinderQuery('/s ')).toEqual({ kind: 's', text: '' });
+    expect(parseFinderQuery('/search ')).toEqual({ kind: 'search', text: '' });
+  });
+
+  it('reads a shortened command followed by a space', () => {
+    expect(parseFinderQuery('/s budget')).toEqual({ kind: 'search', text: 'budget' });
+    expect(parseFinderQuery('/a why?')).toEqual({ kind: 'ask', text: 'why?' });
+  });
+});
+
+describe('completeCommand', () => {
+  it('completes a partly typed command', () => {
+    expect(completeCommand('/s')).toBe('/search ');
+    expect(completeCommand('/a')).toBe('/ask ');
+    expect(completeCommand('/ASK')).toBe('/ask ');
+  });
+
+  it('completes the highlighted command when several match', () => {
+    expect(completeCommand('/', 1)).toBe('/ask ');
+    expect(completeCommand('/')).toBe('/search ');
+  });
+
+  it('leaves anything else alone', () => {
+    expect(completeCommand('dana')).toBeNull();
+    expect(completeCommand('/x')).toBeNull();
+    expect(completeCommand('/search budget')).toBeNull();
   });
 });
 
 describe('autocompleteRows', () => {
   it('lists the commands before anything is typed', () => {
-    expect(keys(autocompleteRows('', entries))).toEqual(['command:s', 'command:ask']);
+    expect(keys(autocompleteRows('', entries))).toEqual(['command:search', 'command:ask']);
   });
 
   it('lists names containing the text, those starting with it first', () => {

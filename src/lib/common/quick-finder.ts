@@ -1,6 +1,7 @@
 // What the ⌘K finder lists. Typing autocompletes entity names; Enter with no
-// match searches titles word by word. Two commands start with "/": "/s …"
-// searches the full text and "/ask …" asks Claude (both Remry Pro).
+// match searches titles word by word. Two commands start with "/": "/search …"
+// searches the full text and "/ask …" asks Claude (both Remry Pro). A partly
+// typed command completes with Tab, and "/s …" or "/a …" works as written.
 
 import { searchOptions, type SearchOption } from '$lib/ui/search-picker';
 import type { SearchHit } from '$shared/types/search';
@@ -11,7 +12,7 @@ export interface FinderEntry extends SearchOption {
   readonly meta: string;
 }
 
-export type FinderCommandId = 's' | 'ask';
+export type FinderCommandId = 'search' | 'ask';
 
 export interface FinderCommand {
   readonly id: FinderCommandId;
@@ -19,7 +20,7 @@ export interface FinderCommand {
 }
 
 export const FINDER_COMMANDS: readonly FinderCommand[] = [
-  { id: 's', label: 'Search the full text' },
+  { id: 'search', label: 'Search the full text' },
   { id: 'ask', label: 'Ask Claude about the notebook' }
 ];
 
@@ -28,19 +29,34 @@ export type FinderQuery =
   | { readonly kind: 'names'; readonly text: string }
   /** A "/" word still being typed: the commands it could be. */
   | { readonly kind: 'commands'; readonly commands: readonly FinderCommand[] }
-  /** "/s …" or "/ask …", with what follows. */
+  /** "/search …" or "/ask …", with what follows. */
   | { readonly kind: FinderCommandId; readonly text: string };
 
-/** Reads a query: "dana" names, "/a" commands, "/s budget" a full-text search, "/ask who owns billing?" a question. */
+/** Commands whose word starts with `word` ("s" → search, "" → all). */
+const commandsStarting = (word: string): readonly FinderCommand[] =>
+  FINDER_COMMANDS.filter((c) => c.id.startsWith(word.toLowerCase()));
+
+/**
+ * Reads a query: "dana" names, "/a" commands, "/search budget" a full-text search,
+ * "/ask who owns billing?" a question. A shortened word followed by a space ("/s budget")
+ * reads as the first command it starts.
+ */
 export const parseFinderQuery = (query: string): FinderQuery => {
   if (!query.startsWith('/')) return { kind: 'names', text: query };
   const match = /^\/(\S*)(\s+([\s\S]*))?$/.exec(query);
-  const word = (match?.[1] ?? '').toLowerCase();
-  const command = FINDER_COMMANDS.find((c) => c.id === word);
-  if (match?.[2] !== undefined) {
-    return command ? { kind: command.id, text: match[3] ?? '' } : { kind: 'commands', commands: [] };
-  }
-  return { kind: 'commands', commands: FINDER_COMMANDS.filter((c) => c.id.startsWith(word)) };
+  const word = match?.[1] ?? '';
+  const commands = word ? commandsStarting(word) : FINDER_COMMANDS;
+  if (match?.[2] === undefined) return { kind: 'commands', commands };
+  const command = word ? commands[0] : undefined;
+  return command ? { kind: command.id, text: match[3] ?? '' } : { kind: 'commands', commands: [] };
+};
+
+/** Tab on a partly typed command ("/s") fills in the `active` one of those it could be ("/search "). Null when there's nothing to complete. */
+export const completeCommand = (query: string, active = 0): string | null => {
+  const parsed = parseFinderQuery(query);
+  if (parsed.kind !== 'commands') return null;
+  const command = parsed.commands[active] ?? parsed.commands[0];
+  return command ? `/${command.id} ` : null;
 };
 
 export type FinderRow =

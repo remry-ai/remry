@@ -1,6 +1,6 @@
 <script lang="ts">
   // ⌘K: find people, groups, projects, goals and wiki pages by name. Enter with
-  // no match searches titles word by word. "/s …" searches the full text and
+  // no match searches titles word by word. "/search …" searches the full text and
   // "/ask …" asks the local Claude a question about the notebook, answered once
   // with links (both Remry Pro). Rows come from quick-finder.ts.
   import { goto } from '$app/navigation';
@@ -22,6 +22,7 @@
     appLink,
     autocompleteRows,
     commandRows,
+    completeCommand,
     parseFinderQuery,
     snippetParts,
     submittedRows,
@@ -43,7 +44,7 @@
     return license ? isProActive(license) : false;
   });
 
-  /** A query sent with Enter: title matches for a name, full-text hits for "/s" (null while they load). */
+  /** A query sent with Enter: title matches for a name, full-text hits for "/search" (null while they load). */
   interface Submitted {
     readonly query: string;
     readonly titles: readonly FinderEntry[];
@@ -74,7 +75,7 @@
   );
 
   const parsed = $derived(parseFinderQuery(query));
-  const needsPro = $derived((parsed.kind === 's' || parsed.kind === 'ask') && !pro);
+  const needsPro = $derived((parsed.kind === 'search' || parsed.kind === 'ask') && !pro);
 
   const rows = $derived.by((): readonly FinderRow[] => {
     if (submitted) return submittedRows(submitted.titles, submitted.hits ?? []);
@@ -83,15 +84,19 @@
     return [];
   });
   const firstHit = $derived(rows.findIndex((row) => row.kind === 'hit'));
+  // Waiting on the server: names reloading for a title search, full-text hits, or Claude's answer.
+  const waiting = $derived(
+    searching || submitted?.hits === null || (parsed.kind === 'ask' && answer?.query === query && answer.state === 'running')
+  );
 
   const emptyMessage = $derived.by((): string => {
     if (loading || searching) return 'Searching…';
     if (submitted?.error) return submitted.error;
     if (submitted?.hits === null) return 'Searching full text…';
     if (submitted) return 'No results';
-    if (parsed.kind === 's') return parsed.text.trim() ? 'Press ↵ to search the full text.' : 'Type words to find in notes, docs, wiki pages and todos.';
+    if (parsed.kind === 'search') return parsed.text.trim() ? 'Press ↵ to search the full text.' : 'Type words to find in notes, docs, wiki pages and todos.';
     if (parsed.kind === 'ask') return parsed.text.trim() ? 'Press ↵ to ask Claude.' : 'Type a question about this notebook.';
-    if (parsed.kind === 'commands') return 'No such command. Try /s or /ask.';
+    if (parsed.kind === 'commands') return 'No such command. Try /search or /ask.';
     return 'No matching names. Press ↵ to search titles.';
   });
 
@@ -180,7 +185,7 @@
     }
     if (submitted || searching || needsPro) return;
     if (parsed.kind === 'names' && parsed.text.trim()) void searchTitles(query);
-    else if (parsed.kind === 's' && parsed.text.trim()) void searchText(query, parsed.text.trim());
+    else if (parsed.kind === 'search' && parsed.text.trim()) void searchText(query, parsed.text.trim());
     else if (parsed.kind === 'ask' && parsed.text.trim() && !(answer?.query === query && answer.state === 'running')) {
       void ask(query, parsed.text.trim());
     }
@@ -216,6 +221,11 @@
     } else if (e.key === 'Enter') {
       e.preventDefault();
       submit();
+    } else if (e.key === 'Tab' && !e.shiftKey) {
+      const completed = completeCommand(query, active);
+      if (completed === null) return;
+      e.preventDefault();
+      handleInput(completed);
     }
   };
 
@@ -310,7 +320,7 @@
           aria-controls="quick-finder-results"
           aria-expanded={rows.length > 0}
           aria-activedescendant={rows.length > 0 ? `quick-finder-row-${active}` : undefined}
-          placeholder="Find by name, /s to search text, /ask a question"
+          placeholder="Find by name, /search the text, /ask a question"
           autocomplete="off"
           spellcheck="false"
           value={query}
@@ -320,6 +330,7 @@
           {#if loading}…{:else}↻{/if}
         </button>
       </div>
+      <div class="loading-bar" class:active={waiting} role="progressbar" aria-label="Loading" aria-hidden={!waiting}></div>
       {#if needsPro}
         <p class="pro-note">
           {parsed.kind === 'ask' ? 'Ask' : 'Full-text search'} is part of Remry Pro. <a href="/app/license" onclick={close}>See the License page</a>.
@@ -329,7 +340,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div class="answer" role="presentation" onclick={handleAnswerClick}>
           {#if answer.state === 'running'}
-            <EmptyState message="Asking Claude…" small />
+            <EmptyState message="Asking Claude… this can take a minute." small />
           {:else if answer.state === 'failed'}
             <p class="form-error">{answer.text}</p>
           {:else}
@@ -384,7 +395,7 @@
       <div class="finder-footer">
         <span><kbd>↑↓</kbd> navigate</span>
         <span><kbd>↵</kbd> open or search</span>
-        <span><kbd>/s</kbd> full text</span>
+        <span><kbd>/search</kbd> full text</span>
         <span><kbd>/ask</kbd> ask Claude</span>
         <span><kbd>esc</kbd> close</span>
       </div>
@@ -416,6 +427,31 @@
     box-shadow: var(--shadow-3);
     height: fit-content;
     animation: finder-in 140ms ease;
+  }
+
+  // An indeterminate bar under the box while a search or an answer is on its way.
+  .loading-bar {
+    position: relative;
+    height: 2px;
+    margin-top: -1px;
+    overflow: hidden;
+    &.active::after {
+      content: '';
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 30%;
+      background: var(--accent);
+      animation: loading-slide 1.1s var(--ease) infinite;
+    }
+  }
+
+  @keyframes loading-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(340%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loading-bar.active::after { animation: none; width: 100%; opacity: 0.5; }
   }
 
   .finder-header {
