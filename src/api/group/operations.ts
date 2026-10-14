@@ -168,7 +168,7 @@ export const deleteGroup = async (
   if (!(await reg.prisma.group.findUnique({ where: { id }, select: { id: true } }))) return err(notFound(id));
   const cleanup = await planEntityCleanup(reg, 'GROUP', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.group.delete({ where: { id } })]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };
 

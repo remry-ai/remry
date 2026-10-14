@@ -201,6 +201,6 @@ export const deleteTodo = async (
 
   const cleanup = await planEntityCleanup(reg, 'TODO', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.todo.delete({ where: { id } })]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true });
 };

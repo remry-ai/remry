@@ -90,7 +90,7 @@ export const removeNote = async (
 
   const cleanup = await planEntityCleanup(reg, 'NOTE', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.note.deleteMany({ where: { id } })]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };
 

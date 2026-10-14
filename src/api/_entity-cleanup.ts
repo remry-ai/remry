@@ -11,8 +11,18 @@ type BatchWrite = ReturnType<Registry['prisma']['doc']['deleteMany']>;
 
 export interface EntityCleanup {
   readonly ops: readonly BatchWrite[];
+  /** Files to remove once the transaction commits: the deleted docs' PDFs. */
   readonly files: readonly string[];
+  /** Folders to remove with them: each deleted doc's or page's own files (pasted images, PDFs). */
+  readonly folders: readonly string[];
 }
+
+// The folder each type keeps its own files in, keyed by id (`docs/<id>/image-….png`).
+const FILE_FOLDERS: Readonly<Partial<Record<string, string>>> = { DOC: 'docs', PAGE: 'pages' };
+const folderOf = (entityType: string, entityId: string): readonly string[] => {
+  const folder = FILE_FOLDERS[entityType];
+  return folder ? [`${folder}/${entityId}`] : [];
+};
 
 // Rows that are attached to an entity and can have attachments of their own.
 const ATTACHED_TYPES = ['DOC', 'NOTE', 'REPORT', 'TODO', 'LINK', 'COMMENT'] as const;
@@ -118,20 +128,28 @@ export const planEntityCleanup = async (
       p.goal.updateMany(owned),
       p.project.updateMany(owned)
     ],
-    files
+    files,
+    folders: [...folderOf(entityType, entityId), ...ids.DOC.flatMap((id) => folderOf('DOC', id))]
   };
 };
 
-/** Best effort: a file that can't be removed is logged, not an error. */
+/** Best effort: a file or folder that can't be removed is logged, not an error. */
 export const removeFiles = async (
   reg: Pick<Registry, 'storage' | 'logger'>,
-  keys: readonly string[]
+  cleanup: Pick<EntityCleanup, 'files' | 'folders'>
 ): Promise<void> => {
-  for (const key of keys) {
+  for (const key of cleanup.files) {
     try {
       await reg.storage.deleteObject(key);
     } catch (error) {
       reg.logger.warn({ key, error }, 'failed to delete a file of a deleted entity');
+    }
+  }
+  for (const folder of cleanup.folders) {
+    try {
+      await reg.storage.deleteFolder(folder);
+    } catch (error) {
+      reg.logger.warn({ folder, error }, 'failed to delete the files of a deleted entity');
     }
   }
 };

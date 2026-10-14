@@ -21,6 +21,8 @@ describe('planEntityCleanup', () => {
     const cleanup = await planEntityCleanup(reg, 'PERSON', 'p1');
 
     expect(cleanup.files).toEqual(['docs/d1/source.pdf']);
+    // Each deleted doc's own folder (its pasted images and PDF) goes too.
+    expect(cleanup.folders).toEqual(['docs/d1']);
     expect(prisma.note.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['n1', 'n2'] } } });
     expect(prisma.comment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['c1'] } } });
     expect(prisma.todo.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['t1'] } } });
@@ -54,5 +56,12 @@ describe('planEntityCleanup', () => {
     await planEntityCleanup(reg, 'NOTE', 'n1');
 
     expect(prisma.note.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['n2'] } } });
+  });
+
+  it('removes a deleted page\'s or doc\'s own folder', async () => {
+    const reg = createTestRegistry({ prisma: cleanupPrisma() as unknown as Registry['prisma'] });
+    expect((await planEntityCleanup(reg, 'PAGE', 'pg1')).folders).toEqual(['pages/pg1']);
+    expect((await planEntityCleanup(reg, 'DOC', 'd9')).folders).toEqual(['docs/d9']);
+    expect((await planEntityCleanup(reg, 'PERSON', 'p1')).folders).toEqual([]);
   });
 });

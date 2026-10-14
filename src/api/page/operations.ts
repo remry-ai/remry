@@ -375,7 +375,7 @@ export const deletePage = async (
     ...cleanup.ops,
     reg.prisma.page.delete({ where: { id } })
   ]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };
 

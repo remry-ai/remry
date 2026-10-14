@@ -8,6 +8,7 @@ const storageMock = (overrides: Partial<Registry['storage']> = {}): Registry['st
   putObject: vi.fn().mockResolvedValue(undefined),
   readObject: vi.fn().mockResolvedValue(null),
   deleteObject: vi.fn().mockResolvedValue(undefined),
+  deleteFolder: vi.fn().mockResolvedValue(undefined),
   pathFor: vi.fn(() => null),
   ...overrides
 });

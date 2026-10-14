@@ -129,7 +129,7 @@ export const removeDoc = async (
 
   const cleanup = await planEntityCleanup(reg, 'DOC', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.doc.delete({ where: { id } })]);
-  await removeFiles(reg, existing.sourceUrl ? [existing.sourceUrl, ...cleanup.files] : cleanup.files);
+  await removeFiles(reg, { ...cleanup, files: existing.sourceUrl ? [existing.sourceUrl, ...cleanup.files] : cleanup.files });
   return ok({ deleted: true as const });
 };
 

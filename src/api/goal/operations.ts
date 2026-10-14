@@ -258,7 +258,7 @@ export const deleteGoal = async (
     ...cleanup.ops,
     reg.prisma.goal.delete({ where: { id } })
   ]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };
 

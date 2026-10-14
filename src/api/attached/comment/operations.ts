@@ -60,6 +60,6 @@ export const removeComment = async (
 
   const cleanup = await planEntityCleanup(reg, 'COMMENT', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.comment.delete({ where: { id } })]);
-  await removeFiles(reg, cleanup.files);
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };

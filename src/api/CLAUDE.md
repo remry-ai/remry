@@ -90,7 +90,7 @@ Nothing polymorphic has a foreign key, so a delete cleans up after itself. Every
 - delete relations at either end of any of them
 - clear goal and project owners that point at the entity
 
-Then call `removeFiles(reg, cleanup.files)` for the deleted docs' PDFs once the transaction commits (`removeDoc` adds the doc's own). `src/api/tests/cleanup-prisma.ts` fakes the models it touches for unit tests.
+Then call `removeFiles(reg, cleanup)` once the transaction commits. It removes the deleted docs' PDFs and the file folders of every deleted doc and page (`docs/<id>/`, `pages/<id>/`: pasted images, PDFs, through `storage.deleteFolder`), so nothing a deleted doc or page stored stays on disk. `src/api/tests/cleanup-prisma.ts` fakes the models it touches for unit tests.
 
 Attaching is checked the other way: `ensureAttachable` (`_archive.ts`) refuses to attach a note, doc, todo, link, tag, comment, emoji or report to an id that doesn't exist (or is archived), and `addNote` refuses a reply whose parent is on another entity.
 

@@ -5,10 +5,10 @@
 import { describe, it, expect } from 'vitest';
 import { getRegistry } from '../../src/shared/registry.server';
 import { createDepartment, createTeam } from './org-helpers';
-import { createProject, getProject, listProjects, updateProject } from '../../src/api/project/operations';
+import { createProject, deleteProject, getProject, listProjects, updateProject } from '../../src/api/project/operations';
 import { addCheckIn, addGoalProject, createGoal, getGoal, listGoals, updateGoal } from '../../src/api/goal/operations';
 import { createPage, deletePage, getPage, updatePage, uploadPageImage } from '../../src/api/page/operations';
-import { addDoc, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
+import { addDoc, getDoc, removeDoc, updateDoc, uploadDocImage } from '../../src/api/attached/doc/operations';
 import { addNote, listNotes } from '../../src/api/attached/note/operations';
 import { addRelation, listRelationsForEntity } from '../../src/api/relation/operations';
 import { TEST_NOTEBOOK } from './test-notebooks';
@@ -191,5 +191,40 @@ describe('images in a page', () => {
     const lost = await updatePage(reg, page.value.id, { content: '![shot](blob:http://127.0.0.1:7369/abc)' });
     expect(!lost.ok && lost.error.message).toContain('blob:');
     expect((await uploadPageImage(reg, 'no-such-page', 'image/png', png)).ok).toBe(false);
+  });
+});
+
+describe('deleting a doc or page with images', () => {
+  const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+
+  it('removes the page\'s images from disk', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const page = await createPage(reg, { title: 'Page with images to delete' });
+    if (!page.ok) throw page.error;
+    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    if (!upload.ok) throw upload.error;
+    expect(await reg.storage.readObject(upload.value.key)).not.toBeNull();
+
+    expect((await deletePage(reg, page.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(upload.value.key)).toBeNull();
+  });
+
+  it('removes the doc\'s images from disk, and those of a doc deleted with its entity', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Doc with an image' });
+    if (!doc.ok) throw doc.error;
+    const upload = await uploadDocImage(reg, doc.value.id, 'image/png', png);
+    if (!upload.ok) throw upload.error;
+    expect((await removeDoc(reg, doc.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(upload.value.key)).toBeNull();
+
+    const project = await createProject(reg, { name: 'Project with an imaged doc' });
+    if (!project.ok) throw project.error;
+    const onProject = await addDoc(reg, 'PROJECT', project.value.id, { title: 'Spec' });
+    if (!onProject.ok) throw onProject.error;
+    const image = await uploadDocImage(reg, onProject.value.id, 'image/png', png);
+    if (!image.ok) throw image.error;
+    expect((await deleteProject(reg, project.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(image.value.key)).toBeNull();
   });
 });
