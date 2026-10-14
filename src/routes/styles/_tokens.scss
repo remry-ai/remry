@@ -30,6 +30,10 @@
   --accent-soft: #ebebed;
   --accent-text: #ffffff;
 
+  // --- Links in written content (a branding's colour when there is one; see linkColor) ---
+  --link: #52525b;
+  --link-hover: var(--text);
+
   // --- Selected (the current option in a toggle; the branding's accent colour when branded) ---
   --selected: var(--accent);
   --selected-hover: var(--accent-hover);
@@ -109,8 +113,8 @@
   --z-loading: 1100;
 }
 
-// A notebook's default branding (src/routes/app/+layout.svelte sets --brand-primary
-// and --brand-primary-text). `display: contents` adds no box, and the tokens
+// A notebook's default branding (src/routes/app/+layout.svelte sets --brand-primary,
+// --brand-primary-text, the accent pair and --brand-link). `display: contents` adds no box, and the tokens
 // still reach fixed-position popups and the finder inside it.
 .branded {
   display: contents;
@@ -121,6 +125,8 @@
   --selected: var(--brand-accent);
   --selected-hover: color-mix(in srgb, var(--brand-accent) 85%, black);
   --selected-text: var(--brand-accent-text);
+  --link: var(--brand-link);
+  --link-hover: color-mix(in srgb, var(--brand-link) 75%, black);
   // --focus is computed from --accent where it's declared, so redeclare it here.
   --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }

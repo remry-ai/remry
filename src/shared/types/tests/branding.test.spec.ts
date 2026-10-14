@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chartBaseColor, contrastOnWhite } from '../branding';
+import { DEFAULT_LINK_COLOR, chartBaseColor, contrastOnWhite, linkColor } from '../branding';
 
 describe('contrastOnWhite', () => {
   it('matches the WCAG ratio', () => {
@@ -19,5 +19,17 @@ describe('chartBaseColor', () => {
 
   it('uses the app default without a branding', () => {
     expect(chartBaseColor(null)).toBe('#52525b');
+  });
+});
+
+describe('linkColor', () => {
+  it('uses the primary colour when it reads on white', () => {
+    expect(linkColor({ primaryColor: '#1d4ed8', accentColor: '#f59e0b' })).toBe('#1d4ed8');
+  });
+
+  it('falls back to the accent, then the default, when the colours are too pale', () => {
+    expect(linkColor({ primaryColor: '#fde68a', accentColor: '#7c3aed' })).toBe('#7c3aed');
+    expect(linkColor({ primaryColor: '#fde68a', accentColor: '#e0f2fe' })).toBe(DEFAULT_LINK_COLOR);
+    expect(linkColor(null)).toBe(DEFAULT_LINK_COLOR);
   });
 });

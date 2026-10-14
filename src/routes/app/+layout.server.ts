@@ -7,6 +7,7 @@ import { getDefaultBranding } from '$api/branding/operations';
 import { listNotebooks } from '$api/notebook/operations';
 import { getReadyRegistry } from '$shared/db/bootstrap.server';
 import { currentLicense } from '$shared/license/store.server';
+import { linkColor } from '$shared/types/branding';
 import { isProActive } from '$shared/types/license';
 import { getNotebookStore } from '$shared/notebooks/current.server';
 import { requireRoute } from '$lib/modules/guard';
@@ -30,7 +31,8 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
           primary: branding.value.primaryColor,
           primaryText: branding.value.primaryFontColor,
           accent: branding.value.accentColor,
-          accentText: branding.value.accentFontColor
+          accentText: branding.value.accentFontColor,
+          link: linkColor(branding.value)
         }
       : null,
     // Chart colours for doc previews, matching the default branding of an exported PDF.

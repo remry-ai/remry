@@ -25,6 +25,16 @@ a {
   &:hover { text-decoration: underline; }
 }
 
+// Links in written content (docs, notes, descriptions, Claude's answers) stand out from the
+// text: the link colour, always underlined. Names in lists and tables keep the plain style.
+.md-rendered a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--link) 55%, transparent);
+  text-underline-offset: 2px;
+  &:hover { color: var(--link-hover); text-decoration-color: currentColor; }
+}
+
 h1, h2, h3, h4, h5, h6 {
   margin: 0 0 var(--sp-2);
   font-weight: 600;

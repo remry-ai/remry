@@ -29,6 +29,21 @@ export const contrastOnWhite = (hex: string): number => {
 /** Below this a colour washes out on white (a cream or pale grey accent); cyan (#06b6d4) is about 2.4. */
 const MIN_CHART_CONTRAST = 1.6;
 
+/** Links in written content without a branding: a dark silver, set off from the text by its underline. */
+export const DEFAULT_LINK_COLOR = '#52525b';
+
+/** Below this a link doesn't read as text on white (WCAG's minimum for large text and UI). */
+const MIN_LINK_CONTRAST = 3;
+
+/**
+ * The colour links in written content take: the brand's primary colour, or its accent when
+ * the primary is too pale to read on white, or the default silver.
+ */
+export const linkColor = (branding?: ChartBranding | null): string =>
+  [branding?.primaryColor, branding?.accentColor].find(
+    (c): c is string => !!c && contrastOnWhite(c) >= MIN_LINK_CONTRAST
+  ) ?? DEFAULT_LINK_COLOR;
+
 /**
  * The colour charts draw with: the brand's accent, or its primary colour when the accent
  * is too pale to read on white, or the app's default without a branding.

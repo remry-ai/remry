@@ -18,6 +18,7 @@
   style:--brand-primary-text={data.brandTheme?.primaryText}
   style:--brand-accent={data.brandTheme?.accent}
   style:--brand-accent-text={data.brandTheme?.accentText}
+  style:--brand-link={data.brandTheme?.link}
 >
   <QuickFinder />
   <CreateTodoPopup />
