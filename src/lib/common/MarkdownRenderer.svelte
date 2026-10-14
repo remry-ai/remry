@@ -7,15 +7,18 @@
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
   import type { ZoomSource } from '$lib/ui/zoom';
 
+  const escapeAttr = (value: string): string =>
+    value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   const renderer = new Renderer();
   renderer.image = ({ href, title, text }) => {
     const widthMatch = title?.match(/w=(\d+)/);
     const widthAttr = widthMatch ? ` width="${widthMatch[1]}"` : '';
     const cleanTitle = title?.replace(/\s*w=\d+/, '').trim();
-    const titleAttr = cleanTitle ? ` title="${cleanTitle}"` : '';
+    const titleAttr = cleanTitle ? ` title="${escapeAttr(cleanTitle)}"` : '';
     // Doc images are saved as storage://<key>; the files route serves them.
     const src = href.startsWith('storage://') ? fileUrl(href.slice('storage://'.length)) : href;
-    return `<img src="${src}" alt="${text ?? ''}"${titleAttr}${widthAttr} style="max-width:100%;border-radius:4px;">`;
+    return `<img src="${escapeAttr(src)}" alt="${escapeAttr(text ?? '')}"${titleAttr}${widthAttr} style="max-width:100%;border-radius:4px;">`;
   };
 
   interface Props {

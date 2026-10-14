@@ -4,13 +4,13 @@
 // CLI-facing tRPC, integration tests) pulls Prisma through getRegistry(notebookId).
 
 import { mkdirSync } from 'node:fs';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
 import { PrismaClient } from '../../generated/prisma/client';
 import { createLogger } from '$shared/utils/logger';
 import { createStorageClient } from '$shared/storage/client.server';
 import { settings } from '$shared/settings/server/index.server';
 import { databaseUrl, filesDir, notebookDir } from '$shared/settings/server/paths';
 import type { Registry } from './registry';
+import { PrismaLibSqlWaiting } from './db/libsql.server';
 
 const registries = new Map<string, Registry>();
 
@@ -20,7 +20,7 @@ export const getRegistry = (notebookId: string): Registry => {
   if (cached) return cached;
   mkdirSync(notebookDir(settings, notebookId), { recursive: true });
   const registry: Registry = {
-    prisma: new PrismaClient({ adapter: new PrismaLibSql({ url: databaseUrl(settings, notebookId) }) }),
+    prisma: new PrismaClient({ adapter: new PrismaLibSqlWaiting({ url: databaseUrl(settings, notebookId) }) }),
     now: () => new Date(),
     uuid: () => crypto.randomUUID(),
     logger: createLogger(),

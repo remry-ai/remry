@@ -1,6 +1,7 @@
 // The in-process migrator against real SQLite files, independent of the app database.
 
 import { describe, it, expect } from 'vitest';
+import { spawn } from 'node:child_process';
 import { appendFileSync, cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import { createClient } from '@libsql/client';
 import type { Logger } from '../../src/shared/types/logger';
 import { applyMigrations, checksum } from '../../src/shared/db/migrate.server';
 
+const BUN = process.versions.bun ? process.execPath : 'bun';
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 const onDisk = readdirSync('prisma/migrations', { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
 
@@ -39,6 +41,49 @@ describe('applyMigrations', () => {
     await applyMigrations(client, 'prisma/migrations', quiet);
     const again = await applyMigrations(client, 'prisma/migrations', quiet);
     expect(again.ok && again.value.applied).toEqual([]);
+    client.close();
+  });
+
+  it('lets two processes open a fresh database at once, applying each migration once', async () => {
+    const { dir, client } = freshDb();
+    const path = join(dir, 'db.sqlite');
+    const startAt = String(Date.now() + 1500);
+    const run = () =>
+      new Promise<{ readonly ok: boolean; readonly applied?: readonly string[]; readonly error?: string }>((resolve, reject) => {
+        const child = spawn(BUN, ['tests/integration/fixtures/migrate-child.ts', path, startAt], { stdio: ['ignore', 'pipe', 'inherit'] });
+        let out = '';
+        child.stdout.on('data', (chunk: Buffer) => (out += chunk.toString()));
+        child.on('close', () => {
+          try {
+            resolve(JSON.parse(out));
+          } catch {
+            reject(new Error(`migrate child printed: ${out}`));
+          }
+        });
+      });
+    const [first, second] = await Promise.all([run(), run()]);
+    expect(first).toMatchObject({ ok: true });
+    expect(second).toMatchObject({ ok: true });
+    expect([...(first.applied ?? []), ...(second.applied ?? [])].sort()).toEqual(onDisk);
+
+    const rows = await client.execute('SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY migration_name');
+    expect(rows.rows.map((r) => r[0])).toEqual(onDisk);
+    client.close();
+  });
+
+  it('waits for a migration another process is applying, then reports it if it never finishes', async () => {
+    const { client } = freshDb();
+    await client.execute(
+      `CREATE TABLE "_prisma_migrations" ("id" TEXT PRIMARY KEY NOT NULL, "checksum" TEXT NOT NULL, "finished_at" DATETIME, "migration_name" TEXT NOT NULL, "logs" TEXT, "rolled_back_at" DATETIME, "started_at" DATETIME NOT NULL DEFAULT current_timestamp, "applied_steps_count" INTEGER UNSIGNED NOT NULL DEFAULT 0)`
+    );
+    const firstSql = readFileSync(join('prisma/migrations', onDisk[0]!, 'migration.sql'), 'utf8');
+    await client.execute({
+      sql: 'INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at) VALUES (?, ?, ?, ?)',
+      args: ['claim', checksum(firstSql), onDisk[0]!, Date.now()]
+    });
+    const result = await applyMigrations(client, 'prisma/migrations', quiet, { waitMs: 100, staleMs: 10 * 60_000, pollMs: 20 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('still being applied by another process');
     client.close();
   });
 

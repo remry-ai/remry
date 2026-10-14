@@ -28,6 +28,7 @@ Scoped docs:
   - the server binds to `127.0.0.1`
   - requests whose hostname isn't loopback get 403 (blocks DNS rebinding)
   - `/api/trpc` requires the `x-remry: 1` header (blocks cross-site requests)
+- **A Content Security Policy** (`kit.csp` in `svelte.config.js`) runs scripts only from the app's own files. Markdown is rendered with raw HTML passed through, and content often comes from outside (Linear, Notion, PDFs, the web), so this is what stops a `<script>`, an `onerror=` or a `javascript:` link in a note from running with full API access. An inline script needs `nonce="%sveltekit.nonce%"` (as in `src/app.html`); don't add `unsafe-inline` or `unsafe-eval` to `script-src`.
 
 ## Stack
 

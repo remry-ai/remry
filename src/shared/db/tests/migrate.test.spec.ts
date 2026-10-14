@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checksum, planMigrations, planRenames, type AppliedMigration, type MigrationFile } from '../migrate.server';
+import { checksum, migrationInProgress, planMigrations, planRenames, type AppliedMigration, type MigrationFile } from '../migrate.server';
 
 const file = (name: string, sql = `-- ${name}`): MigrationFile => ({ name, sql, checksum: checksum(sql) });
 const applied = (m: MigrationFile, overrides: Partial<AppliedMigration> = {}): AppliedMigration => ({
@@ -68,5 +68,36 @@ describe('planRenames', () => {
     expect(planRenames([moved], [changed], renamed)).toEqual([]);
     const both = [applied({ ...moved, name: '20260101000000_kinds' }), applied(moved)];
     expect(planRenames([moved], both, renamed)).toEqual([]);
+  });
+});
+
+describe('migrationInProgress', () => {
+  const a = file('20260101000000_init');
+  const now = Date.parse('2026-01-01T00:10:00Z');
+  const staleMs = 10 * 60_000;
+
+  it('finds a migration another process has just claimed', () => {
+    const claimed = applied(a, { finishedAt: null, startedAt: now - 1_000 });
+    expect(migrationInProgress([claimed], now, staleMs)?.migrationName).toBe(a.name);
+  });
+
+  it('leaves a failed one, with its error logged, to planMigrations', () => {
+    const failed = applied(a, { finishedAt: null, startedAt: now - 1_000, logs: 'syntax error' });
+    expect(migrationInProgress([failed], now, staleMs)).toBeUndefined();
+  });
+
+  it('treats a claim older than staleMs as abandoned', () => {
+    const abandoned = applied(a, { finishedAt: null, startedAt: now - staleMs - 1 });
+    expect(migrationInProgress([abandoned], now, staleMs)).toBeUndefined();
+  });
+
+  it('reads Prisma\'s datetime strings as well as milliseconds', () => {
+    const claimed = applied(a, { finishedAt: null, startedAt: '2026-01-01T00:09:30Z' });
+    expect(migrationInProgress([claimed], now, staleMs)?.migrationName).toBe(a.name);
+  });
+
+  it('ignores finished and rolled-back rows', () => {
+    expect(migrationInProgress([applied(a, { startedAt: now })], now, staleMs)).toBeUndefined();
+    expect(migrationInProgress([applied(a, { finishedAt: null, rolledBackAt: now, startedAt: now })], now, staleMs)).toBeUndefined();
   });
 });

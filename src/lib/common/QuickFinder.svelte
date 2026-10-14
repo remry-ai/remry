@@ -113,8 +113,8 @@
     active = 0;
   };
 
-  // Enter on a name with nothing to pick: reload the names (the cache can be a
-  // day old) and match titles word by word.
+  // Enter on a name with nothing to pick: reload the names (in case one was added
+  // since the finder opened) and match titles word by word.
   const searchTitles = async (q: string) => {
     searching = true;
     try {
@@ -253,18 +253,17 @@
     } catch { /* quota exceeded — ignore */ }
   };
 
+  // The cache shows names at once; the names are then reloaded on every open, since
+  // Claude adds most of them through the CLI or MCP, which this page never hears about.
   const loadEntities = async (force: boolean) => {
     const cached = force ? null : readCache();
-    if (cached) {
-      entities = cached;
-      return;
-    }
-    loading = true;
+    if (cached) entities = cached;
+    else loading = true;
     try {
       entities = await loadEntityOptions(trpc());
       writeCache(entities);
     } catch {
-      entities = [];
+      if (!cached) entities = [];
     } finally {
       loading = false;
     }
@@ -528,10 +527,7 @@
     overflow-y: auto;
     flex: 1;
     padding: var(--sp-3);
-    :global(a) {
-      color: var(--accent);
-      text-decoration: underline;
-    }
+    // Claude's answer is a .md-rendered block: its links take the content link style (_base.scss).
   }
 
   .pro-note {

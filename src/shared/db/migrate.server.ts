@@ -6,9 +6,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Client } from '@libsql/client';
+import type { Client, Transaction } from '@libsql/client';
 import type { Logger } from '$shared/types/logger';
 import { ok, err, type Result } from '$shared/utils/result';
+import { BUSY_TIMEOUT } from './libsql.server';
 
 export interface MigrationFile {
   readonly name: string;
@@ -21,7 +22,18 @@ export interface AppliedMigration {
   readonly checksum: string;
   readonly finishedAt: string | number | null;
   readonly rolledBackAt: string | number | null;
+  readonly startedAt?: string | number | null;
+  readonly logs?: string | null;
 }
+
+/** How long to wait for another process's migration, and when an unfinished one counts as abandoned. */
+export interface MigrationTiming {
+  readonly waitMs: number;
+  readonly staleMs: number;
+  readonly pollMs: number;
+}
+
+const DEFAULT_TIMING: MigrationTiming = { waitMs: 60_000, staleMs: 10 * 60_000, pollMs: 200 };
 
 // Prisma's own DDL for SQLite.
 const MIGRATIONS_TABLE = `CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
@@ -97,38 +109,108 @@ export const planMigrations = (
   return ok({ pending });
 };
 
-const readApplied = async (client: Client): Promise<readonly AppliedMigration[]> => {
-  const rs = await client.execute('SELECT migration_name, checksum, finished_at, rolled_back_at FROM _prisma_migrations');
+const toMillis = (value: string | number | null | undefined): number => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return /^\d+$/.test(value) ? Number(value) : Date.parse(value);
+  return Number.NaN;
+};
+
+/**
+ * A migration another process has claimed and is still applying: unfinished, with no
+ * error logged, and started within `staleMs`. Anything else unfinished is a failure
+ * (a logged error, or a process that died part way), which planMigrations refuses.
+ */
+export const migrationInProgress = (applied: readonly AppliedMigration[], now: number, staleMs: number): AppliedMigration | undefined =>
+  applied.find(
+    (a) => a.rolledBackAt === null && a.finishedAt === null && (a.logs ?? null) === null && now - toMillis(a.startedAt) < staleMs
+  );
+
+const readApplied = async (client: Client | Transaction): Promise<readonly AppliedMigration[]> => {
+  const rs = await client.execute('SELECT migration_name, checksum, finished_at, rolled_back_at, started_at, logs FROM _prisma_migrations');
   return rs.rows.map((r) => ({
     migrationName: String(r[0]),
     checksum: String(r[1]),
     finishedAt: (r[2] ?? null) as string | number | null,
-    rolledBackAt: (r[3] ?? null) as string | number | null
+    rolledBackAt: (r[3] ?? null) as string | number | null,
+    startedAt: (r[4] ?? null) as string | number | null,
+    logs: (r[5] ?? null) as string | null
   }));
+};
+
+type Claim =
+  | { readonly kind: 'done' }
+  | { readonly kind: 'wait'; readonly migration: string }
+  | { readonly kind: 'apply'; readonly migration: MigrationFile; readonly id: string };
+
+/**
+ * Under a write lock, record renames and claim the next pending migration by inserting
+ * its unfinished row. The lock makes the check and the claim one step, so two processes
+ * opening the notebook at once never apply the same migration; the loser sees the claim
+ * and waits. The migration's own SQL runs outside the lock: Prisma's table rebuilds turn
+ * `PRAGMA foreign_keys` off, which does nothing inside a transaction.
+ */
+const claimNext = async (client: Client, onDisk: readonly MigrationFile[], logger: Logger, staleMs: number): Promise<Result<Claim>> => {
+  // BEGIN IMMEDIATE waits on the connection's busy timeout, which libsql leaves at 0.
+  await client.execute(BUSY_TIMEOUT);
+  const tx = await client.transaction('write');
+  try {
+    for (const rename of planRenames(onDisk, await readApplied(tx))) {
+      await tx.execute({ sql: 'UPDATE _prisma_migrations SET migration_name = ? WHERE migration_name = ?', args: [rename.to, rename.from] });
+      logger.info({ migration: rename.to, was: rename.from }, 'recorded renamed migration');
+    }
+    const applied = await readApplied(tx);
+    const running = migrationInProgress(applied, Date.now(), staleMs);
+    if (running) {
+      await tx.commit();
+      return ok({ kind: 'wait', migration: running.migrationName });
+    }
+    const plan = planMigrations(onDisk, applied);
+    if (!plan.ok) {
+      await tx.commit();
+      return err(plan.error);
+    }
+    const next = plan.value.pending[0];
+    if (!next) {
+      await tx.commit();
+      return ok({ kind: 'done' });
+    }
+    const id = randomUUID();
+    await tx.execute({
+      sql: 'INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at, applied_steps_count) VALUES (?, ?, ?, ?, 0)',
+      args: [id, next.checksum, next.name, Date.now()]
+    });
+    await tx.commit();
+    return ok({ kind: 'apply', migration: next, id });
+  } finally {
+    tx.close();
+  }
 };
 
 export const applyMigrations = async (
   client: Client,
   dir: string,
-  logger: Logger
+  logger: Logger,
+  timing: MigrationTiming = DEFAULT_TIMING
 ): Promise<Result<{ readonly applied: readonly string[] }>> => {
   await client.execute(MIGRATIONS_TABLE);
   const onDisk = await readMigrations(dir);
-  for (const rename of planRenames(onDisk, await readApplied(client))) {
-    await client.execute({ sql: 'UPDATE _prisma_migrations SET migration_name = ? WHERE migration_name = ?', args: [rename.to, rename.from] });
-    logger.info({ migration: rename.to, was: rename.from }, 'recorded renamed migration');
-  }
-  const plan = planMigrations(onDisk, await readApplied(client));
-  if (!plan.ok) return err(plan.error);
-
   const applied: string[] = [];
-  for (const migration of plan.value.pending) {
-    const id = randomUUID();
-    await client.execute({
-      sql: 'INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at, applied_steps_count) VALUES (?, ?, ?, ?, 0)',
-      args: [id, migration.checksum, migration.name, Date.now()]
-    });
+  const deadline = Date.now() + timing.waitMs;
 
+  for (;;) {
+    const claim = await claimNext(client, onDisk, logger, timing.staleMs);
+    if (!claim.ok) return err(claim.error);
+    if (claim.value.kind === 'done') return ok({ applied });
+
+    if (claim.value.kind === 'wait') {
+      if (Date.now() >= deadline) {
+        return err(new Error(`migration ${claim.value.migration} is still being applied by another process; try again shortly`));
+      }
+      await new Promise((resolve) => setTimeout(resolve, timing.pollMs));
+      continue;
+    }
+
+    const { migration, id } = claim.value;
     try {
       await client.executeMultiple(migration.sql);
     } catch (error) {
@@ -144,6 +226,4 @@ export const applyMigrations = async (
     logger.info({ migration: migration.name }, 'applied migration');
     applied.push(migration.name);
   }
-
-  return ok({ applied });
 };

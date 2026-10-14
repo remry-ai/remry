@@ -23,8 +23,9 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18181b" />
 
     <!-- The drawers' remembered state, before the first paint, so a collapsed or resized
-         drawer doesn't flash at its default (stores/drawers.ts keeps it in sync after). -->
-    <script>
+         drawer doesn't flash at its default (stores/drawers.ts keeps it in sync after).
+         The nonce lets it past the Content Security Policy (svelte.config.js). -->
+    <script nonce="%sveltekit.nonce%">
       try {
         var root = document.documentElement, store = localStorage;
         if (store.getItem('remry:left-open') === 'false') root.setAttribute('data-left-closed', '');
