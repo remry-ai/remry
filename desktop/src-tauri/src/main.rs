@@ -36,6 +36,7 @@ const APP_PORT: u16 = 7369;
 const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
 const CHECK_UPDATES: &str = "check-for-updates";
+const RELOAD: &str = "reload";
 
 fn binary_name() -> &'static str {
     if cfg!(windows) { "remry.exe" } else { "remry" }
@@ -274,6 +275,17 @@ fn main() {
             let handle = app.handle().clone();
 
             let menu = Menu::default(&handle)?;
+            // Tauri's default menu has no Reload, so ⌘R (Ctrl+R) did nothing: add it at the top of
+            // View, or in a View menu of its own where the default has none.
+            let reload = MenuItem::with_id(&handle, RELOAD, "Reload", true, Some("CmdOrCtrl+R"))?;
+            let view = menu
+                .items()?
+                .into_iter()
+                .find_map(|item| item.as_submenu().filter(|s| s.text().is_ok_and(|t| t == "View")).cloned());
+            match view {
+                Some(view) => view.insert(&reload, 0)?,
+                None => menu.append(&Submenu::with_items(&handle, "View", true, &[&reload])?)?,
+            }
             let claude = Submenu::with_items(
                 &handle,
                 "Claude",
@@ -296,6 +308,11 @@ fn main() {
                 CONNECT_DESKTOP => connect(app.clone(), "claude-desktop"),
                 CONNECT_CODE => connect(app.clone(), "claude-code"),
                 CHECK_UPDATES => check_for_updates(app.clone(), true),
+                RELOAD => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("location.reload()");
+                    }
+                }
                 _ => {}
             });
 
