@@ -13,6 +13,10 @@
 // or Claude Code (`remry connect …`), after asking. The server keeps running when the
 // window closes, as it does when Claude starts it.
 //
+// Links: Claude links to pages as http://127.0.0.1:7369/open/app/...; with this app installed,
+// the server hands them over as remry://open/app/... (src/shared/desktop/handoff.ts), which this
+// shell registers and opens in its window: at once, or when the server is up after a cold start.
+//
 // Updates: the one network request Remry makes. At launch, and from "Check for Updates…",
 // this shell asks GitHub Releases for latest.json (tauri-plugin-updater). It sends nothing
 // but the request itself, and installs only an update signed with the key whose public
@@ -23,10 +27,12 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 
 use serde_json::Value;
 use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -37,6 +43,7 @@ const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
 const CHECK_UPDATES: &str = "check-for-updates";
 const RELOAD: &str = "reload";
+const DEEP_LINK_SCHEME: &str = "remry";
 
 fn binary_name() -> &'static str {
     if cfg!(windows) { "remry.exe" } else { "remry" }
@@ -92,6 +99,8 @@ fn install(app: &AppHandle) -> Result<PathBuf, String> {
     let envs = [
         ("REMRY_VERSION", version.trim().to_string()),
         ("REMRY_MIGRATIONS_DIR", resources.join("migrations").to_string_lossy().into_owned()),
+        // Records this app in the data folder, so the server hands Claude's links to it.
+        ("REMRY_DESKTOP", "1".to_string()),
     ];
     let value = run_remry(&bundled_binary()?, &["install"], &envs)?;
     value["binary"]
@@ -122,7 +131,14 @@ fn start(app: AppHandle, window: WebviewWindow) {
                 .ok_or_else(|| "`remry app ensure` gave no address".to_string())
         }) {
             Ok(url) => {
-                let _ = window.navigate(url);
+                // A remry:// link that arrived while the server was starting opens instead of /app.
+                let pending = {
+                    let state = app.state::<LinkState>();
+                    let mut links = state.0.lock().unwrap();
+                    links.ready = true;
+                    links.pending.take()
+                };
+                let _ = window.navigate(pending.as_deref().and_then(app_page).unwrap_or(url));
             }
             Err(message) => show_error(&window, &message),
         }
@@ -131,6 +147,57 @@ fn start(app: AppHandle, window: WebviewWindow) {
 
 /// The installed binary, once `install` has run.
 struct Installed(PathBuf);
+
+/// Whether the server is up, and the page of a remry:// link that arrived before it was.
+#[derive(Default)]
+struct Links {
+    ready: bool,
+    pending: Option<String>,
+}
+
+struct LinkState(Mutex<Links>);
+
+/// The app page a `remry://open/app/...` link points at, with its query; None for anything else,
+/// so a link from anywhere can only move the window within the app.
+fn deep_link_path(url: &Url) -> Option<String> {
+    if url.scheme() != DEEP_LINK_SCHEME || url.host_str() != Some("open") {
+        return None;
+    }
+    let path = url.path();
+    if path != "/app" && !path.starts_with("/app/") {
+        return None;
+    }
+    if path.split('/').any(|segment| segment == ".." || segment == ".") {
+        return None;
+    }
+    Some(match url.query() {
+        Some(query) => format!("{path}?{query}"),
+        None => path.to_string(),
+    })
+}
+
+/// An app path on the server's address.
+fn app_page(path: &str) -> Option<Url> {
+    Url::parse(&format!("http://{APP_ORIGIN_HOST}:{APP_PORT}{path}")).ok()
+}
+
+/// Shows a remry:// link's page in the window, or keeps it for when the server is up.
+fn open_link(app: &AppHandle, url: &Url) {
+    let Some(path) = deep_link_path(url) else { return };
+    {
+        let state = app.state::<LinkState>();
+        let mut links = state.0.lock().unwrap();
+        if !links.ready {
+            links.pending = Some(path);
+            return;
+        }
+    }
+    if let (Some(window), Some(page)) = (app.get_webview_window("main"), app_page(&path)) {
+        let _ = window.navigate(page);
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
 
 /// The app's own pages: the splash page, and the server on 127.0.0.1:7369.
 fn is_app_url(url: &Url) -> bool {
@@ -267,12 +334,31 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
+        // After single-instance, which hands it the links that start a second instance.
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let handle = app.handle().clone();
+            app.manage(LinkState(Mutex::new(Links::default())));
+
+            // macOS registers remry:// from the bundle's Info.plist; Windows and Linux at run time.
+            #[cfg(any(windows, target_os = "linux"))]
+            app.deep_link().register_all()?;
+            let links = handle.clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    open_link(&links, &url);
+                }
+            });
+            // The link that started the app, if one did.
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    open_link(&handle, &url);
+                }
+            }
 
             let menu = Menu::default(&handle)?;
             // Tauri's default menu has no Reload, so ⌘R (Ctrl+R) did nothing: add it at the top of
@@ -349,6 +435,20 @@ mod tests {
         let shell = env!("CARGO_BIN_NAME").to_lowercase();
         assert_ne!(shell, "remry");
         assert_ne!(format!("{shell}.exe"), binary_name());
+    }
+
+    #[test]
+    fn opens_only_app_pages_from_remry_links() {
+        let path = |s: &str| deep_link_path(&Url::parse(s).unwrap());
+        assert_eq!(path("remry://open/app"), Some("/app".to_string()));
+        assert_eq!(
+            path("remry://open/app/people/abc?notebook=work"),
+            Some("/app/people/abc?notebook=work".to_string())
+        );
+        assert_eq!(path("remry://open/files/x"), None);
+        assert_eq!(path("remry://open/apple"), None);
+        assert_eq!(path("remry://elsewhere/app"), None);
+        assert_eq!(path("https://open/app"), None);
     }
 
     #[test]

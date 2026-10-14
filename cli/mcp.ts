@@ -32,7 +32,7 @@ console.log = console.info = console.debug = (...args: unknown[]): void => conso
 
 // Before anything opens the data directory: an app an older release left running is
 // stopped now (and this version's started below), so updating the plugin updates the app.
-const { appUrl, currentAppOwner, openApp, restartApp, startOwnApp, stopStaleApp } = await import('./app-launch');
+const { appLinkUrl, currentAppOwner, openApp, restartApp, startOwnApp, stopStaleApp } = await import('./app-launch');
 const appOwner = currentAppOwner(REPO);
 const staleAppStopped = await stopStaleApp(appOwner).catch((error: unknown) => {
   console.error(error);
@@ -70,7 +70,7 @@ const INSTRUCTIONS = [
   'To find anything by what it says (notes, docs, wiki pages, todos, comments, names), call search_query. For "what do I know about X", call search_recall with the entity: it returns its notes, todos, docs, links, tags, relations, owned goals and projects, and text elsewhere that names it without linking it. Both need Remry Pro; without a license they say so, and then you answer with the list and get tools instead.',
   'Archive with entity_archive and delete with entity_delete, for every type. Offer to archive before deleting. Confirm with the user before any delete, remove or detach tool, and call backup_snapshot first before deletes or more than about five writes in one go.',
   'To show the user something in the app, call app_open and give them the link.',
-  'After any write, end your reply with a markdown link to each item you created or changed: the app address from app_open, plus the item\'s path (the `path` in the result, or /app/people/<id>, /app/groups/<id>, /app/projects/<id>, /app/goals/<id>, /app/wiki/<id>; a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity), with notebook=<notebook id> in the query.',
+  'After any write, end your reply with a markdown link to each item you created or changed: the app address from app_open (scheme, host and port), then /open, then the item\'s path (the `path` in the result, or /app/people/<id>, /app/groups/<id>, /app/projects/<id>, /app/goals/<id>, /app/wiki/<id>; a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity), with notebook=<notebook id> in the query: http://127.0.0.1:7369/open/app/people/<id>?notebook=<id>. /open shows the page in the Remry desktop app when it\'s installed, and in the browser otherwise.',
   'When bringing in items from another tool (Linear, Notion, Jira), call link_find with the item URL first and update the entity it finds; attach a link to the source on anything you create.',
   "Reach Remry only through these tools. Never read its data folder (~/Library/Application Support/Remry on macOS, %LOCALAPPDATA%\\Remry on Windows) or database directly, and don't ask the user to attach that folder: a sandbox such as Cowork's can't see it, and the database must not be opened from two places at once.",
   'Report back by name, not id. The remry skill has the full rules and recipes.'
@@ -120,12 +120,12 @@ const callExtraTool = async (name: string, args: Readonly<Record<string, unknown
 
   if (name === 'app_open') {
     const launched = await openApp(appOwner);
-    return textResult({ url: appUrl(id, appOwner.port), notebook: id, started: launched.started, restarted: launched.restarted });
+    return textResult({ url: appLinkUrl(id, appOwner.port), notebook: id, started: launched.started, restarted: launched.restarted });
   }
   if (name === 'app_restart') {
     try {
       const { stopped } = await restartApp(appOwner);
-      return textResult({ url: appUrl(id, appOwner.port), notebook: id, restarted: stopped, started: !stopped });
+      return textResult({ url: appLinkUrl(id, appOwner.port), notebook: id, restarted: stopped, started: !stopped });
     } catch (error) {
       return textResult(error instanceof Error ? error.message : String(error), true);
     }

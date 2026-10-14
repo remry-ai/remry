@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appLaunchCommand, appUrl, isRemryCommand, parsePids, planAppLaunch } from '../app-launch';
+import { appLaunchCommand, appLinkUrl, appUrl, isRemryCommand, parsePids, planAppLaunch } from '../app-launch';
 
 describe('isRemryCommand', () => {
   it('recognises a release binary and a clone’s dev server', () => {
@@ -57,6 +57,8 @@ describe('app launch', () => {
     expect(appUrl(null)).toBe('http://127.0.0.1:7369/app');
     expect(appUrl('work-work')).toBe('http://127.0.0.1:7369/app?notebook=work-work');
     expect(appUrl('work-work', 5173)).toBe('http://127.0.0.1:5173/app?notebook=work-work');
+    expect(appLinkUrl('work-work')).toBe('http://127.0.0.1:7369/open/app?notebook=work-work');
+    expect(appLinkUrl(null, 5173)).toBe('http://127.0.0.1:5173/open/app');
   });
 });
 

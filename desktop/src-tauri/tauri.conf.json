@@ -57,6 +57,13 @@
       "windows": {
         "installMode": "passive"
       }
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "remry"
+        ]
+      }
     }
   }
 }

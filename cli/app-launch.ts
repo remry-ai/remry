@@ -40,6 +40,13 @@ export const appUrl = (notebookId: string | null, port = APP_PORT): string =>
   `http://${APP_HOST}:${port}/app${notebookId ? `?notebook=${encodeURIComponent(notebookId)}` : ''}`;
 
 /**
+ * The address to give the user: `/open/app`, which a release server hands to the desktop
+ * app's window when it's installed, and otherwise shows in the browser.
+ */
+export const appLinkUrl = (notebookId: string | null, port = APP_PORT): string =>
+  appUrl(notebookId, port).replace('/app', '/open/app');
+
+/**
  * What's on the app port: nothing, a release app reporting its version, or something
  * else (a clone's dev server, or a release from before apps reported a version).
  */

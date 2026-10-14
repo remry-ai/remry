@@ -2,7 +2,8 @@
 // work from any release binary:
 //   remry install                          copy this binary, its migrations and VERSION into
 //                                           <data dir>/App/<version> and point App/current at it,
-//                                           as the plugin shim does
+//                                           as the plugin shim does; with REMRY_DESKTOP=1, also
+//                                           record the desktop app in <data dir>/desktop.json
 //   remry app ensure                       start the app, or reuse or replace a running one,
 //                                           and print its address
 //   remry connect claude-desktop|claude-code
@@ -14,6 +15,7 @@ import { existsSync } from 'node:fs';
 import { chmod, cp, copyFile, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
+import { DESKTOP_MARKER_FILE } from '../src/shared/desktop/handoff';
 import { dataDirFor, type AppDirsHost } from '../src/shared/settings/server/app-dirs';
 import { LEGACY_MCP_SERVER_NAMES, MCP_SERVER_NAME, claudeDesktopConfigPath, installedBinary, withMcpServer } from './desktop-plan';
 
@@ -61,6 +63,11 @@ const install = async (): Promise<{ readonly version: string; readonly binary: s
     }
   }
   await pointCurrent(appDir, version);
+  // Run by the desktop app (it sets REMRY_DESKTOP): the server then hands the links Claude
+  // gives (/open/app/...) to its window, as remry:// links (src/shared/desktop/handoff.ts).
+  if (process.env['REMRY_DESKTOP'] === '1') {
+    await writeFile(join(dataDirFor(host()), DESKTOP_MARKER_FILE), `${JSON.stringify({ scheme: 'remry', version })}\n`);
+  }
   return { version, binary: installedBinary(host()), installed };
 };
 
