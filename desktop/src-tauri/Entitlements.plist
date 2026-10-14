@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The hardened runtime (which notarization requires) with what the bundled remry
+  binary needs: Bun's JavaScriptCore JIT, and loading the libsql module Bun
+  unpacks to a temp file at startup, which is signed by libsql's publisher, not
+  by us (library validation would refuse it; 0.16.3 failed to start that way).
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>

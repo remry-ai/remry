@@ -138,7 +138,37 @@ since the last release without a new version.
   commit the public key it writes into `desktop/src-tauri/tauri.conf.json`, and set the private key
   as the `TAURI_SIGNING_PRIVATE_KEY` secret from the file it prints, with `gh secret set`. Builds then make signed updates, and the release publishes `latest.json`, which installed
   apps check when they open. Without the secret, installed apps keep their version.
-- **Not code-signed** yet: macOS and Windows warn on first open (see INSTALL.md).
+- **Signing:** the macOS app is signed with a Developer ID and notarized once the `APPLE_*` secrets
+  below are set; until then it's signed ad hoc and macOS warns on first open (see INSTALL.md).
+  Windows isn't code-signed, so SmartScreen warns.
+
+### Signing the macOS app
+
+You need an Apple Developer Program membership. Then, once:
+
+1. **Certificate.** In Xcode → Settings → Accounts → Manage Certificates, add a **Developer ID
+   Application** certificate (or create one at developer.apple.com with a certificate signing
+   request from Keychain Access). In Keychain Access, export it with its private key as a `.p12`
+   with a password.
+2. **Identity.** `security find-identity -v -p codesigning` prints its name, such as
+   `Developer ID Application: Your Name (TEAMID)`.
+3. **Notarization key.** In App Store Connect → Users and Access → Integrations → App Store Connect
+   API, create a team key with the Developer role. Note its Key ID and the Issuer ID, and download
+   the `AuthKey_<Key ID>.p8` (it can only be downloaded once).
+4. **Secrets**, from files so nothing passes through the clipboard:
+
+   ```bash
+   base64 -i DeveloperID.p12 | gh secret set APPLE_CERTIFICATE
+   gh secret set APPLE_CERTIFICATE_PASSWORD
+   gh secret set APPLE_SIGNING_IDENTITY --body "Developer ID Application: Your Name (TEAMID)"
+   gh secret set APPLE_API_ISSUER --body "<Issuer ID>"
+   gh secret set APPLE_API_KEY --body "<Key ID>"
+   gh secret set APPLE_API_PRIVATE_KEY < AuthKey_<Key ID>.p8
+   ```
+
+The next build signs with the identity, notarizes and staples the app, and checks it passes
+Gatekeeper. Run `desktop.yml` by hand from the Actions tab to try it before a release. Once a
+signed release is out, drop the Mac step from INSTALL.md.
 - **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
   `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates
   GitHub release `v<version>` with the installers, the signed updates, `latest.json` and the
