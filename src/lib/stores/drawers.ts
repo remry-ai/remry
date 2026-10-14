@@ -12,12 +12,12 @@ import { rightPanelTab } from '$lib/stores/right-panel';
 // Not mixins: these are shell breakpoints, and the drawers' CSS repeats them as
 // media queries so the first paint is right before these stores run. The three-column detail layout needs
 // ~1300px before the sidebar docks; the right panel fits beside list pages from
-// ~1150px and beside detail pages from 768px.
+// ~880px and beside detail pages from 768px.
 export const leftFloating = mediaQuery('(max-width: 1299px)');
 export const belowMd = mediaQuery('(max-width: 767px)');
-export const belowPanelFit = mediaQuery('(max-width: 1149px)');
+export const belowPanelFit = mediaQuery('(max-width: 879px)');
 
-/** Whether the right panel floats: on list pages (`collapseInfoPanel`) up to 1150px, elsewhere up to 768px. */
+/** Whether the right panel floats: on list pages (`collapseInfoPanel`) up to 880px, elsewhere up to 768px. */
 export const rightFloating: Readable<boolean> = derived(
   [layoutConfig, belowMd, belowPanelFit],
   ([$layout, $belowMd, $belowPanelFit]) => ($layout.collapseInfoPanel ? $belowPanelFit : $belowMd),

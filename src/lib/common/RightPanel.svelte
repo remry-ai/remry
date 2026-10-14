@@ -15,7 +15,7 @@
     readonly open: boolean;
     /** Floating and open. The CSS reads docked open/closed from `<html data-right-closed>`. */
     readonly floatOpen: boolean;
-    /** Float up to 1150px rather than 768px (list pages). */
+    /** Float up to 880px rather than 768px (list pages). */
     readonly collapseMedium: boolean;
   }
 
@@ -197,11 +197,11 @@
   }
 
   // Docked and closed (set on <html> before the first paint).
-  @media (min-width: 1150px) {
+  @media (min-width: 880px) {
     :global(:root[data-right-closed]) .right-panel { display: none; }
     :global(:root[data-right-closed]) .right-toggle { @include toggle-on-window-edge; }
   }
-  @media (min-width: 768px) and (max-width: 1149px) {
+  @media (min-width: 768px) and (max-width: 879px) {
     :global(:root[data-right-closed]) .right-panel:not(.collapse-medium) { display: none; }
     :global(:root[data-right-closed]) .right-toggle:not(.collapse-medium) { @include toggle-on-window-edge; }
   }
@@ -234,7 +234,7 @@
     .right-panel { @include floating; }
     .right-toggle { @include floating-toggle; }
   }
-  @media (min-width: 768px) and (max-width: 1149px) {
+  @media (min-width: 768px) and (max-width: 879px) {
     .right-panel.collapse-medium { @include floating; }
     .right-toggle.collapse-medium { @include floating-toggle; }
   }

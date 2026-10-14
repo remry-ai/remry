@@ -277,7 +277,7 @@
     .app-layout.has-panel { grid-template-columns: minmax(0, 1fr) var(--panel-drag-w, var(--panel-w)); }
     :global(:root[data-right-closed]) .app-layout.has-panel { grid-template-columns: minmax(0, 1fr); }
   }
-  @media (min-width: 768px) and (max-width: 1149px) {
+  @media (min-width: 768px) and (max-width: 879px) {
     .app-layout.has-panel.collapse-medium { grid-template-columns: minmax(0, 1fr); }
   }
   .app-main {
