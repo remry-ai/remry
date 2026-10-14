@@ -1,6 +1,6 @@
 <script lang="ts">
   import { trpc } from '$shared/trpc/client';
-  import type { EntityType, TodoStatus } from '../utils';
+  import { formatTodoDate, type EntityType, type TodoStatus } from '../utils';
   import Field from '$lib/ui/Field.svelte';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
@@ -47,6 +47,7 @@
   let editingDescription = $state(false);
   // The entity an existing todo belongs to, linked at the top of the form.
   let owner = $state<{ label: string; path: string } | null>(null);
+  let createdAt = $state<string | null>(null);
 
   $effect(() => {
     if (editId && !loaded) loadTodo(editId);
@@ -67,6 +68,7 @@
         entityPath: string;
         targetDate: Date | null;
         recurrence: TodoRecurrence | null;
+        createdAt: string;
       }[]).find((t) => t.id === id);
       if (!todo) {
         error = 'Todo not found.';
@@ -82,6 +84,7 @@
       owner = { label: todo.entityLabel ?? `Missing ${entityTypeLabel(todo.entityType).toLowerCase()}`, path: todo.entityPath };
       targetDate = todo.targetDate ? new Date(todo.targetDate).toISOString().slice(0, 10) : '';
       recurrence = todo.recurrence ?? '';
+      createdAt = todo.createdAt;
       error = '';
       loaded = true;
     } catch {
@@ -173,6 +176,12 @@
           <dt>{entityTypeLabel(pickedEntityType)}</dt>
           <dd><a href={owner.path}>{owner.label}</a></dd>
         </div>
+        {#if createdAt}
+          <div>
+            <dt>Created</dt>
+            <dd>{formatTodoDate(createdAt)}</dd>
+          </div>
+        {/if}
       </dl>
     {/if}
 

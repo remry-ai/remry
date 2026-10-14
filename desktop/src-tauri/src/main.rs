@@ -25,12 +25,14 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::webview::DownloadEvent;
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -209,6 +211,30 @@ fn is_app_url(url: &Url) -> bool {
             _ => false,
         },
         _ => false,
+    }
+}
+
+/// What the window may download: the app's own pages and files, or a blob one of them made
+/// (a doc's PDF from "Download PDF"). A `download` link to anywhere else is refused.
+fn is_app_download(url: &Url) -> bool {
+    if url.scheme() == "blob" {
+        return Url::parse(url.path()).is_ok_and(|inner| is_app_url(&inner));
+    }
+    is_app_url(url)
+}
+
+/// Shows a finished download in Finder (Explorer), or says why it failed.
+fn download_finished(app: &AppHandle, path: Option<PathBuf>, success: bool) {
+    if !success {
+        app.dialog()
+            .message("The file couldn't be saved to your Downloads folder.")
+            .title("Download Failed")
+            .kind(MessageDialogKind::Error)
+            .show(|_| {});
+        return;
+    }
+    if let Some(path) = path {
+        let _ = app.opener().reveal_item_in_dir(path);
     }
 }
 
@@ -404,6 +430,11 @@ fn main() {
 
             // Links out of the app (a Linear issue in the sidebar) open in the browser.
             let opener = handle.clone();
+            // Downloads ("Download PDF") save to the Downloads folder under the name the page gave,
+            // as in a browser. Without a handler WebKit cancels every download. macOS doesn't report
+            // where a finished download went, so keep the destination from when it started.
+            let downloads = handle.clone();
+            let destinations: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Remry")
                 .inner_size(1280.0, 860.0)
@@ -411,6 +442,21 @@ fn main() {
                 // Files dragged in from Finder go to the page, as in a browser, so an image
                 // dropped on the doc editor uploads. Tauri's own handler would take them.
                 .disable_drag_drop_handler()
+                .on_download(move |_webview, event| match event {
+                    DownloadEvent::Requested { url, destination } => {
+                        if !is_app_download(&url) {
+                            return false;
+                        }
+                        destinations.lock().unwrap().insert(url.to_string(), destination.clone());
+                        true
+                    }
+                    DownloadEvent::Finished { url, path, success } => {
+                        let started = destinations.lock().unwrap().remove(url.as_str());
+                        download_finished(&downloads, path.or(started), success);
+                        true
+                    }
+                    _ => true,
+                })
                 .on_navigation(move |url| {
                     if is_app_url(url) {
                         return true;
@@ -463,5 +509,15 @@ mod tests {
         assert!(!is_app_url(&url("http://127.0.0.1:8080/")));
         assert!(!is_app_url(&url("https://linear.app/acme/issue/ENG-1")));
         assert!(!is_app_url(&url("file:///etc/passwd")));
+    }
+
+    #[test]
+    fn downloads_only_what_the_app_made() {
+        let url = |s: &str| Url::parse(s).unwrap();
+        assert!(is_app_download(&url("blob:http://127.0.0.1:7369/4f1c2a9e-1d2b-4c3d-8e9f-0a1b2c3d4e5f")));
+        assert!(is_app_download(&url("http://127.0.0.1:7369/files/doc/report.pdf")));
+        assert!(!is_app_download(&url("blob:https://example.com/4f1c2a9e")));
+        assert!(!is_app_download(&url("https://example.com/report.pdf")));
+        assert!(!is_app_download(&url("data:application/pdf;base64,JVBERi0=")));
     }
 }

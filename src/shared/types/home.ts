@@ -17,12 +17,13 @@ export const UPDATE_KINDS = [
 export type UpdateKind = (typeof UPDATE_KINDS)[number];
 
 /** How the home page's Todos panel orders open todos. */
-export const HOME_TODO_SORTS = ['priority', 'status'] as const;
+export const HOME_TODO_SORTS = ['status', 'priority', 'created'] as const;
 
 export type HomeTodoSort = (typeof HOME_TODO_SORTS)[number];
 
-/** `?todoSort=` on the home page; anything unknown is the default, priority. */
-export const parseHomeTodoSort = (value: string | null): HomeTodoSort => (value === 'status' ? 'status' : 'priority');
+/** `?todoSort=` on the home page; anything unknown is the default, status. */
+export const parseHomeTodoSort = (value: string | null): HomeTodoSort =>
+  HOME_TODO_SORTS.find((sort) => sort === value) ?? 'status';
 
 /** One page of open todos, and how many are open in all. */
 export interface HomeTodoPage<T> {

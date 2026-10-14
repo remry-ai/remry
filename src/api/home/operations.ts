@@ -62,20 +62,24 @@ const updateHref = (u: RawUpdate): string => {
 
 const OPEN_STATUSES: readonly TodoStatus[] = ['ACTIVE', 'PENDING'];
 
+const OPEN_TODO_ORDER = {
+  // ACTIVE sorts before PENDING, as in todo.list.
+  status: [{ status: 'asc' }, { priority: 'desc' }, { updatedAt: 'desc' }],
+  priority: [{ priority: 'desc' }, { updatedAt: 'desc' }, { createdAt: 'desc' }],
+  // Newest first.
+  created: [{ createdAt: 'desc' }, { id: 'desc' }]
+} as const satisfies Record<HomeTodoSort, readonly Record<string, 'asc' | 'desc'>[]>;
+
 export const listOpenTodos = async (
   reg: Pick<Registry, 'prisma'>,
   limit = 25,
-  sort: HomeTodoSort = 'priority',
+  sort: HomeTodoSort = 'status',
   offset = 0
 ): Promise<Result<HomeTodoPage<TodoSummary>>> => {
   const where = { status: { in: [...OPEN_STATUSES] }, ...notAttachedToArchived(await loadArchivedIds(reg)) };
   const [todos, total] = await Promise.all([reg.prisma.todo.findMany({
     where,
-    // By status, ACTIVE sorts before PENDING, as in todo.list.
-    orderBy:
-      sort === 'status'
-        ? [{ status: 'asc' }, { priority: 'desc' }, { updatedAt: 'desc' }]
-        : [{ priority: 'desc' }, { updatedAt: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [...OPEN_TODO_ORDER[sort]],
     skip: offset,
     take: limit
   }), reg.prisma.todo.count({ where })]);

@@ -11,6 +11,7 @@ export const homeRouter = router({
       limit: z.number().int().min(1).max(200).optional(),
       // How many to skip, for the next page; `total` in the result says how many are open.
       offset: z.number().int().min(0).optional(),
+      // status (the default: active before pending, then by priority), priority, or created (newest first).
       sort: z.enum(HOME_TODO_SORTS).optional()
     }))
     .query(({ ctx, input }) => listOpenTodos(ctx.reg, input.limit, input.sort, input.offset)),

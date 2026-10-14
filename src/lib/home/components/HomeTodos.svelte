@@ -12,8 +12,9 @@
   import Pager from '$lib/ui/Pager.svelte';
 
   const SORT_OPTIONS = [
+    { id: 'status', name: 'Status' },
     { id: 'priority', name: 'Priority' },
-    { id: 'status', name: 'Status' }
+    { id: 'created', name: 'Created' }
   ];
 
   interface Props {
@@ -42,7 +43,7 @@
   <header class="section-header">
     <h2>Todos <span class="count">{total}</span></h2>
     <div class="header-actions">
-      <ParamToggle param="todoSort" options={SORT_OPTIONS} defaultValue="priority" ariaLabel="Sort todos" />
+      <ParamToggle param="todoSort" options={SORT_OPTIONS} defaultValue="status" ariaLabel="Sort todos" />
       <a href="/app/todos" class="text-sm">All todos →</a>
     </div>
   </header>
@@ -63,6 +64,7 @@
             <div class="meta">
               {#if todo.entityLabel}<a href={todo.entityPath}>{todo.entityLabel}</a>{/if}
               {#if todo.targetDate}<span>due {formatTodoDate(todo.targetDate)}</span>{/if}
+              <span>created {formatTodoDate(todo.createdAt)}</span>
             </div>
           </div>
         </li>

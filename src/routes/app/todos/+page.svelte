@@ -112,7 +112,8 @@
               <StatusDot status={todo.status} clickable onclick={() => handleStatusChange(todo.id, nextStatus(todo.status))} />
               <button type="button" class="grow truncate todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
               <PriorityBadge priority={todo.priority} />
-              {#if todo.targetDate}<span class="meta">{formatTodoDate(todo.targetDate)}</span>{/if}
+              {#if todo.targetDate}<span class="meta">due {formatTodoDate(todo.targetDate)}</span>{/if}
+              <span class="meta" title="Created">created {formatTodoDate(todo.createdAt)}</span>
             </li>
           {/each}
         </ul>
