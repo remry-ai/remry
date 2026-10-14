@@ -4,7 +4,8 @@ import type { ArchiveFilter, GoalStatus, OwnerType } from '$shared/types/enums';
 import { goalProgress, type GoalCheckInItem, type GoalDetail, type GoalSummary } from '$shared/types/goals';
 import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
-import { loadOwner, resolveOwnerInput, type OwnerInput } from '$api/_owners';
+import { loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
+import type { EntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureAllWritable, ensureWritable } from '$api/_archive';
 
@@ -37,13 +38,19 @@ interface GoalRow {
   readonly checkIns: readonly { readonly value: number | null }[];
 }
 
-const toSummary = async (reg: Pick<Registry, 'prisma'>, row: GoalRow): Promise<GoalSummary> => {
+/** Goal rows as summaries, with their owners looked up together. */
+const toSummaries = async (reg: Pick<Registry, 'prisma'>, rows: readonly GoalRow[]): Promise<readonly GoalSummary[]> => {
+  const owners = await loadOwners(reg, rows);
+  return rows.map((row) => toSummary(owners, row));
+};
+
+const toSummary = (owners: EntityLabels, row: GoalRow): GoalSummary => {
   const current = row.checkIns[0]?.value ?? null;
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    owner: await loadOwner(reg, row.ownerType, row.ownerId),
+    owner: ownerFrom(owners, row),
     parentId: row.parentId,
     period: row.period,
     status: row.status as GoalStatus,
@@ -104,7 +111,7 @@ export const listGoals = async (
     orderBy: ORDER,
     include: { checkIns: LATEST_VALUE }
   });
-  return ok(await Promise.all(rows.map((row) => toSummary(reg, row))));
+  return ok(await toSummaries(reg, rows));
 };
 
 export const getGoal = async (
@@ -126,10 +133,11 @@ export const getGoal = async (
   if (!row) return err(new Error(`Goal ${id} not found`));
 
   const latest = row.checkIns.filter((c) => c.value !== null).slice(0, 1);
+  const owners = await loadOwners(reg, [row, ...row.children]);
   return ok({
-    ...(await toSummary(reg, { ...row, checkIns: latest })),
+    ...toSummary(owners, { ...row, checkIns: latest }),
     parent: row.parent,
-    children: await Promise.all(row.children.map((child) => toSummary(reg, child))),
+    children: row.children.map((child) => toSummary(owners, child)),
     checkIns: row.checkIns.map((c): GoalCheckInItem => ({
       id: c.id,
       date: c.date,

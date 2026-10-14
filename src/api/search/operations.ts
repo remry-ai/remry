@@ -8,7 +8,7 @@ import type { EntityType } from '$shared/types/enums';
 import { SEARCH_TYPES, type SearchHit, type SearchResults, type SearchType } from '$shared/types/search';
 import { docPath, entityPath } from '$shared/utils/entity';
 import { features } from '$shared/settings/base/features';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds } from '$api/_archive';
 import { summarizeContent } from '$api/home/operations';
 import { buildFtsQuery } from './fts-query';
@@ -92,19 +92,11 @@ export const queryIndex = async (reg: Pick<Registry, 'prisma'>, query: IndexQuer
 
   const rows = await reg.prisma.$queryRawUnsafe<IndexRow[]>(sql, ...params);
 
-  const parentKeys = [...new Set(rows.flatMap((r) => (r.parent_type && r.parent_id ? [`${r.parent_type}:${r.parent_id}`] : [])))];
-  const labels = new Map(
-    await Promise.all(
-      parentKeys.map(async (key) => {
-        const [type, id] = key.split(':') as [EntityType, string];
-        return [key, await resolveEntityLabel(reg, type, id)] as const;
-      })
-    )
-  );
+  const labels = await resolveEntityLabels(reg, rows.flatMap((r) => parentOf(r) ?? []));
 
   return rows.flatMap((row): SearchHit[] => {
     const parent = parentOf(row);
-    const parentName = parent ? labels.get(`${parent.entityType}:${parent.entityId}`) ?? null : null;
+    const parentName = parent ? labels.labelOf(parent.entityType, parent.entityId) : null;
     if (parent && parentName === null) return [];
     return [{
       entityType: row.entity_type as SearchType,

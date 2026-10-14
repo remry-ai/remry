@@ -5,7 +5,7 @@ import type { EntityOwner } from '$shared/types/owner';
 import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shared/utils/project-status';
-import { loadOwner, resolveOwnerInput, type OwnerInput } from '$api/_owners';
+import { loadOwner, loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
 import { duplicateNameError, findProjectNamed } from '$api/_duplicates';
@@ -87,13 +87,14 @@ export const listProjects = async (
     orderBy: { name: 'asc' },
     include: { _count: { select: { children: true } } }
   });
-  return ok(await Promise.all(projects.map(async (p) => ({
+  const owners = await loadOwners(reg, projects);
+  return ok(projects.map((p) => ({
     id: p.id,
     name: p.name,
     description: p.description,
     status: p.status,
     parentId: p.parentId,
-    owner: await loadOwner(reg, p.ownerType, p.ownerId),
+    owner: ownerFrom(owners, p),
     childCount: p._count.children,
     startDate: p.startDate,
     endDate: p.endDate,
@@ -103,7 +104,7 @@ export const listProjects = async (
     path: entityPath('PROJECT', p.id),
     archivedAt: p.archivedAt,
     createdAt: p.createdAt
-  }))));
+  })));
 };
 
 export const getProject = async (

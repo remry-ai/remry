@@ -6,7 +6,7 @@ import { ok, err, type Result } from '$shared/utils';
 import type { OwnerType } from '$shared/types/enums';
 import type { EntityOwner } from '$shared/types/owner';
 import { entityPath } from '$shared/utils/entity';
-import { resolveEntityLabel } from './_entity-labels';
+import { resolveEntityLabel, resolveEntityLabels, type EntityLabels } from './_entity-labels';
 
 export interface OwnerInput {
   readonly ownerType?: OwnerType | null;
@@ -46,3 +46,22 @@ export const loadOwner = async (
   const type = ownerType as OwnerType;
   return { type, id: ownerId, label: await resolveEntityLabel(reg, type, ownerId), path: entityPath(type, ownerId) };
 };
+
+interface OwnedRow {
+  readonly ownerType: string | null;
+  readonly ownerId: string | null;
+}
+
+/** The owner of a row, named from labels already looked up (see loadOwners). */
+export const ownerFrom = (labels: EntityLabels, row: OwnedRow): EntityOwner | null => {
+  if (!row.ownerType || !row.ownerId) return null;
+  const type = row.ownerType as OwnerType;
+  return { type, id: row.ownerId, label: labels.labelOf(type, row.ownerId), path: entityPath(type, row.ownerId) };
+};
+
+/** Looks up the owners of many rows at once, for ownerFrom. */
+export const loadOwners = (reg: Pick<Registry, 'prisma'>, rows: readonly OwnedRow[]): Promise<EntityLabels> =>
+  resolveEntityLabels(
+    reg,
+    rows.flatMap((r) => (r.ownerType && r.ownerId ? [{ entityType: r.ownerType as OwnerType, entityId: r.ownerId }] : []))
+  );

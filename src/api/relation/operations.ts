@@ -6,7 +6,7 @@ import { RELATION_KINDS } from '$shared/types/enums';
 import { RELATION_LABELS, relationLabel, type RelationGroup, type RelationItem } from '$shared/types/relations';
 import type { PersonRelationKindDefinition } from '$shared/types/person-relations';
 import { docPath, entityPath } from '$shared/utils/entity';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { loadPersonRelationKinds } from '$api/person-relation-kind/operations';
 import { listPersonRelationItems } from '$api/person-relation/operations';
 
@@ -40,21 +40,39 @@ export const groupRelations = (items: readonly RelationItem[], personKinds: read
 
 // ----- Queries -----
 
+type AttachedOwners = ReadonlyMap<string, { readonly entityType: EntityType; readonly entityId: string }>;
+
 // Docs, notes and todos have no page of their own; link to the entity they're
 // attached to (a todo opens in its popup there, a doc in its centre pane).
-const pathOf = async (reg: Pick<Registry, 'prisma'>, entityType: RelatableType, entityId: string): Promise<string> => {
-  if (entityType === 'TODO') {
-    const owner = await reg.prisma.todo.findUnique({ where: { id: entityId }, select: { entityType: true, entityId: true } });
-    if (owner) return `${entityPath(owner.entityType as EntityType, owner.entityId)}?popup=todo&todo=${entityId}`;
-  }
-  if (entityType === 'DOC') {
-    const owner = await reg.prisma.doc.findUnique({ where: { id: entityId }, select: { entityType: true, entityId: true } });
-    if (owner) return docPath(owner.entityType as EntityType, owner.entityId, entityId);
-  }
-  if (entityType === 'NOTE') {
-    const owner = await reg.prisma.note.findUnique({ where: { id: entityId }, select: { entityType: true, entityId: true } });
-    if (owner) return entityPath(owner.entityType as EntityType, owner.entityId);
-  }
+// Looks up what they're attached to for all of them at once.
+const loadAttachedOwners = async (
+  reg: Pick<Registry, 'prisma'>,
+  refs: readonly { readonly type: RelatableType; readonly id: string }[]
+): Promise<AttachedOwners> => {
+  const idsOf = (type: RelatableType): string[] => [...new Set(refs.filter((r) => r.type === type).map((r) => r.id))];
+  const select = { id: true, entityType: true, entityId: true } as const;
+  const find = <T extends { readonly id: string; readonly entityType: string; readonly entityId: string }>(
+    type: RelatableType,
+    query: (ids: string[]) => Promise<T[]>
+  ): Promise<readonly (readonly [string, { entityType: EntityType; entityId: string }])[]> => {
+    const ids = idsOf(type);
+    return ids.length === 0
+      ? Promise.resolve([])
+      : query(ids).then((rows) => rows.map((r) => [`${type}:${r.id}`, { entityType: r.entityType as EntityType, entityId: r.entityId }] as const));
+  };
+  const found = await Promise.all([
+    find('TODO', (ids) => reg.prisma.todo.findMany({ where: { id: { in: ids } }, select })),
+    find('DOC', (ids) => reg.prisma.doc.findMany({ where: { id: { in: ids } }, select })),
+    find('NOTE', (ids) => reg.prisma.note.findMany({ where: { id: { in: ids } }, select }))
+  ]);
+  return new Map(found.flat());
+};
+
+const pathOf = (owners: AttachedOwners, entityType: RelatableType, entityId: string): string => {
+  const owner = owners.get(`${entityType}:${entityId}`);
+  if (owner && entityType === 'TODO') return `${entityPath(owner.entityType, owner.entityId)}?popup=todo&todo=${entityId}`;
+  if (owner && entityType === 'DOC') return docPath(owner.entityType, owner.entityId, entityId);
+  if (owner && entityType === 'NOTE') return entityPath(owner.entityType, owner.entityId);
   return entityPath(entityType, entityId);
 };
 
@@ -76,26 +94,6 @@ export const listRelationsForEntity = async (
     entityType === 'PERSON' ? listPersonRelationItems(reg, entityId) : Promise.resolve([])
   ]);
 
-  const items = await Promise.all(
-    rows.map(async (row): Promise<RelationItem | null> => {
-      const outgoing = row.fromType === entityType && row.fromId === entityId;
-      const kind = row.kind as RelationKind;
-      const otherType = (outgoing ? row.toType : row.fromType) as RelatableType;
-      const otherId = outgoing ? row.toId : row.fromId;
-      const label = await resolveEntityLabel(reg, otherType, otherId);
-      if (label === null) return null;
-      return {
-        id: row.id,
-        kind,
-        direction: outgoing ? 'outgoing' : 'incoming',
-        label: relationLabel(kind, outgoing),
-        other: { entityType: otherType, entityId: otherId, label, path: await pathOf(reg, otherType, otherId) },
-        note: row.note,
-        createdAt: row.createdAt
-      };
-    })
-  );
-
   // A goal depends on the projects linked to it, so the link shows on both pages.
   const links = entityType === 'GOAL' || entityType === 'PROJECT'
     ? await reg.prisma.goalProject.findMany({
@@ -103,25 +101,49 @@ export const listRelationsForEntity = async (
       orderBy: { createdAt: 'asc' }
     })
     : [];
-  const linkItems = await Promise.all(
-    links.map(async (link): Promise<RelationItem | null> => {
-      const outgoing = entityType === 'GOAL';
-      const otherType: RelatableType = outgoing ? 'PROJECT' : 'GOAL';
-      const otherId = outgoing ? link.projectId : link.goalId;
-      const label = await resolveEntityLabel(reg, otherType, otherId);
-      if (label === null) return null;
-      return {
-        id: link.id,
-        kind: 'DEPENDS_ON',
-        direction: outgoing ? 'outgoing' : 'incoming',
-        label: relationLabel('DEPENDS_ON', outgoing),
-        other: { entityType: otherType, entityId: otherId, label, path: entityPath(otherType, otherId) },
-        note: null,
-        createdAt: link.createdAt,
-        goalProject: true
-      };
-    })
-  );
+
+  const others = rows.map((row) => {
+    const outgoing = row.fromType === entityType && row.fromId === entityId;
+    return { row, outgoing, type: (outgoing ? row.toType : row.fromType) as RelatableType, id: outgoing ? row.toId : row.fromId };
+  });
+  const linkOthers = links.map((link) => {
+    const outgoing = entityType === 'GOAL';
+    return { link, outgoing, type: (outgoing ? 'PROJECT' : 'GOAL') as RelatableType, id: outgoing ? link.projectId : link.goalId };
+  });
+  const [labels, owners] = await Promise.all([
+    resolveEntityLabels(reg, [...others, ...linkOthers].map((o) => ({ entityType: o.type, entityId: o.id }))),
+    loadAttachedOwners(reg, others)
+  ]);
+
+  const items = others.map(({ row, outgoing, type: otherType, id: otherId }): RelationItem | null => {
+    const kind = row.kind as RelationKind;
+    const label = labels.labelOf(otherType, otherId);
+    if (label === null) return null;
+    return {
+      id: row.id,
+      kind,
+      direction: outgoing ? 'outgoing' : 'incoming',
+      label: relationLabel(kind, outgoing),
+      other: { entityType: otherType, entityId: otherId, label, path: pathOf(owners, otherType, otherId) },
+      note: row.note,
+      createdAt: row.createdAt
+    };
+  });
+
+  const linkItems = linkOthers.map(({ link, outgoing, type: otherType, id: otherId }): RelationItem | null => {
+    const label = labels.labelOf(otherType, otherId);
+    if (label === null) return null;
+    return {
+      id: link.id,
+      kind: 'DEPENDS_ON',
+      direction: outgoing ? 'outgoing' : 'incoming',
+      label: relationLabel('DEPENDS_ON', outgoing),
+      other: { entityType: otherType, entityId: otherId, label, path: entityPath(otherType, otherId) },
+      note: null,
+      createdAt: link.createdAt,
+      goalProject: true
+    };
+  });
 
   return ok(groupRelations([...personItems, ...items, ...linkItems].filter((item): item is RelationItem => item !== null), personKinds));
 };

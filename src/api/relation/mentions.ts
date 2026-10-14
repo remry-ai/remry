@@ -4,7 +4,7 @@
 import type { Registry } from '$shared/registry';
 import { RELATABLE_TYPES, type RelatableType } from '$shared/types/enums';
 import { extractEntityLinks } from '$shared/utils/mentions';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { resolveEntityLabels } from '$api/_entity-labels';
 
 const RELATABLE: ReadonlySet<string> = new Set(RELATABLE_TYPES);
 
@@ -17,8 +17,8 @@ export const syncMentions = async (
   const candidates = extractEntityLinks(content).filter(
     (ref) => RELATABLE.has(ref.entityType) && !(ref.entityType === source.entityType && ref.entityId === source.entityId)
   );
-  const labels = await Promise.all(candidates.map((ref) => resolveEntityLabel(reg, ref.entityType, ref.entityId)));
-  const targets = candidates.filter((_, i) => labels[i] !== null);
+  const labels = await resolveEntityLabels(reg, candidates);
+  const targets = candidates.filter((ref) => labels.labelOf(ref.entityType, ref.entityId) !== null);
 
   const from = { fromType: source.entityType, fromId: source.entityId };
   const clear = reg.prisma.relation.deleteMany({ where: { ...from, kind: 'MENTIONS' } });

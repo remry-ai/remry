@@ -1,6 +1,6 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
 import { validateChartBlocks } from '$shared/types/charts';
 import type { EntityType } from '$shared/types/enums';
 import type { ReportBrandingProfile, ReportDetail, ReportSummary } from '$shared/types/report';
@@ -34,8 +34,6 @@ interface ReportRow {
   readonly updatedAt: Date;
   readonly branding: BrandingRow | null;
 }
-
-const NAMED_ENTITIES: ReadonlySet<EntityType> = new Set(['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE']);
 
 const toProfile = (b: BrandingRow): ReportBrandingProfile => ({
   id: b.id,
@@ -127,15 +125,10 @@ export const createReport = async (
   reg: Pick<Registry, 'prisma'>,
   input: CreateReportInput
 ): Promise<Result<{ readonly id: string }>> => {
-  const writable = await ensureWritable(reg, input.entityType, input.entityId);
+  const writable = await ensureAttachable(reg, input.entityType, input.entityId);
   if (!writable.ok) return err(writable.error);
   const charts = validateChartBlocks(input.content ?? '');
   if (!charts.ok) return err(charts.error);
-
-  if (NAMED_ENTITIES.has(input.entityType)) {
-    const name = await resolveEntityLabel(reg, input.entityType, input.entityId);
-    if (name === null) return err(new Error(`${input.entityType} ${input.entityId} not found`));
-  }
 
   const branding = await checkBranding(reg, input.brandingId);
   if (!branding.ok) return err(branding.error);

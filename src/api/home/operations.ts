@@ -4,7 +4,7 @@ import type { EntityType, TodoRecurrence, TodoStatus } from '$shared/types/enums
 import type { HomeTodoPage, HomeTodoSort, RecentUpdate, UpdateKind } from '$shared/types/home';
 import { docPath, entityPath } from '$shared/utils/entity';
 import { features } from '$shared/settings/base/features';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds, notAttachedToArchived } from '$api/_archive';
 import type { TodoSummary } from '$api/attached/todo/operations';
 
@@ -80,13 +80,11 @@ export const listOpenTodos = async (
     take: limit
   }), reg.prisma.todo.count({ where })]);
 
-  const labels = await Promise.all(
-    todos.map((t) => resolveEntityLabel(reg, t.entityType as EntityType, t.entityId))
-  );
+  const labels = await resolveEntityLabels(reg, todos.map((t) => ({ entityType: t.entityType as EntityType, entityId: t.entityId })));
 
   return ok({
     total,
-    items: todos.map((t, i) => ({
+    items: todos.map((t) => ({
       id: t.id,
       title: t.title,
       description: t.description,
@@ -94,7 +92,7 @@ export const listOpenTodos = async (
       priority: t.priority,
       entityType: t.entityType as EntityType,
       entityId: t.entityId,
-      entityLabel: labels[i] ?? null,
+      entityLabel: labels.labelOf(t.entityType as EntityType, t.entityId),
       entityPath: entityPath(t.entityType as EntityType, t.entityId),
       targetDate: t.targetDate,
       recurrence: t.recurrence as TodoRecurrence | null,
@@ -151,16 +149,14 @@ export const listRecentUpdates = async (
     limit
   );
 
-  const labels = await Promise.all(
-    merged.map((u) => (u.parent ? resolveEntityLabel(reg, u.parent.entityType, u.parent.entityId) : null))
-  );
+  const labels = await resolveEntityLabels(reg, merged.flatMap((u) => (u.parent ? [u.parent] : [])));
 
   return ok(
-    merged.map((u, i) => ({
+    merged.map((u) => ({
       kind: u.kind,
       id: u.id,
       title: u.title,
-      parentLabel: labels[i] ?? null,
+      parentLabel: u.parent ? labels.labelOf(u.parent.entityType, u.parent.entityId) : null,
       href: updateHref(u),
       at: u.updatedAt,
       isNew: Math.abs(u.updatedAt.getTime() - u.createdAt.getTime()) < 1000

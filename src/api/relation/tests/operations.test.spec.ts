@@ -144,8 +144,8 @@ describe('listRelationsForEntity', () => {
           ])
         },
         todo: {
-          findUnique: vi.fn().mockImplementation(({ select }: { select: Record<string, boolean> }) =>
-            Promise.resolve(select.title ? { title: 'Book 1:1' } : { entityType: 'PROJECT', entityId: 'p1' }))
+          findMany: vi.fn().mockImplementation(({ select }: { select: Record<string, boolean> }) =>
+            Promise.resolve([select.title ? { id: 'td1', title: 'Book 1:1' } : { id: 'td1', entityType: 'PROJECT', entityId: 'p1' }]))
         }
       } as unknown as Registry['prisma']
     });

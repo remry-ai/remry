@@ -1,7 +1,8 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
+import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
+import { resolveEntityLabels } from '$api/_entity-labels';
 import type { EntityType } from '$shared/types/enums';
 import { entityPath } from '$shared/utils/entity';
 import { linkSearchKey, normalizeLinkUrl } from './url';
@@ -74,10 +75,12 @@ export const findLinks = async (
   const target = url ? normalizeLinkUrl(url) : null;
   const matching = target ? rows.filter((l) => normalizeLinkUrl(l.url) === target) : rows;
 
+  const shown = matching.slice(0, FIND_LIMIT);
+  const labels = await resolveEntityLabels(reg, shown.map((l) => ({ entityType: l.entityType as EntityType, entityId: l.entityId })));
   const matches: LinkMatch[] = [];
-  for (const l of matching.slice(0, FIND_LIMIT)) {
+  for (const l of shown) {
     const entityType = l.entityType as EntityType;
-    const label = await resolveEntityLabel(reg, entityType, l.entityId);
+    const label = labels.labelOf(entityType, l.entityId);
     if (label === null) continue;
     matches.push({
       id: l.id,
@@ -100,7 +103,7 @@ export const addLink = async (
   entityId: string,
   input: { readonly url: string; readonly title?: string; readonly synced?: boolean }
 ): Promise<Result<{ readonly id: string }>> => {
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
   const link = await reg.prisma.link.create({
     data: {
@@ -129,8 +132,9 @@ export const markLinkSynced = async (
   return ok({ id, syncedAt });
 };
 
+/** Also deletes what's attached to the link and its relations. */
 export const removeLink = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.link.findUnique({ where: { id } });
@@ -138,6 +142,8 @@ export const removeLink = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  await reg.prisma.link.delete({ where: { id } });
+  const cleanup = await planEntityCleanup(reg, 'LINK', id);
+  await reg.prisma.$transaction([...cleanup.ops, reg.prisma.link.delete({ where: { id } })]);
+  await removeFiles(reg, cleanup.files);
   return ok({ deleted: true as const });
 };

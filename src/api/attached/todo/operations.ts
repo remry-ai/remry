@@ -1,12 +1,12 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
 import type { ArchiveFilter, EntityType, TodoRecurrence, TodoStatus } from '$shared/types/enums';
 import { nextOccurrence } from '$shared/utils/recurrence';
 import { entityPath } from '$shared/utils/entity';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds, notAttachedToArchived } from '$api/_archive';
-import { relationCleanupOp } from '$api/_entity-cleanup';
+import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 
 // ----- Types -----
 
@@ -50,11 +50,9 @@ export const listTodos = async (
     orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'desc' }]
   });
 
-  const labels = await Promise.all(
-    todos.map((t) => resolveEntityLabel(reg, t.entityType as EntityType, t.entityId))
-  );
+  const labels = await resolveEntityLabels(reg, todos.map((t) => ({ entityType: t.entityType as EntityType, entityId: t.entityId })));
 
-  return todos.map((t, i) => ({
+  return todos.map((t) => ({
     id: t.id,
     title: t.title,
     description: t.description,
@@ -62,7 +60,7 @@ export const listTodos = async (
     priority: t.priority,
     entityType: t.entityType as EntityType,
     entityId: t.entityId,
-    entityLabel: labels[i] ?? null,
+    entityLabel: labels.labelOf(t.entityType as EntityType, t.entityId),
     entityPath: entityPath(t.entityType as EntityType, t.entityId),
     targetDate: t.targetDate,
     recurrence: t.recurrence as TodoRecurrence | null,
@@ -114,7 +112,7 @@ export const createTodo = async (
   reg: Pick<Registry, 'prisma'>,
   input: CreateTodoInput
 ): Promise<Result<{ readonly id: string }>> => {
-  const writable = await ensureWritable(reg, input.entityType, input.entityId);
+  const writable = await ensureAttachable(reg, input.entityType, input.entityId);
   if (!writable.ok) return err(writable.error);
   const todo = await reg.prisma.todo.create({
     data: {
@@ -191,8 +189,9 @@ export const updateTodo = async (
   return ok({ id, nextId: next.id });
 };
 
+/** Also deletes what's attached to the todo and its relations. */
 export const deleteTodo = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
   id: string
 ): Promise<Result<{ readonly deleted: boolean }>> => {
   const existing = await reg.prisma.todo.findFirst({ where: { id } });
@@ -200,7 +199,8 @@ export const deleteTodo = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  await relationCleanupOp(reg, 'TODO', id);
-  await reg.prisma.todo.delete({ where: { id } });
+  const cleanup = await planEntityCleanup(reg, 'TODO', id);
+  await reg.prisma.$transaction([...cleanup.ops, reg.prisma.todo.delete({ where: { id } })]);
+  await removeFiles(reg, cleanup.files);
   return ok({ deleted: true });
 };

@@ -1,8 +1,8 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
-import { relationCleanupOp } from '$api/_entity-cleanup';
+import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { syncMentions } from '$api/relation/mentions';
 
 // ----- Types -----
@@ -43,8 +43,14 @@ export const addNote = async (
   entityId: string,
   input: { readonly content: string; readonly parentId?: string }
 ): Promise<Result<{ readonly id: string }>> => {
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
+  if (input.parentId) {
+    const parent = await reg.prisma.note.findUnique({ where: { id: input.parentId }, select: { entityType: true, entityId: true } });
+    if (!parent || parent.entityType !== entityType || parent.entityId !== entityId) {
+      return err(new Error(`Note ${input.parentId} isn't a note on this ${entityType.toLowerCase()}; reply to one from note.list for it`));
+    }
+  }
   const note = await reg.prisma.note.create({
     data: {
       entityType,
@@ -72,8 +78,9 @@ export const updateNote = async (
   return ok({ id });
 };
 
+/** Also deletes its replies, what's attached to it or them, and their relations. */
 export const removeNote = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.note.findUnique({ where: { id } });
@@ -81,8 +88,9 @@ export const removeNote = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  await relationCleanupOp(reg, 'NOTE', id);
-  await reg.prisma.note.delete({ where: { id } });
+  const cleanup = await planEntityCleanup(reg, 'NOTE', id);
+  await reg.prisma.$transaction([...cleanup.ops, reg.prisma.note.deleteMany({ where: { id } })]);
+  await removeFiles(reg, cleanup.files);
   return ok({ deleted: true as const });
 };
 

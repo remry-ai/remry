@@ -7,7 +7,7 @@ import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { ARCHIVABLE_TYPES, type ArchivableType, type ArchiveFilter } from '$shared/types/enums';
 import { ENTITY_DESCRIPTORS } from '$shared/entities/descriptors';
-import { ARCHIVABLE_PORTS } from '$api/entities/ports';
+import { ARCHIVABLE_PORTS, LABEL_PORTS } from '$api/entities/ports';
 
 const typeName = (type: ArchivableType): string => ENTITY_DESCRIPTORS[type].singular;
 
@@ -42,6 +42,33 @@ export const ensureWritable = async (
     `${typeName(entityType)} "${state.name}" is archived, so it and what's attached to it are read-only. ` +
     `Unarchive it first with entity.archive --entityType ${entityType} --id ${entityId} --archived false`
   ));
+};
+
+// Types with no display name, checked by id alone.
+const EXISTS: Readonly<Partial<Record<string, (reg: Pick<Registry, 'prisma'>, id: string) => Promise<boolean>>>> = {
+  LINK: async (reg, id) => (await reg.prisma.link.count({ where: { id } })) > 0,
+  COMMENT: async (reg, id) => (await reg.prisma.comment.count({ where: { id } })) > 0,
+  TAG: async (reg, id) => (await reg.prisma.tag.count({ where: { id } })) > 0
+};
+
+/**
+ * Refuses to attach something (a note, doc, todo, link, tag, comment, emoji or
+ * report) to an entity that doesn't exist, or to an archived one. Nothing
+ * polymorphic has a foreign key, so without this an attachment to a wrong id
+ * would be stored and never shown.
+ */
+export const ensureAttachable = async (
+  reg: Pick<Registry, 'prisma'>,
+  entityType: string,
+  entityId: string
+): Promise<Result<void>> => {
+  const label = LABEL_PORTS[entityType as keyof typeof LABEL_PORTS];
+  const exists = EXISTS[entityType];
+  const found = label ? (await label(reg, entityId)) !== null : exists ? await exists(reg, entityId) : true;
+  if (!found) {
+    return err(new Error(`${entityType} ${entityId} not found. Find its id with ${entityType.toLowerCase()}.list or search.query`));
+  }
+  return ensureWritable(reg, entityType, entityId);
 };
 
 /** Checks several entities; the first archived one is the error. */

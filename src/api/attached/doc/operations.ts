@@ -1,11 +1,11 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
 import { fileUrl } from '$shared/utils/files';
 import { acceptsDocs, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel } from '$api/_entity-labels';
-import { relationCleanupOp } from '$api/_entity-cleanup';
+import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { syncMentions } from '$api/relation/mentions';
 
 // ----- Types -----
@@ -73,7 +73,7 @@ export const addDoc = async (
   if (!acceptsDocs(entityType)) {
     return err(new Error("Wiki pages don't take docs. Write it into the page's content with page.update, or add a sub-page with page.create --parentId <pageId>."));
   }
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
   const maxOrder = await reg.prisma.doc.aggregate({
     where: { entityType, entityId },
@@ -112,6 +112,7 @@ export const updateDoc = async (
   return ok({ id });
 };
 
+/** Also deletes what's attached to the doc, its relations, and its PDF once the rows are gone. */
 export const removeDoc = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
   id: string
@@ -121,16 +122,9 @@ export const removeDoc = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  if (existing.sourceUrl) {
-    try {
-      await reg.storage.deleteObject(existing.sourceUrl);
-    } catch (error) {
-      reg.logger.warn({ docId: id, sourceUrl: existing.sourceUrl, error }, 'failed to delete PDF from storage');
-    }
-  }
-
-  await relationCleanupOp(reg, 'DOC', id);
-  await reg.prisma.doc.delete({ where: { id } });
+  const cleanup = await planEntityCleanup(reg, 'DOC', id);
+  await reg.prisma.$transaction([...cleanup.ops, reg.prisma.doc.delete({ where: { id } })]);
+  await removeFiles(reg, existing.sourceUrl ? [existing.sourceUrl, ...cleanup.files] : cleanup.files);
   return ok({ deleted: true as const });
 };
 

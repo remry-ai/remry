@@ -25,10 +25,10 @@ Current domains, grouped into folders:
 
 Loose backend helpers that aren't domains use an underscore prefix:
 
-- `_entity-labels.ts`: entity reference → display name. Also the existence check for owners, relations and mentions.
+- `_entity-labels.ts`: entity reference → display name (`resolveEntityLabel`; for a list, `resolveEntityLabels`, one query per type however many rows). Also the existence check for owners, relations and mentions.
 - `_owners.ts`: `resolveOwnerInput` validates a goal or project owner (`ownerType` + `ownerId`, set together or both null); `loadOwner` returns its name and path.
 - `_duplicates.ts`: the duplicate-name guard on `person.create`, `group.create` and `project.create` (`allowDuplicate` skips it).
-- `_entity-cleanup.ts`: `planEntityCleanup`, `relationCleanupOp` and `removeFiles`, for deletes (see § Deletes).
+- `_entity-cleanup.ts`: `planEntityCleanup` and `removeFiles`, for deletes (see § Deletes).
 
 ## The Registry
 
@@ -83,13 +83,18 @@ Goal and project owners (`ownerType` + `ownerId`) and both ends of a relation ar
 
 ## Deletes
 
-Nothing polymorphic has a foreign key, so a delete cleans up after itself. Every delete of a person, group, project, goal, page or report calls `planEntityCleanup(reg, type, id)` and runs its `ops` in the same `$transaction` as the delete:
+Nothing polymorphic has a foreign key, so a delete cleans up after itself. Every delete (a person, group, project, goal or page, and a report, doc, note, todo, link or comment) calls `planEntityCleanup(reg, type, id)` and runs its `ops` in the same `$transaction` as the delete:
 
-- delete the docs, notes, reports, todos, links, tag attachments, comments, emoji and page chat attached to the entity
-- delete relations at either end
-- clear goal and project owners that point at it
+- delete the docs, notes, reports, todos, links and comments attached to the entity **at any depth** (a comment on a note, a todo on that comment, replies to a note), found pass by pass until a pass finds nothing new
+- delete the tag attachments, emoji and page chat of the entity and of all of those
+- delete relations at either end of any of them
+- clear goal and project owners that point at the entity
 
-Then call `removeFiles(reg, cleanup.files)` for the attached docs' PDFs once the transaction commits. Doc and note removal use `relationCleanupOp` alone. Goals and pages move their children up to their own parent; `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
+Then call `removeFiles(reg, cleanup.files)` for the deleted docs' PDFs once the transaction commits (`removeDoc` adds the doc's own). `src/api/tests/cleanup-prisma.ts` fakes the models it touches for unit tests.
+
+Attaching is checked the other way: `ensureAttachable` (`_archive.ts`) refuses to attach a note, doc, todo, link, tag, comment, emoji or report to an id that doesn't exist (or is archived), and `addNote` refuses a reply whose parent is on another entity.
+
+Goals and pages move their children up to their own parent; `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
 
 ## Archiving
 

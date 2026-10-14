@@ -1,6 +1,7 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
+import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import type { EntityType } from '$shared/types/enums';
 
 // ----- Types -----
@@ -35,7 +36,7 @@ export const addComment = async (
   entityId: string,
   input: { readonly content: string }
 ): Promise<Result<{ readonly id: string }>> => {
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
   const comment = await reg.prisma.comment.create({
     data: {
@@ -47,8 +48,9 @@ export const addComment = async (
   return ok({ id: comment.id });
 };
 
+/** Also deletes what's attached to the comment and its relations. */
 export const removeComment = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.comment.findUnique({ where: { id } });
@@ -56,6 +58,8 @@ export const removeComment = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  await reg.prisma.comment.delete({ where: { id } });
+  const cleanup = await planEntityCleanup(reg, 'COMMENT', id);
+  await reg.prisma.$transaction([...cleanup.ops, reg.prisma.comment.delete({ where: { id } })]);
+  await removeFiles(reg, cleanup.files);
   return ok({ deleted: true as const });
 };

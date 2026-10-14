@@ -44,8 +44,8 @@ describe('findLinks', () => {
       prisma: {
         link: { findMany },
         project: {
-          findUnique: vi.fn(({ where }: { where: { id: string } }) =>
-            Promise.resolve(where.id === 'gone' ? null : { name: `Project ${where.id}` }))
+          findMany: vi.fn(({ where }: { where: { id: { in: string[] } } }) =>
+            Promise.resolve(where.id.in.filter((id) => id !== 'gone').map((id) => ({ id, name: `Project ${id}` }))))
         }
       } as unknown as Registry['prisma']
     });

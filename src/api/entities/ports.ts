@@ -80,3 +80,23 @@ export const LABEL_PORTS: Readonly<Partial<Record<EntityType, (reg: Reg, id: str
     return note ? firstLine(note.content) : null;
   }
 };
+
+type BatchLabel = (reg: Reg, ids: readonly string[]) => Promise<ReadonlyMap<string, string>>;
+
+const byId = <T extends { readonly id: string }>(rows: readonly T[], name: (row: T) => string): ReadonlyMap<string, string> =>
+  new Map(rows.map((r) => [r.id, name(r)]));
+
+const inIds = (ids: readonly string[]) => ({ id: { in: [...ids] } });
+
+/** Display names for many ids of one type, in one query. Missing ids are absent from the map. */
+export const LABEL_BATCH_PORTS: Readonly<Partial<Record<EntityType, BatchLabel>>> = {
+  PERSON: async (reg, ids) => byId(await reg.prisma.person.findMany({ where: inIds(ids), select: { id: true, name: true } }), (r) => r.name),
+  GROUP: async (reg, ids) => byId(await reg.prisma.group.findMany({ where: inIds(ids), select: { id: true, name: true } }), (r) => r.name),
+  PROJECT: async (reg, ids) => byId(await reg.prisma.project.findMany({ where: inIds(ids), select: { id: true, name: true } }), (r) => r.name),
+  GOAL: async (reg, ids) => byId(await reg.prisma.goal.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
+  PAGE: async (reg, ids) => byId(await reg.prisma.page.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
+  DOC: async (reg, ids) => byId(await reg.prisma.doc.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
+  REPORT: async (reg, ids) => byId(await reg.prisma.report.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
+  TODO: async (reg, ids) => byId(await reg.prisma.todo.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
+  NOTE: async (reg, ids) => byId(await reg.prisma.note.findMany({ where: inIds(ids), select: { id: true, content: true } }), (r) => firstLine(r.content))
+};

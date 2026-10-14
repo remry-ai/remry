@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
 import { addDoc, attachSourcePdf, getDoc, getDocReadUrl, removeDoc, updateDoc, uploadDocImage } from '../operations';
+import { cleanupPrisma } from '$api/tests/cleanup-prisma';
 
 const storageMock = (overrides: Partial<Registry['storage']> = {}): Registry['storage'] => ({
   putObject: vi.fn().mockResolvedValue(undefined),
@@ -126,58 +127,52 @@ describe('getDocReadUrl', () => {
 });
 
 describe('removeDoc', () => {
-  it('deletes the doc, its relations and its PDF from storage when sourceUrl is set', async () => {
+  const docPrisma = (sourceUrl: string | null, attached = {}) => {
     const del = vi.fn().mockResolvedValue({});
+    const prisma = cleanupPrisma(attached);
+    return {
+      del,
+      prisma: { ...prisma, doc: { ...prisma.doc, findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl }), delete: del } }
+    };
+  };
+
+  it('deletes the doc, its relations and its PDF from storage when sourceUrl is set', async () => {
     const deleteObject = vi.fn().mockResolvedValue(undefined);
-    const relation = relationMock();
-    const reg = createTestRegistry({
-      prisma: {
-        doc: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: 'docs/doc_1/source.pdf' }),
-          delete: del
-        },
-        relation
-      } as unknown as Registry['prisma'],
-      storage: storageMock({ deleteObject })
-    });
+    const { del, prisma } = docPrisma('docs/doc_1/source.pdf');
+    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock({ deleteObject }) });
 
     const result = await removeDoc(reg, 'doc_1');
 
     expect(result.ok).toBe(true);
     expect(deleteObject).toHaveBeenCalledWith('docs/doc_1/source.pdf');
     expect(del).toHaveBeenCalledWith({ where: { id: 'doc_1' } });
-    expect(relation.deleteMany).toHaveBeenCalledWith({
-      where: { OR: [{ fromType: 'DOC', fromId: 'doc_1' }, { toType: 'DOC', toId: 'doc_1' }] }
+    expect(prisma.relation.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ fromType: 'DOC', fromId: { in: ['doc_1'] } }, { toType: 'DOC', toId: { in: ['doc_1'] } }] }
     });
+  });
+
+  it('deletes what is attached to the doc, in the same transaction', async () => {
+    const { prisma } = docPrisma(null, { comment: [{ id: 'c1', entityType: 'DOC', entityId: 'doc_1' }] });
+    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock() });
+
+    await removeDoc(reg, 'doc_1');
+    expect(prisma.comment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['c1'] } } });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('does not call storage when sourceUrl is null', async () => {
     const deleteObject = vi.fn();
-    const reg = createTestRegistry({
-      prisma: {
-        doc: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }),
-          delete: vi.fn().mockResolvedValue({})
-        },
-        relation: relationMock()
-      } as unknown as Registry['prisma'],
-      storage: storageMock({ deleteObject })
-    });
+    const { prisma } = docPrisma(null);
+    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock({ deleteObject }) });
 
     await removeDoc(reg, 'doc_1');
     expect(deleteObject).not.toHaveBeenCalled();
   });
 
   it('still deletes the doc row when storage deletion fails', async () => {
-    const del = vi.fn().mockResolvedValue({});
+    const { del, prisma } = docPrisma('docs/doc_1/source.pdf');
     const reg = createTestRegistry({
-      prisma: {
-        doc: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: 'docs/doc_1/source.pdf' }),
-          delete: del
-        },
-        relation: relationMock()
-      } as unknown as Registry['prisma'],
+      prisma: prisma as unknown as Registry['prisma'],
       storage: storageMock({ deleteObject: vi.fn().mockRejectedValue(new Error('disk full')) })
     });
 

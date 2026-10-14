@@ -1,6 +1,6 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
 
 // ----- Types -----
@@ -64,7 +64,7 @@ export const attachTag = async (
 ): Promise<Result<{ readonly id: string }>> => {
   const tag = await reg.prisma.tag.findUnique({ where: { id: tagId } });
   if (!tag) return err(new Error('Tag not found'));
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
 
   const attachment = await reg.prisma.tagAttachment.upsert({

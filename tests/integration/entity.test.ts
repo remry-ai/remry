@@ -81,3 +81,48 @@ describe('duplicate names', () => {
     expect(remry('group.create', '--kind', 'DEPARTMENT', '--name', 'Duplicate Platform').ok).toBe(true);
   });
 });
+
+describe('deleting what is attached to attachments', () => {
+  const list = (procedure: string, entityType: string, entityId: string): unknown[] =>
+    (remry(procedure, '--entityType', entityType, '--entityId', entityId).value as unknown as unknown[]) ?? [];
+
+  it('removes comments, todos and tags hanging off an entity\'s notes, at any depth', () => {
+    const person = created('person.create', '--name', 'Deep cleanup person');
+    const note = created('note.add', '--entityType', 'PERSON', '--entityId', person, '--content', 'A note');
+    const comment = created('comment.add', '--entityType', 'NOTE', '--entityId', note, '--content', 'On the note');
+    const todo = created('todo.create', '--title', 'On the comment', '--entityType', 'COMMENT', '--entityId', comment);
+    const tag = created('tag.create', '--name', 'deep-cleanup');
+    expect(remry('tag.attach', '--tagId', tag, '--entityType', 'TODO', '--entityId', todo).ok).toBe(true);
+
+    expect(remry('entity.delete', '--entityType', 'PERSON', '--id', person).ok).toBe(true);
+    expect(list('comment.list', 'NOTE', note)).toEqual([]);
+    expect(list('todo.forEntity', 'COMMENT', comment)).toEqual([]);
+    expect(list('tag.forEntity', 'TODO', todo)).toEqual([]);
+  });
+
+  it('removes a note\'s replies and what hangs off them with the note', () => {
+    const note = created('note.add', '--entityType', 'PERSON', '--entityId', 'person_carol', '--content', 'Thread');
+    const reply = created('note.add', '--entityType', 'PERSON', '--entityId', 'person_carol', '--content', 'Reply', '--parentId', note);
+    const comment = created('comment.add', '--entityType', 'NOTE', '--entityId', reply, '--content', 'On the reply');
+
+    expect(remry('entity.delete', '--entityType', 'NOTE', '--id', note).ok).toBe(true);
+    expect(list('comment.list', 'NOTE', reply)).toEqual([]);
+    expect(remry('comment.remove', '--id', comment).error?.message).toContain('not found');
+  });
+});
+
+describe('attaching to something that does not exist', () => {
+  it('is refused, naming the id', () => {
+    const r = remry('note.add', '--entityType', 'PERSON', '--entityId', 'no-such-person', '--content', 'Lost');
+    expect(r.ok).toBe(false);
+    expect(r.error?.message).toContain('PERSON no-such-person not found');
+    expect(remry('todo.create', '--title', 'Lost', '--entityType', 'NOTE', '--entityId', 'no-such-note').ok).toBe(false);
+  });
+
+  it('refuses a reply to a note on another entity', () => {
+    const note = created('note.add', '--entityType', 'PERSON', '--entityId', 'person_alice', '--content', 'Alice note');
+    const r = remry('note.add', '--entityType', 'PERSON', '--entityId', 'person_bob', '--content', 'Reply', '--parentId', note);
+    expect(r.ok).toBe(false);
+    expect(r.error?.message).toContain("isn't a note on this person");
+  });
+});

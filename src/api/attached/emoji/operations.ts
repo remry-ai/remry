@@ -1,6 +1,6 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureAttachable } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
 
 // ----- Types -----
@@ -32,7 +32,7 @@ export const toggleEmoji = async (
   entityId: string,
   emoji: string
 ): Promise<Result<{ readonly added: boolean }>> => {
-  const writable = await ensureWritable(reg, entityType, entityId);
+  const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
   const existing = await reg.prisma.emoji.findUnique({
     where: { entityType_entityId_emoji: { entityType, entityId, emoji } }
