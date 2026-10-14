@@ -20,6 +20,8 @@ export const createTestRegistry = (overrides: Partial<Registry> = {}): Registry 
     readObject: vi.fn().mockResolvedValue(null),
     deleteObject: vi.fn().mockResolvedValue(undefined),
     deleteFolder: vi.fn().mockResolvedValue(undefined),
+    listFolder: vi.fn().mockResolvedValue([]),
+    moveObject: vi.fn().mockResolvedValue(undefined),
     pathFor: vi.fn((key: string) => `/files/${key}`)
   },
   ...overrides

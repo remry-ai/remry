@@ -17,7 +17,7 @@ export const pdfJobKey = (notebookId: string, docId: string): string => `${noteb
  * warning, not an error: the PDF is still attached.
  */
 export const convertDocPdf = async (
-  reg: Pick<Registry, 'prisma' | 'storage'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   converter: PdfConverter | undefined,
   notebookId: string,
   id: string

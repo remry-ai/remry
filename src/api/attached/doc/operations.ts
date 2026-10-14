@@ -6,7 +6,7 @@ import { fileUrl } from '$shared/utils/files';
 import { acceptsDocs, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { EDITOR_IMAGE_TYPES, refuseBlobUrls, storeEditorImage, type EditorImageType } from '$api/_images';
+import { EDITOR_IMAGE_TYPES, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
 
 // ----- Types -----
@@ -92,7 +92,7 @@ export const addDoc = async (
 };
 
 export const updateDoc = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string,
   input: { readonly title?: string; readonly content?: string; readonly sourceUrl?: string | null }
 ): Promise<Result<{ readonly id: string }>> => {
@@ -113,7 +113,10 @@ export const updateDoc = async (
       ...(input.sourceUrl !== undefined && { sourceUrl: input.sourceUrl })
     }
   });
-  if (input.content !== undefined) await syncMentions(reg, { entityType: 'DOC', entityId: id }, input.content);
+  if (input.content !== undefined) {
+    await syncMentions(reg, { entityType: 'DOC', entityId: id }, input.content);
+    await tidyEditorImages(reg, `docs/${id}`, input.content);
+  }
   return ok({ id });
 };
 

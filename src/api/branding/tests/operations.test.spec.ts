@@ -66,7 +66,7 @@ describe('updateBranding', () => {
     const deleteObject = vi.fn().mockResolvedValue(undefined);
     const reg = createTestRegistry({
       prisma: { ...prisma, $transaction: withTransaction(prisma) } as unknown as Registry['prisma'],
-      storage: { putObject: vi.fn(), readObject: vi.fn(), deleteObject, deleteFolder: vi.fn(), pathFor: vi.fn() }
+      storage: { putObject: vi.fn(), readObject: vi.fn(), deleteObject, deleteFolder: vi.fn(), listFolder: vi.fn(), moveObject: vi.fn(), pathFor: vi.fn() }
     });
 
     await updateBranding(reg, 'brand_1', { iconUrl: 'branding/brand_1/icon-new.png' });
@@ -121,7 +121,7 @@ describe('uploadImage', () => {
     const putObject = vi.fn().mockResolvedValue(undefined);
     const reg = createTestRegistry({
       prisma: { branding: { findUnique: vi.fn().mockResolvedValue({ id: 'brand_1' }) } } as unknown as Registry['prisma'],
-      storage: { putObject, readObject: vi.fn(), deleteObject: vi.fn(), deleteFolder: vi.fn(), pathFor: vi.fn() },
+      storage: { putObject, readObject: vi.fn(), deleteObject: vi.fn(), deleteFolder: vi.fn(), listFolder: vi.fn(), moveObject: vi.fn(), pathFor: vi.fn() },
       uuid: () => 'u1'
     });
 

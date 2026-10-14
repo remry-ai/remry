@@ -2,12 +2,17 @@
 // Keys are relative paths (e.g. `docs/<id>/source-<uuid>.pdf`); any key that
 // resolves outside the files root is rejected.
 
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { dirname, extname, resolve, sep } from 'node:path';
 
 export interface StoredObject {
   readonly bytes: Uint8Array;
   readonly contentType: string;
+}
+
+export interface StoredFile {
+  readonly name: string;
+  readonly modifiedAt: Date;
 }
 
 export interface StorageClient {
@@ -16,6 +21,10 @@ export interface StorageClient {
   readonly deleteObject: (key: string) => Promise<void>;
   /** Deletes a folder of keys (`docs/<id>`) and everything in it. Never the files root itself. */
   readonly deleteFolder: (prefix: string) => Promise<void>;
+  /** The files directly in a folder (not its subfolders), or none if it doesn't exist. */
+  readonly listFolder: (prefix: string) => Promise<readonly StoredFile[]>;
+  /** Moves a file to another key, marking it modified now. Does nothing if it's missing. */
+  readonly moveObject: (from: string, to: string) => Promise<void>;
   /** Absolute path of `key` on disk, or null for a key outside the files root. */
   readonly pathFor: (key: string) => string | null;
 }
@@ -69,6 +78,36 @@ export const createStorageClient = (root: string): StorageClient => ({
     const path = resolveKey(root, prefix);
     if (!path) return;
     await rm(path, { recursive: true, force: true });
+  },
+
+  listFolder: async (prefix: string): Promise<readonly StoredFile[]> => {
+    const path = resolveKey(root, prefix);
+    if (!path) return [];
+    try {
+      const entries = await readdir(path, { withFileTypes: true });
+      return await Promise.all(
+        entries
+          .filter((entry) => entry.isFile())
+          .map(async (entry) => ({ name: entry.name, modifiedAt: (await stat(resolve(path, entry.name))).mtime }))
+      );
+    } catch {
+      return [];
+    }
+  },
+
+  moveObject: async (from: string, to: string): Promise<void> => {
+    const source = resolveKey(root, from);
+    const target = resolveKey(root, to);
+    if (!source || !target) throw new Error(`Invalid storage key: ${source ? to : from}`);
+    await mkdir(dirname(target), { recursive: true });
+    try {
+      await rename(source, target);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ENOENT') return;
+      throw error;
+    }
+    const now = new Date();
+    await utimes(target, now, now);
   },
 
   pathFor: (key: string): string | null => resolveKey(root, key)

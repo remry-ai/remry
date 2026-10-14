@@ -19,7 +19,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
-import { refuseBlobUrls, storeEditorImage, type EditorImageType } from '$api/_images';
+import { refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType } from '$api/_images';
 import { getPageKind } from '$api/page-kind/operations';
 import {
   filterRows,
@@ -231,7 +231,7 @@ export interface UpdatePageInput {
 }
 
 export const updatePage = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string,
   input: UpdatePageInput
 ): Promise<Result<{ readonly id: string }>> => {
@@ -279,8 +279,11 @@ export const updatePage = async (
       ...(properties !== undefined && { properties })
     }
   });
-  // A sheet links nothing, so switching to one clears the page's mentions.
-  if (content !== undefined) await syncMentions(reg, { entityType: 'PAGE', entityId: id }, bodyType === 'doc' ? content : '');
+  // A sheet links nothing and shows no images, so switching to one clears the page's mentions.
+  if (content !== undefined) {
+    await syncMentions(reg, { entityType: 'PAGE', entityId: id }, bodyType === 'doc' ? content : '');
+    await tidyEditorImages(reg, `pages/${id}`, bodyType === 'doc' ? content : '');
+  }
   return ok({ id });
 };
 

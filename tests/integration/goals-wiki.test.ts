@@ -228,3 +228,30 @@ describe('deleting a doc or page with images', () => {
     expect(await reg.storage.readObject(image.value.key)).toBeNull();
   });
 });
+
+describe('images taken out of a page\'s text', () => {
+  const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+
+  it('move aside on save, and come back when the text shows them again', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const page = await createPage(reg, { title: 'Page whose image is removed' });
+    if (!page.ok) throw page.error;
+    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    if (!upload.ok) throw upload.error;
+    const name = upload.value.key.split('/').pop()!;
+    const removedKey = `pages/${page.value.id}/removed/${name}`;
+    const withImage = `Before\n\n![shot](storage://${upload.value.key})`;
+
+    expect((await updatePage(reg, page.value.id, { content: withImage })).ok).toBe(true);
+    expect(await reg.storage.readObject(upload.value.key)).not.toBeNull();
+
+    expect((await updatePage(reg, page.value.id, { content: 'Before' })).ok).toBe(true);
+    expect(await reg.storage.readObject(upload.value.key)).toBeNull();
+    expect(await reg.storage.readObject(removedKey)).not.toBeNull();
+
+    // An undo in the editor saves the image back, as the files route's path.
+    expect((await updatePage(reg, page.value.id, { content: `Before\n\n![shot](/files/${upload.value.key})` })).ok).toBe(true);
+    expect(await reg.storage.readObject(upload.value.key)).not.toBeNull();
+    expect(await reg.storage.readObject(removedKey)).toBeNull();
+  });
+});
