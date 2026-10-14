@@ -198,7 +198,7 @@ can see them. Remry holds yours, privately, and can link back to them.
 [all releases](https://github.com/remry-ai/remry/releases)
 
 Open it once, then connect Claude: [docs/INSTALL.md](docs/INSTALL.md) has the steps, and how to get
-past the first-open warning while the installers aren't code-signed.
+past Windows' first-open warning while its installer isn't code-signed.
 
 - **[docs/INSTALL.md](docs/INSTALL.md)** — install the desktop app for Mac or Windows, which brings
   everything it needs and keeps itself up to date, then connect Claude Code, Cowork or Claude desktop.

@@ -138,9 +138,9 @@ since the last release without a new version.
   commit the public key it writes into `desktop/src-tauri/tauri.conf.json`, and set the private key
   as the `TAURI_SIGNING_PRIVATE_KEY` secret from the file it prints, with `gh secret set`. Builds then make signed updates, and the release publishes `latest.json`, which installed
   apps check when they open. Without the secret, installed apps keep their version.
-- **Signing:** the macOS app is signed with a Developer ID and notarized once the `APPLE_*` secrets
-  below are set; until then it's signed ad hoc and macOS warns on first open (see INSTALL.md).
-  Windows isn't code-signed, so SmartScreen warns.
+- **Signing:** the macOS app is signed with a Developer ID and notarized, with the `APPLE_*` secrets
+  below; without them (a fork, say) it's signed ad hoc and macOS warns on first open. Windows isn't
+  code-signed, so SmartScreen warns (see INSTALL.md).
 
 ### Signing the macOS app
 
@@ -167,8 +167,7 @@ You need an Apple Developer Program membership. Then, once:
    ```
 
 The next build signs with the identity, notarizes and staples the app, and checks it passes
-Gatekeeper. Run `desktop.yml` by hand from the Actions tab to try it before a release. Once a
-signed release is out, drop the Mac step from INSTALL.md.
+Gatekeeper. Run `desktop.yml` by hand from the Actions tab to try it before a release.
 - **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
   `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates
   GitHub release `v<version>` with the installers, the signed updates, `latest.json` and the
