@@ -408,6 +408,9 @@ fn main() {
                 .title("Remry")
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(800.0, 560.0)
+                // Files dragged in from Finder go to the page, as in a browser, so an image
+                // dropped on the doc editor uploads. Tauri's own handler would take them.
+                .disable_drag_drop_handler()
                 .on_navigation(move |url| {
                     if is_app_url(url) {
                         return true;
