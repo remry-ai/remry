@@ -81,14 +81,16 @@ jobs:
         env:
           # The key has no password (scripts/desktop-updater-key.ts).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # Tauri imports the certificate into a temporary keychain, signs with the identity,
-          # and notarizes and staples the app with the App Store Connect API key.
-          APPLE_CERTIFICATE: ${{ matrix.target == 'darwin-arm64' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          # Under other names: Tauri signs with a Developer ID whenever APPLE_CERTIFICATE is in its
+          # environment, even empty, so the script exports the APPLE_* names only for a macOS build
+          # with the certificate. Tauri imports it into a temporary keychain, signs with the
+          # identity, and notarizes and staples the app with the App Store Connect API key.
+          MAC_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          MAC_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          MAC_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          MAC_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          MAC_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
         run: |
           bundle='{}'
           # A signed update for the updater, only when there's a key to sign it with.
@@ -99,13 +101,16 @@ jobs:
           fi
           # The Developer ID identity replaces tauri.conf.json's ad hoc "-"; notarizing needs the
           # API key as a file. Without the certificate, the app is signed ad hoc.
-          if [ -n "$APPLE_CERTIFICATE" ]; then
-            if [ -z "$APPLE_SIGNING_IDENTITY" ] || [ -z "$APPLE_API_ISSUER" ] || [ -z "$APPLE_API_KEY" ] || [ -z "$APPLE_API_PRIVATE_KEY" ]; then
-              echo "APPLE_CERTIFICATE is set, but APPLE_SIGNING_IDENTITY, APPLE_API_ISSUER, APPLE_API_KEY or APPLE_API_PRIVATE_KEY isn't."; exit 1
+          if [ "${{ matrix.target }}" = darwin-arm64 ] && [ -n "$MAC_CERTIFICATE" ]; then
+            if [ -z "$MAC_SIGNING_IDENTITY" ] || [ -z "$MAC_API_ISSUER" ] || [ -z "$MAC_API_KEY" ] || [ -z "$MAC_API_PRIVATE_KEY" ]; then
+              echo "The APPLE_CERTIFICATE secret is set, but APPLE_SIGNING_IDENTITY, APPLE_API_ISSUER, APPLE_API_KEY or APPLE_API_PRIVATE_KEY isn't."; exit 1
             fi
-            export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
-            printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$APPLE_API_KEY_PATH"
+            export APPLE_CERTIFICATE="$MAC_CERTIFICATE" APPLE_CERTIFICATE_PASSWORD="$MAC_CERTIFICATE_PASSWORD"
+            export APPLE_SIGNING_IDENTITY="$MAC_SIGNING_IDENTITY" APPLE_API_ISSUER="$MAC_API_ISSUER" APPLE_API_KEY="$MAC_API_KEY"
+            export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey_$MAC_API_KEY.p8"
+            printf '%s\n' "$MAC_API_PRIVATE_KEY" > "$APPLE_API_KEY_PATH"
             bundle=$(BUNDLE="$bundle" bun -e 'const b = JSON.parse(process.env.BUNDLE); b.macOS = { signingIdentity: process.env.APPLE_SIGNING_IDENTITY }; console.log(JSON.stringify(b))')
+            echo "Signing the macOS app with the Developer ID, and notarizing it."
           elif [ "${{ matrix.target }}" = darwin-arm64 ]; then
             echo "No APPLE_CERTIFICATE secret: signing the macOS app ad hoc, without notarizing it."
           fi
@@ -116,7 +121,7 @@ jobs:
       - name: Check the macOS app
         if: matrix.target == 'darwin-arm64'
         env:
-          SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          MAC_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         run: |
           app=desktop/src-tauri/target/release/bundle/macos/Remry.app
           ls -la "$app/Contents/MacOS"
@@ -132,7 +137,7 @@ jobs:
             echo "Contents/MacOS/remry lacks Entitlements.plist; under the hardened runtime it can't load libsql"; exit 1
           fi
           # A Developer ID build must also pass Gatekeeper, with the notarization ticket stapled.
-          if [ "$SIGNED" = true ]; then
+          if [ -n "$MAC_CERTIFICATE" ]; then
             spctl --assess --type execute --verbose=2 "$app"
             xcrun stapler validate "$app"
           fi
