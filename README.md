@@ -6,57 +6,50 @@
 
 A local, structured notebook that your AI assistant writes to over MCP. Works with Claude today.
 
-Remry remembers what you would otherwise carry in your head: who reports to whom, which team
-owns which project, where a goal stands this month, why you chose that vendor, what you promised to
-follow up on. It keeps them exactly as you said them, for as long as you need them.
-
-You put things in by telling Claude. Claude looks them up when you ask, and you read them in an app
+Remry remembers what you would otherwise carry in your head: who reports to whom, which team owns
+which project, where a goal stands this month, why you chose that vendor, what you promised to
+follow up on. You tell Claude; Claude files it and looks it up when you ask; you read it in an app
 on your own Mac.
+
+> **Get it:** [Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg) ·
+> [Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe),
+> then connect Claude with [docs/INSTALL.md](docs/INSTALL.md).
+> Remry is free; [Remry Pro](#remry-pro) adds full-text search, branding and PDF export for $50 CAD a year.
 
 ![A tour: telling Claude about a new hire, a note and a todo on a person and on a project, the projects timeline and side peek, a goal check-in, a wiki page, and a doc with coloured charts](docs/images/demo.gif)
 
 ## What you can use it for
 
-- **Running a team.** Who reports to whom, who sits on which team, what you agreed in the last 1:1,
-  who is ready for more.
-- **Keeping track of the work.** Projects, who owns them, where each one stands, when it is due,
-  what blocks what, and what you said you would do next.
-- **Goals with real numbers.** A target, a figure each month, and a chart of how it actually went.
-- **Remembering decisions.** Why you bought that tool, what it costs, when it renews, which policy
-  applies.
-- **Home life.** Family and friends, birthdays, how you know someone, and the things a household
-  keeps track of, from expenses to recipes.
-- **Writing it up.** A quarter in review, a career plan, a summary for your boss — built from what
-  is already there.
+- **Running a team.** Reporting lines, who sits on which team, what you agreed in the last 1:1.
+- **Tracking the work.** Projects, owners, status, due dates, what blocks what, and your next steps.
+- **Goals with real numbers.** A target, a figure each month, and a chart of how it went.
+- **Remembering decisions.** Why you bought that tool, what it costs, when it renews.
+- **Home life.** Family and friends, birthdays, and household records from expenses to recipes.
+- **Writing it up.** A quarter in review or a summary for your boss, built from what is already there.
 
 ## How it works
 
 **You talk, Claude files.** Say "Dana moved from Platform to Payments" and Claude makes the change.
 There is no form to fill in, and the app does not need to be open.
 
-**It does not forget.** What you tell it is stored, not summarised into a memory that fades or
-blurs. A note from March reads the same in September, and Claude looks it up rather than trying to
-recall it.
+**It does not forget.** What you tell it is stored as you said it, not summarised into a memory
+that fades. Claude looks it up instead of trying to recall it.
 
-**It keeps the shape of things.** A person has a manager. A project has an owner. A goal has
-check-ins with dates and values. That is what lets you ask "what do I know about Dana?" or "what
-depends on the payments API?" and get an answer instead of a search result — the same answer
-each time.
+**It keeps the shape of things.** A person has a manager, a project has an owner, a goal has dated
+check-ins. So "what depends on the payments API?" gets the same answer every time, not a search
+result.
 
-**Nothing leaves your computer.** No accounts, no keys, no sync, nothing about you or your notes
-sent anywhere. The app itself never calls a language model — Claude works on it from outside. That
-matters when the notes are about people. The one request it makes is the desktop app asking GitHub
-whether there's a newer version.
+**Nothing leaves your computer.** No accounts, no keys, no sync. The app never calls a language
+model; Claude works on it from outside. The only request it makes is the desktop app asking GitHub
+for updates.
 
-**It sits beside your other tools.** Linear, Notion and the rest hold the team's version of things;
-Remry holds yours.
-Ask Claude to bring a project or page in and it copies only the parts that matter to you, links back
-to the source, and updates the same entry next time instead of making a second one. Your own notes
-and opinions stay yours.
+**It sits beside your other tools.** Linear and Notion hold the team's version of things; Remry
+holds yours. Ask Claude to bring a project in and it copies what matters to you, links back to the
+source, and updates the same entry next time.
 
-**Work and side projects stay apart.** Each notebook is separate, and nothing links across them.
-A work notebook knows about titles, leads, teams, departments and goals; a home notebook knows about
-birthdays, family and friends, and who is whose partner, parent or sibling.
+**Notebooks stay apart.** Work and home are separate notebooks, and nothing links across them. A
+work notebook knows titles, leads, teams and goals; a home notebook knows birthdays and who is whose
+partner, parent or sibling.
 
 ## What using it looks like
 
@@ -64,45 +57,33 @@ birthdays, family and friends, and who is whose partner, parent or sibling.
 
 > **You:** Dana Park joined as a senior engineer, on Platform, reporting to Alice.
 
-Claude adds Dana, sets the reporting line, and puts her on the team.
+Claude adds Dana, sets the reporting line and puts her on the team. You can also edit the org map
+by hand, which is quicker for redrawing a reorganisation.
 
 ![The org map: reporting lines with team chips, and buttons to add a person, team or department](docs/images/org-map.png)
-
-You can edit the org map by hand as well. Redrawing a reorganisation is the one job that is quicker
-that way.
 
 ### After a 1:1
 
 > **You:** Note that Dana wants to lead the migration — she'd change the on-call rotation first.
 > Remind me to book a 1:1.
 
-The note goes on Dana's page in your words, with the date. The reminder becomes a todo.
+The note goes on Dana's page in your words, with the date, and the reminder becomes a todo. Months
+later, "what do I know about Dana?" brings back her notes, todos, docs and goals.
 
 ![Dana's page: lead, department and team, an open todo in the sidebar, notes in the right panel](docs/images/person.png)
 
-Ask "what do I know about Dana?" months later and Claude reads back her notes, todos, docs and
-goals.
-
-### A project at a glance
+### Projects and goals
 
 > **You:** The search rewrite is blocked on the new index — push its target to March.
 
-Every project has one of six statuses — proposed, committed, in progress, blocked, done or
-abandoned — each with its own colour. The projects list draws every project's start-to-target bar on
-one shared timeline, late stretches in red against a line for today, beside a bar for its estimated
-size, with parent projects before their sub-projects. Peek at a row and its summary opens in the
-right-hand panel — status, owner, dates, goals, sub-projects, open todos and docs — without leaving
-the list. Drag the panel's edge to make it wider.
+Each project has a status (proposed, committed, in progress, blocked, done or abandoned). The
+projects list draws every project on one timeline, with late stretches in red, and a peek shows a
+project's summary in the side panel without leaving the list.
 
-### A goal you check in on
+> **You:** Platform's H2 goal is p95 latency under 200ms, from 480. We're at 310 now.
 
-> **You:** Platform's H2 goal is p95 latency under 200ms, from 480. We're at 310 now — read replicas
-> took another 80ms off.
-
-Each check-in adds to a timeline instead of overwriting a number, so the chart is the history.
-The period is read as dates: `2026-H2` is July to December, so the page shows how much of it has
-gone by, the chart draws the pace you would need, and a goal that trails it is flagged "Behind
-pace". The flag is a hint; it never changes the goal's status.
+Each check-in adds to the goal's history instead of overwriting a number. `2026-H2` means July to
+December, so the chart shows the pace you need, and a goal that trails it is flagged "Behind pace".
 
 ![The goal page: a progress bar, a line chart of check-ins against the target, and the check-in history](docs/images/goal.png)
 
@@ -111,145 +92,99 @@ pace". The flag is a hint; it never changes the goal's status.
 > **You:** We pay Datadog $40k a year for 40 seats; it renews in March. Platform uses it for
 > alerting.
 
-Pages are plain markdown to start with. When you keep several of the same sort, give them a kind
-of your own: a software kind with a vendor, a cost and a renewal date, say. Remry turns away
-anything else, so pages of the same kind stay comparable and work as a table.
+Pages are markdown. Give pages of the same sort a kind of your own (software, with a vendor, a cost
+and a renewal date) and they work as a filterable table. Anything can link to anything, and
+mentioning a project in a page adds a "Mentioned in" link to the project.
 
 ![The Datadog page: vendor fields, notes, and a sidebar showing what relates to it and what mentions it](docs/images/wiki-page.png)
-
-Anything can link to anything — related, or one depends on the other — todos included. Mention a
-project inside a page and the project gains a "Mentioned in" entry by itself.
 
 ### Writing it up
 
 > **You:** Write up Platform's quarter as a doc — delivery and reliability, with charts.
 
-Docs are markdown, and a doc can hold charts drawn from figures you give Claude. Each series in a
-chart can have a colour of its own; the rest take shades of your branding's colour.
+Docs are markdown with charts drawn from figures you give Claude, in your branding's colours. Paste
+or drop images into a doc or wiki page, and export either to PDF.
 
 ![A doc on the Platform team: prose and a bar chart of committed against delivered story points](docs/images/doc-charts.png)
 
-Paste or drop an image into a doc and it is stored with the notebook. Any doc or wiki page exports
-to PDF, with your branding's letterhead or without.
-
 ## The app
 
-The app is mostly for reading, usually in a browser pane beside Claude. You can install it on your
-Mac so that it gets a Dock icon and a window of its own — see
-[docs/INSTALL.md](docs/INSTALL.md#install-it-as-a-mac-app).
-
-The home screen shows your open todos, what changed lately, and a graph with one thing in the
-middle and everything linked to it around it; click a neighbour to move there. The org map shows
-reporting lines, or switch it to **Work** for each owner's projects and goals and the arrows between
-them. Mark one person as yourself and People shows how everyone relates to you; in a home notebook it
-opens on a graph with you in the middle. The projects page has a **Map** view that lays projects out
-by what depends on what, with the goals they deliver. Everything else gets a page of its own, with
-its docs down the middle, its todos, related things and links in the sidebar and its notes on the
-right. A link to Linear, Notion, GitHub or another tool shows the tool's mark, and when Claude last
-synced the page from it.
+The app is mostly for reading, in a browser pane beside Claude or as a desktop app. The home screen
+shows open todos, recent changes, and a graph of everything linked to one thing. The org map shows
+reporting lines, or each owner's projects and goals. Every person, project, goal and page has its
+own page: docs in the middle, todos and related things in the sidebar, notes on the right.
 
 ![The home dashboard: open todos, a feed of recent changes, and a graph of what links to one thing](docs/images/home.png)
 
-Press ⌘K to find people, groups, projects, goals and wiki pages by name; when nothing matches, press Enter to search titles. With Remry Pro, `/search budget review` (or `/s`, with Tab to complete) searches the full text of notes, docs and todos, and `/ask who owns billing?` asks your local Claude a question about the notebook and answers with links.
+Press ⌘K to find anything by name. With Remry Pro, `/search budget review` searches the full text,
+and `/ask who owns billing?` asks your local Claude and answers with links. The side panel's
+**Chat** tab asks Claude about the page you are on.
 
-The right-hand panel holds a page's **Notes**, a **Peek** at a project or wiki page opened from its
-list, and a **Chat** tab. Chat is for asking about what is on screen. It runs your own copy of
-Claude, and keeps each page's conversation in the notebook until you clear it or delete the page.
-
-Nothing is lost by accident. Archiving keeps a thing and its history but takes it out of every list.
-Deleting takes its notes and todos with it, so Claude offers to archive first.
+Archiving takes a thing out of every list but keeps it and its history. Deleting removes everything
+attached to it, so Claude offers to archive first.
 
 ## Backups
 
-Remry copies each notebook every hour, but only when something changed. Restoring saves your
-current data first, so you can undo it.
-
-```bash
-remry backup install
-```
-
-Copies stay on this disk, so they will not save you from losing the disk. Time Machine will, and it
-covers them for you.
+Remry copies each notebook every hour when something changed, and restoring saves your current
+data first, so you can undo it. `remry backup install` keeps the copies running while nothing else
+is open. Copies stay on this disk; Time Machine covers them against losing the disk.
 
 ## How is this different from…
 
-**…your assistant's own memory?** It decides for itself what to keep, and summarises it. Remry
-keeps exactly what you said, where you can see it, and your assistant looks it up instead of
-recalling it.
+**…your assistant's own memory?** It decides what to keep and summarises it. Remry keeps exactly
+what you said, where you can see it.
 
-**…a memory server, like the reference knowledge-graph server or Basic Memory?** Those store free
-text and links: anything can be anything. Remry knows what a person, a team, a project and
-a goal are. A goal has a period and dated check-ins, a todo has a status and a due date, and it
-turns away input that doesn't fit. That is what lets it answer "which goals are behind pace?"
-instead of searching for the word "goal". It also comes with an app to read it in.
+**…a memory server, like Basic Memory?** Those store free text and links. Remry knows what a
+person, project and goal are, and turns away input that doesn't fit. That is why it can answer
+"which goals are behind pace?" instead of searching for the word "goal". It also has an app to read
+it in.
 
-**…Obsidian, Notion or Apple Notes, with an assistant connected?** Those are pages you organise
-yourself. Here you don't organise anything: you say what happened, and it is filed in the right
-place.
+**…Obsidian, Notion or Apple Notes with an assistant connected?** There you organise the pages.
+Here you say what happened, and it is filed in the right place.
 
-**…Linear, Notion or Lattice for the team?** Those hold the team's version of things, and others
-can see them. Remry holds yours, privately, and can link back to them.
+**…Linear, Notion or Lattice?** Those hold the team's shared version. Remry holds yours, privately,
+and links back to them.
 
 ## Getting started
 
-**Download the desktop app:**
-[Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg) ·
-[Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe) ·
-[all releases](https://github.com/remry-ai/remry/releases)
+Download the desktop app for [Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg)
+or [Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe)
+([all releases](https://github.com/remry-ai/remry/releases)). It brings everything it needs and
+updates itself.
 
-Open it once, then connect Claude: [docs/INSTALL.md](docs/INSTALL.md) has the steps, and how to get
-past Windows' first-open warning while its installer isn't code-signed.
-
-- **[docs/INSTALL.md](docs/INSTALL.md)** — install the desktop app for Mac or Windows, which brings
-  everything it needs and keeps itself up to date, then connect Claude Code, Cowork or Claude desktop.
-- **[docs/CLI.md](docs/CLI.md)** — the `remry` command and the tools Claude uses, for when you want
-  to drive it yourself.
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — running from a clone, and how releases work.
+- **[docs/INSTALL.md](docs/INSTALL.md)**: install the app, then connect Claude Code, Cowork or
+  Claude desktop.
+- **[docs/CLI.md](docs/CLI.md)**: the `remry` command and the tools Claude uses.
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**: running from a clone, and how releases work.
 
 ## Remry Pro
 
-Remry is free. **Remry Pro** is a yearly license that adds three things:
+Remry is free. **Remry Pro** is a yearly license that adds:
 
-- **Full-text search:** find anything by what it says, across notes, docs, wiki pages, todos and
-  comments, and ask Claude "what do I know about X".
+- **Full-text search** across notes, docs, wiki pages, todos and comments, and "what do I know
+  about X" from Claude.
 - **Branding:** your organisation's colours and icon, in the app and on what you print.
-- **PDF export:** docs and wiki pages, printed to PDF.
+- **PDF export** of docs and wiki pages.
 
-It costs **$50 CAD a year** ($40 USD), and renews each year until you cancel.
-
+It costs **$50 CAD a year** ($40 USD) and renews until you cancel.
 **[Buy Remry Pro →](https://buy.stripe.com/bJefZg54rbNLa0H1sb0Jq01)**
 
-Checkout is run by Stripe, which handles the payment, sales tax and receipts. After paying you
-land on a page that shows your license key, and the same key is emailed to you. Each renewal
-emails a new key.
+Stripe runs the checkout, sales tax and receipts. Your license key is shown after you pay and
+emailed to you; each renewal emails a new one. To activate it, choose **License** from the notebook
+menu (the chevron beside the notebook name) and paste the key, or ask Claude to.
 
-**To activate it**, open Remry, choose **License** from the notebook menu (the chevron beside the
-notebook name), and paste the key. Or ask Claude to activate it: it runs `license.activate`.
-
-### Questions
-
-- **What happens when a license expires?** Search, branding and PDF export lock, and nothing
-  else changes. No data is lost: your brandings, docs and notes stay where they are, and it all
-  comes back when you add a renewed key.
-- **Does Remry check in with a server?** No. The key is checked on your computer, offline. The only
-  request Remry makes is the desktop app asking GitHub for the latest version, which sends nothing
-  about you, your license or your notebooks.
-- **Refunds?** Ask within 30 days for a full refund.
-  The refunded key stops working with the next Remry update.
-- **Lost your key?** Ask through the [contact form](https://jweatherby.dev/contact) with the
-  email address you bought it with, and we'll send it again.
+- **When a license expires,** search, branding and PDF export lock. Nothing else changes and no
+  data is lost; a renewed key brings it all back.
+- **The key is checked offline,** on your computer. Remry never contacts a license server.
+- **Refunds:** ask within 30 days. The refunded key stops working with the next update.
+- **Lost your key?** Use the [contact form](https://jweatherby.dev/contact) with the email you
+  bought it with.
 
 ## Status
 
-Remry is one person's tool, built in the open. Expect it to change.
+Remry is one person's tool, built in the open. Expect it to change. Reports (branded write-ups) are
+built but switched off while unfinished; use docs instead.
 
-Reports — branded write-ups printed to PDF — are built but switched off while they are unfinished.
-Write-ups go in docs instead.
-
-Branding, PDF export and full-text search are part of [Remry Pro](#remry-pro), a yearly license
-that the app checks on your computer without contacting anything. Everything else is free.
-
-The desktop app is built for Apple silicon Macs and for Windows (x64). Its installers aren't
-code-signed yet, so macOS and Windows ask before opening it the first time; see
-[docs/INSTALL.md](docs/INSTALL.md). It checks GitHub for updates when it opens, which is the only
-request Remry makes.
+The desktop app runs on Apple silicon Macs and Windows (x64). The Windows installer isn't
+code-signed yet, so Windows asks before opening it the first time; see
+[docs/INSTALL.md](docs/INSTALL.md).
