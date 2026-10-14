@@ -16,6 +16,9 @@
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import { formatPropertyValue, kindName } from '$lib/page/utils';
   import { wikiPrintUrl } from '$lib/doc/print-options';
+  import { fileToBase64 } from '$lib/common/use-doc-handlers';
+  import { fileUrl } from '$shared/utils/files';
+  import type { EditorImageType } from '$api/_images';
   import type { PageDetail, PageKindSummary, PageSummary } from '$shared/types/pages';
 
   const { data } = $props<{ data: PageData }>();
@@ -51,6 +54,17 @@
   const handleSaveContent = async (content: string) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, content }));
   };
+
+  // Images pasted or dropped into the content upload on save, into the page's files.
+  const handleUploadImage = async (file: File): Promise<string> => {
+    const dataBase64 = await fileToBase64(file);
+    const { key } = await submitOrThrow(() => trpc().page.uploadImage.mutate({ pageId: wikiPage.id, contentType: file.type as EditorImageType, dataBase64 }));
+    return key;
+  };
+
+  // Keys are served by the files route, so resolving them needs no request.
+  const handleResolveImages = async (keys: string[]): Promise<Record<string, string>> =>
+    Object.fromEntries(keys.map((key) => [key, fileUrl(key)]));
 
   const handleSaveTitle = async (title: string) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, title }));
@@ -176,6 +190,8 @@
         content={wikiPage.content}
         onSave={handleSaveContent}
         onSaveTitle={handleSaveTitle}
+        onUploadImage={handleUploadImage}
+        onResolveImages={handleResolveImages}
         onClose={handleCloseEditor}
         exportHref={wikiPrintUrl(wikiPage.id)}
       />

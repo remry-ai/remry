@@ -21,7 +21,7 @@ interface DocTrpc {
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-const fileToBase64 = async (file: File): Promise<string> => {
+export const fileToBase64 = async (file: File): Promise<string> => {
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = '';

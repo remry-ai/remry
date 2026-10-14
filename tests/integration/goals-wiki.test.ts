@@ -7,7 +7,7 @@ import { getRegistry } from '../../src/shared/registry.server';
 import { createDepartment, createTeam } from './org-helpers';
 import { createProject, getProject, listProjects, updateProject } from '../../src/api/project/operations';
 import { addCheckIn, addGoalProject, createGoal, getGoal, listGoals, updateGoal } from '../../src/api/goal/operations';
-import { createPage, deletePage, getPage, updatePage } from '../../src/api/page/operations';
+import { createPage, deletePage, getPage, updatePage, uploadPageImage } from '../../src/api/page/operations';
 import { addDoc, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { addNote, listNotes } from '../../src/api/attached/note/operations';
 import { addRelation, listRelationsForEntity } from '../../src/api/relation/operations';
@@ -171,5 +171,25 @@ describe('spreadsheet pages', () => {
     const converted = await getPage(reg, blank.value.id);
     expect(converted.ok && converted.value.bodyType).toBe('sheet');
     expect(converted.ok && JSON.parse(converted.value.content).columns).toHaveLength(5);
+  });
+});
+
+describe('images in a page', () => {
+  it('stores a pasted image in the page\'s files and refuses content still at a blob: address', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const page = await createPage(reg, { title: 'Page with a screenshot' });
+    if (!page.ok) throw page.error;
+
+    const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    if (!upload.ok) throw upload.error;
+    expect(upload.value.key).toMatch(new RegExp(`^pages/${page.value.id}/image-.+\\.png$`));
+    expect((await reg.storage.readObject(upload.value.key))?.contentType).toBe('image/png');
+
+    const saved = await updatePage(reg, page.value.id, { content: `![shot](storage://${upload.value.key})` });
+    expect(saved.ok).toBe(true);
+    const lost = await updatePage(reg, page.value.id, { content: '![shot](blob:http://127.0.0.1:7369/abc)' });
+    expect(!lost.ok && lost.error.message).toContain('blob:');
+    expect((await uploadPageImage(reg, 'no-such-page', 'image/png', png)).ok).toBe(false);
   });
 });

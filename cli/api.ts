@@ -24,7 +24,9 @@ export const APP_ONLY: ReadonlySet<string> = new Set([
   ...['person', 'group', 'project', 'goal', 'page'].flatMap((type) => [`${type}.archive`, `${type}.unarchive`, `${type}.delete`]),
   'todo.delete', 'doc.remove', 'note.remove', 'link.remove',
   // The app's own views: reactions and the home graph.
-  'emoji.list', 'emoji.toggle', 'home.graph'
+  'emoji.list', 'emoji.toggle', 'home.graph',
+  // The wiki editor uploads pasted images on save; Claude writes page content as text.
+  'page.uploadImage'
 ]);
 
 // report.* stays out while reports are switched off.

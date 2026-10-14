@@ -19,6 +19,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
+import { refuseBlobUrls, storeEditorImage, type EditorImageType } from '$api/_images';
 import { getPageKind } from '$api/page-kind/operations';
 import {
   filterRows,
@@ -62,6 +63,8 @@ export const mergePageProperties = (
  */
 export const prepareContent = (bodyType: PageBodyType, content: string): Result<string> => {
   if (bodyType === 'doc') {
+    const images = refuseBlobUrls(content);
+    if (!images.ok) return err(images.error);
     const charts = validateChartBlocks(content);
     return charts.ok ? ok(content) : err(charts.error);
   }
@@ -374,4 +377,21 @@ export const deletePage = async (
   ]);
   await removeFiles(reg, cleanup.files);
   return ok({ deleted: true as const });
+};
+
+/**
+ * Stores an image pasted or dropped into a page's content editor. Returns the storage
+ * key, which the editor writes into the content as `storage://<key>`.
+ */
+export const uploadPageImage = async (
+  reg: Pick<Registry, 'prisma' | 'storage' | 'uuid'>,
+  pageId: string,
+  contentType: EditorImageType,
+  dataBase64: string
+): Promise<Result<{ readonly key: string }>> => {
+  const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true } });
+  if (!existing) return err(new Error(`Page ${pageId} not found`));
+  const writable = await ensureWritable(reg, 'PAGE', pageId);
+  if (!writable.ok) return err(writable.error);
+  return ok(await storeEditorImage(reg, `pages/${pageId}`, contentType, dataBase64));
 };

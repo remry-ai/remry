@@ -131,8 +131,10 @@
   // Against what was last saved, not the `content` prop: a wiki page saves without reloading, so its prop never changes.
   const isDirty = $derived(draft !== saved);
 
+  // A pasted or dropped image shows from a blob: address, which lasts only as long as
+  // this tab. Each is uploaded on save and replaced by its storage key; one that can't
+  // be (no uploader, or a blob from another tab) stops the save rather than being lost.
   const uploadPendingImages = async (md: string): Promise<string> => {
-    if (!onUploadImage) return md;
     const blobRe = /blob:[^\s)]+/g;
     const blobUrls = [...new Set([...md.matchAll(blobRe)].map(m => m[0]))];
     if (!blobUrls.length) return md;
@@ -140,7 +142,11 @@
     let result = md;
     for (const blobUrl of blobUrls) {
       const file = pendingImages.get(blobUrl);
-      if (!file) continue;
+      if (!file || !onUploadImage) {
+        throw new Error(onUploadImage
+          ? "An image here can't be uploaded (it came from another tab). Remove it, paste or drop it again, then save."
+          : "Images can't be added here. Remove the image, then save.");
+      }
       const storageKey = await onUploadImage(file);
       result = result.replaceAll(blobUrl, `storage://${storageKey}`);
       pendingImages.delete(blobUrl);

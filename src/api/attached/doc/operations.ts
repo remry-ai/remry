@@ -6,6 +6,7 @@ import { fileUrl } from '$shared/utils/files';
 import { acceptsDocs, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
+import { EDITOR_IMAGE_TYPES, refuseBlobUrls, storeEditorImage, type EditorImageType } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
 
 // ----- Types -----
@@ -99,6 +100,10 @@ export const updateDoc = async (
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
+  if (input.content !== undefined) {
+    const images = refuseBlobUrls(input.content);
+    if (!images.ok) return err(images.error);
+  }
 
   await reg.prisma.doc.update({
     where: { id },
@@ -175,20 +180,9 @@ export const attachSourcePdf = async (
   return ok({ sourceUrl: key });
 };
 
-export const DOC_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const;
-export type DocImageType = (typeof DOC_IMAGE_TYPES)[number];
+export const DOC_IMAGE_TYPES = EDITOR_IMAGE_TYPES;
+export type DocImageType = EditorImageType;
 
-const IMAGE_EXTENSIONS: Readonly<Record<DocImageType, string>> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/gif': 'gif',
-  'image/webp': 'webp'
-};
-
-/**
- * Store an image pasted or dropped into a doc. Returns the storage key, which
- * the editor writes into the content as `storage://<key>`.
- */
 export const uploadDocImage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid'>,
   docId: string,
@@ -200,9 +194,7 @@ export const uploadDocImage = async (
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
 
-  const key = `docs/${docId}/image-${reg.uuid()}.${IMAGE_EXTENSIONS[contentType]}`;
-  await reg.storage.putObject(key, Buffer.from(dataBase64, 'base64'), contentType);
-  return ok({ key });
+  return ok(await storeEditorImage(reg, `docs/${docId}`, contentType, dataBase64));
 };
 
 export const getDocReadUrl = async (

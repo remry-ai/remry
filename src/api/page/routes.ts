@@ -3,7 +3,8 @@ import { ARCHIVE_FILTERS } from '$shared/types/enums';
 import { PAGE_BODY_TYPES } from '$shared/types/pages';
 import { router, procedure } from '$shared/trpc/init';
 import { setArchived } from '$api/_archive';
-import { createPage, deletePage, getPage, listPages, queryPages, updatePage } from './operations';
+import { createPage, deletePage, getPage, listPages, queryPages, updatePage, uploadPageImage } from './operations';
+import { EDITOR_IMAGE_TYPES, MAX_IMAGE_BASE64_CHARS } from '$api/_images';
 
 // A kind key; whether the notebook has that kind is checked in the operation.
 const kind = z.string().max(40);
@@ -69,6 +70,15 @@ export const pageRouter = router({
       properties: properties.optional()
     }))
     .mutation(({ ctx, input: { id, ...data } }) => updatePage(ctx.reg, id, data)),
+
+  uploadImage: procedure
+    .meta({ description: 'Uploads an image (base64) pasted or dropped into a page\'s content and returns its key, for ![alt](storage://<key>).' })
+    .input(z.object({
+      pageId: z.string(),
+      contentType: z.enum(EDITOR_IMAGE_TYPES),
+      dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
+    }))
+    .mutation(({ ctx, input }) => uploadPageImage(ctx.reg, input.pageId, input.contentType, input.dataBase64)),
 
   archive: procedure
     .input(z.object({ id: z.string() }))
