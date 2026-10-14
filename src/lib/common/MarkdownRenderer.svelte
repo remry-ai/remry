@@ -4,6 +4,8 @@
   import { mountCharts } from '$lib/report/chart-render';
   import { fileUrl } from '$shared/utils/files';
   import type { ChartBranding } from '$shared/types/branding';
+  import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
+  import type { ZoomSource } from '$lib/ui/zoom';
 
   const renderer = new Renderer();
   renderer.image = ({ href, title, text }) => {
@@ -21,12 +23,40 @@
     readonly placeholder?: string;
     /** Colours charts with a branding (the doc print page). Read once: wrap in {#key} to change it. */
     readonly branding?: ChartBranding | null;
+    /** Clicking a diagram, an image or a chart opens it in ZoomViewer. Off for the print page. */
+    readonly zoomable?: boolean;
   }
 
-  const { content, placeholder = '*No content yet.*', branding = null }: Props = $props();
+  const { content, placeholder = '*No content yet.*', branding = null, zoomable = true }: Props = $props();
 
   let container: HTMLDivElement;
   let charts: readonly Chart[] = [];
+  let zoomed = $state<ZoomSource | null>(null);
+
+  // A diagram's drawn size: mermaid sets its viewBox.
+  const svgSize = (svg: SVGSVGElement) => {
+    const box = svg.viewBox.baseVal;
+    if (box && box.width > 0 && box.height > 0) return { width: box.width, height: box.height };
+    const rect = svg.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  };
+
+  // What a click opens: a mermaid diagram (or its Zoom button), an image that isn't a link, or a chart.
+  const zoomSourceAt = (target: Element): ZoomSource | null => {
+    const diagram = target.closest('.mermaid-diagram')?.querySelector('svg');
+    if (diagram) return { kind: 'svg', markup: diagram.outerHTML, size: svgSize(diagram) };
+    const img = target.closest('img');
+    if (img && !img.closest('a')) return { kind: 'image', src: img.currentSrc || img.src, alt: img.alt };
+    const canvas = target.closest('.chart-block')?.querySelector('canvas');
+    if (canvas) return { kind: 'image', src: canvas.toDataURL('image/png'), alt: 'Chart' };
+    return null;
+  };
+
+  const handleClick = (e: MouseEvent) => {
+    if (!zoomable || e.metaKey || e.ctrlKey || e.shiftKey || !(e.target instanceof Element)) return;
+    const source = zoomSourceAt(e.target);
+    if (source) zoomed = source;
+  };
 
   const renderMermaid = async (el: HTMLDivElement) => {
     // Find all <pre> blocks whose text starts with common mermaid keywords
@@ -54,6 +84,16 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'mermaid-diagram';
         wrapper.innerHTML = svg;
+        // The keyboard's way in (the SVG can't take focus); a click anywhere on the diagram works too.
+        if (zoomable) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn icon sm zoom-hint no-print';
+          button.setAttribute('aria-label', 'Zoom diagram');
+          button.title = 'Zoom';
+          button.textContent = '⤢';
+          wrapper.append(button);
+        }
         pre.replaceWith(wrapper);
       } catch {
         // Leave the code block as-is if mermaid can't parse it
@@ -79,7 +119,8 @@
   });
 </script>
 
-<div class="md-rendered" bind:this={container}>
+<!-- Clicks on diagrams, images and charts open the zoom viewer; diagrams also have a Zoom button for the keyboard. -->
+<div class="md-rendered" role="presentation" class:zoomable bind:this={container} onclick={handleClick}>
   <!-- The user's own markdown, in a local app. -->
   {#if content}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -89,6 +130,10 @@
     {@html marked.parse(placeholder, { renderer })}
   {/if}
 </div>
+
+{#if zoomable}
+  <ZoomViewer source={zoomed} onClose={() => (zoomed = null)} />
+{/if}
 
 <style lang="scss">
   .md-rendered {
@@ -102,6 +147,7 @@
     }
 
     :global(.mermaid-diagram) {
+      position: relative;
       margin: 1rem 0;
       text-align: center;
       overflow-x: auto;
@@ -110,6 +156,30 @@
         max-width: 100%;
         height: auto;
       }
+      :global(.zoom-hint) {
+        position: absolute;
+        top: 0;
+        right: 0;
+        opacity: 0;
+        transition: opacity var(--ease);
+      }
+      &:hover :global(.zoom-hint),
+      :global(.zoom-hint:focus-visible) { opacity: 1; }
+    }
+
+    &.zoomable {
+      :global(.mermaid-diagram svg),
+      :global(img:not(a img)),
+      :global(.chart-block canvas) {
+        cursor: zoom-in;
+        border-radius: var(--r-sm);
+        transition: outline-color var(--ease);
+        outline: 1px solid transparent;
+        outline-offset: 2px;
+      }
+      :global(.mermaid-diagram:hover svg),
+      :global(img:not(a img):hover),
+      :global(.chart-block:hover canvas) { outline-color: var(--border-strong); }
     }
   }
 </style>

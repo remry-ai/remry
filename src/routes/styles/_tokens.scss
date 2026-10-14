@@ -103,6 +103,8 @@
   --z-drawer-backdrop: calc(var(--z-nav) + 8);
   --z-drawer: calc(var(--z-nav) + 10);
   --z-modal: 100;
+  // Above popups, whose markdown can open it.
+  --z-viewer: 200;
   --z-finder: 1000;
   --z-loading: 1100;
 }

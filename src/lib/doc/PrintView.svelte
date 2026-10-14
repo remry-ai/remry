@@ -124,7 +124,7 @@
       style:--doc-accent={branding?.accentColor}
     >
       {#key branding?.id}
-        <MarkdownRenderer {content} {branding} />
+        <MarkdownRenderer {content} {branding} zoomable={false} />
       {/key}
     </div>
   </div>
