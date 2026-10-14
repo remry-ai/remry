@@ -236,8 +236,8 @@ notebook name), and paste the key. Or ask Claude to activate it: it runs `licens
   about you, your license or your notebooks.
 - **Refunds?** Ask within 30 days for a full refund.
   The refunded key stops working with the next Remry update.
-- **Lost your key?** [Open an issue](https://github.com/remry-ai/remry/issues) without posting
-  your email address, or email jamie@jweatherby.dev. Either way, we'll send it again.
+- **Lost your key?** Ask through the [contact form](https://jweatherby.dev/contact) with the
+  email address you bought it with, and we'll send it again.
 
 ## Status
 

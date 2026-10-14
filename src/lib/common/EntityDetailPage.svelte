@@ -491,11 +491,15 @@
 
 <style lang="scss">
   .center-pane {
+    // The width of the page's text, the same as a list page's: the header (title, Edit, Archive)
+    // lines up with the panels below it. The right panel is resizable, so it can be this wide.
+    --detail-w: var(--content-max);
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
   }
   .center-header {
+    max-width: var(--detail-w);
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
@@ -535,7 +539,7 @@
   .meta-panel,
   .description-panel,
   .docs-panel {
-    max-width: 720px;
+    max-width: var(--detail-w);
     margin-bottom: var(--sp-2);
   }
   .description-panel { color: var(--text-2); }
@@ -551,6 +555,6 @@
   .overview {
     display: flex;
     flex-direction: column;
-    max-width: 720px;
+    max-width: var(--detail-w);
   }
 </style>
