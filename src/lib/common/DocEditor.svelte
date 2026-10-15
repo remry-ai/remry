@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
   import ProBadge from '$lib/ui/ProBadge.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
@@ -173,6 +174,15 @@
     }
   };
 
+  // Export PDF opens the print page in this window (the desktop app's window drops a new-window
+  // link), so unsaved changes are saved first. A modified click still opens a browser tab.
+  const handleExport = async (e: MouseEvent) => {
+    if (!exportHref || !isDirty || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    await handleSave();
+    if (!error) await goto(exportHref);
+  };
+
   const setMode = async (next: typeof mode) => {
     const leaving = mode === 'write' || mode === 'editor';
     const entering = next === 'preview';
@@ -231,7 +241,7 @@
         </div>
         <div class="doc-actions">
           {#if exportHref && content.trim()}
-            <a class="btn ghost sm" href={exportHref} target="_blank" rel="noopener">Export PDF <ProBadge /></a>
+            <a class="btn ghost sm" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
           {/if}
           {#if mode !== 'preview'}
             {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}

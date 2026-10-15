@@ -82,7 +82,7 @@
     </select>
     {#if saved}<span class="saved text-sm">Saved</span>{/if}
     <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving} aria-busy={saving}>Save</button>
-    <a href="/app/reports/{report.id}/print" target="_blank" rel="noopener" class="btn sm">Print / PDF</a>
+    <a href="/app/reports/{report.id}/print" class="btn sm">Print / PDF</a>
   </div>
 
   {#if error}
