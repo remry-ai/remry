@@ -28,12 +28,13 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use tauri::menu::{Menu, MenuItem, Submenu};
-use tauri::webview::DownloadEvent;
-use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::webview::{DownloadEvent, NewWindowResponse};
+use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_opener::OpenerExt;
@@ -238,6 +239,70 @@ fn download_finished(app: &AppHandle, path: Option<PathBuf>, success: bool) {
     }
 }
 
+/// Numbers the windows that links opening a new window get.
+static NEXT_WINDOW: AtomicUsize = AtomicUsize::new(1);
+
+/// A window on the app, the main one or one a link opened. WebKit drops what a window has no
+/// handler for, so each one is handled here:
+/// - a link to anywhere else opens in the browser (a Linear issue in the sidebar);
+/// - a link that opens a new window ("Export PDF", an attached PDF) gets a window of its own when
+///   it's an app page, as a browser gives it a tab, so the page behind keeps unsaved edits;
+/// - a download ("Download PDF") saves to the Downloads folder under the name the page gave.
+///   macOS doesn't report where a finished download went, so keep where it started.
+fn app_window<'a>(app: &'a AppHandle, label: &str, url: WebviewUrl) -> WebviewWindowBuilder<'a, Wry, AppHandle> {
+    let opener = app.clone();
+    let windows = app.clone();
+    let downloads = app.clone();
+    let destinations: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
+    WebviewWindowBuilder::new(app, label, url)
+        .title("Remry")
+        .inner_size(1100.0, 860.0)
+        .min_inner_size(800.0, 560.0)
+        // Files dragged in from Finder go to the page, as in a browser, so an image
+        // dropped on the doc editor uploads. Tauri's own handler would take them.
+        .disable_drag_drop_handler()
+        .on_download(move |_webview, event| match event {
+            DownloadEvent::Requested { url, destination } => {
+                if !is_app_download(&url) {
+                    return false;
+                }
+                destinations.lock().unwrap().insert(url.to_string(), destination.clone());
+                true
+            }
+            DownloadEvent::Finished { url, path, success } => {
+                let started = destinations.lock().unwrap().remove(url.as_str());
+                download_finished(&downloads, path.or(started), success);
+                true
+            }
+            _ => true,
+        })
+        .on_navigation(move |url| {
+            if is_app_url(url) {
+                return true;
+            }
+            let _ = opener.opener().open_url(url.as_str(), None::<&str>);
+            false
+        })
+        .on_new_window(move |url, _features| {
+            if is_app_url(&url) {
+                open_window(&windows, url);
+            } else {
+                let _ = windows.opener().open_url(url.as_str(), None::<&str>);
+            }
+            NewWindowResponse::Deny
+        })
+}
+
+/// Opens an app page in a window of its own. Built on another thread: the request arrives in
+/// WebKit's callback on the main thread, which has to be free to make the window.
+fn open_window(app: &AppHandle, url: Url) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let label = format!("page-{}", NEXT_WINDOW.fetch_add(1, Ordering::Relaxed));
+        let _ = app_window(&app, &label, WebviewUrl::External(url)).build();
+    });
+}
+
 fn connect(app: AppHandle, target: &'static str) {
     let (name, explain, after) = match target {
         "claude-desktop" => (
@@ -428,42 +493,8 @@ fn main() {
                 _ => {}
             });
 
-            // Links out of the app (a Linear issue in the sidebar) open in the browser.
-            let opener = handle.clone();
-            // Downloads ("Download PDF") save to the Downloads folder under the name the page gave,
-            // as in a browser. Without a handler WebKit cancels every download. macOS doesn't report
-            // where a finished download went, so keep the destination from when it started.
-            let downloads = handle.clone();
-            let destinations: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
-            let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("Remry")
+            let window = app_window(&handle, "main", WebviewUrl::App("index.html".into()))
                 .inner_size(1280.0, 860.0)
-                .min_inner_size(800.0, 560.0)
-                // Files dragged in from Finder go to the page, as in a browser, so an image
-                // dropped on the doc editor uploads. Tauri's own handler would take them.
-                .disable_drag_drop_handler()
-                .on_download(move |_webview, event| match event {
-                    DownloadEvent::Requested { url, destination } => {
-                        if !is_app_download(&url) {
-                            return false;
-                        }
-                        destinations.lock().unwrap().insert(url.to_string(), destination.clone());
-                        true
-                    }
-                    DownloadEvent::Finished { url, path, success } => {
-                        let started = destinations.lock().unwrap().remove(url.as_str());
-                        download_finished(&downloads, path.or(started), success);
-                        true
-                    }
-                    _ => true,
-                })
-                .on_navigation(move |url| {
-                    if is_app_url(url) {
-                        return true;
-                    }
-                    let _ = opener.opener().open_url(url.as_str(), None::<&str>);
-                    false
-                })
                 .build()?;
 
             start(handle.clone(), window);
