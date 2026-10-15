@@ -72,6 +72,7 @@ Global styles live in `src/routes/styles/` (see `src/routes/CLAUDE.md`). Compone
 | `peek-url.ts` | `openPeek(id)`, `closePeek()`, pure `peekHref(url, id)` | opening and closing `SidePeek`. The first peek pushes history, so Back closes it; another peek while one is open replaces it. `openPeek` always shows the right panel on its Peek tab (`showPeekTab` in `stores/drawers.ts`), even if the user had closed it or the same peek is already open |
 | `popup-url.ts` | `openPopup(id, extra?)`, `closePopup({ invalidate?, clear? })` | opening and closing `Popup` (`?popup=<id>`) |
 | `ResizeHandle` | `edge: left \| right` (the drawer edge it sits on), `width` (stored, or null), `label`, `onResize(w)`, `onReset()` | the drag strip on a drawer's inner edge: drag (relative to where it started), arrow keys step, double-click resets. Put it inside the drawer, which must be `position: relative` or fixed |
+| `CopyLinkButton` | `notebookId` | the top bar's link icon, beside Search: copies the page you're on as `<origin>/open/app/…?notebook=<id>` (`shareLink` in `ui/share-link.ts`, pure), the form Claude's links take, so it opens in the desktop app's window. The window has no address bar, so this is how to share a page from it. Clipboard API, falling back to `execCommand('copy')`; the icon turns to a tick for a moment |
 | `submit.ts` | `submit(fn)`, `submitOrThrow(fn)`, `errorMessage(e)` | all tRPC mutations from the UI |
 
 `Popup` (`common/Popup.svelte`, props `id`, `title`, `size?`, `clearParams?`) is for entity create/edit only; small edits render inline.

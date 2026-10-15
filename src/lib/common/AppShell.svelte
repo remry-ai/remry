@@ -4,6 +4,7 @@
   import RightPanel from '$lib/common/RightPanel.svelte';
   import NotebookSwitcher from '$lib/notebook/components/NotebookSwitcher.svelte';
   import { quickFinderOpen } from '$lib/stores/quick-finder';
+  import CopyLinkButton from '$lib/ui/CopyLinkButton.svelte';
   import type { NotebookInfo, NotebookSummary } from '$shared/types/notebook';
   import { notebookModel } from '$shared/modules/model';
   import {
@@ -86,6 +87,7 @@
           {/if}
         </div>
         <div class="nav-mobile-actions">
+          <CopyLinkButton notebookId={notebook?.id ?? null} />
           <button type="button" class="btn icon" aria-label="Search" title="Search (⌘K)" onclick={() => quickFinderOpen.set(true)}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="m13.5 13.5-3-3"/></svg>
           </button>
@@ -109,6 +111,7 @@
           <a href="/app/branding" class="nav-link secondary" aria-current={isActive({ href: '/app/branding', label: '' }, $page.url.pathname) ? 'page' : undefined} onclick={closeMenu}>Branding</a>
         </li>
         <li class="nav-search">
+          <CopyLinkButton notebookId={notebook?.id ?? null} />
           <button type="button" class="btn ghost sm" onclick={() => quickFinderOpen.set(true)}>
             Search <kbd>⌘K</kbd>
           </button>
@@ -206,6 +209,7 @@
     }
     &.secondary { color: var(--text-3); &:hover { color: var(--text); } }
   }
+  .nav-search { display: flex; align-items: center; gap: var(--sp-1); }
   .nav-search kbd { margin-left: 2px; }
   .nav-mobile-actions { display: none; align-items: center; gap: var(--sp-1); }
   .hamburger {
