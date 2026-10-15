@@ -35,9 +35,16 @@ describe('planAppLaunch', () => {
     expect(planAppLaunch(null, release)).toBe('start');
   });
 
-  it('reuses the same version and restarts a different one', () => {
+  it('reuses the same version and restarts an older one', () => {
     expect(planAppLaunch({ version: '0.7.0' }, release)).toBe('reuse');
     expect(planAppLaunch({ version: '0.6.5' }, release)).toBe('restart');
+    expect(planAppLaunch({ version: '0.6.10' }, { standalone: true, version: '0.6.9' })).toBe('reuse');
+  });
+
+  it('never replaces a newer app with its own older one', () => {
+    // A Claude session started before an update still runs the old binary.
+    expect(planAppLaunch({ version: '0.16.18' }, { standalone: true, version: '0.16.4' })).toBe('reuse');
+    expect(planAppLaunch({ version: '0.8.0' }, release)).toBe('reuse');
   });
 
   it('leaves alone what it cannot identify, and a clone never restarts', () => {

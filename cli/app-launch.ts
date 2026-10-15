@@ -1,7 +1,7 @@
 // Starting the UI from the MCP server (the `app_open` tool), so a machine without a
 // clone or a terminal habit can still open it: runs `remry app` in the background.
 // The app keeps running after the MCP server exits, so a release also replaces an app
-// left running by an older version (see planAppLaunch).
+// left running by an older version, and leaves a newer one alone (see planAppLaunch).
 
 import { execFile, spawn } from 'node:child_process';
 import { join } from 'node:path';
@@ -11,6 +11,7 @@ import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH, DEV_PORT, LEGACY_A
 import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
 import { appMarkerPath, writeMarker } from './version-check';
+import { compareVersions, isVersion } from '../scripts/release/versions';
 
 export interface LaunchCommand {
   readonly command: string;
@@ -55,14 +56,17 @@ export type RunningApp = null | { readonly version: string } | 'other';
 export type AppLaunchPlan = 'start' | 'reuse' | 'restart';
 
 /**
- * A release restarts a release app of a different version, so updating the plugin
- * updates the app. It never touches anything it can't identify, and a clone never
- * restarts anything (its dev server reloads by itself).
+ * A release restarts a release app older than itself, so updating the plugin updates the
+ * app. Never a newer one: a Claude session keeps the binary it started with, so after an
+ * update its server would otherwise put its older app back over the one the update started
+ * (and an app older than 0.16.6 doesn't hand links to the desktop app). It never touches
+ * anything it can't identify, and a clone never restarts anything (its dev server reloads by itself).
  */
 export const planAppLaunch = (running: RunningApp, own: { readonly standalone: boolean; readonly version: string }): AppLaunchPlan => {
   if (running === null) return 'start';
   if (!own.standalone || running === 'other') return 'reuse';
-  return running.version === own.version ? 'reuse' : 'restart';
+  if (!isVersion(running.version) || !isVersion(own.version)) return running.version === own.version ? 'reuse' : 'restart';
+  return compareVersions(running.version, own.version) < 0 ? 'restart' : 'reuse';
 };
 
 const base = (port: number): string => `http://${APP_HOST}:${port}`;
