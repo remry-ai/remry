@@ -40,6 +40,7 @@ const staleAppStopped = await stopStaleApp(appOwner).catch((error: unknown) => {
 });
 
 const { procedures, callProcedure, disconnect } = await import('./api');
+const { appPageLink, withAppLinks } = await import('./app-links');
 const { createSnapshot, listSnapshots } = await import('../scripts/backup/snapshot');
 const { resolveCurrentNotebook } = await import('../src/shared/notebooks/current.server');
 const { notebookFromEnv } = await import('../src/shared/notebooks/resolve');
@@ -70,7 +71,7 @@ const INSTRUCTIONS = [
   'To find anything by what it says (notes, docs, wiki pages, todos, comments, names), call search_query. For "what do I know about X", call search_recall with the entity: it returns its notes, todos, docs, links, tags, relations, owned goals and projects, and text elsewhere that names it without linking it. Both need Remry Pro; without a license they say so, and then you answer with the list and get tools instead.',
   'Archive with entity_archive and delete with entity_delete, for every type. Offer to archive before deleting. Confirm with the user before any delete, remove or detach tool, and call backup_snapshot first before deletes or more than about five writes in one go.',
   'To show the user something in the app, call app_open and give them the link.',
-  'After any write, end your reply with a markdown link to each item you created or changed: the app address from app_open (scheme, host and port), then /open, then the item\'s path (the `path` in the result, or /app/people/<id>, /app/groups/<id>, /app/projects/<id>, /app/goals/<id>, /app/wiki/<id>; a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity), with notebook=<notebook id> in the query: http://127.0.0.1:7369/open/app/people/<id>?notebook=<id>. /open shows the page in the Remry desktop app when it\'s installed, and in the browser otherwise.',
+  'After any write, end your reply with a markdown link to each item you created or changed. Use the `url` beside the item\'s `path` in the tool result: it already has /open and the notebook, for example http://127.0.0.1:7369/open/app/people/<id>?notebook=<id>. When a result has no url (a doc is its entity\'s url with &doc=<id> added; a todo is the app address from app_open, then /open/app/todos?popup=todo&todo=<id>&notebook=<id>; notes, tags and relations link to their entity), build it the same way: the app address from app_open (scheme, host and port), then /open, then the path, with notebook=<notebook id> in the query. /open shows the page in the Remry desktop app when it\'s installed, and in the browser otherwise.',
   'When bringing in items from another tool (Linear, Notion, Jira), call link_find with the item URL first and update the entity it finds; attach a link to the source on anything you create.',
   "Reach Remry only through these tools. Never read its data folder (~/Library/Application Support/Remry on macOS, %LOCALAPPDATA%\\Remry on Windows) or database directly, and don't ask the user to attach that folder: a sandbox such as Cowork's can't see it, and the database must not be opened from two places at once.",
   'Report back by name, not id. The remry skill has the full rules and recipes.'
@@ -149,9 +150,14 @@ const callTool = async (name: string, rawArgs: Readonly<Record<string, unknown>>
 
   if (extraTools.some((t) => t.name === name)) return callExtraTool(name, split.args, split.notebook);
   const procedure = procedureByTool.get(name);
-  return procedure
-    ? resultFromOutcome(await callProcedure(procedure, split.args, { notebook: split.notebook }))
-    : textResult(`Unknown tool: ${name}`, true);
+  if (!procedure) return textResult(`Unknown tool: ${name}`, true);
+  const outcome = await callProcedure(procedure, split.args, { notebook: split.notebook });
+  if (outcome.kind !== 'result' || outcome.failed) return resultFromOutcome(outcome);
+  // A full link beside each app path (cli/app-links.ts), in the notebook the call used.
+  const notebook = await resolveCurrentNotebook({ explicit: split.notebook, env: notebookFromEnv(process.env) });
+  if (!notebook.ok) return resultFromOutcome(outcome);
+  const result = withAppLinks(outcome.result, (path) => appPageLink(path, notebook.value.id, appOwner.port));
+  return resultFromOutcome({ ...outcome, result });
 };
 
 const ctx: McpContext = {

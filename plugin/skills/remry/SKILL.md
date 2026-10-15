@@ -69,8 +69,9 @@ Every call works on one notebook: the default, unless you name another.
 
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
-- **Address:** the app's address from `app_open` (its scheme, host and port, for example `http://127.0.0.1:7369`) + `/open` + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). `/open` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
-- **Paths:** use the `path` in the result when there is one. Otherwise: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
+- **Use the `url` in the result.** Each item with a `path` comes back with a `url` beside it: the full link, with `/open` and the notebook already in it. Give the user that, unchanged.
+- **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://127.0.0.1:7369`) + `/open` + the item's path + `?notebook=<notebook id>` (or `&notebook=` when the path already has a `?`). `/open` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Paths,** when a result has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 

@@ -23,7 +23,7 @@
   - `search`: every trigger present, each kind of text found, stemming, phrases/OR/exclusions, type and `within` filters, re-indexing on update and delete (including cleanup), archived rows hidden, `search.recall` with unlinked mentions and caps
   - `backup`: change detection, hard links, restore round trip, snapshots kept per notebook, refusal while the app runs
   - `cli`: `bin/remry` from another directory with no server, including `--notebook`
-  - `mcp`: `remry mcp` over stdio: tool list, calls (including `search_query` and `search_recall`), the `notebook` argument, errors as tool results, stdout kept to protocol messages
+  - `mcp`: `remry mcp` over stdio: tool list, calls (including `search_query` and `search_recall`), the `notebook` argument, errors as tool results, a `url` beside each app `path`, stdout kept to protocol messages
 - Run: `bun run test:integration`
 
 ## Manual verification

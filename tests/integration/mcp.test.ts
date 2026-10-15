@@ -89,6 +89,8 @@ describe('remry mcp', () => {
     const created = await callTool('person_create', { name: '2024 Mika Tanaka', extensions: { org: { title: '2024' } } });
     expect(created.isError).toBe(false);
     const id = (JSON.parse(created.text) as { id: string }).id;
+    // A full link beside the path, through /open, in the call's notebook (cli/app-links.ts).
+    expect(JSON.parse(created.text)).toMatchObject({ path: `/app/people/${id}`, url: expect.stringMatching(new RegExp(`^http://127\\.0\\.0\\.1:\\d+/open/app/people/${id}\\?notebook=`)) });
 
     const person = JSON.parse((await callTool('person_get', { id })).text) as { name: string };
     expect(person).toMatchObject({ name: '2024 Mika Tanaka', extensions: { org: { title: '2024' } } });
