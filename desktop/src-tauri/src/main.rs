@@ -428,7 +428,11 @@ fn main() {
         // After single-instance, which hands it the links that start a second instance.
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        // Without its click script: by default it catches every plain click on a target="_blank"
+        // link (and a Ctrl- or Shift-click on any), cancels it and asks IPC to open the URL. The
+        // page gets no IPC, so the link did nothing. Left alone, WebKit asks for a new window and
+        // `app_window`'s handler opens it: an app page in a window, anything else in the browser.
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
