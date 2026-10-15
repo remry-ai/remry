@@ -188,3 +188,11 @@ built but switched off while unfinished; use docs instead.
 The desktop app runs on Apple silicon Macs and Windows (x64). The Windows installer isn't
 code-signed yet, so Windows asks before opening it the first time; see
 [docs/INSTALL.md](docs/INSTALL.md).
+
+## License
+
+Remry is under the [Functional Source License, Version 1.1, MIT Future License](LICENSE.md)
+(FSL-1.1-MIT), copyright 2026 jweatherby.dev. You may use, copy, modify and share it for any
+purpose except offering a competing commercial product or service. Each release also becomes
+available under the MIT license two years after it's published. Remry Pro keys are separate: the
+license above covers the code, and a key unlocks Pro features in the app.
