@@ -6,6 +6,7 @@
   import type { ChartBranding } from '$shared/types/branding';
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
   import type { ZoomSource } from '$lib/ui/zoom';
+  import { lostImageNote } from '$lib/doc/lost-images';
 
   const escapeAttr = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -61,6 +62,28 @@
     if (source) zoomed = source;
   };
 
+  // A blob: image that won't load was saved before images were uploaded, so it's gone
+  // (`lib/doc/lost-images.ts`): say so instead of showing a broken image. A pasted image
+  // in the editor's Preview still loads, so it stays. Errors don't bubble, so the container
+  // catches them on the way down (`onerrorcapture`); `showLostImages` also gets ones that failed first.
+  const replaceLostImage = (img: HTMLImageElement) => {
+    const note = document.createElement('em');
+    note.className = 'lost-image';
+    note.textContent = lostImageNote(img.alt);
+    img.replaceWith(note);
+  };
+
+  const handleImageError = (e: Event) => {
+    if (e.target instanceof HTMLImageElement && e.target.src.startsWith('blob:')) replaceLostImage(e.target);
+  };
+
+  // One still loading fails later, through `onerrorcapture`, which is on before this runs.
+  const showLostImages = (el: HTMLDivElement) => {
+    for (const img of el.querySelectorAll<HTMLImageElement>('img[src^="blob:"]')) {
+      if (img.complete && img.naturalWidth === 0) replaceLostImage(img);
+    }
+  };
+
   const renderMermaid = async (el: HTMLDivElement) => {
     // Find all <pre> blocks whose text starts with common mermaid keywords
     const pres = el.querySelectorAll('pre');
@@ -106,6 +129,8 @@
 
   $effect(() => {
     if (container && content) {
+      // The HTML is in place by now; this doesn't wait for a frame, which a hidden window never draws.
+      showLostImages(container);
       // Wait a tick for the HTML to render, then draw charts and mermaid diagrams
       requestAnimationFrame(() => {
         // The renderer may be gone by the next frame (a {#key} remount).
@@ -123,7 +148,7 @@
 </script>
 
 <!-- Clicks on diagrams, images and charts open the zoom viewer; diagrams also have a Zoom button for the keyboard. -->
-<div class="md-rendered" role="presentation" class:zoomable bind:this={container} onclick={handleClick}>
+<div class="md-rendered" role="presentation" class:zoomable bind:this={container} onclick={handleClick} onerrorcapture={handleImageError}>
   <!-- The user's own markdown, in a local app. -->
   {#if content}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -169,6 +194,8 @@
       &:hover :global(.zoom-hint),
       :global(.zoom-hint:focus-visible) { opacity: 1; }
     }
+
+    :global(.lost-image) { color: var(--text-3); }
 
     &.zoomable {
       :global(.mermaid-diagram svg),

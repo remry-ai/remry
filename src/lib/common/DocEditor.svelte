@@ -4,6 +4,7 @@
   import ProBadge from '$lib/ui/ProBadge.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import type { ChartBranding } from '$shared/types/branding';
+  import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
 
   interface PdfNotice {
     readonly tone: 'warning' | 'error';
@@ -68,6 +69,9 @@
   const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
 
   const pendingImages = new Map<string, File>();
+  // blob: addresses already in the content as loaded: saved by an earlier tab, so their
+  // images are gone (`lib/doc/lost-images.ts`).
+  let lostImages: ReadonlySet<string> = new Set();
 
   const STORAGE_RE = /storage:\/\/[^\s)]+/g;
   const hasStorageUrls = (md: string): boolean => /storage:\/\//.test(md);
@@ -97,6 +101,7 @@
 
   $effect(() => {
     const md = content;
+    lostImages = new Set(blobUrlsIn(md));
     if (hasStorageUrls(md)) {
       resolving = true;
       resolveStorageUrls(md).then((resolved) => {
@@ -135,13 +140,10 @@
   // A pasted or dropped image shows from a blob: address, which lasts only as long as
   // this tab. Each is uploaded on save and replaced by its storage key; one that can't
   // be (no uploader, or a blob from another tab) stops the save rather than being lost.
+  // One that was in the content when it loaded is already gone, and becomes a note.
   const uploadPendingImages = async (md: string): Promise<string> => {
-    const blobRe = /blob:[^\s)]+/g;
-    const blobUrls = [...new Set([...md.matchAll(blobRe)].map(m => m[0]))];
-    if (!blobUrls.length) return md;
-
-    let result = md;
-    for (const blobUrl of blobUrls) {
+    let result = replaceLostImages(md, lostImages);
+    for (const blobUrl of blobUrlsIn(result)) {
       const file = pendingImages.get(blobUrl);
       if (!file || !onUploadImage) {
         throw new Error(onUploadImage
