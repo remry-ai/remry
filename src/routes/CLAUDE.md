@@ -48,5 +48,5 @@ Links Claude gives the user add `?notebook=<id>`, so they open in the right note
 
 ## Layout notes
 
-- The top bar (`$lib/common/AppShell`) starts with the brand icon and the open notebook's name (a link to Home), then the switcher chevron (`$lib/notebook/components/NotebookSwitcher`). Its `LINKS` are the notebook model's `nav` (core: Home, People, Groups, Projects, Wiki, Todos; the org module's Org Map stands in for People and Groups, and the goals module adds Goals), with Branding as a secondary link and a search button that opens the ⌘K finder. Under 768px it collapses to a hamburger drawer.
+- The top bar (`$lib/common/AppShell`) starts with the brand icon and the open notebook's name (a link to Home), then the switcher chevron (`$lib/notebook/components/NotebookSwitcher`). Its `LINKS` are the notebook model's `nav` (core: Home, People, Groups, Projects, Wiki, Todos; the org module's Org Map stands in for People and Groups, and the goals module adds Goals), then the Copy link button and a search button that opens the ⌘K finder. Branding and License are in the switcher's menu, after the notebooks. Under 768px it collapses to a hamburger drawer.
 - Entity list layouts (`people`, `groups`, `projects`, `goals`, `wiki`, `todos`) set `layoutConfig.collapseInfoPanel` so the notes panel collapses on medium screens.

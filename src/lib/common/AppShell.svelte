@@ -107,9 +107,6 @@
             >{link.label}</a>
           </li>
         {/each}
-        <li class="nav-end">
-          <a href="/app/branding" class="nav-link secondary" aria-current={isActive({ href: '/app/branding', label: '' }, $page.url.pathname) ? 'page' : undefined} onclick={closeMenu}>Branding</a>
-        </li>
         <li class="nav-search">
           <CopyLinkButton notebookId={notebook?.id ?? null} />
           <button type="button" class="btn ghost sm" onclick={() => quickFinderOpen.set(true)}>
@@ -181,7 +178,7 @@
     margin: 0;
     padding: 0;
     li { height: 100%; display: flex; align-items: center; }
-    .nav-end { margin-left: auto; }
+    .nav-search { margin-left: auto; }
   }
   .nav-link {
     position: relative;
@@ -207,7 +204,6 @@
         border-radius: 1px 1px 0 0;
       }
     }
-    &.secondary { color: var(--text-3); &:hover { color: var(--text); } }
   }
   .nav-search { display: flex; align-items: center; gap: var(--sp-1); }
   .nav-search kbd { margin-left: 2px; }
@@ -249,7 +245,6 @@
       box-shadow: var(--shadow-2);
       &.open { display: flex; }
       li { height: auto; display: block; }
-      .nav-end { margin-left: 0; }
       .nav-search { display: none; }
     }
     .nav-link {
