@@ -6,7 +6,7 @@
   import { trpc } from '$shared/trpc/client';
   import { errorMessage } from '$lib/ui/submit';
   import { openPopup } from '$lib/ui/popup-url';
-  import { openPeek } from '$lib/ui/peek-url';
+  import { openPeek, peekValue } from '$lib/ui/peek-url';
   import SidePeek from '$lib/ui/SidePeek.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
@@ -102,7 +102,7 @@
       {#if wikiPage.parent}
         <div>
           <dt>Parent</dt>
-          <dd><button type="button" class="btn link" onclick={() => wikiPage.parent && openPeek(wikiPage.parent.id)}>{wikiPage.parent.title}</button></dd>
+          <dd><button type="button" class="btn link" onclick={() => wikiPage.parent && openPeek(peekValue('PAGE', wikiPage.parent.id))}>{wikiPage.parent.title}</button></dd>
         </div>
       {/if}
       {#if wikiPage.archivedAt}
@@ -124,7 +124,7 @@
         <ul class="list">
           {#each wikiPage.children as child (child.id)}
             <li class="list-row">
-              <button type="button" class="btn link grow truncate row-link" onclick={() => openPeek(child.id)}>{child.title}</button>
+              <button type="button" class="btn link grow truncate row-link" onclick={() => openPeek(peekValue('PAGE', child.id))}>{child.title}</button>
               <span class="badge">{kindName(kinds, child.kind)}</span>
             </li>
           {/each}

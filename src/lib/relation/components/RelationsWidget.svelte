@@ -3,6 +3,8 @@
   // reads from this side. "+" in the header opens AddRelation (not while
   // read-only). MENTIONS come from links in content, and goal–project links from the
   // goal's Projects section, so neither can be removed here.
+  import { isPeekType } from '$lib/ui/peek-url';
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import type { RelationGroup, RelationItem } from '$shared/types/relations';
@@ -70,12 +72,17 @@
       <p class="eyebrow">{group.label}</p>
       <ul class="list">
         {#each group.items as item (item.id)}
+          {@const peekId = isPeekType(item.other.entityType) ? item.other.entityId : null}
+          {@const peekType = isPeekType(item.other.entityType) ? item.other.entityType : null}
           <li class="list-row">
             <a class="grow wrap" href={item.other.path}>{item.other.label}</a>
             <span class="meta truncate" title={item.note ?? undefined}>{item.note ?? entityTypeLabel(item.other.entityType)}</span>
-            {#if item.kind !== 'MENTIONS' && !item.goalProject}
+            {#if (peekType && peekId) || (item.kind !== 'MENTIONS' && !item.goalProject)}
               <span class="row-actions">
-                <ConfirmButton label="Remove link to {item.other.label}" variant="icon" onConfirm={() => handleRemove(item)} />
+                {#if peekType && peekId}<PeekButton type={peekType} id={peekId} label={item.other.label ?? entityTypeLabel(item.other.entityType)} />{/if}
+                {#if item.kind !== 'MENTIONS' && !item.goalProject}
+                  <ConfirmButton label="Remove link to {item.other.label}" variant="icon" onConfirm={() => handleRemove(item)} />
+                {/if}
               </span>
             {/if}
           </li>

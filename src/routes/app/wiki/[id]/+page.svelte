@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import type { PageData } from './$types';
   import ProBadge from '$lib/ui/ProBadge.svelte';
   import { goto, invalidateAll } from '$app/navigation';
@@ -231,6 +232,7 @@
                 <a class="grow truncate" href={child.path}>{child.title}</a>
                 <span class="badge">{kindName(kinds, child.kind)}</span>
                 <span class="row-actions">
+                  <PeekButton type="PAGE" id={child.id} label={child.title} />
                   <ConfirmButton label="Unlink sub-page" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />
                 </span>
               </li>

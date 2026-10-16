@@ -1,5 +1,6 @@
 <script lang="ts">
   // "Goals" and "Projects owned" sections for a person, team or department overview.
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import GoalRows from './GoalRows.svelte';
   import type { GoalSummary } from '$shared/types/goals';
@@ -45,6 +46,7 @@
         <li class="list-row">
           <a class="grow truncate" href={project.path}>{project.name}</a>
           <StatusBadge status={project.status} />
+          <span class="row-actions"><PeekButton type="PROJECT" id={project.id} label={project.name} /></span>
         </li>
       {/each}
     </ul>

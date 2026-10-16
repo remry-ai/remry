@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -124,6 +125,7 @@
               <li class="list-row">
                 <a class="grow truncate" href="/app/people/{r.id}">{r.name}</a>
                 {#if r.title}<span class="meta">{r.title}</span>{/if}
+                <span class="row-actions"><PeekButton type="PERSON" id={r.id} label={r.name} /></span>
               </li>
             {/each}
           </ul>

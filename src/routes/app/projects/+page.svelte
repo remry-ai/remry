@@ -18,7 +18,7 @@
   import { expectedDays, relativeSize, sizeText, timelineAxis, timelineBar } from '$lib/project/project-timeline';
   import { localDay } from '$shared/utils/period';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
-  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import StatusBadge from '$lib/project/components/StatusBadge.svelte';
   import {
     defaultCollapseBase,
@@ -85,7 +85,7 @@
     return `${url.pathname}${url.search}`;
   });
 
-  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
+  const peekId = $derived(parsePeek(page.url.searchParams.get(PEEK_PARAM))?.id ?? null);
 
   // Timing and Size share one scale across every group, collapsed rows included, so collapsing never rescales them.
   const today = localDay();

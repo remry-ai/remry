@@ -6,7 +6,7 @@
   import { page } from '$app/state';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
-  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { formatNumber, formatPropertyValue, optionLabel } from '$lib/page/utils';
   import { DATASET_PARAMS, readDatasetParams, withDatasetParam } from '$lib/page/dataset-url';
   import {
@@ -36,7 +36,7 @@
   const { kind, pages, count, totals, groups }: Props = $props();
 
   const fields = $derived(kind.fields);
-  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
+  const peekId = $derived(parsePeek(page.url.searchParams.get(PEEK_PARAM))?.id ?? null);
   const view = $derived(readDatasetParams(page.url.searchParams));
   const TITLE: PageKindField = { key: 'title', label: 'Title', input: 'text' };
   const filterFields = $derived([TITLE, ...fields]);

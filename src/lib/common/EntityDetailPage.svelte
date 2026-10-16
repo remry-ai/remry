@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EntityPeek from '$lib/common/EntityPeek.svelte';
   import type { Snippet } from 'svelte';
   import { onDestroy } from 'svelte';
   import { invalidateAll } from '$app/navigation';
@@ -510,6 +511,9 @@
     {/if}
   </div>
 </DetailLayout>
+
+<!-- A row's peek button (?peek=<TYPE>:<id>) shows the item in the right panel's Peek tab. -->
+<EntityPeek />
 
 <Popup id={editPopupId} title={editPopupTitle}>
   {@render renderEditForm({ onSuccess: handleEditSuccess, onCancel: handleEditCancel })}

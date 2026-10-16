@@ -1,6 +1,7 @@
 <script lang="ts">
   // Goals as list rows: title, period, status and progress, with an optional
   // per-row remove action.
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import ProgressBar from '$lib/ui/ProgressBar.svelte';
   import type { GoalSummary } from '$shared/types/goals';
@@ -32,11 +33,10 @@
           <ProgressBar value={goal.progress} tone={progressTone(goal.status)} label="{Math.round((goal.progress ?? 0) * 100)}%" />
         </span>
       {/if}
-      {#if onRemove}
-        <span class="row-actions">
-          <ConfirmButton label={removeLabel} variant="icon" onConfirm={() => onRemove(goal.id)} />
-        </span>
-      {/if}
+      <span class="row-actions">
+        <PeekButton type="GOAL" id={goal.id} label={goal.title} />
+        {#if onRemove}<ConfirmButton label={removeLabel} variant="icon" onConfirm={() => onRemove(goal.id)} />{/if}
+      </span>
     </li>
   {/each}
 </ul>

@@ -84,6 +84,13 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
+  // Room for .list-row's negative side margins (its hover background reaches past the text):
+  // without it the rows overflow by that much, and focusing a button at a row's end (peek,
+  // remove) scrolls the column sideways. The padding and margin cancel, so nothing moves.
+  .col-center {
+    padding-inline: var(--sp-2);
+    margin-inline: calc(-1 * var(--sp-2));
+  }
   // The handle sits outside the scroller, so it stays put while the sidebar scrolls.
   .col-left { position: relative; }
   .col-scroll { height: 100%; }

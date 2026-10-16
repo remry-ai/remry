@@ -9,7 +9,7 @@
   import GoalForm from '$lib/goal/components/GoalForm.svelte';
   import GoalPeek from '$lib/goal/components/GoalPeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
-  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { GOAL_STATUSES, type GoalStatus, type OwnerType } from '$shared/types/enums';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
@@ -67,7 +67,7 @@
     ),
   );
 
-  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
+  const peekId = $derived(parsePeek(page.url.searchParams.get(PEEK_PARAM))?.id ?? null);
 
   const handleCreated = () => closePopup({ invalidate: true });
 </script>

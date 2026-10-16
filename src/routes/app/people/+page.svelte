@@ -10,7 +10,7 @@
   import PersonForm from '$lib/person/components/PersonForm.svelte';
   import PersonPeek from '$lib/person/components/PersonPeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
-  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { model } from '$lib/stores/notebook-model';
   import { fieldText } from '$lib/person/fields';
@@ -23,7 +23,7 @@
   // How each person relates to you, once someone is marked as you.
   const hasMe = $derived(persons.some((p) => p.isMe));
 
-  const peekId = $derived(page.url.searchParams.get(PEEK_PARAM));
+  const peekId = $derived(parsePeek(page.url.searchParams.get(PEEK_PARAM))?.id ?? null);
   const peeked = $derived(persons.find((p) => p.id === peekId) ?? null);
 
   const handleCreated = () => closePopup({ invalidate: true });

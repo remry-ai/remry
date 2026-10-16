@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import type { PageData } from './$types';
   import { goto, invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -69,6 +70,7 @@
             <li class="list-row">
               <a class="grow truncate" href="/app/people/{m.personId}">{m.personName}</a>
               <span class="row-actions">
+                <PeekButton type="PERSON" id={m.personId} label={m.personName} />
                 <ConfirmButton label="Remove member" variant="icon" onConfirm={() => handleRemoveMember(m.personId)} />
               </span>
             </li>

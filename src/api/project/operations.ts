@@ -43,7 +43,7 @@ export interface ProjectDetail {
   readonly parentId: string | null;
   readonly parentName: string | null;
   readonly owner: EntityOwner | null;
-  readonly children: readonly { readonly id: string; readonly name: string }[];
+  readonly children: readonly { readonly id: string; readonly name: string; readonly status: string | null }[];
   readonly path: string;
   readonly archivedAt: Date | null;
   readonly createdAt: Date;
@@ -115,7 +115,7 @@ export const getProject = async (
     where: { id },
     include: {
       parent: { select: { id: true, name: true } },
-      children: { select: { id: true, name: true }, orderBy: { name: 'asc' } }
+      children: { select: { id: true, name: true, status: true }, orderBy: { name: 'asc' } }
     }
   });
   if (!project) return err(new Error('Project not found'));

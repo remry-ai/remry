@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -80,6 +81,7 @@
               {doc.title}
             </a>
             <span class="row-actions">
+              <PeekButton type="DOC" id={doc.id} label={doc.title} />
               <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
               <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>
               <ConfirmButton label="Delete doc" variant="icon" onConfirm={() => onRemove(doc.id)} />

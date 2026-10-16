@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PeekButton from '$lib/ui/PeekButton.svelte';
   import type { PageData } from './$types';
   import { goto, invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -312,6 +313,7 @@
               <a class="grow truncate" href={project.path}>{project.name}</a>
               <StatusBadge status={project.status} />
               <span class="row-actions">
+                <PeekButton type="PROJECT" id={project.id} label={project.name} />
                 <ConfirmButton label="Unlink project" variant="icon" onConfirm={() => handleUnlinkProject(project.id)} />
               </span>
             </li>

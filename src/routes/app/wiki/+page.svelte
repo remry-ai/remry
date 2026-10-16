@@ -15,7 +15,7 @@
   import { page as appPage } from '$app/state';
   import PagePeek from '$lib/page/components/PagePeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
-  import { openPeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
 
   const { data } = $props<{ data: PageData }>();
   const pages = $derived(data.pages as readonly PageSummary[]);
@@ -55,7 +55,7 @@
 
   const formatDate = (d: Date | string): string => new Date(d).toLocaleDateString('en-CA');
 
-  const peekId = $derived(appPage.url.searchParams.get(PEEK_PARAM));
+  const peekId = $derived(parsePeek(appPage.url.searchParams.get(PEEK_PARAM))?.id ?? null);
 
   const handleCreated = () => closePopup({ invalidate: true });
 </script>
