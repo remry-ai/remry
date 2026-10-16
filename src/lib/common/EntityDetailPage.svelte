@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Menu from '$lib/ui/Menu.svelte';
+  import { planBreadcrumb } from '$lib/common/breadcrumb';
   import EntityPeek from '$lib/common/EntityPeek.svelte';
   import type { Snippet } from 'svelte';
   import { onDestroy } from 'svelte';
@@ -131,6 +133,9 @@
     renderAssetHeader,
     renderEditForm,
   }: Props = $props();
+
+  // A long trail folds its middle into a dropdown (lib/common/breadcrumb.ts).
+  const crumbs = $derived(planBreadcrumb({ label: breadcrumbLabel, href: breadcrumbHref }, breadcrumbTrail, entityName));
 
   const editPopupId = $derived(`edit-${entityType.toLowerCase()}`);
 
@@ -394,11 +399,18 @@
     <div class="center-header" bind:offsetHeight={centerHeaderH}>
       <nav aria-label="breadcrumb">
         <ul>
-          <li><a href={breadcrumbHref}>{breadcrumbLabel}</a></li>
-          {#each breadcrumbTrail as link (link.href)}
-            <li><a href={link.href}>{link.label}</a></li>
+          <li><a href={crumbs.first.href} title={crumbs.first.label}>{crumbs.first.label}</a></li>
+          {#if crumbs.folded.length > 0}
+            <li class="crumb-menu">
+              <Menu label="Show {crumbs.folded.length} more" items={crumbs.folded.map((c) => ({ label: c.label, href: c.href }))}>
+                {#snippet trigger()}<span aria-hidden="true">…</span><span class="sr-only">Show {crumbs.folded.length} more</span>{/snippet}
+              </Menu>
+            </li>
+          {/if}
+          {#each crumbs.rest as link (link.href)}
+            <li><a href={link.href} title={link.label}>{link.label}</a></li>
           {/each}
-          <li>{entityName}</li>
+          <li><span title={entityName}>{entityName}</span></li>
         </ul>
       </nav>
       <div class="asset-header-row">

@@ -84,7 +84,7 @@ Use a standard component or class before writing markup or styles yourself. If n
 
 **Pages**
 - A list page is `<div class="page">`, then `PageHeader` (its primary action is `.btn primary`), then the content, then `EmptyState boxed` with the same action when the list is empty. `src/routes/app/people/+page.svelte` is the reference.
-- An entity detail page is `EntityDetailPage`. It supplies only `renderMeta` (its `.meta-list`, if it has one), `renderOverview`, `renderAssetHeader` and `renderEditForm`. Never rebuild the sidebar, notes panel, breadcrumb or edit popup.
+- An entity detail page is `EntityDetailPage`. It supplies only `renderMeta` (its `.meta-list`, if it has one), `renderOverview`, `renderAssetHeader` and `renderEditForm`. Never rebuild the sidebar, notes panel, breadcrumb or edit popup. The breadcrumb caps each crumb's width (its title has it whole), and past `BREADCRUMB_MAX_CHARS` the parents between the list and the nearest one fold into a "…" `Menu` (`common/breadcrumb.ts`, pure).
 - Inside an overview, group content in `.section`, with a `.section-header` holding an `h4` and `.count`. Render collections as `.list` + `.list-row`, with per-row actions in `.row-actions`. Put a wide table in `.table-wrap`.
 
 **Forms and mutations**

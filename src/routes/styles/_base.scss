@@ -252,6 +252,7 @@ details > summary {
 nav[aria-label="breadcrumb"] ul {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: var(--sp-1);
   list-style: none;
   margin: 0 0 var(--sp-3);
@@ -259,12 +260,25 @@ nav[aria-label="breadcrumb"] ul {
   font-size: var(--fs-sm);
 
   li {
+    display: flex;
+    align-items: center;
+    min-width: 0;
     margin: 0;
     padding: 0;
     color: var(--text-3);
+    white-space: nowrap;
     a { color: var(--text-3); }
     a:hover { color: var(--text); text-decoration: none; }
+    // One crumb that's still long (a long name) ends in an ellipsis; its title has it whole.
+    > a, > span {
+      min-width: 0;
+      max-width: 16rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     &:not(:last-child)::after { content: '/'; margin-left: var(--sp-1); color: var(--border-strong); }
     &:last-child { color: var(--text); font-weight: 500; }
+    // The folded parents' dropdown (lib/common/breadcrumb.ts) keeps its size.
+    &.crumb-menu { flex-shrink: 0; }
   }
 }
