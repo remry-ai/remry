@@ -420,6 +420,8 @@
     {/if}
 
     {#if activeDoc}
+      <!-- Keyed, so each doc opens on its own first tab (Preview) rather than the last one's. -->
+      {#key activeDoc.id}
       <DocEditor
         title={activeDoc.title}
         content={activeDoc.content}
@@ -437,6 +439,7 @@
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
+      {/key}
     {:else if newDocOpen}
       <DocEditor
         title={newDocTitleDraft}

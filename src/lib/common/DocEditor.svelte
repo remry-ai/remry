@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
   import ProBadge from '$lib/ui/ProBadge.svelte';
@@ -31,9 +32,11 @@
     /** Colours charts in the preview like the exported PDF (the default branding). */
     readonly chartBranding?: ChartBranding | null;
     readonly autoEditTitle?: boolean;
+    /** The tab it opens on: Preview, unless the doc is empty (nothing to preview) or the caller asked to edit. */
+    readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, exportHref, chartBranding = null, autoEditTitle = false }: Props = $props();
+  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, exportHref, chartBranding = null, autoEditTitle = false, startIn }: Props = $props();
 
   let editingTitle = $state(autoEditTitle);
   let titleDraft = $state(title);
@@ -92,7 +95,8 @@
   // The text last loaded or saved: the editor is dirty while the draft differs from it.
   let saved = $state(content);
   let resolving = $state(hasStorageUrls(content));
-  let mode = $state<'write' | 'editor' | 'preview'>('editor');
+  // Read once: the tab it opens on.
+  let mode = $state<'write' | 'editor' | 'preview'>(untrack(() => startIn ?? (content.trim() ? 'preview' : 'editor')));
   let saving = $state(false);
   let uploading = $state(false);
   let error = $state('');
@@ -237,8 +241,8 @@
       <!-- The view tabs, with the doc's actions at the right end; stays in view above the editor's own toolbar. -->
       <div class="doc-bar">
         <div class="tabs">
-          <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
+          <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
         </div>
         <div class="doc-actions">

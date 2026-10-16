@@ -194,6 +194,7 @@
         onResolveImages={handleResolveImages}
         onClose={handleCloseEditor}
         exportHref={wikiPrintUrl(wikiPage.id)}
+        startIn="editor"
       />
     {:else}
       <section class="section">
