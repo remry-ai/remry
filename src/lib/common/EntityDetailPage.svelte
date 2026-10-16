@@ -187,6 +187,7 @@
   const openNewNote = () => { showInCenter({ type: 'newNote' }); activeDrawer.set(null); };
   const openNewDoc = () => {
     newDocTitleDraft = 'Untitled';
+    draftDocId = null;
     openDoc(NEW_DOC);
   };
   const openNewTodo = () => { showInCenter({ type: 'newTodo' }); };
@@ -252,10 +253,29 @@
     center = { type: 'overview' };
   };
 
+  // A new doc exists on the server only once it's saved, but an image needs the doc's id to
+  // upload to. So the first image (or the save) creates it, without opening it: the draft's
+  // editor, which holds the images still to upload, stays put. The save then fills it in and
+  // opens it; closing the draft unsaved deletes it again.
+  let draftDocId: string | null = null;
+  const ensureDraftDoc = async (): Promise<string> => {
+    draftDocId ??= await docHandlers.handleCreateDraftDoc(newDocTitleDraft);
+    return draftDocId;
+  };
+  const handleUploadDraftImage = async (file: File): Promise<string> =>
+    docHandlers.handleUploadImageTo(await ensureDraftDoc(), file);
+
   const handleCreateDoc = async (content: string) => {
-    await docHandlers.handleAddDoc(newDocTitleDraft);
-    // handleAddDoc has put the new doc's id in the URL.
-    if (content) await docHandlers.handleSaveDoc(content);
+    const id = await ensureDraftDoc();
+    draftDocId = null;
+    await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, content);
+  };
+
+  const closeNewDoc = async () => {
+    const id = draftDocId;
+    draftDocId = null;
+    closeDoc();
+    if (id) await docHandlers.handleDiscardDraftDoc(id).catch(() => undefined);
   };
 
   const handleDraftDocTitle = async (title: string) => {
@@ -292,7 +312,9 @@
   };
 
   const handleCreateDocFromPdf = async (file: File) => {
-    await docHandlers.handleAddDoc(newDocTitleDraft);
+    const id = await ensureDraftDoc();
+    draftDocId = null;
+    await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, '');
     await docHandlers.handleUploadPdf(file);
     if (activeDocId) void runPdfConversion(activeDocId);
   };
@@ -447,7 +469,8 @@
         onSave={handleCreateDoc}
         onSaveTitle={handleDraftDocTitle}
         onUploadPdf={handleCreateDocFromPdf}
-        onClose={closeDoc}
+        onUploadImage={handleUploadDraftImage}
+        onClose={closeNewDoc}
         autoEditTitle
       />
     {:else if activeNote}
