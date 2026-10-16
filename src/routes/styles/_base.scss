@@ -188,6 +188,11 @@ input[type="file"] {
   font-size: var(--fs-sm);
   padding: 0 8px;
 }
+// Room for the caret: the padding above would otherwise run the text under it.
+select.sm {
+  padding-right: 24px;
+  background-position: right 6px center;
+}
 
 // --- Tables ---
 
