@@ -19,9 +19,8 @@
 
   const close = () => closePopup({ invalidate: true, clear: clearParams });
 
-  const handleBackdropClick = (e: MouseEvent) => {
-    if (e.target === e.currentTarget) close();
-  };
+  // No closing on a click outside: every popup is a form, and a stray click would lose what's
+  // been typed. Escape and × close it.
 
   const handleKeydown = (e: KeyboardEvent) => {
     if (isOpen && e.key === 'Escape') close();
@@ -36,7 +35,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
-  <dialog class="popup" open onclick={handleBackdropClick} aria-labelledby={titleId}>
+  <dialog class="popup" open aria-labelledby={titleId}>
     <div class="popup-panel" data-size={size} use:focusFirst>
       <header class="popup-header">
         <h2 id={titleId}>{title}</h2>

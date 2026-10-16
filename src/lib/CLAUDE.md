@@ -75,7 +75,7 @@ Global styles live in `src/routes/styles/` (see `src/routes/CLAUDE.md`). Compone
 | `CopyLinkButton` | `notebookId` | the top bar's link icon, beside Search: copies the page you're on as `<origin>/app/…?notebook=<id>&open=app` (`shareLink` in `ui/share-link.ts`, pure), the form Claude's links take, so it opens in the desktop app's window. The window has no address bar, so this is how to share a page from it. Clipboard API, falling back to `execCommand('copy')`; the icon turns to a tick for a moment |
 | `submit.ts` | `submit(fn)`, `submitOrThrow(fn)`, `errorMessage(e)` | all tRPC mutations from the UI |
 
-`Popup` (`common/Popup.svelte`, props `id`, `title`, `size?`, `clearParams?`) is for entity create/edit only; small edits render inline.
+`Popup` (`common/Popup.svelte`, props `id`, `title`, `size?`, `clearParams?`) is for entity create/edit only; small edits render inline. A click outside doesn't close it (a stray click would lose the form); Escape and × do.
 
 ### Rules for UI code
 
