@@ -22,6 +22,10 @@
     return `<img src="${escapeAttr(src)}" alt="${escapeAttr(text ?? '')}"${titleAttr}${widthAttr} style="max-width:100%;border-radius:4px;">`;
   };
 
+  // A wide table scrolls sideways inside its own box instead of running past the doc's edge.
+  const tableHtml = renderer.table.bind(renderer);
+  renderer.table = (token) => `<div class="table-wrap">${tableHtml(token)}</div>`;
+
   interface Props {
     readonly content: string;
     readonly placeholder?: string;

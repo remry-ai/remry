@@ -287,6 +287,13 @@
       margin: 0.25em 0;
     }
 
+    // A wide table scrolls sideways inside the doc instead of running past its edge. The editor
+    // draws its own table, so the table is the scroller (the preview wraps it in .table-wrap).
+    :global(.editor table) {
+      display: block;
+      max-width: 100%;
+      overflow-x: auto;
+    }
     :global(h1) { font-size: var(--fs-xl); }
     :global(h2) { font-size: var(--fs-lg); margin-top: var(--sp-4); }
     :global(h3) { font-size: var(--fs-base); margin-top: var(--sp-3); }
