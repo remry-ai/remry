@@ -90,3 +90,55 @@ export const toPersonRelationInput = (
   if (direction !== 'out' && !(direction === 'in' && !symmetric)) return null;
   return direction === 'out' ? { fromId: selfId, toId: targetId, kind } : { fromId: targetId, toId: selfId, kind };
 };
+
+export interface RelationKindOption {
+  readonly kind: string;
+  readonly name: string;
+}
+
+/**
+ * The kinds an existing link can change to, as they read from this side. Editing keeps the
+ * link's ends, so an incoming link offers each kind's inverse label ("Needed by") and an
+ * outgoing one its label ("Depends on"). A person relationship changes among the notebook's
+ * person relation kinds (`personKinds`); any other link among RELATED and DEPENDS_ON.
+ */
+export const editKindOptions = (
+  link: { readonly direction: 'outgoing' | 'incoming'; readonly personRelation?: true },
+  personKinds: readonly PersonRelationKindDefinition[]
+): readonly RelationKindOption[] => {
+  const name = (label: string, inverseLabel: string): string => (link.direction === 'outgoing' ? label : inverseLabel);
+  return link.personRelation
+    ? personKinds.map((k) => ({ kind: k.key, name: name(k.label, k.inverseLabel) }))
+    : MANUAL_RELATION_KINDS.map((k) => ({ kind: k, name: name(RELATION_LABELS[k].label, RELATION_LABELS[k].inverseLabel) }));
+};
+
+/**
+ * A link's label as the middle of a sentence ("Jim is partner of Marie"): a label that opens
+ * with a verb ("Depends on", "Reports to") reads as it is, any other ("Partner of", "Needed
+ * by") gets "is". The verb test is a word ending in a single "s".
+ */
+export const linkPredicate = (label: string): string => {
+  const lower = label.charAt(0).toLowerCase() + label.slice(1);
+  const first = lower.split(/\s/)[0] ?? '';
+  return /[^s]s$/.test(first) ? lower : `is ${lower}`;
+};
+
+/** Whether a group's links are to more than one type of entity, so each row needs its type. */
+export const mixesTypes = (items: readonly { readonly other: { readonly entityType: string } }[]): boolean =>
+  new Set(items.map((item) => item.other.entityType)).size > 1;
+
+/**
+ * The warning for changing a person relationship to `picked`, or null: an exclusive kind (Lead
+ * of) allows its `to` person one, so saving replaces the one they have. `to` is the other person
+ * when the link goes out from this side, else this one.
+ */
+export const replacesWarning = (
+  picked: PersonRelationKindDefinition | undefined,
+  direction: 'outgoing' | 'incoming',
+  selfLabel: string,
+  otherLabel: string
+): string | null => {
+  if (!picked?.exclusive) return null;
+  const to = direction === 'outgoing' ? otherLabel : selfLabel;
+  return `${to} can have only one “${picked.inverseLabel}”: saving replaces the one they have.`;
+};

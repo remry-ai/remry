@@ -52,7 +52,7 @@
 </script>
 
 {#if todoId}
-  <RelationsWidget entityType="TODO" entityId={todoId} {groups} onChange={() => load()} />
+  <RelationsWidget entityType="TODO" entityId={todoId} {groups} onChange={() => load()} inPopup />
   {#if loadError}<p class="form-error">{loadError}</p>{/if}
 {:else}
   <div>

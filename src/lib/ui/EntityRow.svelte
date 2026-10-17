@@ -23,18 +23,27 @@
     readonly onclick?: (e: MouseEvent) => void;
     /** Shown between the title and the actions. */
     readonly children?: Snippet;
+    /** Small text on a line of its own under the title (a relation's note). */
+    readonly detail?: Snippet;
     /** More `.row-actions` after the peek (remove, reorder). */
     readonly actions?: Snippet;
   }
 
-  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, children, actions }: Props = $props();
+  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, children, detail, actions }: Props = $props();
 
   const peeksShown = getContext<boolean | undefined>(PEEKS_CONTEXT) === true;
   const target = $derived(peeksShown ? (peek === undefined ? peekForHref(href) : peek) : null);
 </script>
 
 <li class="list-row" class:active>
-  <a class="grow {wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
+  {#if detail}
+    <span class="grow stacked">
+      <a class="{wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
+      {@render detail()}
+    </span>
+  {:else}
+    <a class="grow {wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
+  {/if}
   {@render children?.()}
   {#if target?.type || actions}
     <span class="row-actions">
@@ -43,3 +52,11 @@
     </span>
   {/if}
 </li>
+
+<style lang="scss">
+  .stacked {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+</style>

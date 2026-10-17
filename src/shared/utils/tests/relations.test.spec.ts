@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPersonChoice, relationChoices, relationEnd, toPersonRelationInput, toRelationInput } from '../relations';
+import { editKindOptions, isPersonChoice, linkPredicate, mixesTypes, replacesWarning, relationChoices, relationEnd, toPersonRelationInput, toRelationInput } from '../relations';
 
 const team = { entityType: 'GROUP', entityId: 't1' } as const;
 const project = { entityType: 'PROJECT', entityId: 'p1' } as const;
@@ -66,5 +66,54 @@ describe('relationEnd', () => {
     expect(relationEnd('TODO', 'x1')).toEqual({ entityType: 'TODO', entityId: 'x1' });
     expect(relationEnd('LINK', 'l1')).toBeNull();
     expect(relationEnd('GROUP', '')).toBeNull();
+  });
+});
+
+describe('editKindOptions', () => {
+  it('reads each kind from this side, keeping the link\'s ends', () => {
+    expect(editKindOptions({ direction: 'outgoing' }, kinds)).toEqual([
+      { kind: 'RELATED', name: 'Related to' },
+      { kind: 'DEPENDS_ON', name: 'Depends on' }
+    ]);
+    expect(editKindOptions({ direction: 'incoming' }, kinds).map((o) => o.name)).toEqual(['Related to', 'Needed by']);
+  });
+
+  it('changes a person relationship among the person kinds', () => {
+    expect(editKindOptions({ direction: 'incoming', personRelation: true }, kinds)).toEqual([
+      { kind: 'PARENT_OF', name: 'Child of' },
+      { kind: 'FRIEND_OF', name: 'Friend of' }
+    ]);
+  });
+});
+
+describe('linkPredicate', () => {
+  it('adds "is" before a noun or participle, and keeps a verb', () => {
+    expect(linkPredicate('Partner of')).toBe('is partner of');
+    expect(linkPredicate('Needed by')).toBe('is needed by');
+    expect(linkPredicate('Related to')).toBe('is related to');
+    expect(linkPredicate('Depends on')).toBe('depends on');
+    expect(linkPredicate('Reports to')).toBe('reports to');
+  });
+});
+
+describe('mixesTypes', () => {
+  const to = (entityType: string) => ({ other: { entityType } });
+  it('is true only for links to more than one type', () => {
+    expect(mixesTypes([to('PERSON'), to('PERSON')])).toBe(false);
+    expect(mixesTypes([to('PROJECT'), to('PAGE')])).toBe(true);
+    expect(mixesTypes([])).toBe(false);
+  });
+});
+
+describe('replacesWarning', () => {
+  const LEAD = { key: 'LEAD_OF', label: 'Lead of', inverseLabel: 'Reports to', symmetric: false, exclusive: true, sortOrder: 0 };
+  it('names whoever can have only one: the other person going out, this one coming in', () => {
+    expect(replacesWarning(LEAD, 'outgoing', 'Jim', 'Marie')).toBe('Marie can have only one “Reports to”: saving replaces the one they have.');
+    expect(replacesWarning(LEAD, 'incoming', 'Jim', 'Marie')).toMatch(/^Jim /);
+  });
+
+  it('says nothing for a kind a person can have many of', () => {
+    expect(replacesWarning(PARENT, 'outgoing', 'Jim', 'Marie')).toBeNull();
+    expect(replacesWarning(undefined, 'outgoing', 'Jim', 'Marie')).toBeNull();
   });
 });

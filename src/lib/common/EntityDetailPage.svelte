@@ -389,7 +389,7 @@
       </div>
     {/if}
     <div class="section">
-      <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} />
+      <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} />
     </div>
     {#if links.length > 0}
       <div class="section">
