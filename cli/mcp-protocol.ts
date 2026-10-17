@@ -61,10 +61,12 @@ export const toolName = (procedure: string): string => procedure.replaceAll('.',
 /** Every tool that works inside a notebook takes this optional argument. */
 export const NOTEBOOK_ARGUMENT = 'notebook';
 
-export const notebookArgumentSchema = {
-  type: 'string',
-  description: 'Notebook id or name; the default if omitted.'
-} as const;
+/**
+ * No description: the server instructions say once what `notebook` is (an id or name, the
+ * default when left out). Repeated on all 97 tools that take it, the sentence was ~1.6k of the
+ * tool list's ~16k tokens.
+ */
+export const notebookArgumentSchema = { type: 'string' } as const;
 
 /** The `notebook.*` procedures manage notebooks themselves, so they take no notebook argument. */
 const isNotebookScoped = (procedure: string): boolean => !procedure.startsWith('notebook.');
