@@ -25,6 +25,11 @@ a {
   &:hover { text-decoration: underline; }
 }
 
+// A long URL or unbroken word in written content wraps instead of pushing the column sideways:
+// rendered markdown, the editor, and plain-text descriptions. `break-word`, not `anywhere`, so
+// a table's columns keep their width and a wide table still scrolls inside its wrapper.
+.md-rendered, .milkdown .editor, .pre-line { overflow-wrap: break-word; }
+
 // Links in written content (docs, notes, descriptions, Claude's answers) stand out from the
 // text: the link colour, always underlined. Names in lists and tables keep the plain style.
 .md-rendered a {
