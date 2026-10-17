@@ -17,6 +17,7 @@
   import { DOC_PARAM, NEW_DOC, openDocUrl, closeDocUrl } from '$lib/doc/doc-url';
   import NoteEditor from '$lib/common/NoteEditor.svelte';
   import Popup from '$lib/common/Popup.svelte';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
   import TodoWidget from '$lib/todo/components/TodoWidget.svelte';
   import TodoForm from '$lib/todo/components/TodoForm.svelte';
   import ReportsWidget from '$lib/report/components/ReportsWidget.svelte';
@@ -141,11 +142,10 @@
 
   // ----- Center pane state -----
   // The open doc lives in the URL (`?doc=<id>`, or `?doc=new` for a draft) and
-  // takes the pane over everything else. Notes and todos are local state.
+  // takes the pane over everything else. Todos are local state; notes open in a popup
+  // (`?popup=note`, with `&note=<id>` to edit one), so the page stays in view.
   type CenterView =
     | { readonly type: 'overview' }
-    | { readonly type: 'note'; readonly id: string }
-    | { readonly type: 'newNote' }
     | { readonly type: 'newTodo' }
     | { readonly type: 'editTodo'; readonly id: string };
 
@@ -159,19 +159,16 @@
     docParam && docParam !== NEW_DOC ? docs.find((d) => d.id === docParam) ?? null : null,
   );
 
-  // A doc that's gone (deleted, or a stale link) closes; so does a vanished note.
+  // A doc that's gone (deleted, or a stale link) closes.
   $effect(() => {
     if (docParam && docParam !== NEW_DOC && !activeDoc) void closeDocUrl({ replace: true });
-    const c = center;
-    if (c.type === 'note' && !notes.some((n) => n.id === c.id)) {
-      center = { type: 'overview' };
-    }
   });
 
-  const activeNote = $derived.by(() => {
-    const c = center;
-    return c.type === 'note' ? notes.find((n) => n.id === c.id) ?? null : null;
-  });
+  // The note popup: `?popup=note` adds one, `&note=<id>` edits that one.
+  const NOTE_POPUP = 'note';
+  const NOTE_PARAM = 'note';
+  const editingNoteId = $derived(page.url.searchParams.get(NOTE_PARAM));
+  const editingNote = $derived(editingNoteId ? notes.find((n) => n.id === editingNoteId) ?? null : null);
 
   const activeDocId = $derived(activeDoc?.id ?? null);
 
@@ -189,8 +186,9 @@
     void openDocUrl(id);
   };
   // Close a floating drawer so the editor in the center pane is reachable.
-  const openNote = (id: string) => { showInCenter({ type: 'note', id }); activeDrawer.set(null); };
-  const openNewNote = () => { showInCenter({ type: 'newNote' }); activeDrawer.set(null); };
+  const openNote = (id: string) => { activeDrawer.set(null); void openPopup(NOTE_POPUP, { [NOTE_PARAM]: id }); };
+  const openNewNote = () => { activeDrawer.set(null); void openPopup(NOTE_POPUP); };
+  const closeNotePopup = (invalidate = false) => closePopup({ invalidate, clear: [NOTE_PARAM] });
   const openNewDoc = () => {
     newDocTitleDraft = 'Untitled';
     draftDocId = null;
@@ -250,13 +248,14 @@
   });
 
   const handleSaveNote = async (content: string) => {
-    if (center.type !== 'note') return;
-    await noteHandlers.handleUpdateNote(center.id, content);
+    if (!editingNote) return;
+    await noteHandlers.handleUpdateNote(editingNote.id, content);
+    await closeNotePopup(true);
   };
 
   const handleCreateNote = async (content: string) => {
     await noteHandlers.handleAddNote(content);
-    center = { type: 'overview' };
+    await closeNotePopup(true);
   };
 
   // A new doc exists on the server only once it's saved, but an image needs the doc's id to
@@ -486,20 +485,6 @@
         onClose={closeNewDoc}
         autoEditTitle
       />
-    {:else if activeNote}
-      <NoteEditor
-        noteId={activeNote.id}
-        content={activeNote.content}
-        onSave={handleSaveNote}
-        onClose={closeCenter}
-      />
-    {:else if center.type === 'newNote'}
-      <NoteEditor
-        noteId="__new__"
-        content=""
-        onSave={handleCreateNote}
-        onClose={closeCenter}
-      />
     {:else if center.type === 'newTodo'}
       <section class="card pane-card">
         <div class="pane-header">
@@ -526,6 +511,22 @@
 
 <!-- A row's peek button (?peek=<TYPE>:<id>) shows the item in the right panel's Peek tab. -->
 <EntityPeek />
+
+<Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>
+  {#if editingNoteId && !editingNote}
+    <EmptyState message="This note is gone." />
+  {:else}
+    {#key editingNoteId}
+      <NoteEditor
+        bare
+        noteId={editingNote?.id ?? '__new__'}
+        content={editingNote?.content ?? ''}
+        onSave={editingNote ? handleSaveNote : handleCreateNote}
+        onClose={() => closeNotePopup()}
+      />
+    {/key}
+  {/if}
+</Popup>
 
 <Popup id={editPopupId} title={editPopupTitle}>
   {@render renderEditForm({ onSuccess: handleEditSuccess, onCancel: handleEditCancel })}

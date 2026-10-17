@@ -6,9 +6,11 @@
     readonly content: string;
     readonly onSave: (content: string) => Promise<void>;
     readonly onClose?: () => void;
+    /** Without its own card and header, inside a Popup that gives the title and ×. */
+    readonly bare?: boolean;
   }
 
-  const { noteId, content, onSave, onClose }: Props = $props();
+  const { noteId, content, onSave, onClose, bare = false }: Props = $props();
 
   let draft = $state(content);
   let saving = $state(false);
@@ -36,13 +38,15 @@
   };
 </script>
 
-<section class="card note-editor">
-  <div class="note-header">
-    <h2>{noteId === '__new__' ? 'New note' : 'Note'}</h2>
-    {#if onClose}
-      <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
-    {/if}
-  </div>
+<section class="note-editor" class:card={!bare}>
+  {#if !bare}
+    <div class="note-header">
+      <h2>{noteId === '__new__' ? 'New note' : 'Note'}</h2>
+      {#if onClose}
+        <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
+      {/if}
+    </div>
+  {/if}
   <MarkdownEditor value={draft} onChange={(md) => draft = md} />
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   <div class="form-actions">
