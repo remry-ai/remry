@@ -37,6 +37,7 @@ remry person.create --name "Dana Park" --extensions '{"org":{"title":"Senior Eng
 - If neither the tools nor `remry` work, or they say Remry isn't set up, tell the user what you saw and stop. Setup is theirs to do: install the Remry desktop app from https://github.com/remry-ai/remry/releases/latest and open it once. Don't look for the data folder yourself.
 - stdout is JSON. Most calls return `{"ok": true, "value": ...}` or `{"ok": false, "error": {"message": ...}}`. Exit code 1 means failure; read the message and fix the call.
 - Values are typed by each procedure's schema: `--priority 2` is a number, `--title 2024` stays a string, and `null` clears a field (`--email null`, or `{"org":{"title":null}}` in `--extensions`).
+- The MCP tools' results leave out fields that are empty (null or an empty list), so a missing field is empty. `remry`'s JSON keeps them.
 - For long text, write it to a file and pass `--content-file path.md` (any `--<field>-file`). For awkward input, pass `--input '{"...": ...}'`.
 
 ## Notebooks
@@ -69,9 +70,9 @@ Every call works on one notebook: the default, unless you name another.
 
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
-- **Use the `url` in the result.** Each item with a `path` comes back with a `url` beside it: the full link, with the notebook and `open=app` already in it. Give the user that, unchanged.
+- **Use the `url` in the result.** The item a get, create or update returns comes back with a `url` beside its `path`: the full link, with the notebook and `open=app` already in it. Give the user that, unchanged. Rows of a list and items nested in a result have only their `path`.
 - **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://127.0.0.1:7369`) + the item's path + `?notebook=<notebook id>&open=app` (`&` instead of the first `?` when the path already has a query). `open=app` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
-- **Paths,** when a result has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
+- **Paths,** when an item has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>` (a page kind's table: `/app/wiki?kind=<key>`).
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 

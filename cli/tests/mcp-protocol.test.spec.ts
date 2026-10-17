@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROTOCOL_VERSIONS, handleMessage, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, toolFromProcedure, type McpContext } from '../mcp-protocol';
+import { PROTOCOL_VERSIONS, handleMessage, leaveOutEmpty, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, toolFromProcedure, type McpContext } from '../mcp-protocol';
 
 const personCreate = toolFromProcedure({
   name: 'person.create',
@@ -113,9 +113,10 @@ describe('handleMessage', () => {
 });
 
 describe('resultFromOutcome', () => {
-  it('returns the value of a successful Result', () => {
-    expect(resultFromOutcome({ kind: 'result', result: { ok: true, value: { id: 'p1' } }, failed: false })).toEqual({
-      content: [{ type: 'text', text: '{\n  "id": "p1"\n}' }]
+  it('returns the value of a successful Result as JSON without indentation or empty fields', () => {
+    const value = { id: 'p1', name: 'Payments', email: null, tags: [], owner: { id: 'g1', lead: null } };
+    expect(resultFromOutcome({ kind: 'result', result: { ok: true, value }, failed: false })).toEqual({
+      content: [{ type: 'text', text: '{"id":"p1","name":"Payments","owner":{"id":"g1"}}' }]
     });
   });
 
@@ -127,5 +128,22 @@ describe('resultFromOutcome', () => {
   it('lists input issues', () => {
     const result = resultFromOutcome({ kind: 'invalid', issues: [{ path: 'name', message: 'Required' }, { path: '', message: 'Expected object' }] });
     expect(result).toEqual({ content: [{ type: 'text', text: 'Invalid input:\n  name: Required\n  (input): Expected object' }], isError: true });
+  });
+});
+
+describe('leaveOutEmpty', () => {
+  it('leaves out null and empty-list fields at any depth', () => {
+    expect(leaveOutEmpty({ a: 1, b: null, c: [], d: { e: null, f: [{ g: null, h: 'x' }] } })).toEqual({ a: 1, d: { f: [{ h: 'x' }] } });
+  });
+
+  it('keeps what says something: false, 0, empty text and objects, and list entries as they are', () => {
+    expect(leaveOutEmpty({ done: false, count: 0, note: '', props: {}, cells: [[null, 'a'], []] })).toEqual({ done: false, count: 0, note: '', props: {}, cells: [[null, 'a'], []] });
+  });
+
+  it('passes through a Date, and an empty or null result', () => {
+    const at = new Date('2026-10-17T00:00:00Z');
+    expect((leaveOutEmpty({ at }) as { at: Date }).at).toBe(at);
+    expect(leaveOutEmpty([])).toEqual([]);
+    expect(leaveOutEmpty(null)).toBe(null);
   });
 });

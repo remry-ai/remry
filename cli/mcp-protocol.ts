@@ -100,10 +100,34 @@ export const splitNotebookArgument = (args: Readonly<Record<string, unknown>>): 
   return typeof notebook === 'string' ? { notebook, args: rest } : { error: 'notebook must be a notebook id or name' };
 };
 
+/** JSON without indentation: every space in a result is a token Claude reads. */
 export const textResult = (value: unknown, isError = false): ToolResult => ({
-  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
+  content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
   ...(isError ? { isError: true } : {})
 });
+
+const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
+/**
+ * Leaves out an object's fields that are null or an empty list, at any depth, so a result says
+ * only what's there (the server instructions tell Claude a missing field is empty). Entries of
+ * a list are kept as they are, since a null there can hold a place (a sheet's cells), and so
+ * is anything that isn't a plain object or list (a Date). A null or empty result stays.
+ */
+export const leaveOutEmpty = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(leaveOutEmpty);
+  if (!isPlainRecord(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (child === null || child === undefined || (Array.isArray(child) && child.length === 0)) continue;
+    out[key] = leaveOutEmpty(child);
+  }
+  return out;
+};
 
 /** A procedure's outcome as a tool result: the value on success, the message on failure. */
 export const resultFromOutcome = (outcome: CallOutcome): ToolResult => {
@@ -115,7 +139,7 @@ export const resultFromOutcome = (outcome: CallOutcome): ToolResult => {
     const message = isRecord(result) && isRecord(result['error']) ? result['error']['message'] : undefined;
     return textResult(typeof message === 'string' ? message : result, true);
   }
-  return textResult(isRecord(result) && result['ok'] === true && 'value' in result ? result['value'] : result);
+  return textResult(leaveOutEmpty(isRecord(result) && result['ok'] === true && 'value' in result ? result['value'] : result));
 };
 
 const reply = (id: string | number, result: unknown): JsonRpcResponse => ({ jsonrpc: '2.0', id, result });

@@ -18,7 +18,7 @@ describe('appPageLink', () => {
 });
 
 describe('withAppLinks', () => {
-  it('adds a url right after each app path, at any depth', () => {
+  it('adds a url right after the path of the item a tool returns, and not to nested items', () => {
     const result = withAppLinks({ ok: true, value: { id: 'abc', path: '/app/wiki/abc', children: [{ id: 'c', path: '/app/wiki/c' }] } }, link);
     expect(result).toEqual({
       ok: true,
@@ -26,10 +26,15 @@ describe('withAppLinks', () => {
         id: 'abc',
         path: '/app/wiki/abc',
         url: 'http://127.0.0.1:7369/app/wiki/abc?notebook=home&open=app',
-        children: [{ id: 'c', path: '/app/wiki/c', url: 'http://127.0.0.1:7369/app/wiki/c?notebook=home&open=app' }]
+        children: [{ id: 'c', path: '/app/wiki/c' }]
       }
     });
     expect(Object.keys((result as { value: object }).value)).toEqual(['id', 'path', 'url', 'children']);
+  });
+
+  it('leaves the rows of a list with just their path', () => {
+    const rows = [{ id: 'a', path: '/app/people/a' }, { id: 'b', path: '/app/people/b' }];
+    expect(withAppLinks({ ok: true, value: rows }, link)).toEqual({ ok: true, value: rows });
   });
 
   it('leaves other paths, an existing url and non-plain values alone', () => {

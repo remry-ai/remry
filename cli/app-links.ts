@@ -20,17 +20,21 @@ const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown
 };
 
 /**
- * Adds `url` (from `link`) after every `path` that's an app path, at any depth. An object
- * that already has a `url` keeps it. Anything that isn't a plain object or array (a Date)
- * passes through as it is.
+ * Adds `url` (from `link`) right after the `path` of the item a tool returns: the result itself
+ * when it's one object, or a Result's `value`. That's what Claude links to after a get, create
+ * or update. Rows of a list and items nested in the result keep just their `path`: a link on
+ * every row of a long list cost Claude about a fifth of the list in tokens, and the
+ * instructions say how to build one. An item that already has a `url` keeps it.
  */
 export const withAppLinks = (value: unknown, link: (path: string) => string): unknown => {
-  if (Array.isArray(value)) return value.map((item) => withAppLinks(item, link));
   if (!isPlainObject(value)) return value;
+  if (value['ok'] === true && 'value' in value) return { ...value, value: withAppLinks(value['value'], link) };
+  const path = value['path'];
+  if (!isAppPath(path) || 'url' in value) return value;
   const out: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value)) {
-    out[key] = withAppLinks(child, link);
-    if (key === 'path' && isAppPath(child) && !('url' in value)) out['url'] = link(child);
+    out[key] = child;
+    if (key === 'path') out['url'] = link(path);
   }
   return out;
 };
