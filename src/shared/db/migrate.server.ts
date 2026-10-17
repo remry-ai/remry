@@ -85,10 +85,46 @@ export const planRenames = (
   });
 };
 
-/** Pending migrations, or an error if the database and the migration files disagree. */
+/**
+ * Migrations that only add (an index, a table, a nullable column), so a Remry from before them
+ * can still use a database that has them. A database records how many migrations a Remry must
+ * know to use it (`requiredMigrations`), counting to its last migration not listed here. An
+ * update often leaves an older Remry running for a while (a Claude session's MCP server, or an
+ * app server the update hasn't replaced yet), and without this it refused every notebook the
+ * new version had migrated. List a migration here only if it changes nothing an older Remry reads or writes.
+ */
+export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
+  '20261017120000_project_parent_index'
+]);
+
+/**
+ * How many migrations, in name order, a Remry must know to use a database with these applied:
+ * up to the last one that isn't additive. Stored in the database's `PRAGMA user_version`.
+ */
+export const requiredMigrations = (
+  onDisk: readonly MigrationFile[],
+  applied: readonly AppliedMigration[],
+  additive: ReadonlySet<string> = ADDITIVE_MIGRATIONS
+): number => {
+  const done = new Set(applied.filter((a) => a.rolledBackAt === null && a.finishedAt !== null).map((a) => a.migrationName));
+  const sorted = [...onDisk].sort((a, b) => a.name.localeCompare(b.name));
+  let required = 0;
+  sorted.forEach((m, i) => {
+    if (done.has(m.name) && !additive.has(m.name)) required = i + 1;
+  });
+  return required;
+};
+
+/**
+ * Pending migrations, or an error if the database and the migration files disagree. Applied
+ * migrations this Remry doesn't have are a newer Remry's: fine when they all come after its own
+ * and the database says it needs no more than this Remry knows (`required`, from user_version;
+ * 0 when no Remry recorded it), else an error that says to update.
+ */
 export const planMigrations = (
   onDisk: readonly MigrationFile[],
-  applied: readonly AppliedMigration[]
+  applied: readonly AppliedMigration[],
+  required = 0
 ): Result<{ readonly pending: readonly MigrationFile[] }> => {
   const live = applied.filter((a) => a.rolledBackAt === null);
 
@@ -98,10 +134,18 @@ export const planMigrations = (
   }
 
   const files = new Map(onDisk.map((m) => [m.name, m]));
+  const newest = [...onDisk].sort((a, b) => a.name.localeCompare(b.name)).at(-1)?.name ?? '';
+  const unknown = live.filter((a) => !files.has(a.migrationName));
+  if (unknown.length > 0) {
+    const fromNewerRemry = unknown.every((a) => a.migrationName.localeCompare(newest) > 0);
+    if (!fromNewerRemry) return err(new Error(`applied migration ${unknown[0]!.migrationName} is missing from prisma/migrations`));
+    if (required === 0 || required > onDisk.length) {
+      return err(new Error(`This notebook was updated by a newer version of Remry (migration ${unknown[0]!.migrationName}). Update Remry to open it.`));
+    }
+  }
   for (const a of live) {
     const file = files.get(a.migrationName);
-    if (!file) return err(new Error(`applied migration ${a.migrationName} is missing from prisma/migrations`));
-    if (file.checksum !== a.checksum) return err(new Error(`migration ${a.migrationName} was modified after it was applied`));
+    if (file && file.checksum !== a.checksum) return err(new Error(`migration ${a.migrationName} was modified after it was applied`));
   }
 
   const done = new Set(live.map((a) => a.migrationName));
@@ -137,6 +181,22 @@ const readApplied = async (client: Client | Transaction): Promise<readonly Appli
   }));
 };
 
+const readRequired = async (client: Client | Transaction): Promise<number> =>
+  Number((await client.execute('PRAGMA user_version')).rows[0]?.[0] ?? 0);
+
+/**
+ * Records how many migrations a Remry must know to use this database (`requiredMigrations`),
+ * once this Remry has every migration applied to it. A Remry that met newer migrations it
+ * doesn't know leaves the newer one's record as it is.
+ */
+const recordRequired = async (client: Client, onDisk: readonly MigrationFile[]): Promise<void> => {
+  const applied = (await readApplied(client)).filter((a) => a.rolledBackAt === null);
+  const known = new Set(onDisk.map((m) => m.name));
+  if (applied.some((a) => !known.has(a.migrationName))) return;
+  const required = requiredMigrations(onDisk, applied);
+  if ((await readRequired(client)) !== required) await client.execute(`PRAGMA user_version = ${required}`);
+};
+
 type Claim =
   | { readonly kind: 'done' }
   | { readonly kind: 'wait'; readonly migration: string }
@@ -164,7 +224,7 @@ const claimNext = async (client: Client, onDisk: readonly MigrationFile[], logge
       await tx.commit();
       return ok({ kind: 'wait', migration: running.migrationName });
     }
-    const plan = planMigrations(onDisk, applied);
+    const plan = planMigrations(onDisk, applied, await readRequired(tx));
     if (!plan.ok) {
       await tx.commit();
       return err(plan.error);
@@ -200,7 +260,10 @@ export const applyMigrations = async (
   for (;;) {
     const claim = await claimNext(client, onDisk, logger, timing.staleMs);
     if (!claim.ok) return err(claim.error);
-    if (claim.value.kind === 'done') return ok({ applied });
+    if (claim.value.kind === 'done') {
+      await recordRequired(client, onDisk);
+      return ok({ applied });
+    }
 
     if (claim.value.kind === 'wait') {
       if (Date.now() >= deadline) {

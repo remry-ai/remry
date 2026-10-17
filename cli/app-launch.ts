@@ -49,23 +49,29 @@ export const appLinkUrl = (notebookId: string | null, port = APP_PORT): string =
   `http://${APP_HOST}:${port}${inAppLink('/app', notebookId)}`;
 
 /**
- * What's on the app port: nothing, a release app reporting its version, or something
- * else (a clone's dev server, or a release from before apps reported a version).
+ * What's on the app port: nothing, a release app reporting its version, something else
+ * that answers (a clone's dev server, or a release from before apps reported a version),
+ * or something that takes the connection and never answers (a stuck server).
  */
-export type RunningApp = null | { readonly version: string } | 'other';
+export type RunningApp = null | { readonly version: string } | 'other' | 'unresponsive';
 
-export type AppLaunchPlan = 'start' | 'reuse' | 'restart';
+/** `replace`: stop what holds the port by its pid (only if it's Remry), then start. */
+export type AppLaunchPlan = 'start' | 'reuse' | 'restart' | 'replace';
 
 /**
  * A release restarts a release app older than itself, so updating the plugin updates the
  * app. Never a newer one: a Claude session keeps the binary it started with, so after an
  * update its server would otherwise put its older app back over the one the update started
- * (and an app older than 0.16.6 doesn't hand links to the desktop app). It never touches
- * anything it can't identify, and a clone never restarts anything (its dev server reloads by itself).
+ * (and an app older than 0.16.6 doesn't hand links to the desktop app). On a release's port,
+ * anything that doesn't report a version is replaced: reusing it gave the desktop app's window
+ * a blank page when an old server hung after an update. Replacing stops it by pid, and only
+ * if its command line is Remry, so it never stops someone else's program. A clone never
+ * restarts anything (its dev server reloads by itself).
  */
 export const planAppLaunch = (running: RunningApp, own: { readonly standalone: boolean; readonly version: string }): AppLaunchPlan => {
   if (running === null) return 'start';
-  if (!own.standalone || running === 'other') return 'reuse';
+  if (!own.standalone) return 'reuse';
+  if (running === 'other' || running === 'unresponsive') return 'replace';
   if (!isVersion(running.version) || !isVersion(own.version)) return running.version === own.version ? 'reuse' : 'restart';
   return compareVersions(running.version, own.version) < 0 ? 'restart' : 'reuse';
 };
@@ -75,17 +81,20 @@ const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(do
 
 export const probeApp = async (port = APP_PORT): Promise<RunningApp> => {
   if (!(await isPortListening(port))) return null;
-  try {
-    for (const path of [APP_CONTROL_PATH, ...LEGACY_APP_CONTROL_PATHS]) {
-      const response = await fetch(`${base(port)}${path}`, { signal: AbortSignal.timeout(1_000) });
+  let answered = false;
+  for (const path of [APP_CONTROL_PATH, ...LEGACY_APP_CONTROL_PATHS]) {
+    try {
+      // A healthy app answers at once; a stuck one takes the connection and never replies.
+      const response = await fetch(`${base(port)}${path}`, { signal: AbortSignal.timeout(2_000) });
+      answered = true;
       const body: unknown = response.ok ? await response.json().catch(() => null) : null;
       const version = typeof body === 'object' && body !== null ? (body as { version?: unknown }).version : undefined;
       if (typeof version === 'string') return { version };
+    } catch {
+      // No answer on this path; try the next.
     }
-    return 'other';
-  } catch {
-    return 'other';
   }
+  return answered ? 'other' : 'unresponsive';
 };
 
 const waitForPort = async (port: number, listening: boolean, timeoutMs: number): Promise<boolean> => {
@@ -122,7 +131,10 @@ const startApp = async (launch: LaunchCommand, port: number, timeoutMs: number):
   while (Date.now() < deadline) {
     await sleep(250);
     if (failure) throw new Error(`Couldn't start Remry: ${(failure as Error).message}`);
-    if (await isPortListening(port)) {
+    // Listening isn't enough: the window would get a blank page from a server that takes the
+    // connection and never answers. A release app reports its version once it's serving.
+    const running = (await isPortListening(port)) ? await probeApp(port) : null;
+    if (running !== null && running !== 'unresponsive') {
       // Which version this app runs, so a later MCP server can tell it's stale (cli/version-check.ts).
       await writeMarker(appMarkerPath(), { version: pluginManifest.version }).catch(() => undefined);
       return;
@@ -183,9 +195,15 @@ const commandLine = async (pid: number): Promise<string> =>
     : await run('ps', ['-o', 'command=', '-p', String(pid)]).then((r) => r.stdout, () => '')
   ).trim();
 
-/** Stops whatever Remry process listens on a port, by pid (for apps without the stop endpoint). */
+/** Stops whatever Remry process listens on a port, by pid (for apps without the stop endpoint, or stuck). */
 const stopByPid = async (port: number): Promise<void> => {
   const pids = await listeningPids(port);
+  if (pids.length === 0) {
+    throw new Error(
+      `Something is holding ${APP_HOST}:${port} without answering, and Remry can't tell what it is. ` +
+      `Restart your Mac, or find it with \`sudo lsof -nP -iTCP:${port}\` and quit it.`
+    );
+  }
   for (const pid of pids) {
     const command = await commandLine(pid);
     if (!isRemryCommand(command)) {
@@ -216,7 +234,7 @@ export const restartApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<{
   await stopLegacyApps(owner);
   const running = await probeApp(owner.port);
   if (running !== null) {
-    if (running === 'other') await stopByPid(owner.port);
+    if (running === 'other' || running === 'unresponsive') await stopByPid(owner.port);
     else await stopApp(owner.port);
   }
   await startApp(owner.launch, owner.port, timeoutMs);
@@ -233,8 +251,9 @@ export const openApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<Open
   const plan = planAppLaunch(await probeApp(owner.port), owner);
   if (plan === 'reuse') return { started: false, restarted: false };
   if (plan === 'restart') await stopApp(owner.port);
+  if (plan === 'replace') await stopByPid(owner.port);
   await startApp(owner.launch, owner.port, timeoutMs);
-  return { started: true, restarted: plan === 'restart' };
+  return { started: true, restarted: plan !== 'start' };
 };
 
 /**
@@ -244,8 +263,10 @@ export const openApp = async (owner: AppOwner, timeoutMs = 20_000): Promise<Open
  */
 export const stopStaleApp = async (owner: AppOwner): Promise<boolean> => {
   await stopLegacyApps(owner);
-  if (planAppLaunch(await probeApp(owner.port), owner) !== 'restart') return false;
-  await stopApp(owner.port);
+  const plan = planAppLaunch(await probeApp(owner.port), owner);
+  if (plan === 'restart') await stopApp(owner.port);
+  else if (plan === 'replace') await stopByPid(owner.port);
+  else return false;
   return true;
 };
 

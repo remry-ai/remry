@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checksum, migrationInProgress, planMigrations, planRenames, type AppliedMigration, type MigrationFile } from '../migrate.server';
+import { checksum, migrationInProgress, planMigrations, planRenames, requiredMigrations, type AppliedMigration, type MigrationFile } from '../migrate.server';
 
 const file = (name: string, sql = `-- ${name}`): MigrationFile => ({ name, sql, checksum: checksum(sql) });
 const applied = (m: MigrationFile, overrides: Partial<AppliedMigration> = {}): AppliedMigration => ({
@@ -99,5 +99,44 @@ describe('migrationInProgress', () => {
   it('ignores finished and rolled-back rows', () => {
     expect(migrationInProgress([applied(a, { startedAt: now })], now, staleMs)).toBeUndefined();
     expect(migrationInProgress([applied(a, { finishedAt: null, rolledBackAt: now, startedAt: now })], now, staleMs)).toBeUndefined();
+  });
+});
+
+describe('a database a newer Remry migrated', () => {
+  const a = file('20260101000000_init');
+  const b = file('20260201000000_add_reports');
+  const c = file('20260301000000_add_index');
+  const d = file('20260401000000_rename_column');
+
+  it('opens in an older Remry when the newer migrations are additive', () => {
+    // The newer Remry knew a, b, c (c additive) and recorded that 2 must be known.
+    const result = planMigrations([a, b], [applied(a), applied(b), applied(c)], 2);
+    expect(result.ok && result.value.pending).toEqual([]);
+  });
+
+  it('refuses, saying to update, when the database needs more than this Remry knows', () => {
+    const result = planMigrations([a, b], [applied(a), applied(b), applied(c), applied(d)], 4);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('Update Remry');
+  });
+
+  it('refuses when no Remry recorded what the database needs', () => {
+    const result = planMigrations([a, b], [applied(a), applied(b), applied(c)], 0);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('newer version of Remry');
+  });
+
+  it('still refuses a missing migration older than its own newest', () => {
+    const result = planMigrations([a, c], [applied(a), applied(b), applied(c)], 3);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('missing from prisma/migrations');
+  });
+
+  it('counts what must be known up to the last migration that is not additive', () => {
+    const additive = new Set([c.name]);
+    expect(requiredMigrations([a, b, c], [applied(a), applied(b), applied(c)], additive)).toBe(2);
+    expect(requiredMigrations([a, b, c, d], [applied(a), applied(b), applied(c), applied(d)], additive)).toBe(4);
+    expect(requiredMigrations([a, b], [applied(a)], additive)).toBe(1);
+    expect(requiredMigrations([a, b], [], additive)).toBe(0);
   });
 });

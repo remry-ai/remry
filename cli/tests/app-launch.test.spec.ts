@@ -47,9 +47,15 @@ describe('planAppLaunch', () => {
     expect(planAppLaunch({ version: '0.8.0' }, release)).toBe('reuse');
   });
 
-  it('leaves alone what it cannot identify, and a clone never restarts', () => {
-    expect(planAppLaunch('other', release)).toBe('reuse');
+  it('replaces what holds a release port without reporting a version, so a stuck server never gets the window', () => {
+    expect(planAppLaunch('unresponsive', release)).toBe('replace');
+    expect(planAppLaunch('other', release)).toBe('replace');
+  });
+
+  it('never restarts or replaces anything from a clone', () => {
     expect(planAppLaunch({ version: '0.6.5' }, { standalone: false, version: '0.7.0' })).toBe('reuse');
+    expect(planAppLaunch('other', { standalone: false, version: '0.7.0' })).toBe('reuse');
+    expect(planAppLaunch('unresponsive', { standalone: false, version: '0.7.0' })).toBe('reuse');
   });
 });
 

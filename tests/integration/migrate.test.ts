@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createClient } from '@libsql/client';
 import type { Logger } from '../../src/shared/types/logger';
-import { applyMigrations, checksum } from '../../src/shared/db/migrate.server';
+import { applyMigrations, checksum, ADDITIVE_MIGRATIONS } from '../../src/shared/db/migrate.server';
 
 const BUN = process.versions.bun ? process.execPath : 'bun';
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
@@ -23,6 +23,10 @@ describe('applyMigrations', () => {
     const { client } = freshDb();
     const result = await applyMigrations(client, 'prisma/migrations', quiet);
     expect(result.ok && result.value.applied).toEqual(onDisk);
+    // What a Remry must know to use it: up to the last migration that isn't additive.
+    const lastNeeded = onDisk.map((name, i) => (ADDITIVE_MIGRATIONS.has(name) ? 0 : i + 1)).reduce((m, n) => Math.max(m, n), 0);
+    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(lastNeeded);
+    expect(lastNeeded).toBe(onDisk.length - 1);
 
     const rows = await client.execute('SELECT migration_name, checksum, finished_at, applied_steps_count FROM _prisma_migrations ORDER BY migration_name');
     expect(rows.rows.map((r) => r[0])).toEqual(onDisk);
@@ -33,6 +37,21 @@ describe('applyMigrations', () => {
 
     const tables = (await client.execute("SELECT name FROM sqlite_master WHERE type = 'table'")).rows.map((r) => r[0]);
     expect(tables).toEqual(expect.arrayContaining(['person', 'group', 'group_member', 'org_person', 'personal_person', 'report', 'branding']));
+    client.close();
+  });
+
+  it('lets an older Remry open a database a newer one migrated, when the newer migrations are additive', async () => {
+    const { client } = freshDb();
+    expect((await applyMigrations(client, 'prisma/migrations', quiet)).ok).toBe(true);
+    // An older Remry: the same migrations without the newest, which is additive.
+    const newest = onDisk.at(-1)!;
+    expect(ADDITIVE_MIGRATIONS.has(newest)).toBe(true);
+    const older = mkdtempSync(join(tmpdir(), 'remry-older-'));
+    for (const name of onDisk.slice(0, -1)) cpSync(join('prisma/migrations', name), join(older, name), { recursive: true });
+    const opened = await applyMigrations(client, older, quiet);
+    expect(opened.ok && opened.value.applied).toEqual([]);
+    // It keeps the newer Remry's record of what the database needs.
+    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(onDisk.length - 1);
     client.close();
   });
 
