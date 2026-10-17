@@ -212,7 +212,7 @@ Three features need a yearly license: **full-text search** (`search.query`, `sea
 | `bun run build && bun run start` | Production server, loopback only |
 | `bun run lint` | ESLint for TypeScript and Svelte (`lint:fix` fixes what it can) |
 | `bun run check` | svelte-check, plus tsc for `cli/` and `scripts/` |
-| `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) |
+| `bun run test` | Unit tests (`src/`, `cli/`, `scripts/`) and component tests (`*.dom.spec.ts`, jsdom), in parallel |
 | `bun run test:integration` | Integration tests against `./data/test` |
 | `remry <procedure> [--field value] [--notebook <id>]` | Call the API in-process (also `bin/remry`, `bun run remry`) |
 | `remry app` | Dev server on 5173, from any directory |

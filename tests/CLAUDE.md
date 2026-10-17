@@ -7,6 +7,14 @@
 - Test logic worth testing: validation (chart specs, CLI argument coercion), planning (migrations, retention), branching and error paths. Don't unit-test straight Prisma passthroughs.
 - Run: `bun run test`
 
+## Component tests — `src/**/*.dom.spec.ts`
+
+- For flows that only break in Svelte's real reactive runtime (an update order, a component torn down mid-navigation). Svelte components are mounted with `mount` from `svelte` in jsdom, with Svelte's browser runtime (`vitest.dom.config.ts`). `bun run test` runs them in parallel with the unit tests, as two projects of one run (`vitest.parallel.ts`).
+- Mock SvelteKit's modules with `vi.mock`: `$app/state` with `src/lib/common/tests/fake-page.svelte.ts` (a reactive `page`; `setUrl` stands in for a navigation), `$app/stores`, `$app/navigation`, and `$shared/trpc/client` so nothing reaches a server.
+- Change the URL, then `flushSync()` inside `expect(...).not.toThrow()`: an error thrown while the page updates is the failure.
+- `entity-peek.dom.spec.ts` opens a detail page's peek of each type and leaves it with ×, Open, and another peek, with the right panel mounted beside it (`PeekHarness`), since the panel draws the peek's content. Before 0.16.28 closing a peek threw and stopped the navigation.
+- Make a new one fail against the broken code before trusting it.
+
 ## Integration tests — `tests/integration/*.test.ts`
 
 - Run against real SQLite in `./data/test` (`APP_ENV=test`). `setup.ts` **refuses to run** unless the data dir resolves to `./data/test`, so it can never wipe the real notebook.

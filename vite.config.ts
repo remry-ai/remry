@@ -16,6 +16,8 @@ export default defineConfig({
     }
   },
   test: {
+    // Runs the unit tests below and the component tests (vitest.dom.config.ts) in parallel.
+    workspace: './vitest.parallel.ts',
     include: ['src/**/*.test.spec.ts', 'cli/**/*.test.spec.ts', 'scripts/**/*.test.spec.ts'],
     environment: 'node'
   }
