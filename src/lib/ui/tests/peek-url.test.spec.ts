@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { peekHref, parsePeek, peekValue } from '../peek-url';
+import { peekForHref, peekHref, parsePeek, peekValue } from '../peek-url';
 
 describe('peekHref', () => {
   const base = 'http://127.0.0.1:7369';
@@ -42,5 +42,28 @@ describe('parsePeek', () => {
     expect(parsePeek('PAGE:')).toBeNull();
     expect(parsePeek('')).toBeNull();
     expect(parsePeek(null)).toBeNull();
+  });
+});
+
+describe('peekForHref', () => {
+  it('reads the type and id from an entity page', () => {
+    expect(peekForHref('/app/projects/p1')).toEqual({ type: 'PROJECT', id: 'p1' });
+    expect(peekForHref('/app/wiki/w1')).toEqual({ type: 'PAGE', id: 'w1' });
+    expect(peekForHref('/app/goals/g1')).toEqual({ type: 'GOAL', id: 'g1' });
+    expect(peekForHref('/app/people/a')).toEqual({ type: 'PERSON', id: 'a' });
+  });
+
+  it('peeks at the doc in a doc link, on any entity', () => {
+    expect(peekForHref('/app/groups/t1?doc=d1')).toEqual({ type: 'DOC', id: 'd1' });
+    expect(peekForHref('?doc=d2')).toEqual({ type: 'DOC', id: 'd2' });
+  });
+
+  it('gives nothing for what has no peek', () => {
+    expect(peekForHref('/app/groups/t1')).toBeNull();
+    expect(peekForHref('/app/projects')).toBeNull();
+    expect(peekForHref('/app/wiki/kinds')).toBeNull();
+    expect(peekForHref('/app/projects/p1/print')).toBeNull();
+    expect(peekForHref('?doc=new')).toBeNull();
+    expect(peekForHref('https://linear.app/x/issue/1')).toBeNull();
   });
 });

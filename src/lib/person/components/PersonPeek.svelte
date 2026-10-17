@@ -3,6 +3,7 @@
   // (title and lead, or birthday and how you know them), how they relate to you,
   // their groups and reports, what they own, open todos and docs. Read-only;
   // Open goes to the full page.
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import { page } from '$app/state';
   import { trpc } from '$shared/trpc/client';
   import { errorMessage } from '$lib/ui/submit';
@@ -135,10 +136,9 @@
       {#if person.groups.length > 0}
         <ul class="list">
           {#each person.groups as group (group.id)}
-            <li class="list-row">
-              <a class="grow truncate" href={group.path}>{group.name}</a>
+            <EntityRow href={group.path} label={group.name}>
               <span class="meta">{group.kindName}</span>
-            </li>
+            </EntityRow>
           {/each}
         </ul>
       {:else}
@@ -151,10 +151,9 @@
         <div class="section-header"><h4>Reports <span class="count">{reports.length}</span></h4></div>
         <ul class="list">
           {#each reports as report (report.id)}
-            <li class="list-row">
-              <a class="grow truncate" href="/app/people/{report.id}">{report.name}</a>
+            <EntityRow href="/app/people/{report.id}" label={report.name}>
               {#if report.title}<span class="meta">{report.title}</span>{/if}
-            </li>
+            </EntityRow>
           {/each}
         </ul>
       </section>
@@ -184,7 +183,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <li class="list-row"><a class="grow truncate" href={docPath('PERSON', person.id, doc.id)}>{doc.title}</a></li>
+            <EntityRow href={docPath('PERSON', person.id, doc.id)} label={doc.title} />
           {/each}
         </ul>
       {:else}

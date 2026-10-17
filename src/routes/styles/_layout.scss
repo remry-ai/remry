@@ -61,29 +61,32 @@
   margin: 0;
   padding: 0;
 }
+// A row's hover and active background reaches --sp-2 past its text on each side. It's drawn
+// with side shadows rather than negative margins: a shadow never counts as overflow, so a row
+// stays inside its container, and focusing a button at its end can't scroll a column sideways.
+@mixin row-fill($color) {
+  background: $color;
+  box-shadow: calc(-1 * var(--sp-2)) 0 0 $color, var(--sp-2) 0 0 $color;
+}
 .list-row {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   min-height: 30px;
-  padding: 2px var(--sp-2);
-  margin: 0 calc(-1 * var(--sp-2));
+  padding: 2px 0;
   border-radius: var(--r-sm);
   font-size: var(--fs-md);
-  &:hover { background: var(--surface-hover); }
+  &:hover { @include row-fill(var(--surface-hover)); }
   .grow { flex: 1; min-width: 0; }
   .meta { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; }
   .row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--ease); }
   &:hover .row-actions, &:focus-within .row-actions, .row-actions:has(.inline-error) { opacity: 1; }
-  &.active { background: var(--accent-soft); }
+  &.active { @include row-fill(var(--accent-soft)); }
 }
 .list.divided .list-row {
-  margin: 0;
-  padding-left: 0;
-  padding-right: 0;
   border-radius: 0;
   border-bottom: 1px solid var(--border);
-  &:hover { background: transparent; }
+  &:hover { background: transparent; box-shadow: none; }
   &:last-child { border-bottom: 0; }
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PeekButton from '$lib/ui/PeekButton.svelte';
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
   import ProBadge from '$lib/ui/ProBadge.svelte';
   import { goto, invalidateAll } from '$app/navigation';
@@ -228,14 +228,10 @@
         {#if wikiPage.children.length > 0}
           <ul class="list">
             {#each wikiPage.children as child (child.id)}
-              <li class="list-row">
-                <a class="grow truncate" href={child.path}>{child.title}</a>
+              <EntityRow href={child.path} label={child.title}>
                 <span class="badge">{kindName(kinds, child.kind)}</span>
-                <span class="row-actions">
-                  <PeekButton type="PAGE" id={child.id} label={child.title} />
-                  <ConfirmButton label="Unlink sub-page" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />
-                </span>
-              </li>
+                {#snippet actions()}<ConfirmButton label="Unlink sub-page" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
+              </EntityRow>
             {/each}
           </ul>
         {:else}

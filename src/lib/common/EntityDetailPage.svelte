@@ -3,7 +3,8 @@
   import { planBreadcrumb } from '$lib/common/breadcrumb';
   import EntityPeek from '$lib/common/EntityPeek.svelte';
   import type { Snippet } from 'svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, setContext } from 'svelte';
+  import { PEEKS_CONTEXT } from '$lib/ui/peek-url';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import type { EntityType } from '$shared/types/enums';
@@ -139,6 +140,9 @@
   const crumbs = $derived(planBreadcrumb({ label: breadcrumbLabel, href: breadcrumbHref }, breadcrumbTrail, entityName));
 
   const editPopupId = $derived(`edit-${entityType.toLowerCase()}`);
+
+  // EntityPeek below shows typed peeks, so the EntityRows on this page get peek buttons.
+  setContext(PEEKS_CONTEXT, true);
 
   // ----- Center pane state -----
   // The open doc lives in the URL (`?doc=<id>`, or `?doc=new` for a draft) and

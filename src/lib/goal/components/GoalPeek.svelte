@@ -2,6 +2,7 @@
   // A goal's summary in a side peek: status, owner, period, progress, the latest
   // check-ins, linked projects, sub-goals, open todos and docs. Read-only; Open
   // goes to the full page.
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import { page } from '$app/state';
   import { trpc } from '$shared/trpc/client';
   import { errorMessage } from '$lib/ui/submit';
@@ -158,10 +159,9 @@
       {#if goal.projects.length > 0}
         <ul class="list">
           {#each goal.projects as project (project.id)}
-            <li class="list-row">
-              <a class="grow truncate" href={project.path}>{project.name}</a>
+            <EntityRow href={project.path} label={project.name}>
               <StatusBadge status={project.status} />
-            </li>
+            </EntityRow>
           {/each}
         </ul>
       {:else}
@@ -199,7 +199,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <li class="list-row"><a class="grow truncate" href={docPath('GOAL', goal.id, doc.id)}>{doc.title}</a></li>
+            <EntityRow href={docPath('GOAL', goal.id, doc.id)} label={doc.title} />
           {/each}
         </ul>
       {:else}

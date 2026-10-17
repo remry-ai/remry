@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PeekButton from '$lib/ui/PeekButton.svelte';
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
   import { goto, invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -67,13 +67,9 @@
       {#if group.members.length > 0}
         <ul class="list">
           {#each group.members as m (m.personId)}
-            <li class="list-row">
-              <a class="grow truncate" href="/app/people/{m.personId}">{m.personName}</a>
-              <span class="row-actions">
-                <PeekButton type="PERSON" id={m.personId} label={m.personName} />
-                <ConfirmButton label="Remove member" variant="icon" onConfirm={() => handleRemoveMember(m.personId)} />
-              </span>
-            </li>
+            <EntityRow href="/app/people/{m.personId}" label={m.personName}>
+              {#snippet actions()}<ConfirmButton label="Remove member" variant="icon" onConfirm={() => handleRemoveMember(m.personId)} />{/snippet}
+            </EntityRow>
           {/each}
         </ul>
       {:else}

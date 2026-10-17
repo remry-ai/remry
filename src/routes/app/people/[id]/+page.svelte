@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PeekButton from '$lib/ui/PeekButton.svelte';
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -122,11 +122,9 @@
         {#if reports_.length > 0}
           <ul class="list">
             {#each reports_ as r (r.id)}
-              <li class="list-row">
-                <a class="grow truncate" href="/app/people/{r.id}">{r.name}</a>
+              <EntityRow href="/app/people/{r.id}" label={r.name}>
                 {#if r.title}<span class="meta">{r.title}</span>{/if}
-                <span class="row-actions"><PeekButton type="PERSON" id={r.id} label={r.name} /></span>
-              </li>
+              </EntityRow>
             {/each}
           </ul>
         {:else}
@@ -142,13 +140,10 @@
       {#if person.groups.length > 0}
         <ul class="list">
           {#each person.groups as g (g.id)}
-            <li class="list-row">
-              <a class="grow truncate" href={g.path}>{g.name}</a>
+            <EntityRow href={g.path} label={g.name}>
               <span class="meta">{g.kindName}</span>
-              <span class="row-actions">
-                <ConfirmButton label="Leave {g.name}" variant="icon" onConfirm={() => handleLeave(g.id)} />
-              </span>
-            </li>
+              {#snippet actions()}<ConfirmButton label="Leave {g.name}" variant="icon" onConfirm={() => handleLeave(g.id)} />{/snippet}
+            </EntityRow>
           {/each}
         </ul>
       {:else}

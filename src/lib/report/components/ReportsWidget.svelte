@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import { goto } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import type { EntityType } from '$shared/types/enums';
@@ -52,10 +53,9 @@
   {:else}
     <ul class="list">
       {#each reports as report (report.id)}
-        <li class="list-row">
-          <a class="grow wrap" href="/app/reports/{report.id}">{report.title}</a>
+        <EntityRow href="/app/reports/{report.id}" label={report.title} wrap>
           <span class="meta">{formatDate(report.updatedAt)}</span>
-        </li>
+        </EntityRow>
       {/each}
     </ul>
   {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
   // Goals as list rows: title, period, status and progress, with an optional
   // per-row remove action.
-  import PeekButton from '$lib/ui/PeekButton.svelte';
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import ProgressBar from '$lib/ui/ProgressBar.svelte';
   import type { GoalSummary } from '$shared/types/goals';
@@ -22,8 +22,7 @@
 <ul class="list">
   {#each goals as goal (goal.id)}
     {@const flag = goalTimeFlag(goal, today)}
-    <li class="list-row">
-      <a class="grow truncate" href={goal.path}>{goal.title}</a>
+    <EntityRow href={goal.path} label={goal.title}>
       {#if showOwner && goal.owner?.label}<span class="meta">{goal.owner.label}</span>{/if}
       {#if goal.period}<span class="meta">{goal.period}</span>{/if}
       <span class={goalStatusBadgeClass(goal.status)}>{GOAL_STATUS_LABELS[goal.status]}</span>
@@ -33,11 +32,10 @@
           <ProgressBar value={goal.progress} tone={progressTone(goal.status)} label="{Math.round((goal.progress ?? 0) * 100)}%" />
         </span>
       {/if}
-      <span class="row-actions">
-        <PeekButton type="GOAL" id={goal.id} label={goal.title} />
+      {#snippet actions()}
         {#if onRemove}<ConfirmButton label={removeLabel} variant="icon" onConfirm={() => onRemove(goal.id)} />{/if}
-      </span>
-    </li>
+      {/snippet}
+    </EntityRow>
   {/each}
 </ul>
 

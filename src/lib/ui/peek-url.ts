@@ -23,6 +23,27 @@ export interface PeekTarget {
   readonly id: string;
 }
 
+/**
+ * Set (to true) by a page that shows typed peeks (EntityDetailPage, through EntityPeek), so an
+ * EntityRow there gets its peek button; elsewhere a peek would have nothing to show it.
+ */
+export const PEEKS_CONTEXT = Symbol('peeks');
+
+const PEEK_PATHS: Readonly<Record<string, PeekType>> = { projects: 'PROJECT', wiki: 'PAGE', goals: 'GOAL', people: 'PERSON' };
+
+/**
+ * What an entity link can be peeked as: a doc (`?doc=<id>`), or a project, wiki page, goal or
+ * person page. Null for anything else (a group, a list, an outside link). Pure.
+ */
+export const peekForHref = (href: string): PeekTarget | null => {
+  const url = new URL(href, 'http://app.invalid');
+  const doc = url.searchParams.get('doc');
+  if (doc && doc !== 'new') return { type: 'DOC', id: doc };
+  const match = /^\/app\/([a-z]+)\/([^/]+)$/.exec(url.pathname);
+  const type = match ? PEEK_PATHS[match[1] ?? ''] : undefined;
+  return type && match?.[2] && match[2] !== 'kinds' ? { type, id: decodeURIComponent(match[2]) } : null;
+};
+
 export const isPeekType = (type: string): type is PeekType => (PEEK_TYPES as readonly string[]).includes(type);
 
 export const peekValue = (type: PeekType, id: string): string => `${type}:${id}`;

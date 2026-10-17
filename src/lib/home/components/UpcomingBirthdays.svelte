@@ -1,5 +1,6 @@
 <script lang="ts">
   // A home notebook's birthdays in the next month, soonest first.
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { formatBirthday } from '$shared/utils/birthday';
 
@@ -27,11 +28,10 @@
   {:else}
     <ul class="list divided">
       {#each birthdays as b (b.id)}
-        <li class="list-row">
-          <a class="grow wrap" href="/app/people/{b.id}">{b.name}</a>
+        <EntityRow href="/app/people/{b.id}" label={b.name} wrap>
           <span class="meta">{formatBirthday(b.birthday.replace(/^\d{4}-/, '--'))}{#if b.turns !== null} · turns {b.turns}{/if}</span>
           <span class="badge" class:accent={b.inDays <= 7}>{when(b.inDays)}</span>
-        </li>
+        </EntityRow>
       {/each}
     </ul>
   {/if}

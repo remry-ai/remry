@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PeekButton from '$lib/ui/PeekButton.svelte';
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -74,19 +74,15 @@
   </div>
   {#if expanded}
     {#if docs.length > 0}
-      <ul class="list">
+      <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
-          <li class="list-row" class:active={activeDocId === doc.id}>
-            <a href="?doc={encodeURIComponent(doc.id)}" class="grow truncate doc-title" onclick={(e) => select(e, doc.id)}>
-              {doc.title}
-            </a>
-            <span class="row-actions">
-              <PeekButton type="DOC" id={doc.id} label={doc.title} />
+          <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
+            {#snippet actions()}
               <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
               <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>
               <ConfirmButton label="Delete doc" variant="icon" onConfirm={() => onRemove(doc.id)} />
-            </span>
-          </li>
+            {/snippet}
+          </EntityRow>
         {/each}
       </ul>
     {:else}
@@ -96,13 +92,16 @@
 </div>
 
 <style lang="scss">
-  .doc-title {
-    text-align: left;
-    padding: 4px 0;
-    color: inherit;
-    text-decoration: none;
-    &:hover { color: var(--accent); }
+  // The rows are EntityRows, so their parts are reached through the list.
+  .doc-list {
+    :global(.doc-title) {
+      text-align: left;
+      padding: 4px 0;
+      color: inherit;
+      text-decoration: none;
+      &:hover { color: var(--accent); }
+    }
+    :global(.list-row.active .doc-title) { color: var(--accent); font-weight: 500; }
+    :global(.row-actions .btn.icon.sm) { font-size: var(--fs-sm); }
   }
-  .list-row.active .doc-title { color: var(--accent); font-weight: 500; }
-  .row-actions :global(.btn.icon.sm) { font-size: var(--fs-sm); }
 </style>

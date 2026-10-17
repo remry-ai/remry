@@ -1,6 +1,7 @@
 <script lang="ts">
   // A project's summary in a side peek: its metadata, description, goals,
   // sub-projects, open todos and docs. Read-only; Open goes to the full page.
+  import EntityRow from '$lib/ui/EntityRow.svelte';
   import { page } from '$app/state';
   import { trpc } from '$shared/trpc/client';
   import { errorMessage } from '$lib/ui/submit';
@@ -136,7 +137,7 @@
       {#if project.children.length > 0}
         <ul class="list">
           {#each project.children as child (child.id)}
-            <li class="list-row"><a class="grow truncate" href="/app/projects/{child.id}">{child.name}</a></li>
+            <EntityRow href="/app/projects/{child.id}" label={child.name} />
           {/each}
         </ul>
       {:else}
@@ -166,7 +167,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <li class="list-row"><a class="grow truncate" href={docPath('PROJECT', project.id, doc.id)}>{doc.title}</a></li>
+            <EntityRow href={docPath('PROJECT', project.id, doc.id)} label={doc.title} />
           {/each}
         </ul>
       {:else}
