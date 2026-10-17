@@ -3,6 +3,7 @@ import { ok, type Result } from '$shared/utils';
 import type { EntityType, TodoRecurrence, TodoStatus } from '$shared/types/enums';
 import type { HomeTodoPage, HomeTodoSort, RecentUpdate, UpdateKind } from '$shared/types/home';
 import { docPath, entityPath } from '$shared/utils/entity';
+import { ENTITY_DESCRIPTORS } from '$shared/entities/descriptors';
 import { features } from '$shared/settings/base/features';
 import { resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds, notAttachedToArchived } from '$api/_archive';
@@ -161,6 +162,9 @@ export const listRecentUpdates = async (
       id: u.id,
       title: u.title,
       parentLabel: u.parent ? labels.labelOf(u.parent.entityType, u.parent.entityId) : null,
+      parentHref: u.parent && ENTITY_DESCRIPTORS[u.parent.entityType].segment && labels.labelOf(u.parent.entityType, u.parent.entityId) !== null
+        ? entityPath(u.parent.entityType, u.parent.entityId)
+        : null,
       href: updateHref(u),
       at: u.updatedAt,
       isNew: Math.abs(u.updatedAt.getTime() - u.createdAt.getTime()) < 1000

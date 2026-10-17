@@ -61,7 +61,7 @@
             <button type="button" class="title wrap" onclick={() => openEdit(todo.id)}>
               {todo.title} <PriorityBadge priority={todo.priority} />
             </button>
-            <div class="meta">
+            <div class="todo-meta">
               {#if todo.entityLabel}<a href={todo.entityPath}>{todo.entityLabel}</a>{/if}
               {#if todo.targetDate}<span>due {formatTodoDate(todo.targetDate)}</span>{/if}
               <span>created {formatTodoDate(todo.createdAt)}</span>
@@ -90,11 +90,16 @@
     font-size: var(--fs-md);
     &:hover { color: var(--accent); }
   }
-  .meta {
+  // Its parts wrap onto another line rather than overflow, each kept whole (a date doesn't break).
+  // Not `.meta`, which a list row keeps on one line (_layout.scss).
+  .todo-meta {
     display: flex;
-    gap: var(--sp-2);
+    flex-wrap: wrap;
+    column-gap: var(--sp-2);
     font-size: var(--fs-sm);
     color: var(--text-3);
+    > * { white-space: nowrap; }
+    > a { white-space: normal; overflow-wrap: anywhere; }
     a { color: inherit; }
     a:hover { color: var(--text); }
   }

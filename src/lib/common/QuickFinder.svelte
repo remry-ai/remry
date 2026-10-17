@@ -464,7 +464,6 @@
       <div class="finder-footer">
         <span><kbd>↑↓</kbd> navigate</span>
         <span><kbd>↵</kbd> open or search</span>
-        <span><kbd>project:</kbd> narrow</span>
         <span><kbd>/search</kbd> full text</span>
         <span><kbd>/ask</kbd> ask Claude</span>
         <span><kbd>esc</kbd> close</span>

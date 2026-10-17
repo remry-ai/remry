@@ -36,6 +36,8 @@ export interface RecentUpdate {
   readonly id: string;
   readonly title: string;
   readonly parentLabel: string | null;
+  /** The parent's page, when it has one (a todo or note it hangs on has none). */
+  readonly parentHref: string | null;
   readonly href: string;
   readonly at: Date;
   readonly isNew: boolean;

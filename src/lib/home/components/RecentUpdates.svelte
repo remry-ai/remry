@@ -24,8 +24,8 @@
           <span class="badge muted kind">{kindLabel(u.kind)}</span>
           <div class="body">
             <a href={u.href} class="title wrap">{u.title}</a>
-            <div class="meta">
-              <span>{u.isNew ? 'added' : 'updated'}{u.parentLabel ? ` on ${u.parentLabel}` : ''}</span>
+            <div class="update-meta">
+              <span class="wrap">{`${u.isNew ? 'added' : 'updated'}${u.parentLabel ? ' on ' : ''}`}{#if u.parentLabel}{#if u.parentHref}<a class="parent" href={u.parentHref}>{u.parentLabel}</a>{:else}{u.parentLabel}{/if}{/if}</span>
               <time datetime={new Date(u.at).toISOString()}>{timeAgo(u.at)}</time>
             </div>
           </div>
@@ -50,11 +50,19 @@
     color: var(--text);
     &:hover { color: var(--accent); text-decoration: none; }
   }
-  .meta {
+  // Wraps instead of overflowing: a long parent name takes more lines, and the time keeps its place.
+  // Not `.meta`, which a list row keeps on one line (_layout.scss).
+  .update-meta {
     display: flex;
+    align-items: baseline;
     gap: var(--sp-2);
     font-size: var(--fs-sm);
     color: var(--text-3);
-    time { margin-left: auto; white-space: nowrap; }
+    span { min-width: 0; }
+    time { margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+  }
+  .parent {
+    color: var(--text-2);
+    &:hover { color: var(--accent); }
   }
 </style>
