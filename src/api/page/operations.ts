@@ -17,7 +17,7 @@ import { entityPath } from '$shared/utils/entity';
 import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { archiveWhere, ensureWritable } from '$api/_archive';
+import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
 import { refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType } from '$api/_images';
 import { getPageKind } from '$api/page-kind/operations';
@@ -156,7 +156,7 @@ export const getPage = async (
     where: { id },
     include: {
       parent: { select: { id: true, title: true } },
-      children: { orderBy: ORDER, select: { id: true, title: true, kind: true } }
+      children: { where: ACTIVE, orderBy: ORDER, select: { id: true, title: true, kind: true } }
     }
   });
   if (!row) return err(new Error(`Page ${id} not found`));

@@ -7,7 +7,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shared/utils/project-status';
 import { loadOwner, loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { archiveWhere, ensureWritable } from '$api/_archive';
+import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { duplicateNameError, findProjectNamed } from '$api/_duplicates';
 
 // ----- Types -----
@@ -85,7 +85,7 @@ export const listProjects = async (
       ...(filters.ownerId !== undefined && { ownerId: filters.ownerId })
     },
     orderBy: { name: 'asc' },
-    include: { _count: { select: { children: true } } }
+    include: { _count: { select: { children: { where: ACTIVE } } } }
   });
   const owners = await loadOwners(reg, projects);
   return ok(projects.map((p) => ({
@@ -115,7 +115,7 @@ export const getProject = async (
     where: { id },
     include: {
       parent: { select: { id: true, name: true } },
-      children: { select: { id: true, name: true, status: true }, orderBy: { name: 'asc' } }
+      children: { where: ACTIVE, select: { id: true, name: true, status: true }, orderBy: { name: 'asc' } }
     }
   });
   if (!project) return err(new Error('Project not found'));

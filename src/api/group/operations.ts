@@ -8,7 +8,7 @@ import type { ArchiveFilter } from '$shared/types/enums';
 import type { GroupDetail, GroupMemberEntry, GroupSummary, GroupWithMembers, PersonGroup } from '$shared/types/groups';
 import { entityPath } from '$shared/utils/entity';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { archiveWhere, ensureAllWritable, ensureWritable } from '$api/_archive';
+import { archiveWhere, ensureAllWritable, ensureWritable, ACTIVE } from '$api/_archive';
 import { getGroupKind } from '$api/group-kind/operations';
 import { duplicateNameError, findGroupNamed } from '$api/_duplicates';
 
@@ -29,7 +29,7 @@ interface GroupRow {
 
 const SUMMARY = {
   groupKind: { select: { name: true } },
-  _count: { select: { members: true } }
+  _count: { select: { members: { where: { person: ACTIVE } } } }
 } as const;
 
 const toSummary = (row: GroupRow): GroupSummary => ({
@@ -75,7 +75,7 @@ export const listGroupsWithMembers = async (reg: Reg, filters: GroupFilters = {}
   const rows = await reg.prisma.group.findMany({
     where: { ...archiveWhere(filters.archived), ...(filters.kind !== undefined && { kind: filters.kind }) },
     orderBy: ORDER,
-    include: { ...SUMMARY, members: { ...MEMBERS, where: { person: { archivedAt: null } } } }
+    include: { ...SUMMARY, members: { ...MEMBERS, where: { person: ACTIVE } } }
   });
   return ok(rows.map((r) => ({ ...toSummary(r), members: r.members.map(toMember) })));
 };
@@ -83,7 +83,7 @@ export const listGroupsWithMembers = async (reg: Reg, filters: GroupFilters = {}
 export const getGroup = async (reg: Reg, id: string): Promise<Result<GroupDetail>> => {
   const row = await reg.prisma.group.findUnique({
     where: { id },
-    include: { ...SUMMARY, groupKind: { select: { name: true, exclusive: true } }, members: MEMBERS }
+    include: { ...SUMMARY, groupKind: { select: { name: true, exclusive: true } }, members: { ...MEMBERS, where: { person: ACTIVE } } }
   });
   if (!row) return err(notFound(id));
   return ok({ ...toSummary(row), exclusive: row.groupKind.exclusive, updatedAt: row.updatedAt, members: row.members.map(toMember) });
@@ -92,7 +92,7 @@ export const getGroup = async (reg: Reg, id: string): Promise<Result<GroupDetail
 /** A person's groups, by kind order then name. */
 export const listPersonGroups = async (reg: Reg, personId: string): Promise<readonly PersonGroup[]> => {
   const rows = await reg.prisma.groupMember.findMany({
-    where: { personId },
+    where: { personId, group: ACTIVE },
     include: { group: { select: { id: true, name: true, kind: true, groupKind: { select: { name: true, sortOrder: true } } } } }
   });
   return rows
@@ -176,7 +176,7 @@ export const deleteGroup = async (
 
 export const listGroupMembers = async (reg: Reg, groupId: string): Promise<Result<readonly GroupMemberEntry[]>> => {
   if (!(await reg.prisma.group.findUnique({ where: { id: groupId }, select: { id: true } }))) return err(notFound(groupId));
-  const members = await reg.prisma.groupMember.findMany({ where: { groupId }, ...MEMBERS });
+  const members = await reg.prisma.groupMember.findMany({ where: { groupId, person: ACTIVE }, ...MEMBERS });
   return ok(members.map(toMember));
 };
 

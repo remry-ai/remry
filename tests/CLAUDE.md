@@ -18,6 +18,7 @@
   - `notebook`: person → group (team) → note → todo → tag
   - `reports`: branding resolution, chart validation
   - `goals-wiki`: project owner, goal cascade, check-ins and progress, project links, page properties, mentions from content, relation and attachment cleanup on delete
+  - `archive-leaks`: an archived entity of each type (and a doc on one) never shows through an active one's reads: lead and reports, members, children, a goal's projects, the Related list, counts, the org map, the home graph
   - `page-chat`: the Chat tab's saved conversation per entity, Clear, and cleanup when the entity is deleted
   - `migrate`: fresh, idempotent, edited-migration refusal, search index backfill of existing rows
   - `search`: every trigger present, each kind of text found, stemming, phrases/OR/exclusions, type and `within` filters, re-indexing on update and delete (including cleanup), archived rows hidden, `search.recall` with unlinked mentions and caps

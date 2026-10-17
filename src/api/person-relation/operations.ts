@@ -6,7 +6,7 @@
 
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureWritable, ACTIVE } from '$api/_archive';
 import { entityPath } from '$shared/utils/entity';
 import {
   orderedEnds,
@@ -25,7 +25,7 @@ type Reg = Pick<Registry, 'prisma'>;
 export const listPersonRelationItems = async (reg: Reg, personId: string): Promise<readonly RelationItem[]> => {
   const [rows, kinds] = await Promise.all([
     reg.prisma.personRelation.findMany({
-      where: { OR: [{ fromPersonId: personId }, { toPersonId: personId }] },
+      where: { OR: [{ fromPersonId: personId, to: ACTIVE }, { toPersonId: personId, from: ACTIVE }] },
       include: { from: { select: { id: true, name: true } }, to: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'asc' }
     }),
@@ -51,7 +51,7 @@ export const listPersonRelationItems = async (reg: Reg, personId: string): Promi
 export const relationsToPerson = async (reg: Reg, meId: string | null): Promise<ReadonlyMap<string, readonly string[]>> => {
   if (!meId) return new Map();
   const [rows, kinds] = await Promise.all([
-    reg.prisma.personRelation.findMany({ where: { OR: [{ fromPersonId: meId }, { toPersonId: meId }] }, orderBy: { createdAt: 'asc' } }),
+    reg.prisma.personRelation.findMany({ where: { OR: [{ fromPersonId: meId, to: ACTIVE }, { toPersonId: meId, from: ACTIVE }] }, orderBy: { createdAt: 'asc' } }),
     loadPersonRelationKinds(reg)
   ]);
   const out = new Map<string, string[]>();

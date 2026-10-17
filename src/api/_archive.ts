@@ -14,6 +14,15 @@ const typeName = (type: ArchivableType): string => ENTITY_DESCRIPTORS[type].sing
 export const isArchivableType = (entityType: string): entityType is ArchivableType =>
   (ARCHIVABLE_TYPES as readonly string[]).includes(entityType);
 
+/**
+ * The `where` fragment for an entity that isn't archived. Every read that reaches people,
+ * groups, projects, goals or pages through a relation (members, reports, a lead, children,
+ * linked projects, the other end of a relation) uses it, so an archived one shows only on
+ * its own page and in lists asked for archived ones. `tests/integration/archive-leaks`
+ * archives one of each and fails if any read still returns it.
+ */
+export const ACTIVE = { archivedAt: null } as const;
+
 /** The `where` fragment for a list's archive filter. */
 export const archiveWhere = (
   filter: ArchiveFilter = 'exclude'
@@ -111,6 +120,10 @@ export const loadArchivedIds = async (reg: Pick<Registry, 'prisma'>): Promise<Ar
   const rows = await Promise.all(ARCHIVABLE_TYPES.map((type) => ARCHIVABLE_PORTS[type].archivedIds(reg)));
   return new Map(ARCHIVABLE_TYPES.map((type, i) => [type, rows[i]!]));
 };
+
+/** Whether `loadArchivedIds` holds this entity. */
+export const isArchivedRef = (ids: ArchivedIds, entityType: string, entityId: string): boolean =>
+  isArchivableType(entityType) && (ids.get(entityType)?.includes(entityId) ?? false);
 
 interface AttachedToArchivedWhere {
   // Mutable arrays: Prisma's where-input types don't accept readonly ones.

@@ -7,7 +7,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import type { EntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { archiveWhere, ensureAllWritable, ensureWritable } from '$api/_archive';
+import { archiveWhere, ensureAllWritable, ensureWritable, ACTIVE } from '$api/_archive';
 
 // ----- Row mapping -----
 
@@ -123,8 +123,9 @@ export const getGoal = async (
     include: {
       checkIns: { orderBy: [{ date: 'desc' }, { createdAt: 'desc' }] },
       parent: { select: { id: true, title: true } },
-      children: { orderBy: ORDER, include: { checkIns: LATEST_VALUE } },
+      children: { where: ACTIVE, orderBy: ORDER, include: { checkIns: LATEST_VALUE } },
       projects: {
+        where: { project: ACTIVE },
         orderBy: { createdAt: 'asc' },
         include: { project: { select: { id: true, name: true, status: true } } }
       }

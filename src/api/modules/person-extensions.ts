@@ -11,6 +11,7 @@ import type { FocusLink } from '$api/home/focus-node';
 import { seedPersonRelationKinds } from '$api/person-relation-kind/operations';
 import { setExclusiveRelation } from '$api/person-relation/operations';
 import { ORG_MODULE } from '$shared/modules/org';
+import { ACTIVE } from '$api/_archive';
 
 type Reg = Pick<Registry, 'prisma'>;
 
@@ -32,7 +33,7 @@ const leadRelations = async (
   reg: Reg,
   where: { toPersonId: { in: string[] } } | { fromPersonId: string } | { toPersonId: string }
 ): Promise<readonly { readonly fromId: string; readonly toId: string }[]> =>
-  (await reg.prisma.personRelation.findMany({ where: { kind: LEAD_KIND, ...where }, select: { fromPersonId: true, toPersonId: true } }))
+  (await reg.prisma.personRelation.findMany({ where: { kind: LEAD_KIND, ...where, from: ACTIVE, to: ACTIVE }, select: { fromPersonId: true, toPersonId: true } }))
     .map((r) => ({ fromId: r.fromPersonId, toId: r.toPersonId }));
 
 const namesOf = async (reg: Reg, ids: readonly string[]): Promise<ReadonlyMap<string, string>> =>

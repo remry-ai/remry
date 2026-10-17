@@ -146,7 +146,9 @@ describe('listRelationsForEntity', () => {
         todo: {
           findMany: vi.fn().mockImplementation(({ select }: { select: Record<string, boolean> }) =>
             Promise.resolve([select.title ? { id: 'td1', title: 'Book 1:1' } : { id: 'td1', entityType: 'PROJECT', entityId: 'p1' }]))
-        }
+        },
+        // Nothing archived.
+        ...Object.fromEntries(['person', 'group', 'project', 'goal', 'page'].map((m) => [m, { findMany: vi.fn().mockResolvedValue([]) }]))
       } as unknown as Registry['prisma']
     });
     const result = await listRelationsForEntity(reg, 'GROUP', 't1');

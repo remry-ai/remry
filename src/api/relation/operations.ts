@@ -1,6 +1,6 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureWritable } from '$api/_archive';
+import { ensureWritable, ACTIVE, isArchivedRef, loadArchivedIds } from '$api/_archive';
 import type { EntityType, RelatableType, RelationKind } from '$shared/types/enums';
 import { RELATION_KINDS } from '$shared/types/enums';
 import { RELATION_LABELS, relationLabel, type RelationGroup, type RelationItem } from '$shared/types/relations';
@@ -78,26 +78,28 @@ const pathOf = (owners: AttachedOwners, entityType: RelatableType, entityId: str
 
 /**
  * Relations at either end of an entity, grouped by how they read from its side,
- * with a person's relationships to other people. Relations to deleted entities are left out.
+ * with a person's relationships to other people. Relations to deleted or archived entities, and
+ * to what's attached to an archived one (a doc on an archived project), are left out.
  */
 export const listRelationsForEntity = async (
   reg: Pick<Registry, 'prisma'>,
   entityType: EntityType,
   entityId: string
 ): Promise<Result<readonly RelationGroup[]>> => {
-  const [rows, personKinds, personItems] = await Promise.all([
+  const [rows, personKinds, personItems, archived] = await Promise.all([
     reg.prisma.relation.findMany({
       where: { OR: [{ fromType: entityType, fromId: entityId }, { toType: entityType, toId: entityId }] },
       orderBy: { createdAt: 'asc' }
     }),
     entityType === 'PERSON' ? loadPersonRelationKinds(reg) : Promise.resolve([]),
-    entityType === 'PERSON' ? listPersonRelationItems(reg, entityId) : Promise.resolve([])
+    entityType === 'PERSON' ? listPersonRelationItems(reg, entityId) : Promise.resolve([]),
+    loadArchivedIds(reg)
   ]);
 
   // A goal depends on the projects linked to it, so the link shows on both pages.
   const links = entityType === 'GOAL' || entityType === 'PROJECT'
     ? await reg.prisma.goalProject.findMany({
-      where: entityType === 'GOAL' ? { goalId: entityId } : { projectId: entityId },
+      where: entityType === 'GOAL' ? { goalId: entityId, project: ACTIVE } : { projectId: entityId, goal: ACTIVE },
       orderBy: { createdAt: 'asc' }
     })
     : [];
@@ -114,11 +116,15 @@ export const listRelationsForEntity = async (
     resolveEntityLabels(reg, [...others, ...linkOthers].map((o) => ({ entityType: o.type, entityId: o.id }))),
     loadAttachedOwners(reg, others)
   ]);
+  const hidden = (type: RelatableType, id: string): boolean => {
+    const owner = owners.get(`${type}:${id}`);
+    return isArchivedRef(archived, type, id) || (owner !== undefined && isArchivedRef(archived, owner.entityType, owner.entityId));
+  };
 
   const items = others.map(({ row, outgoing, type: otherType, id: otherId }): RelationItem | null => {
     const kind = row.kind as RelationKind;
     const label = labels.labelOf(otherType, otherId);
-    if (label === null) return null;
+    if (label === null || hidden(otherType, otherId)) return null;
     return {
       id: row.id,
       kind,
