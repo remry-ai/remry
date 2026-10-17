@@ -62,22 +62,45 @@ export const completeScopeWord = (query: string, scopes: readonly SearchScope[],
   return typed ? `/${typed.scope.slash} ` : query;
 };
 
-/** Options in `scope` (every scope when null) whose name contains the query, names that start with it first. */
+/** Lower case, accents and apostrophes dropped, other punctuation as spaces: "Café-Ops" → "cafe ops", "Dana's" → "danas". */
+const normalize = (text: string): string =>
+  text.normalize('NFD').replace(/\p{M}/gu, '').replace(/['’]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/**
+ * How well a name matches a query, lower is better, or null for no match. Best first: the
+ * whole name; the name's start; a word's start; every query word starting a word of the name,
+ * in any order ("exp paper" → "Paperwall expenses"); the query anywhere; every query word
+ * anywhere; the initials ("pe" → "Paperwall expenses").
+ */
+export const nameMatchRank = (name: string, query: string): number | null => {
+  const q = normalize(query);
+  if (!q) return 0;
+  const n = normalize(name);
+  const nameWords = n.split(' ');
+  const queryWords = q.split(' ');
+  if (n === q) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.includes(` ${q}`)) return 2;
+  if (queryWords.every((w) => nameWords.some((nw) => nw.startsWith(w)))) return 3;
+  if (n.includes(q)) return 4;
+  if (queryWords.every((w) => n.includes(w))) return 5;
+  if (!q.includes(' ') && q.length > 1 && nameWords.map((w) => w[0]).join('').startsWith(q)) return 6;
+  return null;
+};
+
+/** Options in `scope` (every scope when null) that match the query (`nameMatchRank`), best first, in their own order within a rank. */
 export const searchOptions = <T extends SearchOption>(
   options: readonly T[],
   query: string,
   scope: string | null,
   limit = 8
 ): readonly T[] => {
-  const q = query.trim().toLowerCase();
   const inScope = scope === null ? options : options.filter((o) => o.scope === scope);
-  if (!q) return inScope.slice(0, limit);
-  const starts: T[] = [];
-  const contains: T[] = [];
-  for (const option of inScope) {
-    const name = option.name.toLowerCase();
-    if (name.startsWith(q)) starts.push(option);
-    else if (name.includes(q)) contains.push(option);
-  }
-  return [...starts, ...contains].slice(0, limit);
+  if (!query.trim()) return inScope.slice(0, limit);
+  return inScope
+    .map((option, index) => ({ option, index, rank: nameMatchRank(option.name, query) }))
+    .filter((m): m is { option: T; index: number; rank: number } => m.rank !== null)
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .slice(0, limit)
+    .map((m) => m.option);
 };

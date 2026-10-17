@@ -74,18 +74,9 @@ const entryRows = (entries: readonly FinderEntry[]): readonly FinderRow[] =>
 export const autocompleteRows = (text: string, entries: readonly FinderEntry[], limit = 12): readonly FinderRow[] =>
   text.trim() ? entryRows(searchOptions(entries, text, null, limit)) : commandRows(FINDER_COMMANDS);
 
-/** Entries whose name holds every word of the query, in any order; names starting with the query first. */
-export const titleMatches = (entries: readonly FinderEntry[], query: string, limit = 12): readonly FinderEntry[] => {
-  const q = query.trim().toLowerCase();
-  const words = q.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [];
-  const matches = entries.filter((e) => {
-    const name = e.name.toLowerCase();
-    return words.every((w) => name.includes(w));
-  });
-  const starts = matches.filter((e) => e.name.toLowerCase().startsWith(q));
-  return [...starts, ...matches.filter((e) => !starts.includes(e))].slice(0, limit);
-};
+/** Entries whose name matches the query, best first (`searchOptions`: words in any order, starts of words first). */
+export const titleMatches = (entries: readonly FinderEntry[], query: string, limit = 12): readonly FinderEntry[] =>
+  query.trim() ? searchOptions(entries, query, null, limit) : [];
 
 /** Rows for a submitted query: the title matches, then full-text hits that aren't one of them. */
 export const submittedRows = (titles: readonly FinderEntry[], hits: readonly SearchHit[]): readonly FinderRow[] => {

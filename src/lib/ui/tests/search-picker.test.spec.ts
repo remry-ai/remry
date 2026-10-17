@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { completeScopeWord, matchScopes, parseSearchQuery, searchOptions, typedScope } from '../search-picker';
+import { completeScopeWord, matchScopes, nameMatchRank, parseSearchQuery, searchOptions, typedScope } from '../search-picker';
 
 const scopes = [
   { id: 'PERSON', label: 'Person', slash: 'person' },
@@ -96,5 +96,49 @@ describe('searchOptions', () => {
 
   it('stops at the limit', () => {
     expect(searchOptions(options, '', null, 2)).toHaveLength(2);
+  });
+});
+
+describe('nameMatchRank', () => {
+  it('matches words in any order, at the start of any word', () => {
+    expect(nameMatchRank('Paperwall expenses', 'expenses')).not.toBeNull();
+    expect(nameMatchRank('Paperwall expenses', 'exp paper')).not.toBeNull();
+    expect(nameMatchRank('Q3 platform review', 'review q3')).not.toBeNull();
+  });
+
+  it('ignores case, accents and punctuation', () => {
+    expect(nameMatchRank('Café-Ops rota', 'cafe ops')).not.toBeNull();
+    expect(nameMatchRank("Dana's 1:1 notes", 'danas 1:1')).not.toBeNull();
+    expect(nameMatchRank("Dana's 1:1 notes", 'notes dana')).not.toBeNull();
+  });
+
+  it('matches initials', () => {
+    expect(nameMatchRank('Paperwall expenses', 'pe')).not.toBeNull();
+    expect(nameMatchRank('Paperwall expenses', 'px')).toBeNull();
+  });
+
+  it('ranks the name\'s start, then a word\'s start, then any order, then inside a word', () => {
+    const rank = (name: string): number | null => nameMatchRank(name, 'pay');
+    expect(rank('Pay')).toBe(0);
+    expect(rank('Payments')).toBe(1);
+    expect(rank('Team payments')).toBe(2);
+    expect(rank('Prepay')).toBe(4);
+    expect(nameMatchRank('Migrate the web console', 'web migr')).toBe(3);
+  });
+
+  it('needs every word', () => {
+    expect(nameMatchRank('Paperwall expenses', 'paper rent')).toBeNull();
+  });
+});
+
+describe('searchOptions ranking', () => {
+  const named = (...names: string[]) => names.map((name, i) => ({ id: String(i), name }));
+  it('puts better matches first and keeps the given order within a rank', () => {
+    const opts = named('Prepay', 'Team payments', 'Payroll', 'Pay', 'Payments');
+    expect(searchOptions(opts, 'pay', null).map((o) => o.name)).toEqual(['Pay', 'Payroll', 'Payments', 'Team payments', 'Prepay']);
+  });
+
+  it('finds a title by a later word', () => {
+    expect(searchOptions(named('Paperwall expenses', 'Rent'), 'expenses', null).map((o) => o.name)).toEqual(['Paperwall expenses']);
   });
 });
