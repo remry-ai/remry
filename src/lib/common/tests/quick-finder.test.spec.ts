@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SearchHit } from '$shared/types/search';
-import { appLink, autocompleteRows, completeCommand, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
+import { FINDER_SCOPES, appLink, autocompleteRows, completeCommand, completeScope, docEntries, parseScope, scopeSuggestions, todoEntries, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
 
 const entries: readonly FinderEntry[] = [
   { id: 'GROUP:1', name: 'Console', scope: 'GROUP', meta: 'Team' },
@@ -103,6 +103,88 @@ describe('snippetParts', () => {
       { text: 'web', match: true },
       { text: ' console ', match: false },
       { text: 'move', match: true }
+    ]);
+  });
+});
+
+describe('parseScope', () => {
+  it('narrows to the type a keyword and colon name, by any prefix or the plural', () => {
+    expect(parseScope('project: api', FINDER_SCOPES)).toMatchObject({ scope: { type: 'PROJECT' }, text: 'api' });
+    expect(parseScope('pro:api', FINDER_SCOPES)).toMatchObject({ scope: { type: 'PROJECT' }, text: 'api' });
+    expect(parseScope('Projects: api gateway', FINDER_SCOPES)).toMatchObject({ scope: { type: 'PROJECT' }, text: 'api gateway' });
+    expect(parseScope('people: dana', FINDER_SCOPES).scope?.type).toBe('PERSON');
+    expect(parseScope('wiki: rota', FINDER_SCOPES).scope?.type).toBe('PAGE');
+    expect(parseScope('todo:', FINDER_SCOPES)).toMatchObject({ scope: { type: 'TODO' }, text: '' });
+  });
+
+  it('picks the first type in order for a short prefix that fits several', () => {
+    expect(parseScope('p: x', FINDER_SCOPES).scope?.type).toBe('PERSON');
+    expect(parseScope('pr: x', FINDER_SCOPES).scope?.type).toBe('PROJECT');
+    expect(parseScope('pa: x', FINDER_SCOPES).scope?.type).toBe('PAGE');
+    expect(parseScope('go: x', FINDER_SCOPES).scope?.type).toBe('GOAL');
+  });
+
+  it('leaves text whole when the word names no available type', () => {
+    expect(parseScope('q3: review', FINDER_SCOPES)).toEqual({ scope: null, text: 'q3: review' });
+    expect(parseScope('api: gateway', FINDER_SCOPES)).toEqual({ scope: null, text: 'api: gateway' });
+    const home = FINDER_SCOPES.filter((s) => s.type !== 'GOAL');
+    expect(parseScope('goal: x', home)).toEqual({ scope: null, text: 'goal: x' });
+  });
+});
+
+describe('scope suggestions and Tab', () => {
+  it('offers the types a word of two letters or more starts', () => {
+    expect(scopeSuggestions('pro', FINDER_SCOPES).map((s) => s.type)).toEqual(['PROJECT']);
+    expect(scopeSuggestions('pe', FINDER_SCOPES).map((s) => s.type)).toEqual(['PERSON']);
+    expect(scopeSuggestions('p', FINDER_SCOPES)).toEqual([]);
+    expect(scopeSuggestions('pro api', FINDER_SCOPES)).toEqual([]);
+  });
+
+  it('completes a word to its keyword and colon, also after /search', () => {
+    expect(completeScope('pro', FINDER_SCOPES)).toBe('project: ');
+    expect(completeScope('peo', FINDER_SCOPES)).toBe('people: ');
+    expect(completeScope('pa', FINDER_SCOPES)).toBe('page: ');
+    expect(completeScope('/search to', FINDER_SCOPES)).toBe('/search todo: ');
+    expect(completeScope('dana', FINDER_SCOPES)).toBeNull();
+    expect(completeScope('pro api', FINDER_SCOPES)).toBeNull();
+  });
+});
+
+describe('autocompleteRows with types', () => {
+  const typed: readonly FinderEntry[] = [
+    ...entries,
+    { id: 'DOC:d1', name: 'Console runbook', scope: 'DOC', meta: 'Doc', href: '/app/groups/1?doc=d1' }
+  ];
+
+  it('narrows names to the type, listing them all before anything follows the colon', () => {
+    expect(keys(autocompleteRows('project: cons', typed, FINDER_SCOPES))).toEqual(['PROJECT:1', 'PROJECT:2']);
+    expect(keys(autocompleteRows('doc:', typed, FINDER_SCOPES))).toEqual(['DOC:d1']);
+    expect(keys(autocompleteRows('group: migr', typed, FINDER_SCOPES))).toEqual([]);
+  });
+
+  it('offers a type after the names a word matches, so Enter still opens a name', () => {
+    expect(keys(autocompleteRows('pro', typed, FINDER_SCOPES))).toEqual(['scope:PROJECT']);
+    const prod = [...typed, { id: 'PROJECT:9', name: 'Prod launch', scope: 'PROJECT', meta: 'Project' }];
+    expect(keys(autocompleteRows('pro', prod, FINDER_SCOPES))).toEqual(['PROJECT:9', 'scope:PROJECT']);
+    expect(keys(autocompleteRows('con', typed, FINDER_SCOPES)).some((k) => k.startsWith('scope:'))).toBe(false);
+  });
+});
+
+describe('docEntries and todoEntries', () => {
+  it('opens a doc on its entity and names that entity', () => {
+    expect(docEntries([{ id: 'd1', title: 'Runbook', entityName: 'Platform', path: '/app/groups/g1?doc=d1' }])).toEqual([
+      { id: 'DOC:d1', name: 'Runbook', scope: 'DOC', meta: 'Doc · Platform', href: '/app/groups/g1?doc=d1' }
+    ]);
+  });
+
+  it('lists open todos first and opens each in the todo popup', () => {
+    const todos = [
+      { id: 't1', title: 'Done thing', status: 'COMPLETE', entityLabel: 'Ada' },
+      { id: 't2', title: 'Open thing', status: 'PENDING', entityLabel: null }
+    ];
+    expect(todoEntries(todos)).toEqual([
+      { id: 'TODO:t2', name: 'Open thing', scope: 'TODO', meta: 'Todo', href: '/app/todos?popup=todo&todo=t2' },
+      { id: 'TODO:t1', name: 'Done thing', scope: 'TODO', meta: 'Todo · done · Ada', href: '/app/todos?popup=todo&todo=t1' }
     ]);
   });
 });

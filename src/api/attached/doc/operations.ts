@@ -1,10 +1,10 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import { ensureAttachable, ensureWritable } from '$api/_archive';
+import { ensureAttachable, ensureWritable, loadArchivedIds, notAttachedToArchived } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
 import { fileUrl } from '$shared/utils/files';
-import { acceptsDocs, entityPath } from '$shared/utils/entity';
-import { resolveEntityLabel } from '$api/_entity-labels';
+import { acceptsDocs, docPath, entityPath } from '$shared/utils/entity';
+import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { EDITOR_IMAGE_TYPES, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
@@ -63,6 +63,32 @@ export const listDocs = async (
     orderBy: { sortOrder: 'asc' }
   });
   return ok(docs);
+};
+
+export interface DocTitle {
+  readonly id: string;
+  readonly title: string;
+  /** The entity it's attached to, by name; null if it's gone. */
+  readonly entityName: string | null;
+  /** Opens the doc on its entity's page. */
+  readonly path: string;
+}
+
+/** Every doc's title and where it opens, without content: the ⌘K finder's `doc:` list. Docs on archived entities are left out. */
+export const listDocTitles = async (reg: Pick<Registry, 'prisma'>): Promise<Result<readonly DocTitle[]>> => {
+  const archived = await loadArchivedIds(reg);
+  const docs = await reg.prisma.doc.findMany({
+    where: notAttachedToArchived(archived),
+    select: { id: true, title: true, entityType: true, entityId: true },
+    orderBy: { updatedAt: 'desc' }
+  });
+  const labels = await resolveEntityLabels(reg, docs.map((d) => ({ entityType: d.entityType as EntityType, entityId: d.entityId })));
+  return ok(docs.map((d) => ({
+    id: d.id,
+    title: d.title,
+    entityName: labels.labelOf(d.entityType as EntityType, d.entityId),
+    path: docPath(d.entityType as EntityType, d.entityId, d.id)
+  })));
 };
 
 export const addDoc = async (

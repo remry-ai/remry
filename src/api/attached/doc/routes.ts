@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
-import { listDocs, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, attachSourcePdf, getDocReadUrl, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
+import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, attachSourcePdf, getDocReadUrl, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
 import { convertDocPdf, getPdfConversion } from './convert';
 
@@ -13,6 +13,10 @@ export const docRouter = router({
     .meta({ description: 'An entity\'s docs (titles, no content).' })
     .input(z.object({ entityType: z.enum(ENTITY_TYPES), entityId: z.string() }))
     .query(({ ctx, input }) => listDocs(ctx.reg, input.entityType, input.entityId)),
+
+  titles: procedure
+    .meta({ description: 'Every doc\'s title and where it opens, without content (the app\'s finder).' })
+    .query(({ ctx }) => listDocTitles(ctx.reg)),
 
   get: procedure
     .meta({ description: 'One doc with its markdown content.' })

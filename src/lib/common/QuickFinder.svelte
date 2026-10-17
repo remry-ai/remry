@@ -1,6 +1,7 @@
 <script lang="ts">
   // ⌘K: find people, groups, projects, goals and wiki pages by name. Enter with
-  // no match searches titles word by word. "/search …" searches the full text and
+  // no match searches titles word by word. "project: api" narrows to one type
+  // (docs and todos too, loaded when first narrowed to), on Enter as well. "/search …" searches the full text and
   // "/ask …" asks the local Claude a question about the notebook, answered once
   // with links (both Remry Pro). Rows come from quick-finder.ts.
   import { goto } from '$app/navigation';
@@ -19,16 +20,22 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { errorMessage, submitOrThrow } from '$lib/ui/submit';
   import {
+    FINDER_SCOPES,
     appLink,
     autocompleteRows,
     commandRows,
     completeCommand,
+    completeScope,
+    docEntries,
     parseFinderQuery,
+    parseScope,
+    todoEntries,
     snippetParts,
     submittedRows,
     titleMatches,
     type FinderEntry,
-    type FinderRow
+    type FinderRow,
+    type FinderScopeType
   } from './quick-finder';
 
   const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -62,6 +69,8 @@
   let query = $state('');
   let active = $state(0);
   let entities = $state<readonly EntityOption[]>([]);
+  // Docs and todos aren't in the name list; each loads the first time a query narrows to it.
+  let attached = $state<Partial<Record<FinderScopeType, readonly FinderEntry[]>>>({});
   let loading = $state(false);
   let submitted = $state<Submitted | null>(null);
   let answer = $state<Answer | null>(null);
@@ -74,12 +83,18 @@
     entities.filter((e) => $model.shows(e.scope)).map((e) => ({ ...e, meta: scopeLabel(e.scope) }))
   );
 
+  // The types this notebook has (no goals in a home notebook).
+  const available = $derived(FINDER_SCOPES.filter((s) => $model.shows(s.type)));
   const parsed = $derived(parseFinderQuery(query));
+  // "project: api" (also after /search): the type it's narrowed to.
+  const scoped = $derived(parsed.kind === 'names' || parsed.kind === 'search' ? parseScope(parsed.text, available) : { scope: null, text: '' });
+  const scope = $derived(scoped.scope);
+  const allEntries = $derived([...entries, ...(attached.DOC ?? []), ...(attached.TODO ?? [])]);
   const needsPro = $derived((parsed.kind === 'search' || parsed.kind === 'ask') && !pro);
 
   const rows = $derived.by((): readonly FinderRow[] => {
     if (submitted) return submittedRows(submitted.titles, submitted.hits ?? []);
-    if (parsed.kind === 'names') return autocompleteRows(parsed.text, entries);
+    if (parsed.kind === 'names') return autocompleteRows(parsed.text, allEntries, available);
     if (parsed.kind === 'commands') return commandRows(parsed.commands);
     return [];
   });
@@ -93,10 +108,12 @@
     if (loading || searching) return 'Searching…';
     if (submitted?.error) return submitted.error;
     if (submitted?.hits === null) return 'Searching full text…';
-    if (submitted) return 'No results';
+    if (submitted) return scope ? `No ${scope.label.toLowerCase()} found` : 'No results';
     if (parsed.kind === 'search') return parsed.text.trim() ? 'Press ↵ to search the full text.' : 'Type words to find in notes, docs, wiki pages and todos.';
     if (parsed.kind === 'ask') return parsed.text.trim() ? 'Press ↵ to ask Claude.' : 'Type a question about this notebook.';
     if (parsed.kind === 'commands') return 'No such command. Try /search or /ask.';
+    if (scope && (scope.type === 'DOC' || scope.type === 'TODO') && !attached[scope.type]) return `Loading ${scope.label.toLowerCase()}…`;
+    if (scope) return `No matching ${scope.label.toLowerCase()}. Press ↵ to search ${pro ? 'their titles and text' : 'their titles'}.`;
     return 'No matching names. Press ↵ to search titles.';
   });
 
@@ -127,11 +144,32 @@
     }
   };
 
-  const searchText = async (q: string, text: string) => {
+  // Enter narrowed to a type: its titles, reloaded, and with Remry Pro its full text.
+  const searchScoped = async (q: string, type: FinderScopeType, text: string) => {
+    searching = true;
+    try {
+      if (type === 'DOC' || type === 'TODO') await loadAttached(type);
+      else await loadEntities(true);
+      if (query !== q) return;
+      const titles = titleMatches(allEntries.filter((e) => e.scope === type), text);
+      submitted = { query: q, titles, hits: pro ? null : [] };
+      active = 0;
+    } finally {
+      searching = false;
+    }
+    if (pro) await searchHits(q, text, type);
+  };
+
+  const searchText = async (q: string, text: string, type?: FinderScopeType) => {
     submitted = { query: q, titles: [], hits: null };
     active = 0;
+    await searchHits(q, text, type);
+  };
+
+  // Full-text hits for the submitted query, of one type when it's narrowed.
+  const searchHits = async (q: string, text: string, type?: FinderScopeType) => {
     try {
-      const results = await submitOrThrow(() => trpc().search.query.query({ q: text, limit: HIT_LIMIT }));
+      const results = await submitOrThrow(() => trpc().search.query.query({ q: text, limit: HIT_LIMIT, ...(type && { types: [type] }) }));
       if (submitted?.query === q) submitted = { ...submitted, hits: results.results };
     } catch (e: unknown) {
       if (submitted?.query === q) submitted = { ...submitted, hits: [], error: errorMessage(e) };
@@ -159,12 +197,21 @@
     }
   };
 
-  const openEntry = (id: string): void => {
-    const target = parseTypedIdValue(id, RELATABLE_TYPES);
+  const openEntry = (entry: FinderEntry): void => {
+    if (entry.href) {
+      void goto(entry.href);
+      return;
+    }
+    const target = parseTypedIdValue(entry.id, RELATABLE_TYPES);
     if (target) void goto(entityPath(target.type, target.id));
   };
 
   const select = (row: FinderRow) => {
+    if (row.kind === 'scope') {
+      handleInput(`${row.scope.keywords[0]}: `);
+      inputEl?.focus();
+      return;
+    }
     if (row.kind === 'command') {
       query = `/${row.command.id} `;
       submitted = null;
@@ -174,7 +221,7 @@
     }
     close();
     if (row.kind === 'hit') void goto(row.hit.path);
-    else openEntry(row.entry.id);
+    else openEntry(row.entry);
   };
 
   const submit = () => {
@@ -184,8 +231,9 @@
       return;
     }
     if (submitted || searching || needsPro) return;
-    if (parsed.kind === 'names' && parsed.text.trim()) void searchTitles(query);
-    else if (parsed.kind === 'search' && parsed.text.trim()) void searchText(query, parsed.text.trim());
+    if (parsed.kind === 'names' && scope && scoped.text.trim()) void searchScoped(query, scope.type, scoped.text.trim());
+    else if (parsed.kind === 'names' && !scope && parsed.text.trim()) void searchTitles(query);
+    else if (parsed.kind === 'search' && scoped.text.trim()) void searchText(query, scoped.text.trim(), scope?.type);
     else if (parsed.kind === 'ask' && parsed.text.trim() && !(answer?.query === query && answer.state === 'running')) {
       void ask(query, parsed.text.trim());
     }
@@ -222,7 +270,7 @@
       e.preventDefault();
       submit();
     } else if (e.key === 'Tab' && !e.shiftKey) {
-      const completed = completeCommand(query, active);
+      const completed = completeCommand(query, active) ?? completeScope(query, available);
       if (completed === null) return;
       e.preventDefault();
       handleInput(completed);
@@ -269,6 +317,25 @@
     }
   };
 
+  // Docs and todos for a query narrowed to them, once per opening (they change often).
+  const loadAttached = async (type: 'DOC' | 'TODO'): Promise<void> => {
+    try {
+      if (type === 'DOC') {
+        const docs = await submitOrThrow(() => trpc().doc.titles.query());
+        attached = { ...attached, DOC: docEntries(docs) };
+      } else {
+        attached = { ...attached, TODO: todoEntries(await trpc().todo.list.query({})) };
+      }
+    } catch {
+      attached = { ...attached, [type]: [] };
+    }
+  };
+
+  $effect(() => {
+    const type = scope?.type;
+    if ((type === 'DOC' || type === 'TODO') && !attached[type]) void loadAttached(type);
+  });
+
   // Archived entities leave the finder: forget the cache when one changes.
   $effect(() => {
     const key = cacheKey;
@@ -286,6 +353,7 @@
       query = '';
       submitted = null;
       answer = null;
+      attached = {};
       active = 0;
       void loadEntities(false);
     } else {
@@ -318,12 +386,13 @@
           aria-controls="quick-finder-results"
           aria-expanded={rows.length > 0}
           aria-activedescendant={rows.length > 0 ? `quick-finder-row-${active}` : undefined}
-          placeholder="Find by name, /search the text, /ask a question"
+          placeholder="Find by name, project: to narrow, /search the text, /ask"
           autocomplete="off"
           spellcheck="false"
           value={query}
           oninput={(e) => handleInput(e.currentTarget.value)}
         />
+        {#if scope}<span class="badge accent scope-badge" title="Searching {scope.label.toLowerCase()} only">{scope.label}</span>{/if}
         <button type="button" class="btn icon sm" onclick={handleRefresh} title="Refresh data" aria-label="Refresh data" disabled={loading}>
           {#if loading}…{:else}↻{/if}
         </button>
@@ -364,7 +433,10 @@
               onmouseenter={() => (active = i)}
               onmousedown={(e) => { e.preventDefault(); select(row); }}
             >
-              {#if row.kind === 'command'}
+              {#if row.kind === 'scope'}
+                <span class="name mono">{row.scope.keywords[0]}:</span>
+                <span class="kind">Search {row.scope.label.toLowerCase()} only <kbd>tab</kbd></span>
+              {:else if row.kind === 'command'}
                 <span class="name mono">/{row.command.id}</span>
                 <span class="kind">{row.command.label}</span>
               {:else if row.kind === 'hit'}
@@ -392,6 +464,7 @@
       <div class="finder-footer">
         <span><kbd>↑↓</kbd> navigate</span>
         <span><kbd>↵</kbd> open or search</span>
+        <span><kbd>project:</kbd> narrow</span>
         <span><kbd>/search</kbd> full text</span>
         <span><kbd>/ask</kbd> ask Claude</span>
         <span><kbd>esc</kbd> close</span>
