@@ -204,6 +204,7 @@ model Project {
   children Project[]     @relation("ProjectHierarchy")
   goals    GoalProject[]
 
+  @@index([parentId])
   @@index([ownerType, ownerId])
   @@index([archivedAt])
   @@map("project")
