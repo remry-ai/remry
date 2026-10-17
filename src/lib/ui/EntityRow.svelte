@@ -1,7 +1,7 @@
 <script lang="ts">
-  // A `.list-row` that links to an entity: its title link, whatever the list shows beside it
-  // (children: a badge, a status, a date), then its `.row-actions`, which start with a peek
-  // button. The peek comes from the link (`peekForHref`: a project, wiki page, goal, person or
+  // A `.list-row` that links to an entity: its title link with a peek button right after it
+  // (as on the list pages), whatever the list shows beside it (children: a badge, a status, a
+  // date), then its other `.row-actions`. The peek comes from the link (`peekForHref`: a project, wiki page, goal, person or
   // doc) and shows only on a page that shows typed peeks (PEEKS_CONTEXT, set by
   // EntityDetailPage). Every row that links to an entity uses this (a unit test checks), so a
   // new list gets its peek without anyone remembering to add it.
@@ -36,27 +36,31 @@
 </script>
 
 <li class="list-row" class:active>
-  {#if detail}
-    <span class="grow stacked">
+  <span class="grow main">
+    <span class="title-line">
       <a class="{wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
-      {@render detail()}
+      {#if target?.type}<span class="row-actions"><PeekButton type={target.type} id={target.id} {label} /></span>{/if}
     </span>
-  {:else}
-    <a class="grow {wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
-  {/if}
+    {@render detail?.()}
+  </span>
   {@render children?.()}
-  {#if target?.type || actions}
-    <span class="row-actions">
-      {#if target?.type}<PeekButton type={target.type} id={target.id} {label} />{/if}
-      {@render actions?.()}
-    </span>
-  {/if}
+  {#if actions}<span class="row-actions">{@render actions()}</span>{/if}
 </li>
 
 <style lang="scss">
-  .stacked {
+  .main {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+  }
+  // The title takes only its width, so the peek sits right after it; a long one still
+  // truncates or wraps rather than pushing the peek out.
+  .title-line {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    max-width: 100%;
+    a { min-width: 0; }
+    .row-actions { flex-shrink: 0; }
   }
 </style>
