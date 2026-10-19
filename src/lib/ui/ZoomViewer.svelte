@@ -2,7 +2,8 @@
   // A diagram or image over the whole window, to zoom and pan: the wheel (or a
   // trackpad pinch) zooms at the cursor, dragging pans, double-click switches
   // between fitted and actual size, and Esc, × or a click on the backdrop
-  // closes it. MarkdownRenderer opens it; the math is in zoom.ts.
+  // closes it. MarkdownRenderer opens it; the math is in zoom.ts. It renders on
+  // <body>, above everything on the page, the drawer toggles included.
   import { tick } from 'svelte';
   import { ZOOM_LIMITS, centredView, fitView, panBy, scaleLabel, zoomAt, type Size, type ZoomSource, type ZoomView } from './zoom';
 
@@ -36,6 +37,13 @@
     void tick().then(() => { fit(); dialog?.focus(); });
     return () => { returnFocus?.focus(); };
   });
+
+  // Mounted on <body>, so no stacking context on the page (a sticky header, the
+  // drawers) can draw over it, however high its own z-index.
+  const portal = (node: HTMLElement): { destroy: () => void } => {
+    document.body.append(node);
+    return { destroy: () => node.remove() };
+  };
 
   const handleImageLoad = (e: Event) => {
     const img = e.currentTarget as HTMLImageElement;
@@ -101,7 +109,7 @@
 
 {#if source}
   <!-- Esc closes it from the keyboard (handled in the dialog). -->
-  <div class="backdrop" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  <div class="backdrop" role="presentation" use:portal onclick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <div class="viewer" role="dialog" aria-modal="true" aria-label="Zoomed diagram" tabindex="-1" bind:this={dialog} onkeydown={handleKeydown}>
       <div class="toolbar">
         <button type="button" class="btn icon sm" aria-label="Zoom out" title="Zoom out (−)" onclick={() => zoomBy(1 / ZOOM_LIMITS.step)}>−</button>

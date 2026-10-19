@@ -84,6 +84,8 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
+  // Room under the last card (an open doc, the overview) before the site footer.
+  .col-center { padding-bottom: var(--sp-8); }
   // The handle sits outside the scroller, so it stays put while the sidebar scrolls.
   .col-left { position: relative; }
   .col-scroll { height: 100%; }

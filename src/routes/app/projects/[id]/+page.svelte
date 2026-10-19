@@ -88,6 +88,11 @@
     await invalidateAll();
   };
 
+  const handleDelete = async () => {
+    await submitOrThrow(() => trpc().project.delete.mutate({ id: project.id }));
+    await goto('/app/projects');
+  };
+
   const handleUnlinkChild = async (childId: string) => {
     await submitOrThrow(() => trpc().project.update.mutate({ id: childId, parentId: null }));
     await invalidateAll();
@@ -238,7 +243,7 @@
   {/snippet}
 
   {#snippet renderEditForm({ onSuccess, onCancel })}
-    <ProjectForm initial={project} ownerOptions={data.ownerOptions} {onSuccess} {onCancel} />
+    <ProjectForm initial={project} ownerOptions={data.ownerOptions} {onSuccess} {onCancel} onDelete={handleDelete} />
   {/snippet}
 </EntityDetailPage>
 
