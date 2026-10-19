@@ -35,6 +35,8 @@ export interface RecentUpdate {
   readonly kind: UpdateKind;
   readonly id: string;
   readonly title: string;
+  /** A note's markdown (its start), rendered in the feed in place of the title. */
+  readonly content?: string;
   readonly parentLabel: string | null;
   /** The parent's page, when it has one (a todo or note it hangs on has none). */
   readonly parentHref: string | null;

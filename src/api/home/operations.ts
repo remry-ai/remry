@@ -15,6 +15,8 @@ interface RawUpdate {
   readonly kind: UpdateKind;
   readonly id: string;
   readonly title: string;
+  /** A note's markdown, which the feed renders. */
+  readonly content?: string;
   readonly parent: { readonly entityType: EntityType; readonly entityId: string } | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -39,6 +41,14 @@ export const summarizeContent = (content: string, max = 80): string => {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line || '(empty)';
 };
 
+/** The start of a note for the feed, cut at a line so the markdown stays whole; the feed clamps it further. */
+export const noteExcerpt = (content: string, max = 600): string => {
+  const text = content.trim();
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf('\n', max);
+  return `${text.slice(0, cut > 0 ? cut : max).trimEnd()}\n\n…`;
+};
+
 const updateHref = (u: RawUpdate): string => {
   switch (u.kind) {
     case 'PERSON':
@@ -52,6 +62,10 @@ const updateHref = (u: RawUpdate): string => {
       return u.parent
         ? `${entityPath(u.parent.entityType, u.parent.entityId)}?popup=todo&todo=${u.id}`
         : `/app/todos?popup=todo&todo=${u.id}`;
+    case 'NOTE':
+      return u.parent && ENTITY_DESCRIPTORS[u.parent.entityType].segment
+        ? `${entityPath(u.parent.entityType, u.parent.entityId)}?popup=note&note=${u.id}`
+        : '/app';
     case 'DOC':
       return u.parent ? docPath(u.parent.entityType, u.parent.entityId, u.id) : '/app';
     default:
@@ -147,7 +161,7 @@ export const listRecentUpdates = async (
       goals.map((x) => ({ ...base(x), kind: 'GOAL' as const, title: x.title, parent: null })),
       pages.map((x) => ({ ...base(x), kind: 'PAGE' as const, title: x.title, parent: null })),
       docs.map((x) => ({ ...base(x), kind: 'DOC' as const, title: x.title, parent: parentOf(x) })),
-      notes.map((x) => ({ ...base(x), kind: 'NOTE' as const, title: summarizeContent(x.content), parent: parentOf(x) })),
+      notes.map((x) => ({ ...base(x), kind: 'NOTE' as const, title: summarizeContent(x.content), content: noteExcerpt(x.content), parent: parentOf(x) })),
       features.reports ? reports.map((x) => ({ ...base(x), kind: 'REPORT' as const, title: x.title, parent: parentOf(x) })) : [],
       todos.map((x) => ({ ...base(x), kind: 'TODO' as const, title: x.title, parent: parentOf(x) }))
     ],
@@ -161,6 +175,7 @@ export const listRecentUpdates = async (
       kind: u.kind,
       id: u.id,
       title: u.title,
+      ...(u.content !== undefined && { content: u.content }),
       parentLabel: u.parent ? labels.labelOf(u.parent.entityType, u.parent.entityId) : null,
       parentHref: u.parent && ENTITY_DESCRIPTORS[u.parent.entityType].segment && labels.labelOf(u.parent.entityType, u.parent.entityId) !== null
         ? entityPath(u.parent.entityType, u.parent.entityId)

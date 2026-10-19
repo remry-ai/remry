@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeUpdates, summarizeContent } from '../operations';
+import { mergeUpdates, summarizeContent, noteExcerpt } from '../operations';
 import { buildBranches, buildFocusGraph } from '../focus-graph';
 import { focusNode, type FocusLink } from '../focus-node';
 
@@ -94,5 +94,14 @@ describe('buildBranches', () => {
     const branches = buildBranches(graph, new Map([['GROUP:t1', many]]), 4);
     expect(branches['GROUP:t1']).toMatchObject({ more: 2 });
     expect(branches['GROUP:t1']?.nodes).toHaveLength(4);
+  });
+});
+
+describe('noteExcerpt', () => {
+  it('keeps a short note whole', () => {
+    expect(noteExcerpt('  **Hi** there\n')).toBe('**Hi** there');
+  });
+  it('cuts a long note at a line', () => {
+    expect(noteExcerpt('one line\ntwo line\nthree line', 12)).toBe('one line\n\n…');
   });
 });

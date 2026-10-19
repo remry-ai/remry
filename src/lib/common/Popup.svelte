@@ -96,6 +96,9 @@
     min-height: 0;
     overflow-y: auto;
     padding: var(--sp-5);
+    // A sticky toolbar inside (MarkdownEditor's) sticks to the padding edge, which
+    // left a gap above it that the text scrolled through; this moves it to the top.
+    --sticky-top: calc(-1 * var(--sp-5));
   }
   @keyframes popup-in {
     from { opacity: 0; transform: translateY(-8px); }

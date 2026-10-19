@@ -2,6 +2,7 @@
   import type { RecentUpdate, UpdateKind } from '$shared/types/home';
   import { timeAgo } from '../utils';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
 
   interface Props {
     readonly updates: readonly RecentUpdate[];
@@ -23,10 +24,19 @@
         <li class="list-row update-row">
           <span class="badge muted kind">{kindLabel(u.kind)}</span>
           <div class="body">
-            <a href={u.href} class="title wrap">{u.title}</a>
+            {#if u.content}
+              <!-- A note has no title: its markdown, a few lines of it, with its own links. -->
+              <div class="note-body"><MarkdownRenderer content={u.content} zoomable={false} /></div>
+            {:else}
+              <a href={u.href} class="title wrap">{u.title}</a>
+            {/if}
             <div class="update-meta">
               <span class="wrap">{`${u.isNew ? 'added' : 'updated'}${u.parentLabel ? ' on ' : ''}`}{#if u.parentLabel}{#if u.parentHref}<a class="parent" href={u.parentHref}>{u.parentLabel}</a>{:else}{u.parentLabel}{/if}{/if}</span>
-              <time datetime={new Date(u.at).toISOString()}>{timeAgo(u.at)}</time>
+              {#if u.content}
+                <a class="time" href={u.href} title="Open note"><time datetime={new Date(u.at).toISOString()}>{timeAgo(u.at)}</time></a>
+              {:else}
+                <time datetime={new Date(u.at).toISOString()}>{timeAgo(u.at)}</time>
+              {/if}
             </div>
           </div>
         </li>
@@ -59,7 +69,17 @@
     font-size: var(--fs-sm);
     color: var(--text-3);
     span { min-width: 0; }
-    time { margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+    time { white-space: nowrap; }
+    > time, .time { margin-left: auto; flex-shrink: 0; }
+    .time { color: inherit; &:hover { color: var(--accent); } }
+  }
+  // About four lines of a note; the rest is on its page.
+  .note-body {
+    max-height: 6.5em;
+    overflow: hidden;
+    font-size: var(--fs-md);
+    :global(.md-rendered > :first-child) { margin-top: 0; }
+    :global(.md-rendered > :last-child) { margin-bottom: 0; }
   }
   .parent {
     color: var(--text-2);
