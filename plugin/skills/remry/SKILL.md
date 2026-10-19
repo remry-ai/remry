@@ -64,7 +64,8 @@ Every call works on one notebook: the default, unless you name another.
    `backup_snapshot` with a reason like "before <what>", or `remry backup --force --reason "before <what>"`
 5. **Report back by name.** Say "Added Dana Park to Platform, reporting to Alice Johnson", not ids.
 6. **Keep the user's words.** A note records what they said. Don't embellish or summarise it unless asked.
-7. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>&open=app)`. See **Links to what you changed** below.
+7. **Leave out archived items and finished todos** unless the user asks for them ("archived", "old", "everything", "what did I finish", "including done"). Lists and search already skip archived entities; don't pass `--archived only|include` or `--includeArchived true` on your own. `todo.list`, `todo.forEntity` and an entity's `get` also return `COMPLETE` and `CANCELLED` todos: drop them from what you show, count or summarise (or pass `todo.list --status ACTIVE` / `PENDING`). Don't mention an archived entity that a `get`, a relation or a mention turns up, unless it answers the question. When leaving things out changes the answer ("no open todos"), say so in a few words, so the user knows they can ask for the rest.
+8. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>&open=app)`. See **Links to what you changed** below.
 
 ## Links to what you changed
 
