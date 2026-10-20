@@ -1,0 +1,12 @@
+{
+  "name": "remry",
+  "version": "0.16.36",
+  "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Needs the Remry desktop app (Mac or Windows), or a clone of the repo.",
+  "license": "FSL-1.1-MIT",
+  "author": {
+    "name": "jweatherby"
+  },
+  "keywords": ["notes", "org-chart", "todos", "reports", "local-first"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
