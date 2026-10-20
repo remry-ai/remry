@@ -164,6 +164,7 @@ export const getPage = async (
   return ok({
     ...toSummary(row),
     content: row.content,
+    prompt: row.prompt,
     parent: row.parent,
     children: row.children.map((child) => ({
       id: child.id,
@@ -226,6 +227,8 @@ export interface UpdatePageInput {
   readonly bodyType?: PageBodyType;
   readonly parentId?: string | null;
   readonly content?: string;
+  /** Makes it a synthesis of its linked sources; null (or blank) clears it. */
+  readonly prompt?: string | null;
   /** Merged into the current properties; null removes a key. */
   readonly properties?: PropertyPatch;
 }
@@ -276,6 +279,7 @@ export const updatePage = async (
       ...(input.parentId !== undefined && { parentId: input.parentId }),
       ...(bodyType !== currentType && { bodyType }),
       ...(content !== undefined && { content }),
+      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
       ...(properties !== undefined && { properties })
     }
   });

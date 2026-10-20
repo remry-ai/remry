@@ -115,7 +115,7 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
 | "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
-| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, write the synthesis with a `## Discrepancies` section, then mark each synced. See **Synthesising several sources** |
+| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, then `doc.update --prompt "<what to take from each>" --content-file <synthesis with ## Discrepancies>` and mark each synced. See **Synthesising several sources** |
 | "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
@@ -216,27 +216,31 @@ Keep it proportionate: check the docs of the entities your answer is about, not 
 
 ## Synthesising several sources
 
-The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull these three docs into the vendor page". The write-up goes where the user reads it:
+The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull the pricing from these three docs into the vendor page". A write-up like this is a **synthesis**: a doc or wiki page with a **prompt**. The app shows it under a "Synthesis" banner, with the prompt and the sources, so it's never mistaken for something the user wrote.
 
-| On | The write-up | Its sources are linked to | Also compare against the sources |
+**The prompt is the recipe.** It says what to take from each source and what to watch for, in the user's terms: "PRD: scope and launch plan. Linear: status and dates. Pricing sheet: the tiers only. Flag any disagreement on dates or scope." Write it from what the user asked; ask when it's unclear which parts of a source they want. It's stored on the doc or page (`--prompt`, up to 2000 characters), so every later refresh, in any session, pulls the same parts. The user can edit it in the banner. `search.recall` returns each doc's `prompt`; `page.get` returns a page's.
+
+| Synthesis on | The write-up | Prompt and sources on | Also compare against the sources |
 |---|---|---|---|
-| A project | A doc on the project, titled "<Project> brief" unless the user names it (not the description, which they edit by hand) | The doc | The project's status, start and target dates, owner and estimates |
-| A wiki page | The page's content | The page | The page's properties (an amount, a date, a renewal) |
+| A project | A doc on the project, titled "<Project> brief" unless the user names it (not the description, which they edit by hand) | The doc: `doc.update --prompt`, `link.add --entityType DOC` | The project's status, start and target dates, owner and estimates |
+| A wiki page | The page's content | The page: `page.update --prompt`, `link.add --entityType PAGE` | The page's properties (an amount, a date, a renewal) |
 | A doc | The doc's content | The doc | Nothing else |
 
 **Writing it:**
-1. Read every source with its tool. Link each to where the write-up lives: `link.add --entityType DOC|PAGE --entityId <id> --url <url> --title "<Tool>: <title>" --synced true`, after `link.find --url` (rule 2 of importing).
-2. Write it as one view, organised by topic (goal, scope, timeline, open questions), not source by source. Say where each point comes from, inline: "Launch is 12 Nov (PRD; Linear agrees)". Leave out what doesn't matter to the user; link the sources for the rest.
-3. End with `## Discrepancies`: each place the sources disagree with each other, with the notebook's fields, or with the user's own notes. Quote each side with its source and date: "**Launch date.** PRD (edited 18 Oct): 12 Nov. Linear (updated 15 Oct): 30 Oct. Project's target date: 30 Oct." Don't pick a winner; say which looks newer if that's clear. With none, write "None found." so the user knows you checked.
-4. Write it (`doc.update --content-file`, or `page.update --content-file`), then `link.markSynced` each source, so the write-up reads as current from then on.
+1. Read every source with its tool. Link each to the doc or page: `link.add --entityType DOC|PAGE --entityId <id> --url <url> --title "<Tool>: <title>" --synced true`, after `link.find --url` (rule 2 of importing).
+2. Take from each source only what the prompt asks for. Write it as one view, organised by topic (goal, scope, timeline, open questions), not source by source. Say where each point comes from, inline: "Launch is 12 Nov (PRD; Linear agrees)". Link the sources for the rest.
+3. End with `## Discrepancies`: each place the sources disagree with each other, with the notebook's fields, or with the user's own notes, on what the prompt covers. Quote each side with its source and date: "**Launch date.** PRD (edited 18 Oct): 12 Nov. Linear (updated 15 Oct): 30 Oct. Project's target date: 30 Oct." Don't pick a winner; say which looks newer if that's clear. With none, write "None found." so the user knows you checked.
+4. Save the prompt and the text in one call (`doc.update --id <id> --prompt "<prompt>" --content-file <file>`, or `page.update`), then `link.markSynced` each source, so it reads as current from then on.
 5. Never change a field the user set because a source disagrees: list it in Discrepancies and ask ("Linear says 30 Oct; update the project's target date?"). The exception is an entity imported from that source, whose shared facts the source owns (see **Importing from other tools**).
 6. Reply with the headline points and the discrepancies, then the link.
 
-**Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the write-up or what it's on. When any source changed:
-- If the write-up hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, Discrepancies included.
-- If it has (the user edited it), don't overwrite their text. Add a note with what's new and what discrepancies appeared or went away, and ask whether to rewrite the write-up.
+**Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the synthesis or what it's on, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed:
+- If the doc or page hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, following the prompt, Discrepancies included.
+- If it has (the user edited the text or the prompt), don't overwrite it. Add a note with what's new and which discrepancies appeared or went away, and ask whether to rewrite it from the prompt.
 - Either way, tell the user what changed: "Since the last brief: the PRD moved launch to 12 Nov, so the launch-date discrepancy with Linear is new; the pricing sheet now matches the PRD on tiers, so that one's resolved."
 Then `link.markSynced` each source you checked.
+
+**Changing what it covers.** "Also pull the risks from the PRD" or "drop the pricing sheet": update the prompt (and add or remove the link), then rewrite. `--prompt null` turns a synthesis back into an ordinary doc or page; its text stays.
 
 ## Importing a PDF
 

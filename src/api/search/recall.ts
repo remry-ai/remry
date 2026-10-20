@@ -91,7 +91,7 @@ export const recallEntity = async (
       take,
       select: { id: true, title: true, description: true, status: true, priority: true, targetDate: true }
     }),
-    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, updatedAt: true } }),
+    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, prompt: true, updatedAt: true } }),
     p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true } }),
     p.tagAttachment.findMany({ where: attached, select: { tag: { select: { name: true } } } }),
     listRelationsForEntity(reg, entityType, entityId),
@@ -151,7 +151,7 @@ export const recallEntity = async (
     notes: capped(notes, limit),
     comments: capped(comments, limit),
     todos: capped(todos, limit),
-    docs: capped(docs.map((d) => ({ id: d.id, title: d.title, excerpt: excerpt(d.content), updatedAt: d.updatedAt })), limit),
+    docs: capped(docs.map((d) => ({ id: d.id, title: d.title, excerpt: excerpt(d.content), prompt: d.prompt, updatedAt: d.updatedAt })), limit),
     links: capped(links, limit),
     docSources: capped(docLinks.map(({ entityId: docId, ...link }) => ({ ...link, docId })), limit),
     tags: tags.map((t) => t.tag.name).sort((a, b) => a.localeCompare(b)),

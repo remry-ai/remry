@@ -13,6 +13,7 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
+  import SynthesisPrompt from '$lib/link/components/SynthesisPrompt.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import { formatPropertyValue, kindName } from '$lib/page/utils';
@@ -52,6 +53,14 @@
   const isSheet = $derived(wikiPage.bodyType === 'sheet');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
+  // A synthesis page's sources are its tracked links (the sidebar lists every link).
+  const trackedLinks = $derived((data.links ?? []).filter((l: { readonly syncedAt: Date | string | null }) => l.syncedAt !== null));
+
+  const handleSavePrompt = async (prompt: string | null) => {
+    await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
+    await invalidateAll();
+  };
+
   const handleSaveContent = async (content: string) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, content }));
   };
@@ -173,6 +182,9 @@
   renderMeta={editing ? undefined : pageMeta}
 >
   {#snippet renderOverview()}
+    {#if wikiPage.prompt}
+      <SynthesisPrompt prompt={wikiPage.prompt} links={trackedLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} />
+    {/if}
     {#if isSheet}
       <section class="section">
         <div class="section-header">

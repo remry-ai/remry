@@ -16,6 +16,8 @@ export interface DocSummary {
   readonly title: string;
   readonly content: string;
   readonly sourceUrl: string | null;
+  /** A synthesis doc's prompt: what to pull from its linked sources. Null for an ordinary doc. */
+  readonly prompt: string | null;
   readonly sortOrder: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -43,6 +45,7 @@ export const getDoc = async (
     title: doc.title,
     content: doc.content,
     sourceUrl: doc.sourceUrl,
+    prompt: doc.prompt,
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -120,7 +123,7 @@ export const addDoc = async (
 export const updateDoc = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string,
-  input: { readonly title?: string; readonly content?: string; readonly sourceUrl?: string | null }
+  input: { readonly title?: string; readonly content?: string; readonly sourceUrl?: string | null; readonly prompt?: string | null }
 ): Promise<Result<{ readonly id: string }>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id } });
   if (!existing) return err(new Error('Doc not found'));
@@ -136,7 +139,8 @@ export const updateDoc = async (
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.content !== undefined && { content: input.content }),
-      ...(input.sourceUrl !== undefined && { sourceUrl: input.sourceUrl })
+      ...(input.sourceUrl !== undefined && { sourceUrl: input.sourceUrl }),
+      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
     }
   });
   if (input.content !== undefined) {

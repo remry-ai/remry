@@ -25,13 +25,14 @@
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
+  import SynthesisPrompt from '$lib/link/components/SynthesisPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage } from '$lib/stores/right-panel';
   import { activeDrawer } from '$lib/stores/drawers';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
-  import { errorMessage, submit } from '$lib/ui/submit';
+  import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
   import { features } from '$shared/settings/base/features';
   import { acceptsDocs } from '$shared/utils/entity';
@@ -41,6 +42,8 @@
     readonly title: string;
     readonly content: string;
     readonly sourceUrl?: string | null;
+    /** Set on a synthesis doc: what Claude pulls from its sources. */
+    readonly prompt?: string | null;
     readonly sortOrder: number;
   }
 
@@ -188,6 +191,13 @@
     if (!id) { docLinks = []; return; }
     void loadDocLinks(id);
   });
+
+  const handleSaveDocPrompt = async (prompt: string | null): Promise<void> => {
+    if (!activeDoc) return;
+    const id = activeDoc.id;
+    await submitOrThrow(() => trpc().doc.update.mutate({ id, prompt }));
+    await invalidateAll();
+  };
 
   // The note popup: `?popup=note` adds one, `&note=<id>` edits that one.
   const NOTE_POPUP = 'note';
@@ -495,7 +505,7 @@
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 ? docSources : undefined}
+        sources={docLinks.length > 0 || activeDoc.prompt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
@@ -539,7 +549,11 @@
 <EntityPeek />
 
 {#snippet docSources()}
-  <SourceLinks links={docLinks} />
+  {#if activeDoc?.prompt}
+    <SynthesisPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} />
+  {:else}
+    <SourceLinks links={docLinks} />
+  {/if}
 {/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>

@@ -18,15 +18,17 @@ const freshDb = () => {
   return { dir, client: createClient({ url: `file:${join(dir, 'db.sqlite')}` }) };
 };
 
+// What a Remry must know to use a database with every migration applied: up to the last one that isn't additive.
+const lastNeeded = onDisk.map((name, i) => (ADDITIVE_MIGRATIONS.has(name) ? 0 : i + 1)).reduce((m, n) => Math.max(m, n), 0);
+
 describe('applyMigrations', () => {
   it('migrates a fresh database and records rows Prisma can read', async () => {
     const { client } = freshDb();
     const result = await applyMigrations(client, 'prisma/migrations', quiet);
     expect(result.ok && result.value.applied).toEqual(onDisk);
-    // What a Remry must know to use it: up to the last migration that isn't additive.
-    const lastNeeded = onDisk.map((name, i) => (ADDITIVE_MIGRATIONS.has(name) ? 0 : i + 1)).reduce((m, n) => Math.max(m, n), 0);
     expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(lastNeeded);
-    expect(lastNeeded).toBe(onDisk.length - 1);
+    // The newest migration is additive, so a Remry without it can still open the database.
+    expect(lastNeeded).toBeLessThan(onDisk.length);
 
     const rows = await client.execute('SELECT migration_name, checksum, finished_at, applied_steps_count FROM _prisma_migrations ORDER BY migration_name');
     expect(rows.rows.map((r) => r[0])).toEqual(onDisk);
@@ -51,7 +53,7 @@ describe('applyMigrations', () => {
     const opened = await applyMigrations(client, older, quiet);
     expect(opened.ok && opened.value.applied).toEqual([]);
     // It keeps the newer Remry's record of what the database needs.
-    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(onDisk.length - 1);
+    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(lastNeeded);
     client.close();
   });
 

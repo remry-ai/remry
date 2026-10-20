@@ -301,7 +301,7 @@
     font-weight: 600;
   }
   // Tucked under the title: the card's gap is too loose for a line that belongs to it.
-  .doc-sources { margin-top: calc(-1 * var(--sp-2)); }
+  .doc-sources { margin-top: calc(-1 * var(--sp-1)); }
   .source-badge { cursor: pointer; &:hover { color: var(--accent); } }
   .doc-editor {
     display: flex;

@@ -59,7 +59,7 @@ export const pageRouter = router({
     .mutation(({ ctx, input }) => createPage(ctx.reg, input)),
 
   update: procedure
-    .meta({ description: 'Changes a page\'s title, kind, parent, content or properties.' })
+    .meta({ description: 'Changes a page\'s title, kind, parent, content, properties or prompt (which makes it a synthesis of its linked sources; null clears it).' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -67,6 +67,7 @@ export const pageRouter = router({
       bodyType: bodyType.optional(),
       parentId: z.string().nullable().optional(),
       content: z.string().optional(),
+      prompt: z.string().max(2000).nullable().optional(),
       properties: properties.optional()
     }))
     .mutation(({ ctx, input: { id, ...data } }) => updatePage(ctx.reg, id, data)),

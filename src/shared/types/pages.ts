@@ -91,6 +91,8 @@ export interface PageLink {
 
 export interface PageDetail extends PageSummary {
   readonly content: string;
+  /** A synthesis page's prompt: what to pull from its linked sources. Null for an ordinary page. */
+  readonly prompt: string | null;
   readonly parent: { readonly id: string; readonly title: string } | null;
   readonly children: readonly PageLink[];
   readonly createdAt: Date;

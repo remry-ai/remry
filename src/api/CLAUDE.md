@@ -174,6 +174,10 @@ A page's `kind` is a key into the notebook's `page_kind` table (`key`, `name`, `
 - **Body type:** `page.body_type` is `doc` (markdown in `content`) or `sheet` (a spreadsheet's JSON in `content`: columns, raw cells and the values they showed; `$shared/utils/sheet`). `prepareContent` validates either and normalises a sheet before it's stored; sheets skip chart validation and `syncMentions`. `bodyType` changes only while `isEmptyBody`. The `page_body_type` migration's search triggers index a sheet's `values`, not its JSON.
 - `page.query` runs the pure `$shared/utils/dataset` (`filterRows`, `sortRows`, `groupRows`, `totalsFor`) over one kind's pages. Its filters, sort and aggregates are strings (`field:op:value`, `field:desc`, `field:sum`) so the CLI, MCP and the wiki's URL share one form; the parsers return errors that list the kind's fields.
 
+## Synthesis prompts
+
+`doc.prompt` and `page.prompt` (nullable, up to 2000 characters, `synthesis_prompt` migration) mark a doc or wiki page as a synthesis of its linked sources: the prompt says what Claude takes from each when it rewrites the text (the skill's **Synthesising several sources**). `doc.update` and `page.update` set it, trimmed, and blank or null clears it; `doc.get`/`doc.list`, `page.get` and `search.recall`'s docs return it. The app never acts on it: it only shows it (`SynthesisPrompt`). It isn't indexed for search.
+
 ## Recurring todos
 
 `todo.recurrence` is `WEEKLY | MONTHLY | QUARTERLY | YEARLY` or null. Completing a recurring todo creates the next one (`nextOccurrence` in `$shared/utils/recurrence`, from its `targetDate`, else now) in the same transaction, and moves the recurrence to it, so reopening the old one doesn't make a second.

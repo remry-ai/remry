@@ -94,7 +94,8 @@ export const planRenames = (
  * new version had migrated. List a migration here only if it changes nothing an older Remry reads or writes.
  */
 export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
-  '20261017120000_project_parent_index'
+  '20261017120000_project_parent_index',
+  '20261020120000_synthesis_prompt'
 ]);
 
 /**

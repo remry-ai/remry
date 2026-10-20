@@ -178,13 +178,21 @@ describe('search.recall', () => {
     await addLink(reg, 'DOC', doc.value.id, { url: 'https://www.notion.so/acme/Checkout-PRD-0123', title: 'Notion: Checkout PRD', synced: true });
     await addLink(reg, 'DOC', doc.value.id, { url: 'https://example.com/reference' });
 
+    await updateDoc(reg, doc.value.id, { prompt: '  PRD: scope and dates.  ' });
+
     const result = await recallEntity(reg, 'PERSON', id);
     if (!result.ok) throw result.error;
+    expect(result.value.docs.items[0]?.prompt).toBe('PRD: scope and dates.');
     expect(result.value.links.items[0]?.syncedAt).toBeInstanceOf(Date);
     expect(result.value.docSources.items.map((l) => [l.docId, l.title, l.syncedAt !== null])).toEqual([
       [doc.value.id, 'Notion: Checkout PRD', true],
       [doc.value.id, null, false]
     ]);
+
+    // A blank prompt makes it an ordinary doc again.
+    await updateDoc(reg, doc.value.id, { prompt: ' ' });
+    const cleared = await recallEntity(reg, 'PERSON', id);
+    expect(cleared.ok && cleared.value.docs.items[0]?.prompt).toBeNull();
   });
 
   it('caps lists and refuses an unknown entity', async () => {

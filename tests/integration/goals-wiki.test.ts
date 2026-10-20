@@ -76,6 +76,13 @@ describe('wiki pages and relations', () => {
     expect((await updatePage(reg, page.value.id, { properties: { seats: 5, annualCost: null } })).ok).toBe(true);
     const detail = await getPage(reg, page.value.id);
     expect(detail.ok && detail.value.properties).toEqual({ vendor: 'Stripe', seats: 5 });
+    expect(detail.ok && detail.value.prompt).toBeNull();
+    // A prompt makes the page a synthesis of its linked sources; null clears it.
+    await updatePage(reg, page.value.id, { prompt: 'Contract: renewal date and seats.' });
+    const synthesis = await getPage(reg, page.value.id);
+    expect(synthesis.ok && synthesis.value.prompt).toBe('Contract: renewal date and seats.');
+    await updatePage(reg, page.value.id, { prompt: null });
+    expect((await getPage(reg, page.value.id)).ok).toBe(true);
 
     const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Payments notes' });
     if (!doc.ok) throw new Error('doc create failed');
