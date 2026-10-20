@@ -19,9 +19,11 @@
     readonly links: readonly LinkItem[];
     /** Saves the prompt; null clears it. Without it, the prompt is read-only. */
     readonly onSave?: (prompt: string | null) => Promise<unknown>;
+    /** Adds a source (SourceLinks' Add link). */
+    readonly onAddLink?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
   }
 
-  const { prompt, links, onSave }: Props = $props();
+  const { prompt, links, onSave, onAddLink }: Props = $props();
 
   let editing = $state(false);
   let draft = $state('');
@@ -66,7 +68,7 @@
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
   {/if}
 
-  {#if links.length > 0}<SourceLinks {links} />{/if}
+  {#if links.length > 0 || onAddLink}<SourceLinks {links} onAdd={onAddLink} />{/if}
 </section>
 
 <style lang="scss">
@@ -74,11 +76,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
-    padding: var(--sp-3);
-    border: 1px solid var(--accent);
-    border-left-width: 3px;
-    border-radius: var(--r-md);
-    background: var(--accent-soft);
+    // No fill: a rule down the left edge marks it, so it reads as the doc's header, not a callout.
+    padding: var(--sp-1) 0 var(--sp-1) var(--sp-3);
+    border-left: 2px solid var(--accent);
   }
   .head {
     display: flex;

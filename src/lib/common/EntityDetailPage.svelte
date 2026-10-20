@@ -192,6 +192,14 @@
     void loadDocLinks(id);
   });
 
+  // A source added by hand isn't synced: Claude reads it on its next refresh.
+  const handleAddDocLink = async (link: { readonly url: string; readonly title?: string }): Promise<void> => {
+    if (!activeDoc) return;
+    const id = activeDoc.id;
+    await submitOrThrow(() => trpc().link.add.mutate({ entityType: 'DOC', entityId: id, ...link }));
+    await loadDocLinks(id);
+  };
+
   const handleSaveDocPrompt = async (prompt: string | null): Promise<void> => {
     if (!activeDoc) return;
     const id = activeDoc.id;
@@ -505,7 +513,7 @@
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 || activeDoc.prompt ? docSources : undefined}
+        sources={docLinks.length > 0 || activeDoc.prompt || !archivedAt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
@@ -550,9 +558,9 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SynthesisPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} />
+    <SynthesisPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
   {:else}
-    <SourceLinks links={docLinks} />
+    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} />
   {/if}
 {/snippet}
 

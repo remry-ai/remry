@@ -204,7 +204,7 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
 
 **Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
-1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count.
+1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a synthesis (below), where a link without one is a source the user added by hand.
 2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed.
 3. **Edited after `syncedAt`:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link>`.
 4. **Not edited since:** `link.markSynced --id <link>`, so the app shows it as checked. Add no note.
@@ -233,6 +233,8 @@ The user can ask for one write-up drawn from several sources, with where they di
 4. Save the prompt and the text in one call (`doc.update --id <id> --prompt "<prompt>" --content-file <file>`, or `page.update`), then `link.markSynced` each source, so it reads as current from then on.
 5. Never change a field the user set because a source disagrees: list it in Discrepancies and ask ("Linear says 30 Oct; update the project's target date?"). The exception is an entity imported from that source, whose shared facts the source owns (see **Importing from other tools**).
 6. Reply with the headline points and the discrepancies, then the link.
+
+**Sources added in the app.** The user can add a link to a doc's or synthesis page's sources with "Add link"; it has no `syncedAt` and shows "not synced yet". On a synthesis, treat it as a new source: read it, and if the prompt doesn't say what to take from it, ask, then add that to the prompt. Fold it into the write-up (a rewrite, under the rules below), then `link.markSynced` it. On an ordinary doc, it's a reference: mention it if it's relevant, and offer to make the doc a synthesis when the user seems to want its content pulled in.
 
 **Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the synthesis or what it's on, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed:
 - If the doc or page hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, following the prompt, Discrepancies included.

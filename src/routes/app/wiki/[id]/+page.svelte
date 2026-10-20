@@ -53,8 +53,13 @@
   const isSheet = $derived(wikiPage.bodyType === 'sheet');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
-  // A synthesis page's sources are its tracked links (the sidebar lists every link).
-  const trackedLinks = $derived((data.links ?? []).filter((l: { readonly syncedAt: Date | string | null }) => l.syncedAt !== null));
+  // A synthesis page's sources are its links: synced ones, and ones added by hand that Claude reads next.
+  const sourceLinks = $derived(data.links ?? []);
+
+  const handleAddLink = async (link: { readonly url: string; readonly title?: string }) => {
+    await submitOrThrow(() => trpc().link.add.mutate({ entityType: 'PAGE', entityId: wikiPage.id, ...link }));
+    await invalidateAll();
+  };
 
   const handleSavePrompt = async (prompt: string | null) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
@@ -183,7 +188,7 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SynthesisPrompt prompt={wikiPage.prompt} links={trackedLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} />
+      <SynthesisPrompt prompt={wikiPage.prompt} links={sourceLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
     {/if}
     {#if isSheet}
       <section class="section">

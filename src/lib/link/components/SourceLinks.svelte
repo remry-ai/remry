@@ -1,8 +1,10 @@
 <script lang="ts">
   // A doc's sources on one wrapping line, under its title: each tool's mark, the
-  // link, and a small "synced" time (in the warning colour after a week). Claude
-  // adds and removes them; this only shows them.
+  // link, and a small "synced" time (in the warning colour after a week; "not
+  // synced yet" for one added by hand, which Claude reads on its next refresh).
+  // With onAdd, an "Add link" button at the end opens a small inline form.
   import { timeAgo } from '$lib/home/utils';
+  import { submit } from '$lib/ui/submit';
   import { isSyncStale, linkLabel, linkSource } from '../source';
   import SourceIcon from './SourceIcon.svelte';
 
@@ -13,7 +15,13 @@
     readonly syncedAt: Date | string | null;
   }
 
-  const { links }: { readonly links: readonly LinkItem[] } = $props();
+  interface Props {
+    readonly links: readonly LinkItem[];
+    /** Adds a link; without it there's no Add link button. */
+    readonly onAdd?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
+  }
+
+  const { links, onAdd }: Props = $props();
 
   const items = $derived(links.map((link) => {
     const source = linkSource(link.url);
@@ -33,24 +41,65 @@
         : null
     };
   }));
+
+  let adding = $state(false);
+  let url = $state('');
+  let title = $state('');
+  let saving = $state(false);
+  let error = $state('');
+
+  const open = () => { url = ''; title = ''; error = ''; adding = true; };
+
+  const add = async () => {
+    if (!onAdd || !url.trim()) return;
+    saving = true;
+    const outcome = await submit(() => onAdd({ url: url.trim(), ...(title.trim() && { title: title.trim() }) }));
+    saving = false;
+    if (!outcome.ok) { error = outcome.error; return; }
+    adding = false;
+  };
 </script>
 
-<ul class="source-links" aria-label="Sources">
-  {#each items as item (item.id)}
-    <li>
-      <SourceIcon source={item.source} small />
-      <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.tooltip}>{item.label}</a>
-      {#if item.synced}
-        <span class="synced" class:stale={item.synced.stale} title={item.synced.title}>{item.synced.text}</span>
-      {/if}
-    </li>
-  {/each}
-</ul>
+<div class="sources">
+  <ul class="source-links" aria-label="Sources">
+    {#each items as item (item.id)}
+      <li>
+        <SourceIcon source={item.source} small />
+        <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.tooltip}>{item.label}</a>
+        {#if item.synced}
+          <span class="synced" class:stale={item.synced.stale} title={item.synced.title}>{item.synced.text}</span>
+        {:else}
+          <span class="synced" title="Added by hand: Claude reads it on its next refresh">not synced yet</span>
+        {/if}
+      </li>
+    {/each}
+    {#if onAdd && !adding}
+      <li><button type="button" class="btn link muted" onclick={open}>+ Add link</button></li>
+    {/if}
+  </ul>
+
+  {#if adding}
+    <form class="toolbar add-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void add(); }}>
+      <!-- svelte-ignore a11y_autofocus -->
+      <input type="url" class="sm url" bind:value={url} placeholder="https://…" aria-label="Link address" required autofocus />
+      <input type="text" class="sm" bind:value={title} placeholder="Title (optional)" aria-label="Link title" maxlength="200" />
+      <button type="submit" class="btn sm" disabled={saving || !url.trim()} aria-busy={saving}>{saving ? 'Adding…' : 'Add'}</button>
+      <button type="button" class="btn ghost sm" onclick={() => { adding = false; }}>Cancel</button>
+    </form>
+    {#if error}<p class="form-error">{error}</p>{/if}
+  {/if}
+</div>
 
 <style lang="scss">
+  .sources {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
   .source-links {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--sp-1) var(--sp-4);
     margin: 0;
     padding: 0;
@@ -71,4 +120,13 @@
   }
   .synced { color: var(--text-3); white-space: nowrap; }
   .stale { color: var(--warning); }
+  // One row: the address takes the room, the title less; they wrap on a narrow pane.
+  .add-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    input { width: auto; min-width: 0; flex: 1 1 10rem; }
+    .url { flex: 3 1 16rem; }
+  }
 </style>
