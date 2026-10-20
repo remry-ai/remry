@@ -24,6 +24,7 @@
   import ReportsWidget from '$lib/report/components/ReportsWidget.svelte';
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
+  import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage } from '$lib/stores/right-panel';
@@ -168,7 +169,7 @@
     if (docParam && docParam !== NEW_DOC && !activeDoc) void closeDocUrl({ replace: true });
   });
 
-  // The open doc's links: the sources Claude synthesises it from, shown under its title.
+  // The open doc's links: the sources Claude synthesises it from, one line under its title.
   // Loaded here, since a page's load carries only the entity's own links; it reloads
   // whenever the page's data does (activeDoc is a new object then).
   interface DocLink {
@@ -538,7 +539,7 @@
 <EntityPeek />
 
 {#snippet docSources()}
-  <LinksWidget links={docLinks} title="Sources" readOnly={!!archivedAt} onChange={() => { if (activeDoc) void loadDocLinks(activeDoc.id); }} />
+  <SourceLinks links={docLinks} />
 {/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>

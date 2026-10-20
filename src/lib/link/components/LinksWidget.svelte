@@ -20,13 +20,9 @@
   interface Props {
     readonly links: readonly LinkItem[];
     readonly readOnly?: boolean;
-    /** The heading: "Links" in the sidebar, "Sources" on a doc. */
-    readonly title?: string;
-    /** After a remove, for a caller that loads `links` itself (the open doc's sources). */
-    readonly onChange?: () => void;
   }
 
-  const { links, readOnly = false, title = 'Links', onChange }: Props = $props();
+  const { links, readOnly = false }: Props = $props();
 
   const rows = $derived(links.map((link) => {
     const source = linkSource(link.url);
@@ -50,13 +46,12 @@
   const handleRemove = async (id: string) => {
     await submitOrThrow(() => trpc().link.remove.mutate({ id }));
     await invalidateAll();
-    onChange?.();
   };
 </script>
 
 <div class="links-widget">
   <div class="section-header">
-    <h4>{title} <span class="count">{links.length}</span></h4>
+    <h4>Links <span class="count">{links.length}</span></h4>
   </div>
   <ul class="list">
     {#each rows as row (row.id)}

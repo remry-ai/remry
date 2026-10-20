@@ -300,10 +300,8 @@
     font-size: var(--fs-base);
     font-weight: 600;
   }
-  .doc-sources {
-    padding-bottom: var(--sp-2);
-    border-bottom: 1px solid var(--border);
-  }
+  // Tucked under the title: the card's gap is too loose for a line that belongs to it.
+  .doc-sources { margin-top: calc(-1 * var(--sp-2)); }
   .source-badge { cursor: pointer; &:hover { color: var(--accent); } }
   .doc-editor {
     display: flex;
