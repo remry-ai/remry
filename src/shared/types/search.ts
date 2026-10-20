@@ -86,6 +86,11 @@ export interface RecallLink {
   readonly syncedAt: Date | null;
 }
 
+/** A link on one of the entity's docs: the sources a doc is written from. */
+export interface RecallDocSource extends RecallLink {
+  readonly docId: string;
+}
+
 export interface RecallGoal {
   readonly id: string;
   readonly title: string;
@@ -116,6 +121,8 @@ export interface Recall<TEntity = unknown> {
   readonly todos: RecallList<RecallTodo>;
   readonly docs: RecallList<RecallDoc>;
   readonly links: RecallList<RecallLink>;
+  /** Links on the docs listed above (a brief's sources), each with its doc's id. */
+  readonly docSources: RecallList<RecallDocSource>;
   readonly tags: readonly string[];
   /** Relations at either end, including MENTIONS backlinks ("Mentioned in"). */
   readonly relations: readonly RelationGroup[];

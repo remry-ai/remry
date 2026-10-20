@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
   import ProBadge from '$lib/ui/ProBadge.svelte';
@@ -27,6 +27,8 @@
     readonly onUploadImage?: (file: File) => Promise<string>;
     readonly onResolveImages?: (keys: string[]) => Promise<Record<string, string>>;
     readonly onClose?: () => void;
+    /** Under the title: the doc's tracked sources, when it has any. */
+    readonly sources?: Snippet;
     /** Link to the doc's print page (Export PDF). */
     readonly exportHref?: string;
     /** Colours charts in the preview like the exported PDF (the default branding). */
@@ -36,7 +38,7 @@
     readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, exportHref, chartBranding = null, autoEditTitle = false, startIn }: Props = $props();
+  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn }: Props = $props();
 
   let editingTitle = $state(autoEditTitle);
   let titleDraft = $state(title);
@@ -228,6 +230,7 @@
       <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
     {/if}
   </div>
+  {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   {#if pdfNotice}<p class={pdfNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{pdfNotice.message}</p>{/if}
   {#if uploading}
@@ -296,6 +299,10 @@
     height: var(--control-h);
     font-size: var(--fs-base);
     font-weight: 600;
+  }
+  .doc-sources {
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--border);
   }
   .source-badge { cursor: pointer; &:hover { color: var(--accent); } }
   .doc-editor {

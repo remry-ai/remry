@@ -118,6 +118,17 @@ export const recallEntity = async (
   ]);
   const relationGroups = relations.ok ? relations.value : [];
 
+  // The listed docs' own links: the sources a brief or synthesis doc is written from.
+  const docIds = docs.slice(0, limit).map((d) => d.id);
+  const docLinks = docIds.length > 0
+    ? await p.link.findMany({
+      where: { entityType: 'DOC', entityId: { in: docIds } },
+      orderBy: { createdAt: 'asc' },
+      take,
+      select: { id: true, url: true, title: true, syncedAt: true, entityId: true }
+    })
+    : [];
+
   // Text elsewhere that names this entity: not the entity or what's attached to
   // it, not sources that already link to it, and nothing archived.
   const match = name ? phraseQuery(name) : null;
@@ -142,6 +153,7 @@ export const recallEntity = async (
     todos: capped(todos, limit),
     docs: capped(docs.map((d) => ({ id: d.id, title: d.title, excerpt: excerpt(d.content), updatedAt: d.updatedAt })), limit),
     links: capped(links, limit),
+    docSources: capped(docLinks.map(({ entityId: docId, ...link }) => ({ ...link, docId })), limit),
     tags: tags.map((t) => t.tag.name).sort((a, b) => a.localeCompare(b)),
     relations: relationGroups,
     ownedGoals: capped(goals.map(({ checkIns, ...goal }) => ({ ...goal, latestCheckIn: checkIns[0] ?? null })), limit),

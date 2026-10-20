@@ -115,6 +115,7 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
 | "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
+| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, write the synthesis with a `## Discrepancies` section, then mark each synced. See **Synthesising several sources** |
 | "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
@@ -203,7 +204,7 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
 
 **Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
-1. Get them: `search.recall` returns its `links` with `syncedAt` (or `link.list` without Pro). Only links with a `syncedAt` count.
+1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count.
 2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed.
 3. **Edited after `syncedAt`:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link>`.
 4. **Not edited since:** `link.markSynced --id <link>`, so the app shows it as checked. Add no note.
@@ -212,6 +213,30 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 Then answer, leading with what's new: "Two updates since you last looked: the PRD moved launch to 12 Nov, and the Linear project is now In progress." Keep the summary to what changed; link the doc for the rest. Never copy a doc in bulk, and never change the user's own notes or todos because a doc disagrees: tell them instead.
 
 Keep it proportionate: check the docs of the entities your answer is about, not every entity a search touches. If that's more than about five docs, check the ones that matter most and offer to check the rest. Don't re-check a doc you checked earlier in the same conversation.
+
+## Synthesising several sources
+
+The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull these three docs into the vendor page". The write-up goes where the user reads it:
+
+| On | The write-up | Its sources are linked to | Also compare against the sources |
+|---|---|---|---|
+| A project | A doc on the project, titled "<Project> brief" unless the user names it (not the description, which they edit by hand) | The doc | The project's status, start and target dates, owner and estimates |
+| A wiki page | The page's content | The page | The page's properties (an amount, a date, a renewal) |
+| A doc | The doc's content | The doc | Nothing else |
+
+**Writing it:**
+1. Read every source with its tool. Link each to where the write-up lives: `link.add --entityType DOC|PAGE --entityId <id> --url <url> --title "<Tool>: <title>" --synced true`, after `link.find --url` (rule 2 of importing).
+2. Write it as one view, organised by topic (goal, scope, timeline, open questions), not source by source. Say where each point comes from, inline: "Launch is 12 Nov (PRD; Linear agrees)". Leave out what doesn't matter to the user; link the sources for the rest.
+3. End with `## Discrepancies`: each place the sources disagree with each other, with the notebook's fields, or with the user's own notes. Quote each side with its source and date: "**Launch date.** PRD (edited 18 Oct): 12 Nov. Linear (updated 15 Oct): 30 Oct. Project's target date: 30 Oct." Don't pick a winner; say which looks newer if that's clear. With none, write "None found." so the user knows you checked.
+4. Write it (`doc.update --content-file`, or `page.update --content-file`), then `link.markSynced` each source, so the write-up reads as current from then on.
+5. Never change a field the user set because a source disagrees: list it in Discrepancies and ask ("Linear says 30 Oct; update the project's target date?"). The exception is an entity imported from that source, whose shared facts the source owns (see **Importing from other tools**).
+6. Reply with the headline points and the discrepancies, then the link.
+
+**Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the write-up or what it's on. When any source changed:
+- If the write-up hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, Discrepancies included.
+- If it has (the user edited it), don't overwrite their text. Add a note with what's new and what discrepancies appeared or went away, and ask whether to rewrite the write-up.
+- Either way, tell the user what changed: "Since the last brief: the PRD moved launch to 12 Nov, so the launch-date discrepancy with Linear is new; the pricing sheet now matches the PRD on tiers, so that one's resolved."
+Then `link.markSynced` each source you checked.
 
 ## Importing a PDF
 

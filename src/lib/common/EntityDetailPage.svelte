@@ -168,6 +168,26 @@
     if (docParam && docParam !== NEW_DOC && !activeDoc) void closeDocUrl({ replace: true });
   });
 
+  // The open doc's links: the sources Claude synthesises it from, shown under its title.
+  // Loaded here, since a page's load carries only the entity's own links; it reloads
+  // whenever the page's data does (activeDoc is a new object then).
+  interface DocLink {
+    readonly id: string;
+    readonly url: string;
+    readonly title: string | null;
+    readonly syncedAt: Date | string | null;
+  }
+  let docLinks = $state<readonly DocLink[]>([]);
+  const loadDocLinks = async (id: string): Promise<void> => {
+    const result = await trpc().link.list.query({ entityType: 'DOC', entityId: id });
+    if (activeDoc?.id === id) docLinks = result.ok ? result.value : [];
+  };
+  $effect(() => {
+    const id = activeDoc?.id;
+    if (!id) { docLinks = []; return; }
+    void loadDocLinks(id);
+  });
+
   // The note popup: `?popup=note` adds one, `&note=<id>` edits that one.
   const NOTE_POPUP = 'note';
   const NOTE_PARAM = 'note';
@@ -474,6 +494,7 @@
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
+        sources={docLinks.length > 0 ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
@@ -515,6 +536,10 @@
 
 <!-- A row's peek button (?peek=<TYPE>:<id>) shows the item in the right panel's Peek tab. -->
 <EntityPeek />
+
+{#snippet docSources()}
+  <LinksWidget links={docLinks} title="Sources" readOnly={!!archivedAt} onChange={() => { if (activeDoc) void loadDocLinks(activeDoc.id); }} />
+{/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>
   {#if editingNoteId && !editingNote}

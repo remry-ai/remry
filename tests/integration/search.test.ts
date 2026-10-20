@@ -168,6 +168,25 @@ describe('search.recall', () => {
     expect(recall.unlinkedMentions.items.map((h) => h.entityId)).toEqual([unlinked.value.id]);
   });
 
+  it('returns the entity links with syncedAt, and the links on its docs as docSources', async () => {
+    const person = await createPerson(reg, { name: 'Sasha Brief' });
+    if (!person.ok) throw new Error('setup failed');
+    const id = person.value.id;
+    await addLink(reg, 'PERSON', id, { url: 'https://linear.app/acme/project/checkout', synced: true });
+    const doc = await addDoc(reg, 'PERSON', id, { title: 'Brief' });
+    if (!doc.ok) throw new Error('setup failed');
+    await addLink(reg, 'DOC', doc.value.id, { url: 'https://www.notion.so/acme/Checkout-PRD-0123', title: 'Notion: Checkout PRD', synced: true });
+    await addLink(reg, 'DOC', doc.value.id, { url: 'https://example.com/reference' });
+
+    const result = await recallEntity(reg, 'PERSON', id);
+    if (!result.ok) throw result.error;
+    expect(result.value.links.items[0]?.syncedAt).toBeInstanceOf(Date);
+    expect(result.value.docSources.items.map((l) => [l.docId, l.title, l.syncedAt !== null])).toEqual([
+      [doc.value.id, 'Notion: Checkout PRD', true],
+      [doc.value.id, null, false]
+    ]);
+  });
+
   it('caps lists and refuses an unknown entity', async () => {
     const person = await createPerson(reg, { name: 'Quinn Busy' });
     if (!person.ok) throw new Error('setup failed');
