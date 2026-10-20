@@ -114,6 +114,8 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --status in-progress` (optional `--parentId`, `--startDate`, `--daysLikely`) |
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
+| "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
+| "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
 | "Platform owns the Q4 migration" | `project.update --id <project> --ownerType GROUP --ownerId <platform>` (set both together; `--ownerType null --ownerId null` clears the owner) |
@@ -187,9 +189,29 @@ The notebook is the user's own layer over the shared tools (Linear, Notion, Jira
 3. **Map shared facts onto fields.** Name and status (`project.status` is one of `proposed committed in-progress blocked done abandoned`: map the tool's word onto one, e.g. Linear's "In Progress" → `in-progress`, "Backlog" → `proposed`, "Canceled" → `abandoned`), dates, owner (look the owner up; create a person only if the user wants them tracked), parent project, `DEPENDS_ON` relations between items you're importing (only between items already in the notebook), and goal–project links.
 4. **Mark it synced.** After updating an entity from its source, `link.markSynced --id <link>` records the time on the source link (`syncedAt`, which `link.list` and `link.find` return). When something changed that the user would want to see later, also add a note: "From Linear: now In progress, due 15 Oct, 6 of 9 issues done." Don't copy the item's description or comments in bulk; summarise only what the user needs, and keep the link for the rest.
 5. **The source owns shared facts; the user owns their view.** On a re-sync, update fields to match the source, then mark the link synced. Never edit or remove the user's own notes, todos, relations or judgements ("I don't believe that date"): they're the reason the notebook exists. When the source disagrees with something the user said, tell them rather than choosing.
-6. **Check before you state it as current.** When you answer from an imported entity, look at its source link's `syncedAt` (`link.list` for the entity). If it's more than about a week old and the tool is available, re-sync first. If it isn't available, say when the information dates from.
+6. **Check before you state it as current.** When you answer from an entity with tracked sources, check them first: see **Tracked docs** below.
 
 Say what you did by name and source: "Updated the Checkout project from Linear (now In progress, due 15 Oct); added the Payments API project, which it depends on."
+
+## Tracked docs
+
+A project (or any entity) can track outside docs: a spec in Notion, a plan in Google Docs, a Linear project, a Confluence page. A tracked doc is a link with a `syncedAt`; a plain link (a dashboard, a reference) has none and is never checked.
+
+**Tracking one.** "Link this Notion doc to Checkout", "Keep an eye on the PRD for Checkout":
+1. Read the doc with its tool's MCP tools. `link.find --url <url>` first: if it's already linked here, it's already tracked.
+2. `link.add --entityType PROJECT --entityId <id> --url <url> --title "<Tool>: <doc title>" --synced true`.
+3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
+
+**Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
+1. Get them: `search.recall` returns its `links` with `syncedAt` (or `link.list` without Pro). Only links with a `syncedAt` count.
+2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed.
+3. **Edited after `syncedAt`:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link>`.
+4. **Not edited since:** `link.markSynced --id <link>`, so the app shows it as checked. Add no note.
+5. **Tool not available, or the doc can't be read:** don't guess. Answer from the notebook and say how old it is ("the PRD was last checked 3 weeks ago").
+
+Then answer, leading with what's new: "Two updates since you last looked: the PRD moved launch to 12 Nov, and the Linear project is now In progress." Keep the summary to what changed; link the doc for the rest. Never copy a doc in bulk, and never change the user's own notes or todos because a doc disagrees: tell them instead.
+
+Keep it proportionate: check the docs of the entities your answer is about, not every entity a search touches. If that's more than about five docs, check the ones that matter most and offer to check the rest. Don't re-check a doc you checked earlier in the same conversation.
 
 ## Importing a PDF
 

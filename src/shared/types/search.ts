@@ -82,6 +82,8 @@ export interface RecallLink {
   readonly id: string;
   readonly url: string;
   readonly title: string | null;
+  /** When the entity was last brought up to date from this source; null for a plain link. */
+  readonly syncedAt: Date | null;
 }
 
 export interface RecallGoal {
