@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { foreignImagesIn, imageNamesIn, planImageTidy, REMOVED_GRACE_MS, refuseBlobUrls } from '../_images';
+import { foreignImagesIn, imageNamesIn, planImageTidy, planTrashPurge, REMOVED_GRACE_MS, refuseBlobUrls, trashKey } from '../_images';
 
 describe('refuseBlobUrls', () => {
   it('refuses an image still at a temporary blob: address', () => {
@@ -61,5 +61,17 @@ describe('foreignImagesIn', () => {
       { key: 'pages/p9/image-c.jpg', folder: 'pages/p9', name: 'image-c.jpg' },
       { key: 'docs/d0/removed/image-d.gif', folder: 'docs/d0', name: 'image-d.gif' }
     ]);
+  });
+});
+
+describe('the trash', () => {
+  it("names an image for where it came from, and empties what's been there over a day", () => {
+    expect(trashKey('docs/d1', 'image-a.png')).toBe('trash/docs.d1.image-a.png');
+    const now = new Date('2026-10-21T12:00:00Z');
+    const at = (ms: number) => new Date(now.getTime() - ms);
+    expect(planTrashPurge([
+      { name: 'docs.d1.image-old.png', modifiedAt: at(REMOVED_GRACE_MS + 1) },
+      { name: 'docs.d1.image-new.png', modifiedAt: at(60_000) }
+    ], now)).toEqual(['docs.d1.image-old.png']);
   });
 });

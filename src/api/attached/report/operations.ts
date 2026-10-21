@@ -183,7 +183,7 @@ export const updateReport = async (
 };
 
 export const removeReport = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.report.findUnique({ where: { id } });

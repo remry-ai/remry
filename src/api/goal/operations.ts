@@ -245,7 +245,7 @@ export const updateGoal = async (
 
 /** Sub-goals move up to this goal's parent; check-ins, project links and attached items are deleted. */
 export const deleteGoal = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.goal.findUnique({ where: { id }, select: { parentId: true } });

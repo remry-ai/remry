@@ -191,7 +191,7 @@ export const updateTodo = async (
 
 /** Also deletes what's attached to the todo and its relations. */
 export const deleteTodo = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: boolean }>> => {
   const existing = await reg.prisma.todo.findFirst({ where: { id } });

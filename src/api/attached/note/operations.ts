@@ -80,7 +80,7 @@ export const updateNote = async (
 
 /** Also deletes its replies, what's attached to it or them, and their relations. */
 export const removeNote = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.note.findUnique({ where: { id } });

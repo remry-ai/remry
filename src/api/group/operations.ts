@@ -162,7 +162,7 @@ export const updateGroup = async (reg: Reg, id: string, input: UpdateGroupInput)
 
 /** Also deletes what's attached to the group and its relations, and clears it as an owner. */
 export const deleteGroup = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   if (!(await reg.prisma.group.findUnique({ where: { id }, select: { id: true } }))) return err(notFound(id));

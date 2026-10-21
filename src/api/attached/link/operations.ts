@@ -134,7 +134,7 @@ export const markLinkSynced = async (
 
 /** Also deletes what's attached to the link and its relations. */
 export const removeLink = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.link.findUnique({ where: { id } });

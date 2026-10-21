@@ -50,7 +50,7 @@ export const addComment = async (
 
 /** Also deletes what's attached to the comment and its relations. */
 export const removeComment = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.comment.findUnique({ where: { id } });

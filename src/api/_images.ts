@@ -128,6 +128,7 @@ export const tidyEditorImages = async (
     for (const name of plan.restore) await reg.storage.moveObject(`${removedFolder}/${name}`, `${folder}/${name}`);
     for (const name of plan.remove) await reg.storage.moveObject(`${folder}/${name}`, `${removedFolder}/${name}`);
     for (const name of plan.purge) await reg.storage.deleteObject(`${removedFolder}/${name}`);
+    await purgeTrash(reg);
   } catch (error) {
     reg.logger.warn({ folder, error }, 'failed to tidy the images of a saved doc or page');
   }
@@ -162,7 +163,8 @@ export const foreignImagesIn = (content: string, folder: string): readonly Forei
  * Copies the images the text shows from another doc's or page's folder into `folder`, and
  * points the text at the copies. A doc moved by copying its text to a new doc, or turned into a
  * wiki page, kept showing the old doc's images, and lost them when the old doc was deleted
- * (its folder goes with it). An image already gone is left as it is.
+ * (its folder goes with it). It looks in the folder, its `removed/` and the trash; an image
+ * already gone for good is left as it is.
  */
 export const adoptForeignImages = async (
   reg: Pick<Registry, 'storage' | 'uuid' | 'logger'>,
@@ -173,7 +175,8 @@ export const adoptForeignImages = async (
   for (const image of foreignImagesIn(content, folder)) {
     try {
       const file = (await reg.storage.readObject(image.key))
-        ?? (await reg.storage.readObject(`${image.folder}/${REMOVED_FOLDER}/${image.name}`));
+        ?? (await reg.storage.readObject(`${image.folder}/${REMOVED_FOLDER}/${image.name}`))
+        ?? (await reg.storage.readObject(trashKey(image.folder, image.name)));
       if (!file) continue;
       const extension = image.name.slice(image.name.lastIndexOf('.'));
       const key = `${folder}/image-${reg.uuid()}${extension}`;
@@ -184,4 +187,41 @@ export const adoptForeignImages = async (
     }
   }
   return adopted;
+};
+
+// ----- The trash: a deleted doc's or page's images, kept a day -----
+
+/**
+ * When a doc or page is deleted, its images wait here for a day (`REMOVED_GRACE_MS`) instead
+ * of going at once, one flat folder, each named for where it came from:
+ * `trash/docs.<id>.image-….png`. Text copied from it before or after the delete (a doc moved by
+ * copying it, in either order) still finds them: `adoptForeignImages` looks here too.
+ */
+export const TRASH_FOLDER = 'trash';
+
+/** The trash key for an image from `folder` (`docs/<id>`). */
+export const trashKey = (folder: string, name: string): string => `${TRASH_FOLDER}/${folder.replace('/', '.')}.${name}`;
+
+/** The trashed images to delete for good: in the trash longer than the grace period. */
+export const planTrashPurge = (trashed: readonly StoredFile[], now: Date, graceMs: number = REMOVED_GRACE_MS): readonly string[] =>
+  trashed.filter((f) => now.getTime() - f.modifiedAt.getTime() > graceMs).map((f) => f.name);
+
+/** Deletes trashed images past the grace period. Best effort, like the rest of the tidying. */
+export const purgeTrash = async (reg: Pick<Registry, 'storage' | 'logger' | 'now'>): Promise<void> => {
+  try {
+    for (const name of planTrashPurge(await reg.storage.listFolder(TRASH_FOLDER), reg.now())) {
+      await reg.storage.deleteObject(`${TRASH_FOLDER}/${name}`);
+    }
+  } catch (error) {
+    reg.logger.warn({ error }, 'failed to empty the image trash');
+  }
+};
+
+/** Moves a deleted doc's or page's images (its own and those set aside in `removed/`) to the trash. */
+export const trashImages = async (reg: Pick<Registry, 'storage'>, folder: string): Promise<void> => {
+  for (const from of [folder, `${folder}/${REMOVED_FOLDER}`]) {
+    for (const file of await reg.storage.listFolder(from)) {
+      if (IMAGE_FILE.test(file.name)) await reg.storage.moveObject(`${from}/${file.name}`, trashKey(folder, file.name));
+    }
+  }
 };

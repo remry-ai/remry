@@ -141,7 +141,7 @@ export const updatePerson = async (reg: Reg, id: string, input: UpdatePersonInpu
 
 /** Also deletes what's attached to the person and their relations, and clears them as an owner. */
 export const deletePerson = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   if (!(await reg.prisma.person.findUnique({ where: { id }, select: { id: true } }))) return err(notFound(id));

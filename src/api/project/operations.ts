@@ -246,7 +246,7 @@ export const updateProject = async (
 
 /** Sub-projects move up to this project's parent; goal links, attached items and relations are deleted. */
 export const deleteProject = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.project.findFirst({ where: { id } });

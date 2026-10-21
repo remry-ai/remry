@@ -376,7 +376,7 @@ export const queryPages = async (
 
 /** Sub-pages move up to this page's parent; attached items and relations are deleted. */
 export const deletePage = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.page.findUnique({ where: { id }, select: { parentId: true } });

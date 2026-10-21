@@ -276,6 +276,29 @@ describe('moving a doc keeps its images', () => {
     expect(!half.ok && half.error.message).toContain('both entityType and entityId');
   });
 
+  it('keeps a deleted doc\'s images in the trash for a day, so text copied after the delete still gets them', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const original = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Deleted first' });
+    if (!original.ok) throw original.error;
+    const image = await uploadDocImage(reg, original.value.id, png);
+    if (!image.ok) throw image.error;
+    const text = `Before the delete:\n\n${image.value.markdown}`;
+    await updateDoc(reg, original.value.id, { content: text });
+
+    // The order the skill warns against: delete, then write the copy.
+    expect((await removeDoc(reg, original.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(image.value.key)).toBeNull();
+    const copy = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Written after' });
+    if (!copy.ok) throw copy.error;
+    await updateDoc(reg, copy.value.id, { content: text });
+
+    const copied = await getDoc(reg, copy.value.id);
+    if (!copied.ok) throw copied.error;
+    const key = /storage:\/\/([^)]+)/.exec(copied.value.content)?.[1];
+    expect(key?.startsWith(`docs/${copy.value.id}/`)).toBe(true);
+    expect(await reg.storage.readObject(key!)).not.toBeNull();
+  });
+
   it('copies images shown from another doc, so deleting that doc loses nothing (a doc moved by copying, or made a page)', async () => {
     const reg = getRegistry(TEST_NOTEBOOK);
     const original = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Original' });

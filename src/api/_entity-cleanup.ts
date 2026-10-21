@@ -6,6 +6,7 @@
 
 import type { Registry } from '$shared/registry';
 import type { EntityType } from '$shared/types/enums';
+import { purgeTrash, trashImages } from '$api/_images';
 
 type BatchWrite = ReturnType<Registry['prisma']['doc']['deleteMany']>;
 
@@ -133,9 +134,13 @@ export const planEntityCleanup = async (
   };
 };
 
-/** Best effort: a file or folder that can't be removed is logged, not an error. */
+/**
+ * Best effort: a file or folder that can't be removed is logged, not an error. A folder's
+ * images go to the trash for a day first (`trashImages`), so text copied from the deleted doc
+ * or page can still take them; everything else in it (a PDF) goes now.
+ */
 export const removeFiles = async (
-  reg: Pick<Registry, 'storage' | 'logger'>,
+  reg: Pick<Registry, 'storage' | 'logger' | 'now'>,
   cleanup: Pick<EntityCleanup, 'files' | 'folders'>
 ): Promise<void> => {
   for (const key of cleanup.files) {
@@ -147,9 +152,11 @@ export const removeFiles = async (
   }
   for (const folder of cleanup.folders) {
     try {
+      await trashImages(reg, folder);
       await reg.storage.deleteFolder(folder);
     } catch (error) {
       reg.logger.warn({ folder, error }, 'failed to delete the files of a deleted entity');
     }
   }
+  await purgeTrash(reg);
 };

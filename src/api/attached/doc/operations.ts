@@ -196,7 +196,7 @@ export const updateDoc = async (
 
 /** Also deletes what's attached to the doc, its relations, and its PDF once the rows are gone. */
 export const removeDoc = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id } });
