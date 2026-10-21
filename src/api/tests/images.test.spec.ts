@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { imageNamesIn, planImageTidy, REMOVED_GRACE_MS, refuseBlobUrls } from '../_images';
+import { foreignImagesIn, imageNamesIn, planImageTidy, REMOVED_GRACE_MS, refuseBlobUrls } from '../_images';
 
 describe('refuseBlobUrls', () => {
   it('refuses an image still at a temporary blob: address', () => {
@@ -43,5 +43,23 @@ describe('planImageTidy', () => {
       now
     );
     expect(plan).toEqual({ restore: ['image-a.png', 'image-old.png'], remove: [], purge: ['image-gone.png'] });
+  });
+});
+
+describe('foreignImagesIn', () => {
+  it("finds the images the text shows from other docs' and pages' folders, each once", () => {
+    const content = [
+      '![own](storage://docs/d1/image-a.png)',
+      '![old doc](storage://docs/d0/image-b.webp)',
+      '![again](storage://docs/d0/image-b.webp)',
+      '![page](/files/pages/p9/image-c.jpg)',
+      '![tidied](storage://docs/d0/removed/image-d.gif)',
+      '![pdf](storage://docs/d0/source-x.pdf)'
+    ].join('\n');
+    expect(foreignImagesIn(content, 'docs/d1')).toEqual([
+      { key: 'docs/d0/image-b.webp', folder: 'docs/d0', name: 'image-b.webp' },
+      { key: 'pages/p9/image-c.jpg', folder: 'pages/p9', name: 'image-c.jpg' },
+      { key: 'docs/d0/removed/image-d.gif', folder: 'docs/d0', name: 'image-d.gif' }
+    ]);
   });
 });

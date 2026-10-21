@@ -236,6 +236,78 @@ describe('deleting a doc or page with images', () => {
   });
 });
 
+describe('moving a doc keeps its images', () => {
+  const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+
+  it('moves a doc to another entity with its images, links and place', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const from = await createProject(reg, { name: 'Moving from' });
+    const to = await createProject(reg, { name: 'Moving to' });
+    if (!from.ok || !to.ok) throw new Error('setup failed');
+    const there = await addDoc(reg, 'PROJECT', to.value.id, { title: 'Already there' });
+    if (!there.ok) throw there.error;
+    const doc = await addDoc(reg, 'PROJECT', from.value.id, { title: 'Brief' });
+    if (!doc.ok) throw doc.error;
+    const image = await uploadDocImage(reg, doc.value.id, png);
+    if (!image.ok) throw image.error;
+    await updateDoc(reg, doc.value.id, { content: `Intro\n\n${image.value.markdown}` });
+
+    expect((await updateDoc(reg, doc.value.id, { entityType: 'PROJECT', entityId: to.value.id })).ok).toBe(true);
+    const moved = await getDoc(reg, doc.value.id);
+    const before = await getDoc(reg, there.value.id);
+    if (!moved.ok || !before.ok) throw new Error('docs gone');
+    // On the new entity, after the docs already there.
+    expect(moved.value.entityId).toBe(to.value.id);
+    expect(moved.value.sortOrder).toBeGreaterThan(before.value.sortOrder);
+    // Deleting where it came from takes nothing of it.
+    expect((await deleteProject(reg, from.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(image.value.key)).not.toBeNull();
+    expect((await getDoc(reg, doc.value.id)).ok).toBe(true);
+  });
+
+  it('refuses a move to a wiki page, or with only one end', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Stays put' });
+    const page = await createPage(reg, { title: 'Not a doc holder' });
+    if (!doc.ok || !page.ok) throw new Error('setup failed');
+    const toPage = await updateDoc(reg, doc.value.id, { entityType: 'PAGE', entityId: page.value.id });
+    expect(!toPage.ok && toPage.error.message).toContain("Wiki pages don't take docs");
+    const half = await updateDoc(reg, doc.value.id, { entityId: 'person_alice' });
+    expect(!half.ok && half.error.message).toContain('both entityType and entityId');
+  });
+
+  it('copies images shown from another doc, so deleting that doc loses nothing (a doc moved by copying, or made a page)', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const original = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Original' });
+    if (!original.ok) throw original.error;
+    const image = await uploadDocImage(reg, original.value.id, png);
+    if (!image.ok) throw image.error;
+    const text = `Look:\n\n${image.value.markdown}`;
+    await updateDoc(reg, original.value.id, { content: text });
+
+    const copy = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Copy' });
+    if (!copy.ok) throw copy.error;
+    await updateDoc(reg, copy.value.id, { content: text });
+    const asPage = await createPage(reg, { title: 'Original as a page', content: text });
+    if (!asPage.ok) throw asPage.error;
+
+    expect((await removeDoc(reg, original.value.id)).ok).toBe(true);
+    expect(await reg.storage.readObject(image.value.key)).toBeNull();
+
+    const copied = await getDoc(reg, copy.value.id);
+    const paged = await getPage(reg, asPage.value.id);
+    if (!copied.ok || !paged.ok) throw new Error('copies gone');
+    for (const [content, folder] of [
+      [copied.value.content, `docs/${copy.value.id}/`],
+      [paged.value.content, `pages/${asPage.value.id}/`]
+    ] as const) {
+      const key = /storage:\/\/([^)]+)/.exec(content)?.[1];
+      expect(key?.startsWith(folder)).toBe(true);
+      expect(await reg.storage.readObject(key!)).not.toBeNull();
+    }
+  });
+});
+
 describe('images taken out of a page\'s text', () => {
   const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
 

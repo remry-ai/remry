@@ -6,7 +6,7 @@ import { fileUrl } from '$shared/utils/files';
 import { acceptsDocs, docPath, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { EDITOR_IMAGE_TYPES, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
+import { EDITOR_IMAGE_TYPES, adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
 import { decodeUpload } from '$api/_uploads';
 
@@ -121,10 +121,48 @@ export const addDoc = async (
   return ok({ id: doc.id });
 };
 
+export interface UpdateDocInput {
+  readonly title?: string;
+  readonly content?: string;
+  readonly sourceUrl?: string | null;
+  readonly prompt?: string | null;
+  /** Moves the doc to another entity (both together). It keeps its id, so its images, links, notes and PDF go with it. */
+  readonly entityType?: EntityType;
+  readonly entityId?: string;
+}
+
+/** What a doc can move to: the entities whose pages show docs. */
+const DOC_HOLDERS: readonly EntityType[] = ['PERSON', 'GROUP', 'PROJECT', 'GOAL'];
+
+/** Where a moved doc goes, checked: both ends given, an entity that takes docs, there and writable. */
+const moveTarget = async (
+  reg: Pick<Registry, 'prisma'>,
+  input: UpdateDocInput
+): Promise<Result<{ readonly entityType: EntityType; readonly entityId: string; readonly sortOrder: number } | null>> => {
+  if (input.entityType === undefined && input.entityId === undefined) return ok(null);
+  if (input.entityType === undefined || input.entityId === undefined) {
+    return err(new Error('To move a doc, give both entityType and entityId (the entity it moves to).'));
+  }
+  if (!DOC_HOLDERS.includes(input.entityType)) {
+    return err(new Error(input.entityType === 'PAGE'
+      ? "Wiki pages don't take docs. To turn the doc into a page, page.create with its content (its images come along), then delete the doc."
+      : `A doc moves to a person, group, project or goal, not a ${input.entityType.toLowerCase()}.`));
+  }
+  const attachable = await ensureAttachable(reg, input.entityType, input.entityId);
+  if (!attachable.ok) return err(attachable.error);
+  // Last among the docs already there.
+  const last = await reg.prisma.doc.findFirst({
+    where: { entityType: input.entityType, entityId: input.entityId },
+    orderBy: { sortOrder: 'desc' },
+    select: { sortOrder: true }
+  });
+  return ok({ entityType: input.entityType, entityId: input.entityId, sortOrder: (last?.sortOrder ?? -1) + 1 });
+};
+
 export const updateDoc = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
   id: string,
-  input: { readonly title?: string; readonly content?: string; readonly sourceUrl?: string | null; readonly prompt?: string | null }
+  input: UpdateDocInput
 ): Promise<Result<{ readonly id: string }>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id } });
   if (!existing) return err(new Error('Doc not found'));
@@ -134,19 +172,24 @@ export const updateDoc = async (
     const images = refuseBlobUrls(input.content);
     if (!images.ok) return err(images.error);
   }
+  const move = await moveTarget(reg, input);
+  if (!move.ok) return err(move.error);
+  // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
+  const content = input.content === undefined ? undefined : await adoptForeignImages(reg, `docs/${id}`, input.content);
 
   await reg.prisma.doc.update({
     where: { id },
     data: {
       ...(input.title !== undefined && { title: input.title }),
-      ...(input.content !== undefined && { content: input.content }),
+      ...(content !== undefined && { content }),
       ...(input.sourceUrl !== undefined && { sourceUrl: input.sourceUrl }),
-      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
+      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
+      ...(move.value && move.value)
     }
   });
-  if (input.content !== undefined) {
-    await syncMentions(reg, { entityType: 'DOC', entityId: id }, input.content);
-    await tidyEditorImages(reg, `docs/${id}`, input.content);
+  if (content !== undefined) {
+    await syncMentions(reg, { entityType: 'DOC', entityId: id }, content);
+    await tidyEditorImages(reg, `docs/${id}`, content);
   }
   return ok({ id });
 };

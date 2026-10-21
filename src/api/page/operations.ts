@@ -19,7 +19,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
-import { refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
+import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
 import { getPageKind } from '$api/page-kind/operations';
 import {
   filterRows,
@@ -189,7 +189,7 @@ export interface CreatePageInput {
 }
 
 export const createPage = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
   input: CreatePageInput
 ): Promise<Result<{ readonly id: string; readonly path: string }>> => {
   const kind = await getPageKind(reg, input.kind ?? 'GENERAL');
@@ -216,7 +216,12 @@ export const createPage = async (
       properties: JSON.stringify(properties.value)
     }
   });
-  if (bodyType === 'doc' && content.value) await syncMentions(reg, { entityType: 'PAGE', entityId: row.id }, content.value);
+  if (bodyType === 'doc' && content.value) {
+    // Text from a doc (a doc turned into a page) keeps its images: they're copied here.
+    const adopted = await adoptForeignImages(reg, `pages/${row.id}`, content.value);
+    if (adopted !== content.value) await reg.prisma.page.update({ where: { id: row.id }, data: { content: adopted } });
+    await syncMentions(reg, { entityType: 'PAGE', entityId: row.id }, adopted);
+  }
   return ok({ id: row.id, path: entityPath('PAGE', row.id) });
 };
 
@@ -234,7 +239,7 @@ export interface UpdatePageInput {
 }
 
 export const updatePage = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
   id: string,
   input: UpdatePageInput
 ): Promise<Result<{ readonly id: string }>> => {
@@ -263,7 +268,8 @@ export const updatePage = async (
   if (input.content !== undefined || bodyType !== currentType) {
     const prepared = prepareContent(bodyType, input.content ?? '');
     if (!prepared.ok) return err(prepared.error);
-    content = prepared.value;
+    // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
+    content = bodyType === 'doc' ? await adoptForeignImages(reg, `pages/${id}`, prepared.value) : prepared.value;
   }
 
   if (input.parentId) {

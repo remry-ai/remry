@@ -132,3 +132,56 @@ export const tidyEditorImages = async (
     reg.logger.warn({ folder, error }, 'failed to tidy the images of a saved doc or page');
   }
 };
+
+// ----- Images stored under another doc or page -----
+
+/** One image the text shows from another doc's or page's folder. */
+export interface ForeignImage {
+  /** As the text has it: `docs/<id>/image-….png` (after `storage://` or `/files/`). */
+  readonly key: string;
+  /** The folder it's in (`docs/<id>`), where a tidied-away copy waits in `removed/`. */
+  readonly folder: string;
+  readonly name: string;
+}
+
+const FOREIGN_IMAGE = /(?:storage:\/\/|\/files\/)((docs|pages)\/([^\s)"'?#/]+)\/(?:removed\/)?(image-[^\s)"'?#/]+\.(?:png|jpg|gif|webp)))/g;
+
+/** The images the text shows from folders other than `folder`, each once. */
+export const foreignImagesIn = (content: string, folder: string): readonly ForeignImage[] => {
+  const found = new Map<string, ForeignImage>();
+  for (const match of content.matchAll(FOREIGN_IMAGE)) {
+    const [, key, kind, id, name] = match as unknown as [string, string, string, string, string];
+    const owner = `${kind}/${id}`;
+    if (owner === folder || found.has(key)) continue;
+    found.set(key, { key, folder: owner, name });
+  }
+  return [...found.values()];
+};
+
+/**
+ * Copies the images the text shows from another doc's or page's folder into `folder`, and
+ * points the text at the copies. A doc moved by copying its text to a new doc, or turned into a
+ * wiki page, kept showing the old doc's images, and lost them when the old doc was deleted
+ * (its folder goes with it). An image already gone is left as it is.
+ */
+export const adoptForeignImages = async (
+  reg: Pick<Registry, 'storage' | 'uuid' | 'logger'>,
+  folder: string,
+  content: string
+): Promise<string> => {
+  let adopted = content;
+  for (const image of foreignImagesIn(content, folder)) {
+    try {
+      const file = (await reg.storage.readObject(image.key))
+        ?? (await reg.storage.readObject(`${image.folder}/${REMOVED_FOLDER}/${image.name}`));
+      if (!file) continue;
+      const extension = image.name.slice(image.name.lastIndexOf('.'));
+      const key = `${folder}/image-${reg.uuid()}${extension}`;
+      await reg.storage.putObject(key, file.bytes, file.contentType);
+      adopted = adopted.split(image.key).join(key);
+    } catch (error) {
+      reg.logger.warn({ folder, image: image.key, error }, 'failed to copy an image from another doc or page');
+    }
+  }
+  return adopted;
+};

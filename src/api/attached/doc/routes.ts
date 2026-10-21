@@ -33,12 +33,14 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => addDoc(ctx.reg, input.entityType, input.entityId, input)),
 
   update: procedure
-    .meta({ description: 'Changes a doc\'s title, markdown content (fenced chart and mermaid blocks render) or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it).' })
+    .meta({ description: 'Changes a doc\'s title, markdown content (fenced chart and mermaid blocks render) or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it), or moves it to another entity (entityType + entityId), keeping its images, links and notes.' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       content: z.string().optional(),
-      prompt: z.string().max(2000).nullable().optional()
+      prompt: z.string().max(2000).nullable().optional(),
+      entityType: z.enum(ENTITY_TYPES).optional(),
+      entityId: z.string().optional()
     }))
     .mutation(({ ctx, input }) => updateDoc(ctx.reg, input.id, input)),
 
