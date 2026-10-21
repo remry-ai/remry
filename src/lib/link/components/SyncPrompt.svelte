@@ -2,6 +2,7 @@
   // The banner on a sync doc or sync wiki page: it says so, shows the prompt
   // (what Claude pulls from each source when it refreshes the text below) and
   // the sources. The prompt is editable here; clearing it makes an ordinary doc.
+  // `creating` opens it on an empty prompt, for "Make sync doc"; Cancel leaves it as it was.
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
   import { submit } from '$lib/ui/submit';
@@ -21,19 +22,32 @@
     readonly onSave?: (prompt: string | null) => Promise<unknown>;
     /** Adds a source (SourceLinks' Add link). */
     readonly onAddLink?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
+    /** Making a doc a sync doc: opens on the prompt box, and Cancel calls `onCancel`. */
+    readonly creating?: boolean;
+    readonly onCancel?: () => void;
+    /** Nothing written yet: say that Claude writes it. The app never does. */
+    readonly empty?: boolean;
   }
 
-  const { prompt, links, onSave, onAddLink }: Props = $props();
+  const { prompt, links, onSave, onAddLink, creating = false, onCancel, empty = false }: Props = $props();
 
-  let editing = $state(false);
+  // svelte-ignore state_referenced_locally
+  let editing = $state(creating);
   let draft = $state('');
   let saving = $state(false);
   let error = $state('');
 
   const startEditing = () => { draft = prompt; error = ''; editing = true; };
 
+  const cancel = () => {
+    editing = false;
+    if (creating) onCancel?.();
+  };
+
   const save = async () => {
     if (!onSave) return;
+    // A new one with no prompt is just a cancel.
+    if (creating && !draft.trim()) { cancel(); return; }
     saving = true;
     const outcome = await submit(() => onSave(draft.trim() || null));
     saving = false;
@@ -45,7 +59,11 @@
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
     <span class="badge accent">Sync</span>
-    <span class="text-xs text-2">Claude rewrites this from its sources, following the prompt.</span>
+    <span class="text-xs text-2">
+      {#if creating}Say what Claude should take from each source; add the sources below.
+      {:else if empty}Nothing written yet: ask Claude to write it from its sources.
+      {:else}Claude rewrites this from its sources, following the prompt.{/if}
+    </span>
     {#if onSave && !editing}
       <button type="button" class="btn icon sm ml-auto" aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
     {/if}
@@ -53,15 +71,16 @@
 
   {#if editing}
     <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void save(); }}>
-      <Field label="Prompt" hint="Empty makes it an ordinary doc">
+      <Field label="Prompt" hint={creating ? 'For example: PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.' : 'Empty makes it an ordinary doc'}>
         {#snippet children({ id })}
-          <textarea {id} rows="3" maxlength="2000" bind:value={draft}></textarea>
+          <!-- svelte-ignore a11y_autofocus -->
+          <textarea {id} rows="3" maxlength="2000" bind:value={draft} autofocus={creating}></textarea>
         {/snippet}
       </Field>
       {#if error}<p class="form-error">{error}</p>{/if}
       <div class="form-actions">
-        <button type="submit" class="btn primary sm" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
-        <button type="button" class="btn ghost sm" onclick={() => { editing = false; }}>Cancel</button>
+        <button type="submit" class="btn primary sm" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : creating ? 'Make sync doc' : 'Save'}</button>
+        <button type="button" class="btn ghost sm" onclick={cancel}>Cancel</button>
       </div>
     </form>
   {:else}

@@ -19,9 +19,12 @@
     readonly links: readonly LinkItem[];
     /** Adds a link; without it there's no Add link button. */
     readonly onAdd?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
+    /** Offers to make the doc a sync doc (a link after Add link), with this label. */
+    readonly onMakeSync?: () => void;
+    readonly makeSyncLabel?: string;
   }
 
-  const { links, onAdd }: Props = $props();
+  const { links, onAdd, onMakeSync, makeSyncLabel = 'Make sync doc' }: Props = $props();
 
   const items = $derived(links.map((link) => {
     const source = linkSource(link.url);
@@ -75,6 +78,9 @@
     {/each}
     {#if onAdd && !adding}
       <li><button type="button" class="btn link muted" onclick={open}>+ Add link</button></li>
+    {/if}
+    {#if onMakeSync && !adding}
+      <li><button type="button" class="btn link muted" onclick={onMakeSync} title="Claude keeps it in step with its sources, following a prompt you write">{makeSyncLabel}</button></li>
     {/if}
   </ul>
 
