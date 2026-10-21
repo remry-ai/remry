@@ -75,7 +75,7 @@ export interface RecallDoc {
   readonly title: string;
   /** The start of the content; `doc.get` returns all of it. */
   readonly excerpt: string;
-  /** Set on a synthesis doc: what to pull from its sources (`docSources`). */
+  /** Set on a sync doc: what to pull from its sources (`docSources`). */
   readonly prompt: string | null;
   readonly updatedAt: Date;
 }

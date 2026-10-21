@@ -5,6 +5,7 @@
 import type { Registry } from '$shared/registry';
 import type { StoredFile } from '$shared/storage/client.server';
 import { ok, err, type Result } from '$shared/utils';
+import { decodeUpload, type DecodedUpload } from '$api/_uploads';
 
 export const EDITOR_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const;
 export type EditorImageType = (typeof EDITOR_IMAGE_TYPES)[number];
@@ -19,16 +20,27 @@ const IMAGE_EXTENSIONS: Readonly<Record<EditorImageType, string>> = {
   'image/webp': 'webp'
 };
 
-/** Stores an image under `<folder>/` and returns its storage key. */
+/** An editor image: a PNG, JPEG, GIF or WebP, by its bytes (see `decodeUpload`). */
+export const decodeImage = (dataBase64: string): Result<DecodedUpload<EditorImageType>> =>
+  decodeUpload(dataBase64, EDITOR_IMAGE_TYPES, 'a PNG, JPEG, GIF or WebP image');
+
+export interface StoredImage {
+  readonly key: string;
+  /** Paste into the doc's or page's content, then save it with the text (doc.update, page.update). */
+  readonly markdown: string;
+}
+
+/** Stores an image under `<folder>/` and returns its storage key, and the markdown that shows it. */
 export const storeEditorImage = async (
   reg: Pick<Registry, 'storage' | 'uuid'>,
   folder: string,
-  contentType: EditorImageType,
   dataBase64: string
-): Promise<{ readonly key: string }> => {
-  const key = `${folder}/image-${reg.uuid()}.${IMAGE_EXTENSIONS[contentType]}`;
-  await reg.storage.putObject(key, Buffer.from(dataBase64, 'base64'), contentType);
-  return { key };
+): Promise<Result<StoredImage>> => {
+  const image = decodeImage(dataBase64);
+  if (!image.ok) return err(image.error);
+  const key = `${folder}/image-${reg.uuid()}.${IMAGE_EXTENSIONS[image.value.contentType]}`;
+  await reg.storage.putObject(key, image.value.bytes, image.value.contentType);
+  return ok({ key, markdown: `![](storage://${key})` });
 };
 
 const BLOB_URL = /\]\(\s*<?blob:/;

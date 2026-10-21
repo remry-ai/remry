@@ -3,6 +3,7 @@
 // Both load only when the user exports. Nothing leaves the page.
 
 import { A4, pdfFileName, planPageStarts } from './pdf-pages';
+import { wrapOverflowingTables } from './table-columns';
 
 const SCALE = 2;
 
@@ -12,6 +13,8 @@ const SCALE = 2;
  */
 export const downloadPdf = async (sheet: HTMLElement, blockSelector: string, title: string): Promise<void> => {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
+  // On the sheet itself, so the page cuts below are measured on the same layout the image has.
+  wrapOverflowingTables(sheet);
   const canvas = await html2canvas(sheet, {
     scale: SCALE,
     backgroundColor: '#ffffff',

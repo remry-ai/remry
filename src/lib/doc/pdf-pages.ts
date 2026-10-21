@@ -2,27 +2,42 @@
 
 export const A4 = { width: 210, height: 297, margin: 14 } as const;
 
-const PAGE_BREAK_LINE = /^\s*<!--\s*page-?break\s*-->\s*$/i;
+// A leading backslash is how the editor saved a page break typed into it, before 0.16.38.
+const PAGE_BREAK_LINE = /^\s*\\?<!--\s*page-?break\s*-->\s*$/i;
 const FENCE = /^\s*(```|~~~)/;
 
 /** The element a `<!-- pagebreak -->` line becomes on the print page. */
 export const PAGE_BREAK_HTML = '<div class="page-break" aria-hidden="true"></div>';
 
-/**
- * Turns each `<!-- pagebreak -->` line (outside code blocks) into a page-break element,
- * which starts a new page in the PDF and when printing. Elsewhere the comment stays invisible.
- */
-export const markPageBreaks = (content: string): string => {
+/** Rewrites each line outside fenced code blocks. */
+const mapOutsideFences = (content: string, rewrite: (line: string) => string): string => {
   let fence: string | null = null;
   return content
     .split('\n')
     .map((line) => {
       const opener = FENCE.exec(line)?.[1] ?? null;
       if (opener && (fence === null || fence === opener)) fence = fence === null ? opener : null;
-      return fence === null && PAGE_BREAK_LINE.test(line) ? `\n${PAGE_BREAK_HTML}\n` : line;
+      return fence === null ? rewrite(line) : line;
     })
     .join('\n');
 };
+
+/**
+ * Turns each `<!-- pagebreak -->` line (outside code blocks) into a page-break element,
+ * which starts a new page in the PDF and when printing. Elsewhere the comment stays invisible.
+ */
+export const markPageBreaks = (content: string): string =>
+  mapOutsideFences(content, (line) => (PAGE_BREAK_LINE.test(line) ? `\n${PAGE_BREAK_HTML}\n` : line));
+
+const BR_LINE = /^\s*(<br\s*\/?\s*>\s*)+$/i;
+
+/**
+ * Puts blank lines around a line that's only `<br>`s (outside code blocks). Markdown reads such a
+ * line as the start of a raw HTML block, which runs to the next blank line, so the lines after it
+ * showed their markdown as text (`**Owner:**` with its stars). Written for spacing, it keeps that.
+ */
+export const separateBreakLines = (content: string): string =>
+  mapOutsideFences(content, (line) => (BR_LINE.test(line) ? `\n${line.trim()}\n` : line));
 
 /**
  * Where each page starts, in pixels from the top of the rendered doc. A declared page

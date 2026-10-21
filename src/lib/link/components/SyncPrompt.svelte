@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The banner on a synthesis doc or wiki page: it says so, shows the prompt
+  // The banner on a sync doc or sync wiki page: it says so, shows the prompt
   // (what Claude pulls from each source when it refreshes the text below) and
   // the sources. The prompt is editable here; clearing it makes an ordinary doc.
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
@@ -42,9 +42,9 @@
   };
 </script>
 
-<section class="synthesis" aria-label="Synthesis prompt">
+<section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
-    <span class="badge accent">Synthesis</span>
+    <span class="badge accent">Sync</span>
     <span class="text-xs text-2">Claude rewrites this from its sources, following the prompt.</span>
     {#if onSave && !editing}
       <button type="button" class="btn icon sm ml-auto" aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
@@ -72,7 +72,7 @@
 </section>
 
 <style lang="scss">
-  .synthesis {
+  .sync-doc {
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);

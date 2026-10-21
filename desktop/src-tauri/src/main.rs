@@ -239,6 +239,20 @@ fn download_finished(app: &AppHandle, path: Option<PathBuf>, success: bool) {
     }
 }
 
+/// How a page asks its window to print, since it has no IPC: "Print…" on the print pages
+/// navigates to `remry-print:` (see `src/lib/doc/print.ts`), which `app_window` cancels and turns
+/// into a print. Tauri's own `window.print()` goes through IPC on macOS, so there it did nothing.
+const PRINT_SCHEME: &str = "remry-print";
+
+/// Tells the page it's in the desktop window, so "Print…" asks the window. It sets a flag and
+/// nothing else: the page still gets no IPC.
+const DESKTOP_FLAG_SCRIPT: &str = "Object.defineProperty(window, '__remryDesktop', { value: true });";
+
+/// Whether a navigation is a page asking its window to print.
+fn is_print_request(url: &Url) -> bool {
+    url.scheme() == PRINT_SCHEME
+}
+
 /// Numbers the windows that links opening a new window get.
 static NEXT_WINDOW: AtomicUsize = AtomicUsize::new(1);
 
@@ -253,6 +267,8 @@ fn app_window<'a>(app: &'a AppHandle, label: &str, url: WebviewUrl) -> WebviewWi
     let opener = app.clone();
     let windows = app.clone();
     let downloads = app.clone();
+    let printer = app.clone();
+    let print_label = label.to_string();
     let destinations: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
     WebviewWindowBuilder::new(app, label, url)
         .title("Remry")
@@ -261,6 +277,7 @@ fn app_window<'a>(app: &'a AppHandle, label: &str, url: WebviewUrl) -> WebviewWi
         // Files dragged in from Finder go to the page, as in a browser, so an image
         // dropped on the doc editor uploads. Tauri's own handler would take them.
         .disable_drag_drop_handler()
+        .initialization_script(DESKTOP_FLAG_SCRIPT)
         .on_download(move |_webview, event| match event {
             DownloadEvent::Requested { url, destination } => {
                 if !is_app_download(&url) {
@@ -277,6 +294,13 @@ fn app_window<'a>(app: &'a AppHandle, label: &str, url: WebviewUrl) -> WebviewWi
             _ => true,
         })
         .on_navigation(move |url| {
+            if is_print_request(url) {
+                // print() is queued on the event loop, so the dialog opens after this returns.
+                if let Some(window) = printer.get_webview_window(&print_label) {
+                    let _ = window.print();
+                }
+                return false;
+            }
             if is_app_url(url) {
                 return true;
             }
@@ -544,6 +568,14 @@ mod tests {
         assert!(!is_app_url(&url("http://127.0.0.1:8080/")));
         assert!(!is_app_url(&url("https://linear.app/acme/issue/ENG-1")));
         assert!(!is_app_url(&url("file:///etc/passwd")));
+    }
+
+    #[test]
+    fn print_requests() {
+        let url = |s: &str| Url::parse(s).unwrap();
+        assert!(is_print_request(&url("remry-print:page")));
+        assert!(!is_print_request(&url("http://127.0.0.1:7369/app/docs/x/print")));
+        assert!(!is_print_request(&url("remry://open/app")));
     }
 
     #[test]

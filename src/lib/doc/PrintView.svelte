@@ -9,6 +9,7 @@
   import { NO_BRANDING, withoutLeadingTitle, type PrintOptions } from '$lib/doc/print-options';
   import { downloadPdf } from '$lib/doc/export-pdf';
   import { markPageBreaks } from '$lib/doc/pdf-pages';
+  import { printPage } from '$lib/doc/print';
 
   interface BrandingOption {
     readonly id: string;
@@ -100,7 +101,7 @@
       />
       <span>Header</span>
     </label>
-    <button type="button" class="btn ghost sm" onclick={() => window.print()}>Print…</button>
+    <button type="button" class="btn ghost sm" onclick={() => printPage()}>Print…</button>
     <button type="button" class="btn primary sm" onclick={handleDownload} disabled={exporting} aria-busy={exporting}>
       {exporting ? 'Making PDF…' : 'Download PDF'}
     </button>
@@ -201,6 +202,8 @@
     border-top: 1px dashed var(--border);
   }
   @media print {
+    // Paper can't scroll, so a wide table runs on rather than being cut at its box's edge.
+    .doc-body :global(.table-wrap) { overflow: visible; }
     .doc-body :global(.page-break) {
       margin: 0;
       border: 0;

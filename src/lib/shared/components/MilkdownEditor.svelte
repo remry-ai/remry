@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core';
-  import { commonmark } from '@milkdown/preset-commonmark';
+  import { commonmarkKeepingBreaks, configureLineBreaks, lineBreaksPlugin } from './milkdown-line-breaks';
+  import { unescapePageBreaks } from './line-breaks';
   import { gfm } from '@milkdown/preset-gfm';
   import { listener, listenerCtx } from '@milkdown/plugin-listener';
   import { chartSectionsCtx, chartBrandingCtx, chartWidgetPlugin } from './milkdown-chart-plugin';
@@ -26,14 +27,16 @@
         ctx.set(defaultValueCtx, value);
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, md, _prev) => {
-            onChange(md);
+            onChange(unescapePageBreaks(md));
           });
+        configureLineBreaks(ctx);
       })
       .config((ctx) => {
         ctx.set(chartSectionsCtx.key, sections ?? []);
         ctx.set(chartBrandingCtx.key, branding ?? null);
       })
-      .use(commonmark)
+      .use(commonmarkKeepingBreaks)
+      .use(lineBreaksPlugin)
       .use(gfm)
       .use(listener)
       .use(chartSectionsCtx)

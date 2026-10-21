@@ -1,3 +1,8 @@
+// The paper's margins, the same as the downloaded PDF's (A4.margin in lib/doc/pdf-pages.ts).
+@page {
+  margin: 14mm;
+}
+
 @media print {
   .no-print,
   .no-print * {

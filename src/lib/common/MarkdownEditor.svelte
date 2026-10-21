@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from '@milkdown/core';
   import {
-    commonmark,
     toggleStrongCommand,
     toggleEmphasisCommand,
     toggleInlineCodeCommand,
@@ -14,6 +13,8 @@
     linkSchema,
   } from '@milkdown/preset-commonmark';
   import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+  import { commonmarkKeepingBreaks, configureLineBreaks, lineBreaksPlugin } from '$lib/shared/components/milkdown-line-breaks';
+  import { unescapePageBreaks } from '$lib/shared/components/line-breaks';
   import { listener, listenerCtx } from '@milkdown/plugin-listener';
   import { history, undoCommand, redoCommand } from '@milkdown/kit/plugin/history';
   import { applyLink, findLinkRange } from '$lib/shared/components/milkdown-link';
@@ -113,10 +114,12 @@
         ctx.set(defaultValueCtx, value);
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, md, _prev) => {
-            onChange(md);
+            onChange(unescapePageBreaks(md));
           });
+        configureLineBreaks(ctx);
       })
-      .use(commonmark)
+      .use(commonmarkKeepingBreaks)
+      .use(lineBreaksPlugin)
       .use(gfm)
       .use(listener)
       .use(history)

@@ -118,7 +118,7 @@ export const recallEntity = async (
   ]);
   const relationGroups = relations.ok ? relations.value : [];
 
-  // The listed docs' own links: the sources a brief or synthesis doc is written from.
+  // The listed docs' own links: the sources a brief or other sync doc is written from.
   const docIds = docs.slice(0, limit).map((d) => d.id);
   const docLinks = docIds.length > 0
     ? await p.link.findMany({

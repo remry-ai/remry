@@ -243,6 +243,11 @@ table {
   tfoot th, tr.group-row th { border-top: 1px solid var(--border); text-transform: none; letter-spacing: 0; }
 }
 .table-wrap { overflow-x: auto; }
+// In written content a header wraps like its column (the app's own tables keep headers on one
+// line, above). A short column beside a long-text one keeps to one line (`fitTableColumns`,
+// lib/doc/table-columns.ts).
+.md-rendered th { white-space: normal; }
+.md-rendered :is(th, td).nowrap { white-space: nowrap; }
 
 details > summary {
   cursor: pointer;

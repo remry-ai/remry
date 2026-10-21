@@ -19,7 +19,7 @@ import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
-import { refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType } from '$api/_images';
+import { refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
 import { getPageKind } from '$api/page-kind/operations';
 import {
   filterRows,
@@ -227,7 +227,7 @@ export interface UpdatePageInput {
   readonly bodyType?: PageBodyType;
   readonly parentId?: string | null;
   readonly content?: string;
-  /** Makes it a synthesis of its linked sources; null (or blank) clears it. */
+  /** Makes it a sync doc, rewritten from its linked sources; null (or blank) clears it. */
   readonly prompt?: string | null;
   /** Merged into the current properties; null removes a key. */
   readonly properties?: PropertyPatch;
@@ -393,12 +393,11 @@ export const deletePage = async (
 export const uploadPageImage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid'>,
   pageId: string,
-  contentType: EditorImageType,
   dataBase64: string
-): Promise<Result<{ readonly key: string }>> => {
+): Promise<Result<StoredImage>> => {
   const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true } });
   if (!existing) return err(new Error(`Page ${pageId} not found`));
   const writable = await ensureWritable(reg, 'PAGE', pageId);
   if (!writable.ok) return err(writable.error);
-  return ok(await storeEditorImage(reg, `pages/${pageId}`, contentType, dataBase64));
+  return storeEditorImage(reg, `pages/${pageId}`, dataBase64);
 };

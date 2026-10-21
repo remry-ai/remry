@@ -140,7 +140,7 @@ model Doc {
   title      String
   content    String   @default("")
   sourceUrl  String?  @map("source_url")
-  /// A synthesis doc's prompt: what to pull from its linked sources. Null for an ordinary doc.
+  /// A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc.
   prompt     String?
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -282,7 +282,7 @@ model Page {
   bodyType   String   @default("doc") @map("body_type")
   parentId   String?  @map("parent_id")
   content    String   @default("")
-  /// A synthesis page's prompt: what to pull from its linked sources. Null for an ordinary page.
+  /// A sync page's prompt: what to pull from its linked sources. Null for an ordinary page.
   prompt     String?
   properties String   @default("{}")
   sortOrder  Int      @default(0) @map("sort_order")

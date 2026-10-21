@@ -7,7 +7,7 @@
   interface Doc {
     readonly id: string;
     readonly title: string;
-    /** Set on a synthesis doc, which gets a badge. */
+    /** Set on a sync doc, which gets a badge. */
     readonly prompt?: string | null;
     readonly sortOrder: number;
   }
@@ -79,7 +79,7 @@
       <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
-            {#if doc.prompt}<span class="badge accent" title="Claude writes it from its sources: {doc.prompt}">Synthesis</span>{/if}
+            {#if doc.prompt}<span class="badge accent" title="Sync doc: Claude keeps it in step with its sources. {doc.prompt}">Sync</span>{/if}
             {#snippet actions()}
               <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
               <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>

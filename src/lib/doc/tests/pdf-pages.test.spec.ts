@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { markPageBreaks, PAGE_BREAK_HTML, pdfFileName, planPageStarts } from '../pdf-pages';
+import { markPageBreaks, PAGE_BREAK_HTML, pdfFileName, planPageStarts, separateBreakLines } from '../pdf-pages';
 
 describe('planPageStarts', () => {
   it('is one page when everything fits', () => {
@@ -35,6 +35,10 @@ describe('markPageBreaks', () => {
     expect(markPageBreaks('<!--Page-Break-->')).toContain(PAGE_BREAK_HTML);
   });
 
+  it('also takes one the editor saved escaped', () => {
+    expect(markPageBreaks('One\n\n\\<!-- pagebreak -->\n\nTwo')).toContain(PAGE_BREAK_HTML);
+  });
+
   it('leaves the marker alone inside a code block and mid-line', () => {
     const fenced = '```\n<!-- pagebreak -->\n```';
     expect(markPageBreaks(fenced)).toBe(fenced);
@@ -49,5 +53,18 @@ describe('pdfFileName', () => {
 
   it('names an untitled doc', () => {
     expect(pdfFileName('  ')).toBe('document.pdf');
+  });
+});
+
+describe('separateBreakLines', () => {
+  it('puts blank lines around a line of only <br>s, so the markdown after it still renders', () => {
+    expect(separateBreakLines('<br>\n**Owner:** Dana')).toBe('\n<br>\n\n**Owner:** Dana');
+    expect(separateBreakLines('Intro\n<br /><br/>\n- item')).toBe('Intro\n\n<br /><br/>\n\n- item');
+  });
+
+  it('leaves a <br> inside a line, and code blocks, alone', () => {
+    expect(separateBreakLines('Line one<br>line two')).toBe('Line one<br>line two');
+    const fenced = '```\n<br>\n```';
+    expect(separateBreakLines(fenced)).toBe(fenced);
   });
 });

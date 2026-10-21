@@ -33,7 +33,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => addDoc(ctx.reg, input.entityType, input.entityId, input)),
 
   update: procedure
-    .meta({ description: 'Changes a doc\'s title, markdown content (fenced chart and mermaid blocks render) or prompt (which makes it a synthesis of its linked sources; null clears it).' })
+    .meta({ description: 'Changes a doc\'s title, markdown content (fenced chart and mermaid blocks render) or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it).' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -56,22 +56,24 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => reorderDocs(ctx.reg, input.entityType, input.entityId, input.docIds)),
 
   attachSource: procedure
-    .meta({ description: 'Attaches the original PDF (base64) to a doc whose markdown you wrote from it.' })
+    .meta({ description: "Attaches the original PDF to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine)." })
     .input(z.object({
       docId: z.string(),
-      contentType: z.literal('application/pdf'),
+      // Optional: the bytes must be a PDF. The app sends it.
+      contentType: z.literal('application/pdf').optional(),
       dataBase64: z.string().max(MAX_PDF_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.contentType, input.dataBase64)),
+    .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.dataBase64)),
 
   uploadImage: procedure
-    .meta({ description: 'Uploads an image (base64) for a doc and returns its key; embed it in the content as ![alt](storage://<key>).' })
+    .meta({ description: "Uploads an image to a doc and returns its key and the markdown to put in the content (then doc.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })
     .input(z.object({
       docId: z.string(),
-      contentType: z.enum(DOC_IMAGE_TYPES),
+      // Optional: the bytes decide. The app sends it.
+      contentType: z.enum(DOC_IMAGE_TYPES).optional(),
       dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.contentType, input.dataBase64)),
+    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.dataBase64)),
 
   getReadUrl: procedure
     .meta({ description: 'The app URL of a doc\'s attached PDF.' })

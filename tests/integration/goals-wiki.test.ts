@@ -77,10 +77,10 @@ describe('wiki pages and relations', () => {
     const detail = await getPage(reg, page.value.id);
     expect(detail.ok && detail.value.properties).toEqual({ vendor: 'Stripe', seats: 5 });
     expect(detail.ok && detail.value.prompt).toBeNull();
-    // A prompt makes the page a synthesis of its linked sources; null clears it.
+    // A prompt makes the page a sync doc of its linked sources; null clears it.
     await updatePage(reg, page.value.id, { prompt: 'Contract: renewal date and seats.' });
-    const synthesis = await getPage(reg, page.value.id);
-    expect(synthesis.ok && synthesis.value.prompt).toBe('Contract: renewal date and seats.');
+    const synced = await getPage(reg, page.value.id);
+    expect(synced.ok && synced.value.prompt).toBe('Contract: renewal date and seats.');
     await updatePage(reg, page.value.id, { prompt: null });
     expect((await getPage(reg, page.value.id)).ok).toBe(true);
 
@@ -188,7 +188,7 @@ describe('images in a page', () => {
     if (!page.ok) throw page.error;
 
     const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
-    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    const upload = await uploadPageImage(reg, page.value.id, png);
     if (!upload.ok) throw upload.error;
     expect(upload.value.key).toMatch(new RegExp(`^pages/${page.value.id}/image-.+\\.png$`));
     expect((await reg.storage.readObject(upload.value.key))?.contentType).toBe('image/png');
@@ -197,7 +197,7 @@ describe('images in a page', () => {
     expect(saved.ok).toBe(true);
     const lost = await updatePage(reg, page.value.id, { content: '![shot](blob:http://127.0.0.1:7369/abc)' });
     expect(!lost.ok && lost.error.message).toContain('blob:');
-    expect((await uploadPageImage(reg, 'no-such-page', 'image/png', png)).ok).toBe(false);
+    expect((await uploadPageImage(reg, 'no-such-page', png)).ok).toBe(false);
   });
 });
 
@@ -208,7 +208,7 @@ describe('deleting a doc or page with images', () => {
     const reg = getRegistry(TEST_NOTEBOOK);
     const page = await createPage(reg, { title: 'Page with images to delete' });
     if (!page.ok) throw page.error;
-    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    const upload = await uploadPageImage(reg, page.value.id, png);
     if (!upload.ok) throw upload.error;
     expect(await reg.storage.readObject(upload.value.key)).not.toBeNull();
 
@@ -220,7 +220,7 @@ describe('deleting a doc or page with images', () => {
     const reg = getRegistry(TEST_NOTEBOOK);
     const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Doc with an image' });
     if (!doc.ok) throw doc.error;
-    const upload = await uploadDocImage(reg, doc.value.id, 'image/png', png);
+    const upload = await uploadDocImage(reg, doc.value.id, png);
     if (!upload.ok) throw upload.error;
     expect((await removeDoc(reg, doc.value.id)).ok).toBe(true);
     expect(await reg.storage.readObject(upload.value.key)).toBeNull();
@@ -229,7 +229,7 @@ describe('deleting a doc or page with images', () => {
     if (!project.ok) throw project.error;
     const onProject = await addDoc(reg, 'PROJECT', project.value.id, { title: 'Spec' });
     if (!onProject.ok) throw onProject.error;
-    const image = await uploadDocImage(reg, onProject.value.id, 'image/png', png);
+    const image = await uploadDocImage(reg, onProject.value.id, png);
     if (!image.ok) throw image.error;
     expect((await deleteProject(reg, project.value.id)).ok).toBe(true);
     expect(await reg.storage.readObject(image.value.key)).toBeNull();
@@ -243,7 +243,7 @@ describe('images taken out of a page\'s text', () => {
     const reg = getRegistry(TEST_NOTEBOOK);
     const page = await createPage(reg, { title: 'Page whose image is removed' });
     if (!page.ok) throw page.error;
-    const upload = await uploadPageImage(reg, page.value.id, 'image/png', png);
+    const upload = await uploadPageImage(reg, page.value.id, png);
     if (!upload.ok) throw upload.error;
     const name = upload.value.key.split('/').pop()!;
     const removedKey = `pages/${page.value.id}/removed/${name}`;

@@ -59,7 +59,7 @@ export const pageRouter = router({
     .mutation(({ ctx, input }) => createPage(ctx.reg, input)),
 
   update: procedure
-    .meta({ description: 'Changes a page\'s title, kind, parent, content, properties or prompt (which makes it a synthesis of its linked sources; null clears it).' })
+    .meta({ description: 'Changes a page\'s title, kind, parent, content, properties or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it).' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -73,13 +73,14 @@ export const pageRouter = router({
     .mutation(({ ctx, input: { id, ...data } }) => updatePage(ctx.reg, id, data)),
 
   uploadImage: procedure
-    .meta({ description: 'Uploads an image (base64) pasted or dropped into a page\'s content and returns its key, for ![alt](storage://<key>).' })
+    .meta({ description: "Uploads an image to a wiki page and returns its key and the markdown to put in the content (then page.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })
     .input(z.object({
       pageId: z.string(),
-      contentType: z.enum(EDITOR_IMAGE_TYPES),
+      // Optional: the bytes decide. The app sends it.
+      contentType: z.enum(EDITOR_IMAGE_TYPES).optional(),
       dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => uploadPageImage(ctx.reg, input.pageId, input.contentType, input.dataBase64)),
+    .mutation(({ ctx, input }) => uploadPageImage(ctx.reg, input.pageId, input.dataBase64)),
 
   archive: procedure
     .input(z.object({ id: z.string() }))

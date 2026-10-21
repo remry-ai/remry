@@ -7,6 +7,8 @@
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
   import type { ZoomSource } from '$lib/ui/zoom';
   import { lostImageNote } from '$lib/doc/lost-images';
+  import { fitTableColumns } from '$lib/doc/table-columns';
+  import { separateBreakLines } from '$lib/doc/pdf-pages';
 
   const escapeAttr = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -135,6 +137,7 @@
     if (container && content) {
       // The HTML is in place by now; this doesn't wait for a frame, which a hidden window never draws.
       showLostImages(container);
+      fitTableColumns(container);
       // Wait a tick for the HTML to render, then draw charts and mermaid diagrams
       requestAnimationFrame(() => {
         // The renderer may be gone by the next frame (a {#key} remount).
@@ -156,7 +159,7 @@
   <!-- The user's own markdown, in a local app. -->
   {#if content}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html marked.parse(content, { renderer })}
+    {@html marked.parse(separateBreakLines(content), { renderer })}
   {:else}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html marked.parse(placeholder, { renderer })}

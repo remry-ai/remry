@@ -75,14 +75,14 @@ describe('attachSourcePdf', () => {
       uuid: () => 'uuid-abc'
     });
 
-    const dataBase64 = Buffer.from('hello pdf').toString('base64');
-    const result = await attachSourcePdf(reg, 'doc_1', 'application/pdf', dataBase64);
+    const dataBase64 = Buffer.from('%PDF-1.7 hello').toString('base64');
+    const result = await attachSourcePdf(reg, 'doc_1', dataBase64);
 
     expect(result.ok).toBe(true);
     const [key, body, contentType] = putObject.mock.calls[0]!;
     expect(key).toBe('docs/doc_1/source-uuid-abc.pdf');
     expect(contentType).toBe('application/pdf');
-    expect(Buffer.from(body).toString('utf8')).toBe('hello pdf');
+    expect(Buffer.from(body).toString('utf8')).toBe('%PDF-1.7 hello');
     expect(update).toHaveBeenCalledWith({
       where: { id: 'doc_1' },
       data: { sourceUrl: 'docs/doc_1/source-uuid-abc.pdf' }
@@ -101,7 +101,7 @@ describe('attachSourcePdf', () => {
       storage: storageMock({ deleteObject })
     });
 
-    await attachSourcePdf(reg, 'doc_1', 'application/pdf', 'abc');
+    await attachSourcePdf(reg, 'doc_1', Buffer.from('%PDF-1.4').toString('base64'));
     expect(deleteObject).toHaveBeenCalledWith('docs/doc_1/source-old.pdf');
   });
 
@@ -110,8 +110,21 @@ describe('attachSourcePdf', () => {
       prisma: { doc: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() } } as unknown as Registry['prisma']
     });
 
-    const result = await attachSourcePdf(reg, 'doc_missing', 'application/pdf', 'abc');
+    const result = await attachSourcePdf(reg, 'doc_missing', 'abc');
     expect(result.ok).toBe(false);
+  });
+
+  it('refuses a file that is not a PDF, without writing', async () => {
+    const putObject = vi.fn();
+    const reg = createTestRegistry({
+      prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update: vi.fn() } } as unknown as Registry['prisma'],
+      storage: storageMock({ putObject })
+    });
+
+    const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+    const result = await attachSourcePdf(reg, 'doc_1', png);
+    expect(!result.ok && result.error.message).toContain("isn't a PDF");
+    expect(putObject).not.toHaveBeenCalled();
   });
 });
 
@@ -236,13 +249,14 @@ describe('uploadDocImage', () => {
       uuid: () => 'uuid-abc'
     });
 
-    const result = await uploadDocImage(reg, 'doc_1', 'image/jpeg', Buffer.from('jpg bytes').toString('base64'));
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x01, 0x02]);
+    const result = await uploadDocImage(reg, 'doc_1', `data:image/jpeg;base64,${jpeg.toString('base64')}`);
 
-    expect(result).toEqual({ ok: true, value: { key: 'docs/doc_1/image-uuid-abc.jpg' } });
+    expect(result).toEqual({ ok: true, value: { key: 'docs/doc_1/image-uuid-abc.jpg', markdown: '![](storage://docs/doc_1/image-uuid-abc.jpg)' } });
     const [key, body, contentType] = putObject.mock.calls[0]!;
     expect(key).toBe('docs/doc_1/image-uuid-abc.jpg');
     expect(contentType).toBe('image/jpeg');
-    expect(Buffer.from(body).toString('utf8')).toBe('jpg bytes');
+    expect(Buffer.from(body)).toEqual(jpeg);
   });
 
   it('refuses a missing doc without writing', async () => {
@@ -252,7 +266,7 @@ describe('uploadDocImage', () => {
       storage: storageMock({ putObject })
     });
 
-    const result = await uploadDocImage(reg, 'doc_x', 'image/png', '');
+    const result = await uploadDocImage(reg, 'doc_x', '');
 
     expect(result.ok).toBe(false);
     expect(putObject).not.toHaveBeenCalled();

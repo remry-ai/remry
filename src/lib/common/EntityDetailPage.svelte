@@ -25,7 +25,7 @@
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
-  import SynthesisPrompt from '$lib/link/components/SynthesisPrompt.svelte';
+  import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage } from '$lib/stores/right-panel';
@@ -42,7 +42,7 @@
     readonly title: string;
     readonly content: string;
     readonly sourceUrl?: string | null;
-    /** Set on a synthesis doc: what Claude pulls from its sources. */
+    /** Set on a sync doc: what Claude pulls from its sources. */
     readonly prompt?: string | null;
     readonly sortOrder: number;
   }
@@ -172,7 +172,7 @@
     if (docParam && docParam !== NEW_DOC && !activeDoc) void closeDocUrl({ replace: true });
   });
 
-  // The open doc's links: the sources Claude synthesises it from, one line under its title.
+  // The open doc's links: the sources Claude writes it from, one line under its title.
   // Loaded here, since a page's load carries only the entity's own links; it reloads
   // whenever the page's data does (activeDoc is a new object then).
   interface DocLink {
@@ -558,7 +558,7 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SynthesisPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
   {:else}
     <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} />
   {/if}

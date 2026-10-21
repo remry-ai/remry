@@ -13,7 +13,7 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
-  import SynthesisPrompt from '$lib/link/components/SynthesisPrompt.svelte';
+  import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import { formatPropertyValue, kindName } from '$lib/page/utils';
@@ -53,7 +53,7 @@
   const isSheet = $derived(wikiPage.bodyType === 'sheet');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
-  // A synthesis page's sources are its links: synced ones, and ones added by hand that Claude reads next.
+  // A sync page's sources are its links: synced ones, and ones added by hand that Claude reads next.
   const sourceLinks = $derived(data.links ?? []);
 
   const handleAddLink = async (link: { readonly url: string; readonly title?: string }) => {
@@ -188,7 +188,7 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SynthesisPrompt prompt={wikiPage.prompt} links={sourceLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
     {/if}
     {#if isSheet}
       <section class="section">

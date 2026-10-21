@@ -115,8 +115,9 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
 | "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
-| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, then `doc.update --prompt "<what to take from each>" --content-file <synthesis with ## Discrepancies>` and mark each synced. See **Synthesising several sources** |
+| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, then `doc.update --prompt "<what to take from each>" --content-file <the write-up, with ## Discrepancies>` and mark each synced. See **Sync docs** |
 | "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
+| "Put this screenshot in the Checkout brief" (an image in the chat) | Shrink it, `doc_uploadImage --docId <brief> --dataBase64 <base64>`, put the returned `markdown` where it belongs and `doc_update` the content. See **Files from the chat** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
 | "Platform owns the Q4 migration" | `project.update --id <project> --ownerType GROUP --ownerId <platform>` (set both together; `--ownerType null --ownerId null` clears the owner) |
@@ -204,7 +205,7 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
 
 **Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
-1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a synthesis (below), where a link without one is a source the user added by hand.
+1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a sync doc (below), where a link without one is a source the user added by hand.
 2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed.
 3. **Edited after `syncedAt`:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link>`.
 4. **Not edited since:** `link.markSynced --id <link>`, so the app shows it as checked. Add no note.
@@ -214,13 +215,13 @@ Then answer, leading with what's new: "Two updates since you last looked: the PR
 
 Keep it proportionate: check the docs of the entities your answer is about, not every entity a search touches. If that's more than about five docs, check the ones that matter most and offer to check the rest. Don't re-check a doc you checked earlier in the same conversation.
 
-## Synthesising several sources
+## Sync docs
 
-The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull the pricing from these three docs into the vendor page". A write-up like this is a **synthesis**: a doc or wiki page with a **prompt**. The app shows it under a "Synthesis" banner, with the prompt and the sources, so it's never mistaken for something the user wrote.
+The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull the pricing from these three docs into the vendor page". A write-up like this is a **sync doc**: a doc or wiki page with a **prompt**, kept in sync with its sources. The app shows it under a "Sync" banner, with the prompt and the sources, so it's never mistaken for something the user wrote.
 
 **The prompt is the recipe.** It says what to take from each source and what to watch for, in the user's terms: "PRD: scope and launch plan. Linear: status and dates. Pricing sheet: the tiers only. Flag any disagreement on dates or scope." Write it from what the user asked; ask when it's unclear which parts of a source they want. It's stored on the doc or page (`--prompt`, up to 2000 characters), so every later refresh, in any session, pulls the same parts. The user can edit it in the banner. `search.recall` returns each doc's `prompt`; `page.get` returns a page's.
 
-| Synthesis on | The write-up | Prompt and sources on | Also compare against the sources |
+| Sync doc on | The write-up | Prompt and sources on | Also compare against the sources |
 |---|---|---|---|
 | A project | A doc on the project, titled "<Project> brief" unless the user names it (not the description, which they edit by hand) | The doc: `doc.update --prompt`, `link.add --entityType DOC` | The project's status, start and target dates, owner and estimates |
 | A wiki page | The page's content | The page: `page.update --prompt`, `link.add --entityType PAGE` | The page's properties (an amount, a date, a renewal) |
@@ -234,15 +235,15 @@ The user can ask for one write-up drawn from several sources, with where they di
 5. Never change a field the user set because a source disagrees: list it in Discrepancies and ask ("Linear says 30 Oct; update the project's target date?"). The exception is an entity imported from that source, whose shared facts the source owns (see **Importing from other tools**).
 6. Reply with the headline points and the discrepancies, then the link.
 
-**Sources added in the app.** The user can add a link to a doc's or synthesis page's sources with "Add link"; it has no `syncedAt` and shows "not synced yet". On a synthesis, treat it as a new source: read it, and if the prompt doesn't say what to take from it, ask, then add that to the prompt. Fold it into the write-up (a rewrite, under the rules below), then `link.markSynced` it. On an ordinary doc, it's a reference: mention it if it's relevant, and offer to make the doc a synthesis when the user seems to want its content pulled in.
+**Sources added in the app.** The user can add a link to a doc's or sync page's sources with "Add link"; it has no `syncedAt` and shows "not synced yet". On a sync doc, treat it as a new source: read it, and if the prompt doesn't say what to take from it, ask, then add that to the prompt. Fold it into the write-up (a rewrite, under the rules below), then `link.markSynced` it. On an ordinary doc, it's a reference: mention it if it's relevant, and offer to make it a sync doc when the user seems to want its content pulled in.
 
-**Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the synthesis or what it's on, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed:
+**Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the sync doc or what it's on, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed:
 - If the doc or page hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, following the prompt, Discrepancies included.
 - If it has (the user edited the text or the prompt), don't overwrite it. Add a note with what's new and which discrepancies appeared or went away, and ask whether to rewrite it from the prompt.
 - Either way, tell the user what changed: "Since the last brief: the PRD moved launch to 12 Nov, so the launch-date discrepancy with Linear is new; the pricing sheet now matches the PRD on tiers, so that one's resolved."
 Then `link.markSynced` each source you checked.
 
-**Changing what it covers.** "Also pull the risks from the PRD" or "drop the pricing sheet": update the prompt (and add or remove the link), then rewrite. `--prompt null` turns a synthesis back into an ordinary doc or page; its text stays.
+**Changing what it covers.** "Also pull the risks from the PRD" or "drop the pricing sheet": update the prompt (and add or remove the link), then rewrite. `--prompt null` turns a sync doc back into an ordinary doc or page; its text stays.
 
 ## Importing a PDF
 
@@ -250,7 +251,36 @@ The app stores PDFs but can't read them; you do the reading.
 
 1. Read the PDF and convert it to clean markdown, keeping headings, lists and tables.
 2. `remry doc.add --entityType PERSON --entityId <id> --title "<title>"`, then `remry doc.update --id <doc> --content-file /tmp/doc.md`
-3. To keep the original attached, when you have a shell: `base64 -i file.pdf > /tmp/pdf.b64`, then `remry doc.attachSource --docId <doc> --contentType application/pdf --dataBase64-file /tmp/pdf.b64`
+3. To keep the original attached: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry doc.attachSource --docId <doc> --dataBase64-file /tmp/pdf.b64`; from a sandbox, `doc_attachSource` only for a small file (**Files from the chat**).
+
+## Files from the chat
+
+When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores two kinds of file, images and a doc's source PDF; everything else goes in as text you write.
+
+| The file | What to do |
+|---|---|
+| An image (PNG, JPEG, GIF, WebP; a screenshot, photo, whiteboard) | `doc_uploadImage --docId` or `page_uploadImage --pageId`. It returns `markdown` (`![](storage://<key>)`): put it where the image belongs, with a short alt text (`![Q3 roadmap whiteboard](storage://…)`), and save the text in the same turn (`doc_update --content`, `page_update --content`). An uploaded image the text doesn't show is tidied away on the next save |
+| A PDF | Read it and write its markdown into a doc (**Importing a PDF**). Attaching the original (`doc_attachSource --docId`) is optional, and from a sandbox only when it's small (below) |
+| Markdown, text, a Word doc, a web page | Read it and write it as a doc's or page's content, as markdown |
+| A spreadsheet or CSV | A markdown table in a doc or page; or, when each row is a record (expenses, contacts), a page per row of a page kind (**Page kinds**). Ask which when it isn't clear |
+| Anything else (audio, video, an archive) | The app can't store it. Say so, and offer to note what it is and link to where it lives |
+
+The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is fine). The bytes decide the type, and anything else is refused with what to do. An error saying it isn't valid base64, or isn't an image or a PDF, means the text was cut or altered: encode it again.
+
+**In Cowork (or any sandbox), the base64 goes through the tool call as text you write**, so the file has to be small: every character costs time and output.
+1. Find the file. One the user attached is a file in your sandbox (look in the uploads folder). An image pasted into the message may exist only as a picture you can see; then ask them to attach it as a file.
+2. Shrink an image there, keeping it legible: longest side 1400px (1000px for a photo), saved as WebP at quality 70, or JPEG at quality 75 if WebP isn't available. Aim for 50 KB or less and stop at 150 KB: step the size and quality down until it fits. For example, with Python and Pillow:
+   ```python
+   from PIL import Image
+   im = Image.open(src); im.thumbnail((1400, 1400)); im.convert("RGB").save("/tmp/up.webp", "WEBP", quality=70)
+   ```
+   A PDF can't be shrunk the same way: attach it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "Attach PDF" on the doc in the app adds it.
+3. `base64 -w0 <file>` (or Python's `base64.b64encode`) and pass the whole output as `dataBase64`, unchanged and in one piece.
+4. Say what you reduced or left out ("added at 1400px; the original is larger", "the PDF's text is in the doc; attach the original in the app").
+
+**In Claude Code on the user's Mac**, use the CLI, which reads the file itself, so size doesn't matter: `base64 -i shot.png > /tmp/shot.b64`, then `remry doc.uploadImage --docId <doc> --dataBase64-file /tmp/shot.b64` (`page.uploadImage --pageId`, or `doc.attachSource` for a PDF).
+
+**In Claude desktop Chat**, with no sandbox, you can read a file but can't send its bytes: write its text into the notebook as usual, and say that an image or the original PDF can be dragged in or attached in the app.
 
 ## Remry Pro
 
