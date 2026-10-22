@@ -3,8 +3,6 @@
   // in the right panel's Peek tab, with the type's own peek component. A plain `?peek=<id>` is
   // a list page's, and shows nothing here.
   import { page } from '$app/state';
-  import { trpc } from '$shared/trpc/client';
-  import type { PageKindDefinition } from '$shared/types/pages';
   import { parsePeek, PEEK_PARAM, type PeekType } from '$lib/ui/peek-url';
   import ProjectPeek from '$lib/project/components/ProjectPeek.svelte';
   import PagePeek from '$lib/page/components/PagePeek.svelte';
@@ -23,19 +21,12 @@
   const goalId = $derived(idFor('GOAL'));
   const personId = $derived(idFor('PERSON'));
   const docId = $derived(idFor('DOC'));
-
-  // A wiki page's peek shows its fields by its kind; loaded the first time one is peeked.
-  let kinds = $state.raw<readonly PageKindDefinition[] | null>(null);
-  $effect(() => {
-    if (target?.type !== 'PAGE' || kinds) return;
-    trpc().pageKind.list.query().then((result) => { kinds = result.ok ? result.value : []; }, () => { kinds = []; });
-  });
 </script>
 
 {#if projectId}
   <ProjectPeek id={projectId} />
-{:else if pageId && kinds}
-  <PagePeek id={pageId} {kinds} />
+{:else if pageId}
+  <PagePeek id={pageId} />
 {:else if goalId}
   <GoalPeek id={goalId} />
 {:else if personId}

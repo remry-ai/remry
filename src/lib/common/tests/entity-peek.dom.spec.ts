@@ -14,13 +14,12 @@ vi.mock('$app/state', () => ({ page }));
 vi.mock('$app/stores', () => ({ page: writable({ get url() { return page.url; }, data: {} }) }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
-// Every query answers "not found", except the page kinds a wiki page's peek waits for, so each
-// peek renders its header and error and nothing goes to a server.
+// Every query answers "not found", so each peek renders its header and error and nothing goes to a server.
 vi.mock('$shared/trpc/client', () => {
   const call = (path: readonly string[]): unknown =>
     new Proxy(() => undefined, {
       get: (_t, key: string) => (key === 'query' || key === 'mutate'
-        ? () => Promise.resolve(path.join('.') === 'pageKind.list' ? { ok: true, value: [] } : { ok: false, error: { message: 'Not found' } })
+        ? () => Promise.resolve({ ok: false, error: { message: 'Not found' } })
         : call([...path, key]))
     });
   return { trpc: () => call([]) };

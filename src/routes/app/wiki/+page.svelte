@@ -6,12 +6,9 @@
   import ArchiveFilter from '$lib/ui/ArchiveFilter.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
-  import type { PageKindSummary, PageSummary } from '$shared/types/pages';
+  import type { PageSummary } from '$shared/types/pages';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
-  import ParamSelect from '$lib/ui/ParamSelect.svelte';
-  import DatasetTable from '$lib/page/components/DatasetTable.svelte';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
-  import { formatPropertyValue, kindName } from '$lib/page/utils';
   import { page as appPage } from '$app/state';
   import PagePeek from '$lib/page/components/PagePeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
@@ -19,13 +16,6 @@
 
   const { data } = $props<{ data: PageData }>();
   const pages = $derived(data.pages as readonly PageSummary[]);
-  const kinds = $derived(data.kinds as readonly PageKindSummary[]);
-  // ?kind= shows that kind's pages as a dataset table instead of the tree.
-  const currentKind = $derived(kinds.find((k) => k.key === data.kind) ?? null);
-  const kindOptions = $derived([
-    { id: '', name: 'All kinds' },
-    ...kinds.filter((k) => k.pageCount > 0 || k.key === data.kind).map((k) => ({ id: k.key, name: `${k.name} (${k.pageCount})` }))
-  ]);
   // Pages start expanded; this holds the ones collapsed.
   let collapsed = $state<ReadonlySet<string>>(new Set());
 
@@ -44,15 +34,6 @@
     ),
   );
 
-  const details = (page: PageSummary): string =>
-    (kinds.find((k) => k.key === page.kind)?.fields ?? [])
-      .flatMap((field) => {
-        const value = page.properties[field.key];
-        return value === undefined ? [] : [`${field.label}: ${formatPropertyValue(field, value)}`];
-      })
-      .slice(0, 3)
-      .join(' · ');
-
   const formatDate = (d: Date | string): string => new Date(d).toLocaleDateString('en-CA');
 
   const peekId = $derived(parsePeek(appPage.url.searchParams.get(PEEK_PARAM))?.id ?? null);
@@ -60,48 +41,24 @@
   const handleCreated = () => closePopup({ invalidate: true });
 </script>
 
-<svelte:head><title>{currentKind ? `${currentKind.name} · Wiki` : 'Wiki'}</title></svelte:head>
+<svelte:head><title>Wiki</title></svelte:head>
 
 <div class="page">
-  <PageHeader
-    title={currentKind ? currentKind.name : 'Wiki'}
-    description={currentKind?.description ?? 'Plain pages for anything worth writing down. Define a page kind to keep a set of pages as a table.'}
-  >
-    <a class="btn" href="/app/wiki/kinds">Page kinds</a>
-    <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add {currentKind && currentKind.key !== 'GENERAL' ? currentKind.name.toLowerCase() : 'page'}</button>
+  <PageHeader title="Wiki" description="Pages for anything worth writing down, as documents or spreadsheets.">
+    <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add page</button>
   </PageHeader>
 
   <div class="toolbar filters">
     <ArchiveFilter />
-    <ParamSelect param="kind" options={kindOptions} defaultValue="" ariaLabel="Show one kind as a table" />
   </div>
 
-  {#if data.kind && !currentKind}
-    <EmptyState message="This notebook has no page kind {data.kind}." boxed>
-      <a class="btn sm" href="/app/wiki/kinds">See page kinds</a>
-    </EmptyState>
-  {:else if currentKind && data.dataset}
-    {#if data.dataset.ok}
-      <DatasetTable
-        kind={currentKind}
-        pages={data.dataset.value.pages}
-        count={data.dataset.value.count}
-        totals={data.dataset.value.totals}
-        groups={data.dataset.value.groups}
-      />
-    {:else}
-      <p class="form-error">{data.dataset.error}</p>
-      <a class="btn sm" href="/app/wiki?kind={currentKind.key}">Reset the view</a>
-    {/if}
-  {:else if data.pages.length > 0}
+  {#if data.pages.length > 0}
     {#if rows.length > 0}
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Title</th>
-              <th>Kind</th>
-              <th>Details</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -122,8 +79,6 @@
                     </span>
                   </span>
                 </td>
-                <td><a class="badge" href="/app/wiki?kind={page.kind}">{kindName(kinds, page.kind)}</a></td>
-                <td class="text-2">{details(page)}</td>
                 <td class="text-2">{formatDate(page.updatedAt)}</td>
               </tr>
             {/each}
@@ -131,7 +86,7 @@
         </table>
       </div>
     {:else}
-      <EmptyState message="No pages of this kind." />
+      <EmptyState message="No pages." />
     {/if}
   {:else}
     <EmptyState message="No pages yet." boxed>
@@ -141,11 +96,11 @@
 </div>
 
 {#if peekId}
-  <PagePeek id={peekId} {kinds} />
+  <PagePeek id={peekId} />
 {/if}
 
 <Popup id="new-page" title="Add page">
-  <PageForm initial={{ kind: currentKind?.key ?? 'GENERAL' }} {kinds} onSuccess={handleCreated} onCancel={() => closePopup()} />
+  <PageForm onSuccess={handleCreated} onCancel={() => closePopup()} />
 </Popup>
 
 <style lang="scss">

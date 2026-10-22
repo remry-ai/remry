@@ -4,7 +4,7 @@
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
   import { submit } from '$lib/ui/submit';
-  import { kindKeyFromName } from '$lib/page/kind-form';
+  import { kindKeyFromName } from '$lib/ui/kind-key';
   import type { GroupKindDefinition } from '$shared/types/groups';
 
   interface Props {

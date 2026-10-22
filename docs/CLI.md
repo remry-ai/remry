@@ -62,7 +62,7 @@ To retire a notebook, move its folder out of `Notebooks/` yourself.
 | `GROUP` | a team, department, family or friend group: its `kind` is one of the notebook's group kinds (`groupKind.list`); a person can be in many, but in only one group of an exclusive kind such as DEPARTMENT |
 | `PROJECT` | free-text `status`, sub-projects via `parentId`, three-point estimates, an owner |
 | `GOAL` | work notebooks only; an owner (none = the whole notebook), `period` like `2026-H2`, `unit`/`baseline`/`target`, sub-goals, check-ins |
-| `PAGE` | the wiki: `kind` is `GENERAL` or one of the notebook's page kinds (`pageKind.list`), with typed `properties` per kind |
+| `PAGE` | the wiki: a markdown document or a spreadsheet (`bodyType sheet`), in a page tree via `parentId` |
 
 Notes, docs, todos, links, tags, comments and emoji attach to any of these through `entityType` +
 `entityId` — with one exception: **docs don't attach to a `PAGE`**, because a page's own `content`
@@ -76,9 +76,8 @@ update that one; pass `--allowDuplicate true` for a namesake.
 remry goal.create --title "99.9% uptime" --ownerType GROUP --ownerId <engineering> \
   --period 2026-H2 --unit % --baseline 99.5 --target 99.9
 remry goal.checkIn --goalId <goalId> --value 99.7 --status AT_RISK --comment "Two brownouts."
-remry pageKind.create --input '{"key":"SOFTWARE","name":"Software","fields":[{"key":"vendor","label":"Vendor","input":"text"},{"key":"annualCost","label":"Annual cost","input":"number","format":"money","currency":"USD"},{"key":"renewalDate","label":"Renews","input":"date"}]}'
-remry page.create --title Datadog --kind SOFTWARE \
-  --properties '{"vendor":"Datadog","annualCost":40000,"renewalDate":"2027-03-01"}'
+remry page.create --title Datadog \
+  --content $'- **Vendor:** Datadog\n- **Annual cost:** $40,000\n- **Renews:** 2027-03-01\n\nOur monitoring.'
 ```
 
 A goal's `period` is a calendar year, half or quarter (`2026`, `2026-H2`, `2026-Q3`). The app reads
@@ -89,9 +88,8 @@ A check-in needs at least one of `value`, `status` or `comment`. If it carries a
 becomes the goal's status too. `goal.get` returns `current` and `progress`, and calculates progress
 correctly when a lower number is better, as in 480 ms down to 200 ms.
 
-Pages are plain (`GENERAL`) unless the notebook defines a kind with `pageKind.create`; no kinds
-come preset. Page `properties` are typed per kind and unknown keys are rejected, with the allowed
-list in the error.
+Pages have no kinds or fields. Keep a record's details as a list at the top of its page, and many
+records of one shape (expenses, subscriptions) as rows of one spreadsheet page.
 
 ## Linking things
 

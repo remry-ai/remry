@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SearchHit } from '$shared/types/search';
-import { FINDER_SCOPES, appLink, autocompleteRows, completeCommand, completeScope, docEntries, parseScope, scopeSuggestions, todoEntries, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
+import { FINDER_SCOPES, appLink, groupKindScopes, inScope, autocompleteRows, completeCommand, completeScope, docEntries, parseScope, scopeSuggestions, todoEntries, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
 
 const entries: readonly FinderEntry[] = [
   { id: 'GROUP:1', name: 'Console', scope: 'GROUP', meta: 'Team' },
@@ -186,5 +186,60 @@ describe('docEntries and todoEntries', () => {
       { id: 'TODO:t2', name: 'Open thing', scope: 'TODO', meta: 'Todo', href: '/app/todos?popup=todo&todo=t2' },
       { id: 'TODO:t1', name: 'Done thing', scope: 'TODO', meta: 'Todo · done · Ada', href: '/app/todos?popup=todo&todo=t1' }
     ]);
+  });
+});
+
+describe('group kinds as scopes', () => {
+  const kinds = [
+    { key: 'TEAM', name: 'Team', plural: 'Teams' },
+    { key: 'DEPARTMENT', name: 'Department', plural: 'Departments' },
+    { key: 'FAMILY', name: 'Family', plural: 'Families' },
+    { key: 'WIKI', name: 'Page', plural: 'Pages' }
+  ];
+  const scopes = [...FINDER_SCOPES, ...groupKindScopes(kinds)];
+  const grouped: readonly FinderEntry[] = [
+    { id: 'GROUP:t1', name: 'Platform', scope: 'GROUP', meta: 'Team', groupKind: 'TEAM' },
+    { id: 'GROUP:d1', name: 'Platform engineering', scope: 'GROUP', meta: 'Department', groupKind: 'DEPARTMENT' },
+    { id: 'GROUP:f1', name: 'Smiths', scope: 'GROUP', meta: 'Family', groupKind: 'FAMILY' },
+    { id: 'PROJECT:p1', name: 'Platform rebuild', scope: 'PROJECT', meta: 'Project' }
+  ];
+
+  it('makes a scope per kind from its name and plural, leaving out words already taken', () => {
+    expect(groupKindScopes(kinds)).toEqual([
+      { type: 'GROUP', label: 'Teams', keywords: ['team', 'teams'], groupKind: 'TEAM' },
+      { type: 'GROUP', label: 'Departments', keywords: ['department', 'departments'], groupKind: 'DEPARTMENT' },
+      { type: 'GROUP', label: 'Families', keywords: ['family', 'families'], groupKind: 'FAMILY' },
+      { type: 'GROUP', label: 'Pages', keywords: ['pages'], groupKind: 'WIKI' }
+    ]);
+    expect(groupKindScopes([{ key: 'FRIEND_GROUP', name: 'Friend group', plural: 'Friend groups' }])[0]!.keywords).toEqual(['friendgroup', 'friendgroups']);
+  });
+
+  it('narrows to one kind of group', () => {
+    expect(parseScope('team: plat', scopes)).toMatchObject({ scope: { groupKind: 'TEAM' }, text: 'plat' });
+    expect(parseScope('dep: plat', scopes)).toMatchObject({ scope: { groupKind: 'DEPARTMENT' } });
+    expect(parseScope('families: smith', scopes)).toMatchObject({ scope: { groupKind: 'FAMILY' } });
+    expect(keys(autocompleteRows('team: plat', grouped, scopes))).toEqual(['GROUP:t1']);
+    expect(keys(autocompleteRows('department:', grouped, scopes))).toEqual(['GROUP:d1']);
+    expect(keys(autocompleteRows('group: plat', grouped, scopes))).toEqual(['GROUP:t1', 'GROUP:d1']);
+  });
+
+  it('keeps the fixed keywords first', () => {
+    expect(parseScope('page: x', scopes).scope).toMatchObject({ type: 'PAGE' });
+    expect(parseScope('d: x', scopes).scope).toMatchObject({ type: 'DOC' });
+    expect(parseScope('t: x', scopes).scope).toMatchObject({ type: 'TODO' });
+  });
+
+  it('offers and completes a kind keyword', () => {
+    expect(keys(autocompleteRows('tea', grouped, scopes))).toEqual(['scope:GROUP:TEAM']);
+    expect(completeScope('tea', scopes)).toBe('team: ');
+    expect(completeScope('/search fam', scopes)).toBe('/search family: ');
+  });
+
+  it('matches entries of the scope type, and of the kind when it has one', () => {
+    const team = scopes.find((s) => s.groupKind === 'TEAM')!;
+    const groups = scopes.find((s) => s.type === 'GROUP' && !s.groupKind)!;
+    expect(inScope(grouped[0]!, team)).toBe(true);
+    expect(inScope(grouped[1]!, team)).toBe(false);
+    expect(inScope(grouped[1]!, groups)).toBe(true);
   });
 });

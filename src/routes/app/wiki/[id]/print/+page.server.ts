@@ -15,16 +15,14 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
   // PDF export is Remry Pro: without an active license the page explains instead.
   const status = license.ok ? license.value : NO_LICENSE;
   if (!isProActive(status)) {
-    return { page: page.value, locked: lockedMessage('pdf-export', status, 'app'), fields: [], brandings: [], options: resolvePrintOptions(new URLSearchParams(), []), branding: null };
+    return { page: page.value, locked: lockedMessage('pdf-export', status, 'app'), brandings: [], options: resolvePrintOptions(new URLSearchParams(), []), branding: null };
   }
-  const kind = await client.pageKind.get.query({ key: page.value.kind });
   const brandingList = brandings.ok ? brandings.value : [];
   const options = resolvePrintOptions(url.searchParams, brandingList);
   const branding = options.brandingId ? await client.branding.get.query({ id: options.brandingId }) : null;
   return {
     page: page.value,
     locked: null,
-    fields: kind.ok ? kind.value.fields : [],
     brandings: brandingList,
     options,
     branding: branding?.ok ? branding.value : null

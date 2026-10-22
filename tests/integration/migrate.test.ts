@@ -27,8 +27,6 @@ describe('applyMigrations', () => {
     const result = await applyMigrations(client, 'prisma/migrations', quiet);
     expect(result.ok && result.value.applied).toEqual(onDisk);
     expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(lastNeeded);
-    // The newest migration is additive, so a Remry without it can still open the database.
-    expect(lastNeeded).toBeLessThan(onDisk.length);
 
     const rows = await client.execute('SELECT migration_name, checksum, finished_at, applied_steps_count FROM _prisma_migrations ORDER BY migration_name');
     expect(rows.rows.map((r) => r[0])).toEqual(onDisk);
@@ -43,17 +41,35 @@ describe('applyMigrations', () => {
   });
 
   it('lets an older Remry open a database a newer one migrated, when the newer migrations are additive', async () => {
+    // A newer Remry whose newest migration is additive (the last such one on disk), and an
+    // older one without it.
+    const newest = onDisk.findLast((name) => ADDITIVE_MIGRATIONS.has(name))!;
+    const upTo = onDisk.slice(0, onDisk.indexOf(newest) + 1);
+    const copy = (names: readonly string[]): string => {
+      const dir = mkdtempSync(join(tmpdir(), 'remry-migrations-'));
+      for (const name of names) cpSync(join('prisma/migrations', name), join(dir, name), { recursive: true });
+      return dir;
+    };
     const { client } = freshDb();
-    expect((await applyMigrations(client, 'prisma/migrations', quiet)).ok).toBe(true);
-    // An older Remry: the same migrations without the newest, which is additive.
-    const newest = onDisk.at(-1)!;
-    expect(ADDITIVE_MIGRATIONS.has(newest)).toBe(true);
-    const older = mkdtempSync(join(tmpdir(), 'remry-older-'));
-    for (const name of onDisk.slice(0, -1)) cpSync(join('prisma/migrations', name), join(older, name), { recursive: true });
-    const opened = await applyMigrations(client, older, quiet);
+    expect((await applyMigrations(client, copy(upTo), quiet)).ok).toBe(true);
+    const needed = Number((await client.execute('PRAGMA user_version')).rows[0]![0]);
+    expect(needed).toBeLessThan(upTo.length);
+    const opened = await applyMigrations(client, copy(upTo.slice(0, -1)), quiet);
     expect(opened.ok && opened.value.applied).toEqual([]);
     // It keeps the newer Remry's record of what the database needs.
-    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(lastNeeded);
+    expect(Number((await client.execute('PRAGMA user_version')).rows[0]![0])).toBe(needed);
+    client.close();
+  });
+
+  it('refuses a database a newer Remry migrated past what it knows, when that migration changed what it reads', async () => {
+    // drop_page_kinds removes columns an older Remry reads, so it isn't additive.
+    const dropKinds = onDisk.find((name) => name.endsWith('_drop_page_kinds'))!;
+    expect(ADDITIVE_MIGRATIONS.has(dropKinds)).toBe(false);
+    const { dir, client } = freshDb();
+    expect((await applyMigrations(client, 'prisma/migrations', quiet)).ok).toBe(true);
+    const older = join(dir, 'older');
+    for (const name of onDisk.slice(0, onDisk.indexOf(dropKinds))) cpSync(join('prisma/migrations', name), join(older, name), { recursive: true });
+    expect((await applyMigrations(client, older, quiet)).ok).toBe(false);
     client.close();
   });
 
@@ -121,13 +137,13 @@ describe('applyMigrations', () => {
     client.close();
   });
 
-  it('drops the old starter page kinds, turning their pages into plain pages', async () => {
-    const kinds = async (client: ReturnType<typeof createClient>) =>
-      (await client.execute('SELECT key FROM page_kind ORDER BY sort_order')).rows.map((r) => r[0]);
+  it('drops page kinds: the starter ones first, then the table and the page columns, keeping pages', async () => {
+    const hasKinds = async (client: ReturnType<typeof createClient>) =>
+      Number((await client.execute("SELECT count(*) FROM sqlite_master WHERE name = 'page_kind'")).rows[0]![0]) > 0;
 
     const fresh = freshDb();
     await applyMigrations(fresh.client, 'prisma/migrations', quiet);
-    expect(await kinds(fresh.client)).toEqual([]);
+    expect(await hasKinds(fresh.client)).toBe(false);
     fresh.client.close();
 
     const { dir, client } = freshDb();
@@ -141,9 +157,39 @@ describe('applyMigrations', () => {
     await client.execute("INSERT INTO page (id, title, kind, updated_at) VALUES ('p1', 'Datadog', 'SOFTWARE', CURRENT_TIMESTAMP)");
     cpSync('prisma/migrations', migrations, { recursive: true });
     await applyMigrations(client, migrations, quiet);
-    expect(await kinds(client)).toEqual([]);
-    const page = (await client.execute("SELECT kind, properties FROM page WHERE id = 'p1'")).rows[0]!;
-    expect([page[0], page[1]]).toEqual(['GENERAL', '{}']);
+    expect(await hasKinds(client)).toBe(false);
+    // A starter kind's page became a plain page before kinds went, so its text stays as it was.
+    const page = (await client.execute("SELECT title, content FROM page WHERE id = 'p1'")).rows[0]!;
+    expect([page[0], page[1]]).toEqual(['Datadog', '']);
+    const columns = (await client.execute("SELECT name FROM pragma_table_info('page')")).rows.map((r) => r[0]);
+    expect(columns).not.toContain('kind');
+    expect(columns).not.toContain('properties');
+    client.close();
+  });
+
+  it("writes a page's kind and field values into its text before kinds go", async () => {
+    const { dir, client } = freshDb();
+    const migrations = join(dir, 'migrations');
+    const dropKinds = onDisk.find((name) => name.endsWith('_drop_page_kinds'))!;
+    cpSync('prisma/migrations', migrations, { recursive: true, filter: (src) => !src.includes(dropKinds) });
+    await applyMigrations(client, migrations, quiet);
+    await client.execute(`INSERT INTO page_kind (key, name, fields, updated_at) VALUES ('EXPENSE', 'Expense', '[{"key":"amount","label":"Amount","input":"number"},{"key":"tags","label":"Tags","input":"multiselect","options":["Home","Fun"]},{"key":"paid","label":"Paid","input":"checkbox"}]', CURRENT_TIMESTAMP)`);
+    await client.execute(`INSERT INTO page (id, title, kind, content, properties, updated_at) VALUES ('p1', 'Netflix', 'EXPENSE', 'Streaming.', '{"amount":15.49,"tags":["Home","Fun"],"paid":true,"note":null}', CURRENT_TIMESTAMP)`);
+    await client.execute(`INSERT INTO page (id, title, kind, content, properties, updated_at) VALUES ('p2', 'Plain', 'GENERAL', 'Just text.', '{}', CURRENT_TIMESTAMP)`);
+    await client.execute(`INSERT INTO page (id, title, kind, body_type, content, properties, updated_at) VALUES ('p3', 'Grid', 'EXPENSE', 'sheet', '{"columns":[],"data":[]}', '{"amount":3}', CURRENT_TIMESTAMP)`);
+    cpSync(join('prisma/migrations', dropKinds), join(migrations, dropKinds), { recursive: true });
+    expect((await applyMigrations(client, migrations, quiet)).ok).toBe(true);
+
+    const content = async (id: string) => (await client.execute({ sql: 'SELECT content FROM page WHERE id = ?', args: [id] })).rows[0]![0];
+    expect(await content('p1')).toBe('- **Kind:** Expense\n- **Amount:** 15.49\n- **Tags:** Home, Fun\n- **Paid:** Yes\n\nStreaming.');
+    expect(await content('p2')).toBe('Just text.');
+    // A spreadsheet page has no text to hold them.
+    expect(await content('p3')).toBe('{"columns":[],"data":[]}');
+    // Search reads the values in the text now, and the page's triggers still run.
+    const hits = (await client.execute("SELECT entity_id FROM search_index WHERE search_index MATCH 'expense'")).rows.map((r) => r[0]);
+    expect(hits).toEqual(['p1']);
+    await client.execute("UPDATE page SET title = 'Netflix plan' WHERE id = 'p1'");
+    expect((await client.execute("SELECT title FROM search_index WHERE entity_type = 'PAGE' AND entity_id = 'p1'")).rows[0]![0]).toBe('Netflix plan');
     client.close();
   });
 
@@ -167,8 +213,9 @@ describe('applyMigrations', () => {
       (await client.execute({ sql: 'SELECT entity_type, entity_id, parent_id FROM search_index WHERE search_index MATCH ? ORDER BY entity_id', args: [match] })).rows
         .map((r) => [r[0], r[1], r[2]]);
     expect(await hits('lovelace')).toEqual([['PERSON', 'p1', null]]);
-    expect(await hits('engine')).toEqual([['NOTE', 'n1', 'p1']]);
-    expect(await hits('difference')).toEqual([['PAGE', 'w1', null]]);
+    // The page's old kind is in its text now (drop_page_kinds), so it matches too.
+    expect(await hits('engine')).toEqual([['NOTE', 'n1', 'p1'], ['PAGE', 'w1', null]]);
+    expect(await hits('difference')).toEqual([['PAGE', 'w1', null]]);  // a field value, in its text too
     client.close();
   });
 

@@ -64,18 +64,14 @@ describe('goals', () => {
 });
 
 describe('wiki pages and relations', () => {
-  it('properties → mentions from content → typed relation → cleanup on delete', async () => {
+  it('a page → mentions from content → typed relation → cleanup on delete', async () => {
     const reg = getRegistry(TEST_NOTEBOOK);
 
-    const bad = await createPage(reg, { title: 'Bad', kind: 'SOFTWARE', properties: { seats: 'ten' } });
-    expect(!bad.ok && bad.error.message).toContain('seats');
-
-    const page = await createPage(reg, { title: 'Stripe', kind: 'SOFTWARE', properties: { vendor: 'Stripe', annualCost: 12000 } });
+    const page = await createPage(reg, { title: 'Stripe', content: 'Payments. 5 seats.' });
     expect(page.ok).toBe(true);
     if (!page.ok) return;
-    expect((await updatePage(reg, page.value.id, { properties: { seats: 5, annualCost: null } })).ok).toBe(true);
     const detail = await getPage(reg, page.value.id);
-    expect(detail.ok && detail.value.properties).toEqual({ vendor: 'Stripe', seats: 5 });
+    expect(detail.ok && detail.value.content).toBe('Payments. 5 seats.');
     expect(detail.ok && detail.value.prompt).toBeNull();
     // A prompt makes the page a sync doc of its linked sources; null clears it.
     await updatePage(reg, page.value.id, { prompt: 'Contract: renewal date and seats.' });

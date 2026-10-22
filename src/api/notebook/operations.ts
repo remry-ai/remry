@@ -10,7 +10,7 @@ import type { NotebookInfo, NotebookProfile, NotebookSummary } from '$shared/typ
 export interface NotebookDeps {
   readonly notebooks: NotebookStore;
   readonly now: () => Date;
-  /** Gives a notebook what its profile's modules start with (group kinds; page kinds for work). */
+  /** Gives a notebook what its profile's modules start with (group and person relation kinds). */
   readonly setUpModules?: (notebookId: string, profile: NotebookProfile) => Promise<void>;
 }
 

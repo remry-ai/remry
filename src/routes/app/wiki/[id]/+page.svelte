@@ -16,12 +16,11 @@
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
-  import { formatPropertyValue, kindName } from '$lib/page/utils';
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import { fileToBase64 } from '$lib/common/use-doc-handlers';
   import { fileUrl } from '$shared/utils/files';
   import type { EditorImageType } from '$api/_images';
-  import type { PageDetail, PageKindSummary, PageSummary } from '$shared/types/pages';
+  import type { PageDetail, PageSummary } from '$shared/types/pages';
 
   const { data } = $props<{ data: PageData }>();
   const wikiPage = $derived(data.page as PageDetail);
@@ -31,9 +30,6 @@
   const reports = $derived(data.reports);
   const relations = $derived(data.relations);
   const allPages = $derived(data.allPages as readonly PageSummary[]);
-
-  const kinds = $derived(data.kinds as readonly PageKindSummary[]);
-  const fields = $derived(kinds.find((k) => k.key === wikiPage.kind)?.fields ?? []);
 
   // Any page except this one and its sub-pages can be its parent.
   const parentOptions = $derived.by(() => {
@@ -140,23 +136,8 @@
   };
 </script>
 
-{#snippet pageMeta({ openEdit }: { openEdit: () => void })}
+{#snippet pageMeta()}
   <dl class="meta-list">
-    {#each fields as field (field.key)}
-      {@const value = wikiPage.properties[field.key]}
-      <div>
-        <dt>{field.label}</dt>
-        <dd>
-          {#if value === undefined}
-            <span class="muted">—</span>
-          {:else if field.input === 'url'}
-            <a href={String(value)} target="_blank" rel="noreferrer">{value}</a>
-          {:else}
-            {formatPropertyValue(field, value)}
-          {/if}
-        </dd>
-      </div>
-    {/each}
     <div>
       <dt>Parent</dt>
       <dd>
@@ -169,9 +150,6 @@
       </dd>
     </div>
   </dl>
-  {#if fields.length > 0 && Object.keys(wikiPage.properties).length === 0}
-    <button type="button" class="btn link text-sm" onclick={openEdit}>+ Fill in the {kindName(kinds, wikiPage.kind).toLowerCase()} details</button>
-  {/if}
 {/snippet}
 
 <EntityDetailPage
@@ -256,7 +234,6 @@
           <ul class="list">
             {#each wikiPage.children as child (child.id)}
               <EntityRow href={child.path} label={child.title}>
-                <span class="badge">{kindName(kinds, child.kind)}</span>
                 {#snippet actions()}<ConfirmButton label="Unlink sub-page" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
               </EntityRow>
             {/each}
@@ -275,17 +252,14 @@
 
   {#snippet renderAssetHeader()}
     <span class="asset-h-name">{wikiPage.title}</span>
-    <a class="badge" href="/app/wiki?kind={wikiPage.kind}">{kindName(kinds, wikiPage.kind)}</a>
   {/snippet}
 
   {#snippet renderEditForm({ onSuccess, onCancel })}
-    <PageForm initial={wikiPage} {kinds} {onSuccess} {onCancel} onDelete={handleDelete} />
+    <PageForm initial={wikiPage} {onSuccess} {onCancel} onDelete={handleDelete} />
   {/snippet}
 </EntityDetailPage>
 
 <style lang="scss">
-  // Only the "Fill in the details" link can follow the list in the meta panel.
-  .meta-list:not(:last-child) { margin-bottom: var(--sp-3); }
   .content-actions {
     display: flex;
     align-items: center;

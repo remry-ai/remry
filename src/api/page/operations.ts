@@ -2,17 +2,7 @@ import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import type { ArchiveFilter } from '$shared/types/enums';
 import { validateChartBlocks } from '$shared/types/charts';
-import {
-  parsePageProperties,
-  readPageProperties,
-  type PageBodyType,
-  type PageDetail,
-  type PageKindDefinition,
-  type PageKindField,
-  type PageProperties,
-  type PagePropertyValue,
-  type PageSummary
-} from '$shared/types/pages';
+import type { PageBodyType, PageDetail, PageSummary } from '$shared/types/pages';
 import { entityPath } from '$shared/utils/entity';
 import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
@@ -20,41 +10,8 @@ import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
 import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
-import { getPageKind } from '$api/page-kind/operations';
-import {
-  filterRows,
-  groupRows,
-  parseAggregate,
-  parseFilter,
-  parseGroupBy,
-  parseSort,
-  sortRows,
-  totalsFor,
-  type DatasetAggregate,
-  type DatasetFilter
-} from '$shared/utils/dataset';
 
 // ----- Pure helpers -----
-
-export type PropertyPatch = Readonly<Record<string, PagePropertyValue | null>>;
-
-/**
- * Applies a property patch: keys in the patch replace current values and null
- * removes a key. Current values the kind doesn't have (after a kind change)
- * are dropped; unknown keys in the patch are kept so validation can name them.
- */
-export const mergePageProperties = (
-  fields: readonly PageKindField[],
-  current: PageProperties,
-  patch: PropertyPatch | undefined
-): Record<string, PagePropertyValue> => {
-  const allowed = new Set(fields.map((field) => field.key));
-  const kept = Object.entries(current).filter(([key]) => allowed.has(key));
-  const merged = { ...Object.fromEntries(kept), ...patch };
-  return Object.fromEntries(
-    Object.entries(merged).filter((entry): entry is [string, PagePropertyValue] => entry[1] !== null)
-  );
-};
 
 /**
  * Checks a body before it's stored and returns what to store: markdown as
@@ -82,15 +39,13 @@ const asBodyType = (value: string): PageBodyType => (value === 'sheet' ? 'sheet'
 
 const ORDER = [{ sortOrder: 'asc' as const }, { title: 'asc' as const }];
 
-const SUMMARY_FIELDS = { id: true, title: true, kind: true, bodyType: true, parentId: true, properties: true, archivedAt: true, updatedAt: true } as const;
+const SUMMARY_FIELDS = { id: true, title: true, bodyType: true, parentId: true, archivedAt: true, updatedAt: true } as const;
 
 interface PageRow {
   readonly id: string;
   readonly title: string;
-  readonly kind: string;
   readonly bodyType: string;
   readonly parentId: string | null;
-  readonly properties: string;
   readonly archivedAt: Date | null;
   readonly updatedAt: Date;
 }
@@ -98,10 +53,8 @@ interface PageRow {
 const toSummary = (row: PageRow): PageSummary => ({
   id: row.id,
   title: row.title,
-  kind: row.kind,
   bodyType: asBodyType(row.bodyType),
   parentId: row.parentId,
-  properties: readPageProperties(row.properties),
   path: entityPath('PAGE', row.id),
   archivedAt: row.archivedAt,
   updatedAt: row.updatedAt
@@ -126,7 +79,6 @@ const checkParent = async (
 // ----- Queries -----
 
 export interface PageFilters {
-  readonly kind?: string;
   /** null lists top-level pages. */
   readonly parentId?: string | null;
   readonly archived?: ArchiveFilter;
@@ -139,7 +91,6 @@ export const listPages = async (
   const rows = await reg.prisma.page.findMany({
     where: {
       ...archiveWhere(filters.archived),
-      ...(filters.kind !== undefined && { kind: filters.kind }),
       ...(filters.parentId !== undefined && { parentId: filters.parentId })
     },
     orderBy: ORDER,
@@ -156,7 +107,7 @@ export const getPage = async (
     where: { id },
     include: {
       parent: { select: { id: true, title: true } },
-      children: { where: ACTIVE, orderBy: ORDER, select: { id: true, title: true, kind: true } }
+      children: { where: ACTIVE, orderBy: ORDER, select: { id: true, title: true } }
     }
   });
   if (!row) return err(new Error(`Page ${id} not found`));
@@ -169,7 +120,6 @@ export const getPage = async (
     children: row.children.map((child) => ({
       id: child.id,
       title: child.title,
-      kind: child.kind,
       path: entityPath('PAGE', child.id)
     })),
     createdAt: row.createdAt
@@ -180,23 +130,16 @@ export const getPage = async (
 
 export interface CreatePageInput {
   readonly title: string;
-  readonly kind?: string;
   /** Default doc. */
   readonly bodyType?: PageBodyType;
   readonly parentId?: string;
   readonly content?: string;
-  readonly properties?: PropertyPatch;
 }
 
 export const createPage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
   input: CreatePageInput
 ): Promise<Result<{ readonly id: string; readonly path: string }>> => {
-  const kind = await getPageKind(reg, input.kind ?? 'GENERAL');
-  if (!kind.ok) return err(kind.error);
-  const properties = parsePageProperties(kind.value, mergePageProperties(kind.value.fields, {}, input.properties));
-  if (!properties.ok) return err(properties.error);
-
   const bodyType = input.bodyType ?? 'doc';
   const content = prepareContent(bodyType, input.content ?? '');
   if (!content.ok) return err(content.error);
@@ -209,11 +152,9 @@ export const createPage = async (
   const row = await reg.prisma.page.create({
     data: {
       title: input.title,
-      kind: kind.value.key,
       bodyType,
       parentId: input.parentId,
-      content: content.value,
-      properties: JSON.stringify(properties.value)
+      content: content.value
     }
   });
   if (bodyType === 'doc' && content.value) {
@@ -227,15 +168,12 @@ export const createPage = async (
 
 export interface UpdatePageInput {
   readonly title?: string;
-  readonly kind?: string;
   /** Only while the page has no content, so a body is never converted by accident. */
   readonly bodyType?: PageBodyType;
   readonly parentId?: string | null;
   readonly content?: string;
   /** Makes it a sync doc, rewritten from its linked sources; null (or blank) clears it. */
   readonly prompt?: string | null;
-  /** Merged into the current properties; null removes a key. */
-  readonly properties?: PropertyPatch;
 }
 
 export const updatePage = async (
@@ -243,20 +181,10 @@ export const updatePage = async (
   id: string,
   input: UpdatePageInput
 ): Promise<Result<{ readonly id: string }>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { kind: true, bodyType: true, content: true, properties: true } });
+  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { bodyType: true, content: true } });
   if (!existing) return err(new Error(`Page ${id} not found`));
   const writable = await ensureWritable(reg, 'PAGE', id);
   if (!writable.ok) return err(writable.error);
-
-  let properties: string | undefined;
-  if (input.properties !== undefined || (input.kind !== undefined && input.kind !== existing.kind)) {
-    const kind = await getPageKind(reg, input.kind ?? existing.kind);
-    if (!kind.ok) return err(kind.error);
-    const merged = mergePageProperties(kind.value.fields, readPageProperties(existing.properties), input.properties);
-    const parsed = parsePageProperties(kind.value, merged);
-    if (!parsed.ok) return err(parsed.error);
-    properties = JSON.stringify(parsed.value);
-  }
 
   const currentType = asBodyType(existing.bodyType);
   const bodyType = input.bodyType ?? currentType;
@@ -281,12 +209,10 @@ export const updatePage = async (
     where: { id },
     data: {
       ...(input.title !== undefined && { title: input.title }),
-      ...(input.kind !== undefined && { kind: input.kind }),
       ...(input.parentId !== undefined && { parentId: input.parentId }),
       ...(bodyType !== currentType && { bodyType }),
       ...(content !== undefined && { content }),
-      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
-      ...(properties !== undefined && { properties })
+      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
     }
   });
   // A sheet links nothing and shows no images, so switching to one clears the page's mentions.
@@ -296,83 +222,6 @@ export const updatePage = async (
   }
   return ok({ id });
 };
-
-// ----- Dataset query -----
-
-export interface PageQueryInput {
-  readonly kind: string;
-  /** `field:op[:value]`, all must match. See $shared/utils/dataset. */
-  readonly filters?: readonly string[];
-  /** `field[:asc|desc]`. Default: the page tree's order. */
-  readonly sort?: string;
-  readonly groupBy?: string;
-  /** `field:fn` with fn sum, avg, min or max. */
-  readonly aggregates?: readonly string[];
-  readonly archived?: ArchiveFilter;
-}
-
-export interface PageQueryGroup {
-  readonly value: string | null;
-  readonly count: number;
-  readonly totals: Readonly<Record<string, number | null>>;
-  readonly pageIds: readonly string[];
-}
-
-export interface PageQueryResult {
-  readonly kind: PageKindDefinition;
-  readonly pages: readonly PageSummary[];
-  readonly count: number;
-  /** Keyed `field:fn`. */
-  readonly totals: Readonly<Record<string, number | null>>;
-  /** Present when grouped. A multiselect page counts in each of its groups. */
-  readonly groups: readonly PageQueryGroup[] | null;
-}
-
-const collect = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
-  const failed = results.find((r) => !r.ok);
-  if (failed && !failed.ok) return err(failed.error);
-  return ok(results.map((r) => (r as { readonly value: T }).value));
-};
-
-/** A kind's pages filtered, sorted, grouped and totalled by its fields. */
-export const queryPages = async (
-  reg: Pick<Registry, 'prisma'>,
-  input: PageQueryInput
-): Promise<Result<PageQueryResult>> => {
-  const kind = await getPageKind(reg, input.kind);
-  if (!kind.ok) return err(kind.error);
-  const fields = kind.value.fields;
-
-  const filters = collect<DatasetFilter>((input.filters ?? []).map((f) => parseFilter(fields, f)));
-  if (!filters.ok) return err(filters.error);
-  const aggregates = collect<DatasetAggregate>((input.aggregates ?? []).map((a) => parseAggregate(fields, a)));
-  if (!aggregates.ok) return err(aggregates.error);
-  const sort = input.sort ? parseSort(fields, input.sort) : ok(null);
-  if (!sort.ok) return err(sort.error);
-  const groupBy = input.groupBy ? parseGroupBy(fields, input.groupBy) : ok(null);
-  if (!groupBy.ok) return err(groupBy.error);
-
-  const all = await listPages(reg, { kind: kind.value.key, archived: input.archived });
-  if (!all.ok) return err(all.error);
-  const pages = sortRows(filterRows(fields, all.value, filters.value), sort.value);
-  const groups = groupBy.value
-    ? groupRows(groupBy.value, pages, aggregates.value).map((g) => ({
-      value: g.value,
-      count: g.count,
-      totals: g.totals,
-      pageIds: g.rows.map((r) => r.id)
-    }))
-    : null;
-
-  return ok({
-    kind: kind.value,
-    pages,
-    count: pages.length,
-    totals: totalsFor(pages, aggregates.value),
-    groups
-  });
-};
-
 
 /** Sub-pages move up to this page's parent; attached items and relations are deleted. */
 export const deletePage = async (

@@ -228,7 +228,7 @@ table {
   }
   td a { color: var(--text); font-weight: 500; }
   td a:hover { color: var(--accent); text-decoration: none; }
-  // Number columns (the wiki's dataset table).
+  // Number columns (counts in the groups and kinds tables).
   th.num, td.num { text-align: right; }
   // A header that sorts its column: reads as the header, not a link.
   th .btn.sort {

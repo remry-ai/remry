@@ -5,6 +5,7 @@
 // A type keyword and a colon narrows to one type ("project: api", "pro: api",
 // "/search todo: invoice"): names of that type, and on Enter its titles and its
 // full text. A word that starts a keyword is offered as a row and completes with Tab.
+// A notebook's group kinds are keywords too ("team: platform", "family: smith").
 
 import { searchOptions, type SearchOption } from '$lib/ui/search-picker';
 import type { SearchHit } from '$shared/types/search';
@@ -15,6 +16,8 @@ export interface FinderEntry extends SearchOption {
   readonly meta: string;
   /** Where it opens, for what has no page of its own (a doc, a todo); else its entity's page. */
   readonly href?: string;
+  /** A group's kind key (TEAM), so a kind's keyword can narrow to its groups. */
+  readonly groupKind?: string;
 }
 
 /** The finder's `doc:` entries, from `doc.titles`: each opens on its entity's page. */
@@ -93,6 +96,8 @@ export interface FinderScope {
   readonly label: string;
   /** Typed before the colon; the first is what Tab completes to. */
   readonly keywords: readonly string[];
+  /** Narrows groups to one kind (TEAM): a scope from `groupKindScopes`. */
+  readonly groupKind?: string;
 }
 
 /** In this order a short prefix picks among several ("p:" is people, "pr:" projects, "pa:" pages). */
@@ -105,6 +110,33 @@ export const FINDER_SCOPES: readonly FinderScope[] = [
   { type: 'DOC', label: 'Docs', keywords: ['doc'] },
   { type: 'TODO', label: 'Todos', keywords: ['todo'] }
 ];
+
+/** A keyword made from a kind's name: its letters, lower case ("Friend group" → "friendgroup"). */
+const keywordFrom = (name: string): string => name.toLowerCase().replace(/[^a-z]/g, '');
+
+/**
+ * A scope per group kind of the notebook, after the fixed ones, so "team:" and "department:"
+ * narrow to that kind's groups. Its keywords are the kind's name and plural; a word another
+ * scope already uses ("page") is left out, and a kind with none left gets no scope.
+ */
+export const groupKindScopes = (
+  kinds: readonly { readonly key: string; readonly name: string; readonly plural: string }[],
+  taken: readonly FinderScope[] = FINDER_SCOPES
+): readonly FinderScope[] => {
+  const used = new Set(taken.flatMap((s) => s.keywords));
+  return kinds.flatMap((kind): FinderScope[] => {
+    const keywords = [...new Set([keywordFrom(kind.name), keywordFrom(kind.plural)])].filter((k) => k && !used.has(k));
+    keywords.forEach((k) => used.add(k));
+    return keywords.length ? [{ type: 'GROUP', label: kind.plural, keywords, groupKind: kind.key }] : [];
+  });
+};
+
+/** Whether an entry is of the scope's type (and, for a group kind, that kind). */
+export const inScope = (entry: FinderEntry, scope: FinderScope): boolean =>
+  entry.scope === scope.type && (!scope.groupKind || entry.groupKind === scope.groupKind);
+
+/** A scope's row key: `scope:GROUP`, or `scope:GROUP:TEAM` for a group kind. */
+const scopeKey = (scope: FinderScope): string => (scope.groupKind ? `scope:${scope.type}:${scope.groupKind}` : `scope:${scope.type}`);
 
 /** Whether a typed word names a keyword: a prefix of it ("pro"), or it plus "s" ("projects"). */
 const namesKeyword = (word: string, keyword: string): boolean => keyword.startsWith(word) || word === `${keyword}s`;
@@ -172,9 +204,9 @@ export const autocompleteRows = (
   limit = 12
 ): readonly FinderRow[] => {
   const { scope, text: rest } = parseScope(text, available);
-  if (scope) return entryRows(searchOptions(entries.filter((e) => e.scope === scope.type), rest, null, limit));
+  if (scope) return entryRows(searchOptions(entries.filter((e) => inScope(e, scope)), rest, null, limit));
   if (!text.trim()) return commandRows(FINDER_COMMANDS);
-  const scopes = scopeSuggestions(text, available).map((s): FinderRow => ({ kind: 'scope', key: `scope:${s.type}`, scope: s }));
+  const scopes = scopeSuggestions(text, available).map((s): FinderRow => ({ kind: 'scope', key: scopeKey(s), scope: s }));
   return [...entryRows(searchOptions(entries, text, null, limit)), ...scopes];
 };
 

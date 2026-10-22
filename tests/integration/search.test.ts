@@ -46,7 +46,7 @@ describe('search index triggers', () => {
 describe('search.query', () => {
   it('finds every kind of text, with stemming and prefixes', async () => {
     const team = await createTeam(reg, { name: 'Platform', description: 'Runs the build farm' });
-    const page = await createPage(reg, { title: 'Datadog', kind: 'SOFTWARE', content: 'Our monitoring tool.', properties: { vendor: 'Datadog Inc', seats: 40 } });
+    const page = await createPage(reg, { title: 'Datadog', content: 'Our monitoring tool, from Datadog Inc.' });
     const goal = await createGoal(reg, { title: 'Ship faster' });
     if (!team.ok || !page.ok || !goal.ok) throw new Error('setup failed');
 
@@ -70,8 +70,7 @@ describe('search.query', () => {
     expect(noteHit?.snippet).toContain('**leaving**');
 
     expect(await ids('build farm')).toContain(team.value.id);
-    expect(await ids('inc')).toEqual([page.value.id]); // property values, not keys
-    expect(await ids('seats')).toEqual([]);
+    expect(await ids('monitoring')).toEqual([page.value.id]);
     expect(await ids('toolchain')).toEqual([doc.value.id]);
     expect((await search('toolchain'))[0]?.path).toBe(`/app/groups/${team.value.id}?doc=${doc.value.id}`);
     expect(await ids('quarterly')).toEqual([todo.value.id]);

@@ -12,7 +12,7 @@
   import { isProActive, type LicenseStatus } from '$shared/types/license';
   import type { SearchHit } from '$shared/types/search';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
-  import { ENTITY_SEARCH_SCOPES, entityPath, parseTypedIdValue } from '$shared/utils/entity';
+  import { ENTITY_SEARCH_SCOPES, entityPath, parseTypedIdValue, typedIdValue } from '$shared/utils/entity';
   import { model } from '$lib/stores/notebook-model';
   import { quickFinderOpen } from '$lib/stores/quick-finder';
   import { waitForReply } from '$lib/common/use-page-chat';
@@ -22,6 +22,8 @@
   import {
     FINDER_SCOPES,
     appLink,
+    groupKindScopes,
+    inScope,
     autocompleteRows,
     commandRows,
     completeCommand,
@@ -35,8 +37,15 @@
     titleMatches,
     type FinderEntry,
     type FinderRow,
+    type FinderScope,
     type FinderScopeType
   } from './quick-finder';
+
+  interface GroupKindName {
+    readonly key: string;
+    readonly name: string;
+    readonly plural: string;
+  }
 
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const HIT_LIMIT = 20;
@@ -69,6 +78,8 @@
   let query = $state('');
   let active = $state(0);
   let entities = $state<readonly EntityOption[]>([]);
+  // The notebook's group kinds, so "team:" narrows to teams.
+  let groupKinds = $state<readonly GroupKindName[]>([]);
   // Docs and todos aren't in the name list; each loads the first time a query narrows to it.
   let attached = $state<Partial<Record<FinderScopeType, readonly FinderEntry[]>>>({});
   let loading = $state(false);
@@ -80,11 +91,17 @@
 
   // Types the notebook doesn't have (goals in a home notebook) are left out of the finder.
   const entries: readonly FinderEntry[] = $derived(
-    entities.filter((e) => $model.shows(e.scope)).map((e) => ({ ...e, meta: scopeLabel(e.scope) }))
+    entities.filter((e) => $model.shows(e.scope)).map((e) => ({
+      ...e,
+      // A group shows its kind ("Team"); anything else its type.
+      meta: groupKinds.find((k) => e.groupKind && k.key === e.groupKind)?.name ?? scopeLabel(e.scope)
+    }))
   );
 
   // The types this notebook has (no goals in a home notebook).
-  const available = $derived(FINDER_SCOPES.filter((s) => $model.shows(s.type)));
+  const available = $derived(
+    FINDER_SCOPES.filter((s) => $model.shows(s.type)).concat($model.shows('GROUP') ? groupKindScopes(groupKinds) : [])
+  );
   const parsed = $derived(parseFinderQuery(query));
   // "project: api" (also after /search): the type it's narrowed to.
   const scoped = $derived(parsed.kind === 'names' || parsed.kind === 'search' ? parseScope(parsed.text, available) : { scope: null, text: '' });
@@ -145,32 +162,36 @@
   };
 
   // Enter narrowed to a type: its titles, reloaded, and with Remry Pro its full text.
-  const searchScoped = async (q: string, type: FinderScopeType, text: string) => {
+  const searchScoped = async (q: string, narrowed: FinderScope, text: string) => {
+    const type = narrowed.type;
     searching = true;
     try {
       if (type === 'DOC' || type === 'TODO') await loadAttached(type);
       else await loadEntities(true);
       if (query !== q) return;
-      const titles = titleMatches(allEntries.filter((e) => e.scope === type), text);
+      const titles = titleMatches(allEntries.filter((e) => inScope(e, narrowed)), text);
       submitted = { query: q, titles, hits: pro ? null : [] };
       active = 0;
     } finally {
       searching = false;
     }
-    if (pro) await searchHits(q, text, type);
+    if (pro) await searchHits(q, text, narrowed);
   };
 
-  const searchText = async (q: string, text: string, type?: FinderScopeType) => {
+  const searchText = async (q: string, text: string, narrowed?: FinderScope | null) => {
     submitted = { query: q, titles: [], hits: null };
     active = 0;
-    await searchHits(q, text, type);
+    await searchHits(q, text, narrowed ?? undefined);
   };
 
-  // Full-text hits for the submitted query, of one type when it's narrowed.
-  const searchHits = async (q: string, text: string, type?: FinderScopeType) => {
+  // Full-text hits for the submitted query, of one type when it's narrowed (one group kind: only its groups).
+  const searchHits = async (q: string, text: string, narrowed?: FinderScope) => {
+    const type = narrowed?.type;
+    const kindIds = narrowed?.groupKind ? new Set(entries.filter((e) => inScope(e, narrowed)).map((e) => e.id)) : null;
     try {
       const results = await submitOrThrow(() => trpc().search.query.query({ q: text, limit: HIT_LIMIT, ...(type && { types: [type] }) }));
-      if (submitted?.query === q) submitted = { ...submitted, hits: results.results };
+      const hits = kindIds ? results.results.filter((hit) => kindIds.has(typedIdValue(hit.entityType, hit.entityId))) : results.results;
+      if (submitted?.query === q) submitted = { ...submitted, hits };
     } catch (e: unknown) {
       if (submitted?.query === q) submitted = { ...submitted, hits: [], error: errorMessage(e) };
     }
@@ -231,9 +252,9 @@
       return;
     }
     if (submitted || searching || needsPro) return;
-    if (parsed.kind === 'names' && scope && scoped.text.trim()) void searchScoped(query, scope.type, scoped.text.trim());
+    if (parsed.kind === 'names' && scope && scoped.text.trim()) void searchScoped(query, scope, scoped.text.trim());
     else if (parsed.kind === 'names' && !scope && parsed.text.trim()) void searchTitles(query);
-    else if (parsed.kind === 'search' && scoped.text.trim()) void searchText(query, scoped.text.trim(), scope?.type);
+    else if (parsed.kind === 'search' && scoped.text.trim()) void searchText(query, scoped.text.trim(), scope);
     else if (parsed.kind === 'ask' && parsed.text.trim() && !(answer?.query === query && answer.state === 'running')) {
       void ask(query, parsed.text.trim());
     }
@@ -280,24 +301,25 @@
   interface CacheData {
     readonly ts: number;
     readonly entities: readonly EntityOption[];
+    readonly groupKinds?: readonly GroupKindName[];
   }
 
-  const readCache = (): readonly EntityOption[] | null => {
+  const readCache = (): CacheData | null => {
     try {
       const raw = localStorage.getItem(cacheKey);
       if (!raw) return null;
       const data = JSON.parse(raw) as Partial<CacheData>;
       // Caches from before people, teams and departments were searchable have no `entities`.
       if (!Array.isArray(data.entities) || !data.ts || Date.now() - data.ts > CACHE_TTL) return null;
-      return data.entities;
+      return { ts: data.ts, entities: data.entities, groupKinds: Array.isArray(data.groupKinds) ? data.groupKinds : [] };
     } catch {
       return null;
     }
   };
 
-  const writeCache = (list: readonly EntityOption[]) => {
+  const writeCache = (list: readonly EntityOption[], kinds: readonly GroupKindName[]) => {
     try {
-      localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), entities: list }));
+      localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), entities: list, groupKinds: kinds }));
     } catch { /* quota exceeded — ignore */ }
   };
 
@@ -305,11 +327,18 @@
   // Claude adds most of them through the CLI or MCP, which this page never hears about.
   const loadEntities = async (force: boolean) => {
     const cached = force ? null : readCache();
-    if (cached) entities = cached;
-    else loading = true;
+    if (cached) {
+      entities = cached.entities;
+      groupKinds = cached.groupKinds ?? [];
+    } else loading = true;
     try {
-      entities = await loadEntityOptions(trpc());
-      writeCache(entities);
+      const [options, kinds] = await Promise.all([
+        loadEntityOptions(trpc()),
+        trpc().groupKind.list.query().catch(() => null)
+      ]);
+      entities = options;
+      groupKinds = kinds?.ok ? kinds.value.map((k) => ({ key: k.key, name: k.name, plural: k.plural })) : [];
+      writeCache(entities, groupKinds);
     } catch {
       if (!cached) entities = [];
     } finally {

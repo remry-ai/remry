@@ -20,7 +20,7 @@ Current domains, grouped into folders:
 - `entities/`: `ports.ts`, each type's label and archive state, which `_entity-labels` and `_archive` dispatch to
 - `entity`: `entity.archive` and `entity.delete`, one archive and one delete for every type, dispatching to `setArchived` and each domain's delete. The CLI and MCP offer these instead of the per-type procedures (`APP_ONLY` in `cli/api.ts`), which the app keeps using
 - `attached/` (named so, not `aux`, which Windows reserves as a device name; attach to any entity via `entityType` + `entityId`): `doc`, `note`, `todo`, `link`, `tag`, `comment`, `emoji`, `report`
-- flat (infra + top-level entities): `project`, `goal`, `page` (wiki pages), `page-kind` (each notebook's page kinds), `relation`, `branding`, `home`, `search`, `health`, `trpc-meta`
+- flat (infra + top-level entities): `project`, `goal`, `page` (wiki pages), `relation`, `branding`, `home`, `search`, `health`, `trpc-meta`
 - `notebook`: lists, creates and renames notebooks and sets the default. It works on the notebook store (`ctx.notebooks`), not on a database. See § Notebooks.
 
 Loose backend helpers that aren't domains use an underscore prefix:
@@ -102,7 +102,7 @@ Person, group, project, goal and page (`ARCHIVABLE_TYPES`) have a nullable `arch
 
 - `setArchived(reg, type, id, archived)` backs every `<type>.archive` / `<type>.unarchive` procedure. It's idempotent and keeps the first archive date.
 - `archiveWhere(filter)` is the `where` fragment for a list's `archived` input (`exclude`, the default; `only`; `include`). Every top-level `list*` takes one.
-- **`ACTIVE`** (`{ archivedAt: null }`) is the `where` fragment for every read that reaches an archivable entity through a relation: a lead and reports (`ORG_PERSON`), person relations, group members and a person's groups, sub-projects, sub-goals, sub-pages, a goal's projects, and relation counts (`_count: { select: { children: { where: ACTIVE } } }`). `relation.forEntity` drops an archived other end, and anything attached to an archived entity, with `loadArchivedIds` + `isArchivedRef`. An archived entity shows only on its own page and in lists asked for archived ones. Kind counts (`groupCount`, `pageCount`, `relationCount`) still count archived rows on purpose: they decide whether a kind can be deleted. **`tests/integration/archive-leaks.test.ts`** links an archived entity of each type to active ones and fails if any read returns one; add a new relation read to its `reads`.
+- **`ACTIVE`** (`{ archivedAt: null }`) is the `where` fragment for every read that reaches an archivable entity through a relation: a lead and reports (`ORG_PERSON`), person relations, group members and a person's groups, sub-projects, sub-goals, sub-pages, a goal's projects, and relation counts (`_count: { select: { children: { where: ACTIVE } } }`). `relation.forEntity` drops an archived other end, and anything attached to an archived entity, with `loadArchivedIds` + `isArchivedRef`. An archived entity shows only on its own page and in lists asked for archived ones. Kind counts (`groupCount`, `relationCount`) still count archived rows on purpose: they decide whether a kind can be deleted. **`tests/integration/archive-leaks.test.ts`** links an archived entity of each type to active ones and fails if any read returns one; add a new relation read to its `reads`.
 - `ensureWritable(reg, entityType, entityId)` / `ensureAllWritable` refuse a write to an archived entity **or to anything attached to it**. Call one in every update, membership change and attached-item create/update/remove, before writing. Types that can't be archived pass. Deletes don't check: deleting an archived entity is allowed.
 - `loadArchivedIds` + `notAttachedToArchived(ids)` leave rows attached to archived entities out of cross-entity queries (home feed, open todos, `todo.list`).
 - Relations check only the `from` end, so a relation can point at an archived entity (it's hidden from reads, and shows again on unarchive).
@@ -151,7 +151,7 @@ A notebook is a folder, `<data dir>/Notebooks/<id>/`, holding `notebook.json` (n
 
 There is no `notebook.delete`, on purpose: Claude should never be one tool call away from removing a whole notebook.
 
-`profile` (`work` or `home`; missing reads as `work`) is set by `notebook.create --profile` and `notebook.setProfile`, both of which seed the profile's group and person relation kinds through the `setUpModules` dep. No page kinds are seeded.
+`profile` (`work` or `home`; missing reads as `work`) is set by `notebook.create --profile` and `notebook.setProfile`, both of which seed the profile's group and person relation kinds through the `setUpModules` dep.
 
 ## Modules
 
@@ -166,13 +166,11 @@ A profile is a list of modules (`MODULES_BY_PROFILE`, `$shared/modules/model`): 
 
 `group` rows have a `kind` (a key into `group_kind`: name, plural, `exclusive`). Teams and departments are groups of kind TEAM and DEPARTMENT (exclusive); old `/app/teams/<id>` and `/app/departments/<id>` links parse as GROUP and redirect. `group.addMember` in an exclusive kind removes the person's other membership of that kind in the same transaction and returns `replaced`. `groupKind.update --exclusive true` is refused while someone is in two groups of the kind; `groupKind.delete` while groups use it, unless `moveTo`.
 
-## Page kinds and datasets
+## Wiki pages
 
-A page's `kind` is a key into the notebook's `page_kind` table (`key`, `name`, `description`, `fields` as JSON). `GENERAL` is built in (`GENERAL_KIND`, no fields) and never stored. Field definitions and their Zod schemas are in `$shared/types/pages` (`pageKindFieldSchema`, `parsePageProperties(kind, input)`); `page/operations.ts` loads the kind with `getPageKind` before every create, update or kind change. No kinds come preset: the `add_page_kinds` migration gave notebooks with data four starter kinds (POLICY, PRODUCT, SOFTWARE, DECISION), and `drop_starter_page_kinds` removed them again, turning their pages into `GENERAL` pages without properties.
+A page is a document or a spreadsheet, with no kinds or fields. Page kinds (`page_kind`, `page.kind`, `page.properties`, `page.query`) were removed in 0.16.41: the `drop_page_kinds` migration writes each page's kind and filled-in values into the top of its text as a list, then drops them. It isn't additive, so an older Remry refuses a notebook that has it.
 
-- `page-kind/operations.ts` keeps pages valid when a kind changes: `planFieldChange` (pure) refuses to drop an option or change an input while pages have values, naming them; removed fields are stripped from pages in the same transaction (`fitProperties`). `pageKind.delete` refuses while pages use the kind, unless `moveTo` names a kind to move them to.
 - **Body type:** `page.body_type` is `doc` (markdown in `content`) or `sheet` (a spreadsheet's JSON in `content`: columns, raw cells and the values they showed; `$shared/utils/sheet`). `prepareContent` validates either and normalises a sheet before it's stored; sheets skip chart validation and `syncMentions`. `bodyType` changes only while `isEmptyBody`. The `page_body_type` migration's search triggers index a sheet's `values`, not its JSON.
-- `page.query` runs the pure `$shared/utils/dataset` (`filterRows`, `sortRows`, `groupRows`, `totalsFor`) over one kind's pages. Its filters, sort and aggregates are strings (`field:op:value`, `field:desc`, `field:sum`) so the CLI, MCP and the wiki's URL share one form; the parsers return errors that list the kind's fields.
 
 ## Sync docs
 

@@ -7,7 +7,6 @@ import { brandingRouter } from '$api/branding/routes';
 import { projectRouter } from '$api/project/routes';
 import { goalRouter } from '$api/goal/routes';
 import { pageRouter } from '$api/page/routes';
-import { pageKindRouter } from '$api/page-kind/routes';
 import { relationRouter } from '$api/relation/routes';
 import { personRelationRouter } from '$api/person-relation/routes';
 import { personRelationKindRouter } from '$api/person-relation-kind/routes';
@@ -41,7 +40,6 @@ export const appRouter = router({
   project: projectRouter,
   goal: goalRouter,
   page: pageRouter,
-  pageKind: pageKindRouter,
   relation: relationRouter,
   personRelation: personRelationRouter,
   personRelationKind: personRelationKindRouter,

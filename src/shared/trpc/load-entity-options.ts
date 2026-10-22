@@ -12,6 +12,8 @@ export interface EntityOption {
   readonly id: string;
   readonly name: string;
   readonly scope: RelatableType;
+  /** A group's kind key (TEAM). */
+  readonly groupKind?: string;
 }
 
 export const loadEntityOptions = async (
@@ -34,7 +36,9 @@ export const loadEntityOptions = async (
     rows.map((row) => ({ id: row.id, name: row.title }));
   return [
     ...options('PERSON', people?.ok ? people.value : []),
-    ...options('GROUP', groups?.ok ? groups.value : []),
+    ...(groups?.ok ? groups.value : [])
+      .filter((row) => !(exclude?.entityType === 'GROUP' && row.id === exclude.entityId))
+      .map((row) => ({ id: typedIdValue('GROUP', row.id), name: row.name, scope: 'GROUP' as const, groupKind: row.kind })),
     ...options('PROJECT', projects?.ok ? projects.value : []),
     ...options('GOAL', goals?.ok ? titled(goals.value) : []),
     ...options('PAGE', pages?.ok ? titled(pages.value) : [])

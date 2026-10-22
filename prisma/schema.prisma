@@ -272,19 +272,17 @@ model GoalProject {
   @@map("goal_project")
 }
 
-// ----- Wiki pages (properties is JSON, validated against the page_kind row's fields;
-// bodyType 'sheet' keeps a spreadsheet's JSON in content, see src/shared/utils/sheet.ts) -----
+// ----- Wiki pages (bodyType 'sheet' keeps a spreadsheet's JSON in content, see
+// src/shared/utils/sheet.ts) -----
 
 model Page {
   id         String   @id @default(cuid())
   title      String
-  kind       String   @default("GENERAL")
   bodyType   String   @default("doc") @map("body_type")
   parentId   String?  @map("parent_id")
   content    String   @default("")
   /// A sync page's prompt: what to pull from its linked sources. Null for an ordinary page.
   prompt     String?
-  properties String   @default("{}")
   sortOrder  Int      @default(0) @map("sort_order")
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -293,24 +291,9 @@ model Page {
   parent   Page?  @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children Page[] @relation("PageHierarchy")
 
-  @@index([kind])
   @@index([parentId])
   @@index([archivedAt])
   @@map("page")
-}
-
-// ----- Page kinds: user-defined per notebook; fields is JSON, validated in src/shared/types/pages.ts -----
-
-model PageKind {
-  key         String   @id
-  name        String
-  description String?
-  fields      String   @default("[]")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  @@map("page_kind")
 }
 
 // ----- Relation kinds: a notebook's own (RELATED, DEPENDS_ON and MENTIONS are built in) -----

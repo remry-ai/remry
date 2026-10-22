@@ -10,7 +10,6 @@ import { settings } from '../../src/shared/settings/server/index.server';
 import { ensureDatabase } from '../../src/shared/db/bootstrap.server';
 import { getNotebookStore } from '../../src/shared/notebooks/current.server';
 import { closeRegistries, getRegistry } from '../../src/shared/registry.server';
-import { createPageKind } from '../../src/api/page-kind/operations';
 import { seedGroupKinds } from '../../src/api/group-kind/operations';
 import { seedPersonRelationKinds } from '../../src/api/person-relation-kind/operations';
 import { ORG_MODULE } from '../../src/shared/modules/org';
@@ -30,15 +29,6 @@ beforeAll(async () => {
       { id: 'person_alice', name: 'Alice Johnson', email: 'alice@example.com' },
       { id: 'person_bob', name: 'Bob Smith', email: 'bob@example.com' },
       { id: 'person_carol', name: 'Carol Lee' }
-    ]
-  });
-  await createPageKind(getRegistry(TEST_NOTEBOOK), {
-    key: 'SOFTWARE',
-    name: 'Software',
-    fields: [
-      { key: 'vendor', label: 'Vendor', input: 'text' },
-      { key: 'annualCost', label: 'Annual cost', input: 'number' },
-      { key: 'seats', label: 'Seats', input: 'number' }
     ]
   });
   await seedGroupKinds(getRegistry(TEST_NOTEBOOK), ORG_MODULE.groupKinds);
