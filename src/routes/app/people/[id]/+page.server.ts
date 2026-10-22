@@ -12,8 +12,8 @@ export const load: PageServerLoad = async ({ fetch, params, locals }) => {
     client.person.get.query({ id: params.id }),
     client.person.list.query(),
     client.group.list.query(),
-    withGoals ? client.goal.list.query(owner) : null,
-    client.project.list.query(owner),
+    withGoals ? client.goal.list.query({ ...owner, closed: 'include' }) : null,
+    client.project.list.query({ ...owner, closed: 'include' }),
     loadEntityAssets(client, 'PERSON', params.id)
   ]);
   if (!result.ok) throw error(404, 'Person not found');

@@ -9,9 +9,9 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
   const [result, allProjects, allGoals, linkedGoals, ownerOptions, assets] = await Promise.all([
     client.project.get.query({ id: params.id }),
     // Archived projects too, so an archived parent still shows in the breadcrumb.
-    client.project.list.query({ archived: 'include' }),
-    client.goal.list.query(),
-    client.goal.list.query({ projectId: params.id }),
+    client.project.list.query({ archived: 'include', closed: 'include' }),
+    client.goal.list.query({ closed: 'include' }),
+    client.goal.list.query({ projectId: params.id, closed: 'include' }),
     loadOwnerOptions(client),
     loadEntityAssets(client, 'PROJECT', params.id)
   ]);

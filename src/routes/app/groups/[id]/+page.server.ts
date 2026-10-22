@@ -12,8 +12,8 @@ export const load: PageServerLoad = async ({ fetch, params, locals }) => {
     client.group.get.query({ id: params.id }),
     client.groupKind.list.query(),
     client.person.list.query(),
-    withGoals ? client.goal.list.query(owner) : null,
-    client.project.list.query(owner),
+    withGoals ? client.goal.list.query({ ...owner, closed: 'include' }) : null,
+    client.project.list.query({ ...owner, closed: 'include' }),
     loadEntityAssets(client, 'GROUP', params.id)
   ]);
   if (!result.ok) throw error(404, 'Group not found');

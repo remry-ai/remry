@@ -56,8 +56,8 @@
     const owner = { ownerType: 'PERSON' as const, ownerId: personId };
     const [person, goals, projects, todos, docs] = await Promise.all([
       client.person.get.query({ id: personId }),
-      withGoals ? client.goal.list.query(owner) : null,
-      client.project.list.query(owner),
+      withGoals ? client.goal.list.query({ ...owner, closed: 'include' }) : null,
+      client.project.list.query({ ...owner, closed: 'include' }),
       client.todo.forEntity.query(input),
       client.doc.list.query(input)
     ]);

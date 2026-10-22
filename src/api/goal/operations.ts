@@ -1,6 +1,6 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import type { ArchiveFilter, GoalStatus, OwnerType } from '$shared/types/enums';
+import { CLOSED_GOAL_STATUSES, type ArchiveFilter, type GoalStatus, type OwnerType } from '$shared/types/enums';
 import { goalProgress, type GoalCheckInItem, type GoalDetail, type GoalSummary } from '$shared/types/goals';
 import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
@@ -92,7 +92,15 @@ export interface GoalFilters {
   readonly parentId?: string | null;
   readonly projectId?: string;
   readonly archived?: ArchiveFilter;
+  /** Goals done or dropped: left out by default, unless `status` names one. */
+  readonly closed?: ArchiveFilter;
 }
+
+const closedWhere = (filter: ArchiveFilter = 'exclude') => {
+  const closed = [...CLOSED_GOAL_STATUSES];
+  if (filter === 'include') return {};
+  return { status: filter === 'only' ? { in: closed } : { notIn: closed } };
+};
 
 export const listGoals = async (
   reg: Pick<Registry, 'prisma'>,
@@ -101,10 +109,11 @@ export const listGoals = async (
   const rows = await reg.prisma.goal.findMany({
     where: {
       ...archiveWhere(filters.archived),
+      // Asking for a status asks for it, closed or not.
+      ...(filters.status !== undefined ? { status: filters.status } : closedWhere(filters.closed)),
       ...(filters.ownerType !== undefined && { ownerType: filters.ownerType }),
       ...(filters.ownerId !== undefined && { ownerId: filters.ownerId }),
       ...(filters.period !== undefined && { period: filters.period }),
-      ...(filters.status !== undefined && { status: filters.status }),
       ...(filters.parentId !== undefined && { parentId: filters.parentId }),
       ...(filters.projectId !== undefined && { projects: { some: { projectId: filters.projectId } } })
     },

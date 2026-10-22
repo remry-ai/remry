@@ -6,8 +6,8 @@
   import type { GoalSummary } from '$shared/types/goals';
   import StatusBadge from '$lib/project/components/StatusBadge.svelte';
   import { model } from '$lib/stores/notebook-model';
-  import { isGoalDone } from '$lib/goal/utils';
-  import { isProjectDone } from '$shared/utils/project-status';
+  import { isGoalClosed } from '$shared/types/enums';
+  import { CLOSED_PROJECT_STATUSES } from '$shared/utils/project-status';
 
   interface OwnedProject {
     readonly id: string;
@@ -23,11 +23,12 @@
 
   const { goals, projects }: Props = $props();
 
-  // Done work stays out of the counts and lists, under a closed "Done" line.
-  const activeGoals = $derived(goals.filter((g) => !isGoalDone(g.status)));
-  const doneGoals = $derived(goals.filter((g) => isGoalDone(g.status)));
-  const activeProjects = $derived(projects.filter((p) => !isProjectDone(p.status)));
-  const doneProjects = $derived(projects.filter((p) => isProjectDone(p.status)));
+  // Closed work (done, abandoned, dropped) stays out of the counts and lists, under a folded line.
+  const isProjectClosed = (p: OwnedProject): boolean => (CLOSED_PROJECT_STATUSES as readonly (string | null)[]).includes(p.status);
+  const activeGoals = $derived(goals.filter((g) => !isGoalClosed(g.status)));
+  const doneGoals = $derived(goals.filter((g) => isGoalClosed(g.status)));
+  const activeProjects = $derived(projects.filter((p) => !isProjectClosed(p)));
+  const doneProjects = $derived(projects.filter(isProjectClosed));
 </script>
 
 {#snippet projectRows(rows: readonly OwnedProject[])}
@@ -53,7 +54,7 @@
   {/if}
   {#if doneGoals.length > 0}
     <details class="done">
-      <summary>Done ({doneGoals.length})</summary>
+      <summary>Done or dropped ({doneGoals.length})</summary>
       <GoalRows goals={doneGoals} />
     </details>
   {/if}
@@ -71,7 +72,7 @@
   {/if}
   {#if doneProjects.length > 0}
     <details class="done">
-      <summary>Done ({doneProjects.length})</summary>
+      <summary>Done or abandoned ({doneProjects.length})</summary>
       {@render projectRows(doneProjects)}
     </details>
   {/if}

@@ -4,7 +4,7 @@ import type { ArchiveFilter, OwnerType } from '$shared/types/enums';
 import type { EntityOwner } from '$shared/types/owner';
 import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
-import { toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shared/utils/project-status';
+import { CLOSED_PROJECT_STATUSES, toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shared/utils/project-status';
 import { loadOwner, loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
@@ -72,7 +72,18 @@ export interface ProjectFilters {
   readonly ownerType?: OwnerType;
   readonly ownerId?: string;
   readonly archived?: ArchiveFilter;
+  /** Projects done or abandoned: left out by default. */
+  readonly closed?: ArchiveFilter;
 }
+
+/** A project with no status is open. */
+const closedWhere = (filter: ArchiveFilter = 'exclude') => {
+  const closed = [...CLOSED_PROJECT_STATUSES];
+  if (filter === 'include') return {};
+  return filter === 'only'
+    ? { status: { in: closed } }
+    : { OR: [{ status: null }, { status: { notIn: closed } }] };
+};
 
 export const listProjects = async (
   reg: Pick<Registry, 'prisma'>,
@@ -81,6 +92,7 @@ export const listProjects = async (
   const projects = await reg.prisma.project.findMany({
     where: {
       ...archiveWhere(filters.archived),
+      ...closedWhere(filters.closed),
       ...(filters.ownerType !== undefined && { ownerType: filters.ownerType }),
       ...(filters.ownerId !== undefined && { ownerId: filters.ownerId })
     },

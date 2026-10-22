@@ -1,20 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { doneShown, matchesDone, parseArchiveFilter } from '../archive';
+import { parseArchiveFilter, statusListFilters } from '../archive';
 
-describe('archive and done filter', () => {
-  it('reads done as not archived for the list call', () => {
-    expect(parseArchiveFilter('done')).toBe('exclude');
+describe('archive and closed filter', () => {
+  it('reads closed as not archived', () => {
+    expect(parseArchiveFilter('closed')).toBe('exclude');
   });
 
-  it('hides done rows from Active and shows only them under Done', () => {
-    expect(doneShown(null)).toBe('hide');
-    expect(doneShown('done')).toBe('only');
-    expect(doneShown('only')).toBe('any');
-    expect(doneShown('include')).toBe('any');
-    expect(matchesDone(true, 'hide')).toBe(false);
-    expect(matchesDone(false, 'hide')).toBe(true);
-    expect(matchesDone(true, 'only')).toBe(true);
-    expect(matchesDone(false, 'only')).toBe(false);
-    expect(matchesDone(true, 'any')).toBe(true);
+  it('leaves closed items out of Active, and shows only them under Closed', () => {
+    expect(statusListFilters(null)).toEqual({ archived: 'exclude', closed: 'exclude' });
+    expect(statusListFilters('closed')).toEqual({ archived: 'exclude', closed: 'only' });
+    expect(statusListFilters('only')).toEqual({ archived: 'only', closed: 'include' });
+    expect(statusListFilters('include')).toEqual({ archived: 'include', closed: 'include' });
+    expect(statusListFilters('nonsense')).toEqual({ archived: 'exclude', closed: 'exclude' });
   });
 });

@@ -10,9 +10,6 @@ export const GOAL_STATUS_LABELS: Readonly<Record<GoalStatus, string>> = {
   DROPPED: 'Dropped'
 };
 
-/** Done: left out of Active lists, and what their Done filter shows. */
-export const isGoalDone = (status: GoalStatus): boolean => status === 'DONE';
-
 export const goalStatusBadgeClass = (status: GoalStatus): string => {
   switch (status) {
     case 'ON_TRACK':

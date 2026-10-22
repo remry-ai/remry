@@ -50,7 +50,7 @@
     const input = { entityType: 'PROJECT' as const, entityId: projectId };
     const [project, goals, todos, docs] = await Promise.all([
       client.project.get.query({ id: projectId }),
-      withGoals ? client.goal.list.query({ projectId }) : null,
+      withGoals ? client.goal.list.query({ projectId, closed: 'include' }) : null,
       client.todo.forEntity.query(input),
       client.doc.list.query(input)
     ]);

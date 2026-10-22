@@ -7,11 +7,12 @@ import { listProjectDependencies } from './dependencies';
 
 export const projectRouter = router({
   list: procedure
-    .meta({ description: 'Lists projects, optionally those one person or group owns.' })
+    .meta({ description: 'Lists open projects (not done or abandoned unless closed says so), optionally those one person or group owns.' })
     .input(z.object({
       ownerType: z.enum(OWNER_TYPES).optional(),
       ownerId: z.string().optional(),
-      archived: z.enum(ARCHIVE_FILTERS).default('exclude')
+      archived: z.enum(ARCHIVE_FILTERS).default('exclude'),
+      closed: z.enum(ARCHIVE_FILTERS).default('exclude').describe('done and abandoned projects: exclude (the default), only, or include')
     }).default({}))
     .query(({ ctx, input }) => listProjects(ctx.reg, input)),
 

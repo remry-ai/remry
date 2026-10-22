@@ -11,21 +11,23 @@ export const ARCHIVE_FILTER_LABELS: Readonly<Record<ArchiveFilter, string>> = {
 };
 
 /**
- * The `?archived=` value for done items (a project that's done, a goal that's DONE) on a
- * list whose rows have a status. The list call treats it as the default (not archived),
- * and the page keeps only the done rows.
+ * The `?archived=` value for closed items (projects done or abandoned, goals done or dropped)
+ * on the Projects and Goals pages.
  */
-export const DONE_FILTER = 'done';
+export const CLOSED_FILTER = 'closed';
 
-export type DoneShown = 'hide' | 'only' | 'any';
+export interface StatusListFilters {
+  readonly archived: ArchiveFilter;
+  /** Closed items: left out (the default), only them, or both. */
+  readonly closed: ArchiveFilter;
+}
 
-/** Which done rows a status list shows: Active hides them, Done shows only them, the others show both. */
-export const doneShown = (value: string | null | undefined): DoneShown => {
-  if (value === DONE_FILTER) return 'only';
-  return parseArchiveFilter(value) === 'exclude' ? 'hide' : 'any';
+/** What `project.list` / `goal.list` get for the page's `?archived=`: Active leaves closed items out, Closed shows only those not archived, Archived and All show every status. */
+export const statusListFilters = (value: string | null | undefined): StatusListFilters => {
+  if (value === CLOSED_FILTER) return { archived: 'exclude', closed: 'only' };
+  const archived = parseArchiveFilter(value);
+  return { archived, closed: archived === 'exclude' ? 'exclude' : 'include' };
 };
-
-export const matchesDone = (done: boolean, shown: DoneShown): boolean => shown === 'any' || (shown === 'only') === done;
 
 /** Fired on window after an archive or unarchive, so cached lists (the quick finder) reload. */
 export const ARCHIVE_CHANGED_EVENT = 'wn:archive-changed';

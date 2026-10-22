@@ -13,15 +13,12 @@
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { GOAL_STATUSES, type GoalStatus, type OwnerType } from '$shared/types/enums';
   import { buildTree, flattenTree } from '$shared/utils/hierarchy';
-  import { GOAL_STATUS_LABELS, GOAL_TIME_FLAGS, formatGoalValue, goalStatusBadgeClass, isGoalDone, goalTimeFlag, progressTone } from '$lib/goal/utils';
+  import { GOAL_STATUS_LABELS, GOAL_TIME_FLAGS, formatGoalValue, goalStatusBadgeClass, goalTimeFlag, progressTone } from '$lib/goal/utils';
   import { localDay, periodPhase, type PeriodPhase } from '$shared/utils/period';
   import type { GoalSummary } from '$shared/types/goals';
-  import { doneShown, matchesDone } from '$shared/utils/archive';
 
   const { data } = $props<{ data: PageData }>();
-  // Active leaves done goals out; Done shows only them.
-  const shownDone = $derived(doneShown(page.url.searchParams.get('archived')));
-  const goals = $derived((data.goals as readonly GoalSummary[]).filter((g) => matchesDone(isGoalDone(g.status), shownDone)));
+  const goals = $derived(data.goals as readonly GoalSummary[]);
 
   const today = localDay();
 
@@ -83,7 +80,7 @@
   </PageHeader>
 
   <div class="toolbar filters">
-    <ArchiveFilter done />
+    <ArchiveFilter closedLabel="Done or dropped" />
     {#if data.goals.length > 0}
       <select class="sm" value={periodFilter} onchange={(e) => (periodChoice = e.currentTarget.value)} aria-label="Filter by period">
         <option value="CURRENT">Current periods</option>
@@ -174,6 +171,8 @@
     {:else}
       <EmptyState message="No goals match these filters." />
     {/if}
+  {:else if page.url.searchParams.has('archived')}
+    <EmptyState message="No goals match this filter." boxed />
   {:else}
     <EmptyState message="No goals yet." boxed>
       <button type="button" class="btn sm" onclick={() => openPopup('new-goal')}>Add goal</button>

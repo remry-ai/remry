@@ -1,22 +1,22 @@
 <script lang="ts">
   import ParamSelect from './ParamSelect.svelte';
   import { ARCHIVE_FILTERS } from '$shared/types/enums';
-  import { ARCHIVE_FILTER_LABELS, DONE_FILTER } from '$shared/utils/archive';
+  import { ARCHIVE_FILTER_LABELS, CLOSED_FILTER } from '$shared/utils/archive';
 
   // List-page toolbar filter. The value lives in `?archived=` so the server load can pass it to `*.list`.
-  // With `done` (lists whose rows have a status), it also offers Done, and Active leaves done rows out
-  // (`doneShown` in `$shared/utils/archive`).
+  // With `closedLabel` (Projects, Goals) it also offers closed items (`?archived=closed`), which
+  // Active leaves out; the load turns the value into `archived` and `closed` with `statusListFilters`.
   interface Props {
-    readonly done?: boolean;
+    readonly closedLabel?: string;
   }
 
-  const { done = false }: Props = $props();
+  const { closedLabel }: Props = $props();
 
   const options = $derived(
-    done
+    closedLabel
       ? [
           { id: 'exclude', name: ARCHIVE_FILTER_LABELS.exclude },
-          { id: DONE_FILTER, name: 'Done' },
+          { id: CLOSED_FILTER, name: closedLabel },
           { id: 'only', name: ARCHIVE_FILTER_LABELS.only },
           { id: 'include', name: 'All' }
         ]
@@ -24,4 +24,4 @@
   );
 </script>
 
-<ParamSelect param="archived" {options} defaultValue="exclude" ariaLabel="Show active, done or archived" />
+<ParamSelect param="archived" {options} defaultValue="exclude" ariaLabel="Show active or archived" />

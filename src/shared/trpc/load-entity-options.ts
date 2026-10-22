@@ -22,8 +22,8 @@ export const loadEntityOptions = async (
   const [people, groups, projects, goals, pages] = await Promise.all([
     client.person.list.query().catch(none),
     client.group.list.query().catch(none),
-    client.project.list.query().catch(none),
-    client.goal.list.query().catch(none),
+    client.project.list.query({ closed: 'include' }).catch(none),
+    client.goal.list.query({ closed: 'include' }).catch(none),
     client.page.list.query().catch(none)
   ]);
   const options = (type: RelatableType, rows: readonly { readonly id: string; readonly name: string }[]) =>
