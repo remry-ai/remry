@@ -200,6 +200,9 @@
     await loadDocLinks(id);
   };
 
+  // The doc "Make sync doc" is open on, until its prompt is saved or cancelled.
+  let makingSyncDoc = $state<string | null>(null);
+
   const handleSaveDocPrompt = async (prompt: string | null): Promise<void> => {
     if (!activeDoc) return;
     const id = activeDoc.id;
@@ -558,9 +561,11 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
+  {:else if makingSyncDoc === activeDoc?.id}
+    <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onCancel={() => { makingSyncDoc = null; }} />
   {:else}
-    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} />
+    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
   {/if}
 {/snippet}
 

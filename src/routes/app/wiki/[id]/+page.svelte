@@ -56,6 +56,11 @@
   // A sync page's sources are its links: synced ones, and ones added by hand that Claude reads next.
   const sourceLinks = $derived(data.links ?? []);
 
+  // "Make sync page": a document page only (a spreadsheet's rows aren't rewritten from sources).
+  let makingSync = $state(false);
+  const canMakeSync = $derived(!wikiPage.prompt && !makingSync && !isSheet && !wikiPage.archivedAt);
+  $effect(() => { void wikiPage.id; makingSync = false; });
+
   const handleAddLink = async (link: { readonly url: string; readonly title?: string }) => {
     await submitOrThrow(() => trpc().link.add.mutate({ entityType: 'PAGE', entityId: wikiPage.id, ...link }));
     await invalidateAll();
@@ -188,7 +193,9 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
+    {:else if makingSync}
+      <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onCancel={() => { makingSync = false; }} />
     {/if}
     {#if isSheet}
       <section class="section">
@@ -221,6 +228,9 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+            {/if}
+            {#if canMakeSync}
+              <button type="button" class="btn ghost sm" title="Claude keeps it in step with its sources, following a prompt you write" onclick={() => { makingSync = true; }}>Make sync page</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
           </span>
