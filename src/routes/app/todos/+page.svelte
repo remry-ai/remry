@@ -124,7 +124,7 @@
   {/if}
 
   {#if completedTodos.length > 0}
-    <details class="section completed">
+    <details class="section completed" open={statusFilter === 'COMPLETE' || statusFilter === 'CANCELLED'}>
       <summary>Completed ({completedTodos.length})</summary>
       <ul class="list">
         {#each completedTodos as todo (todo.id)}

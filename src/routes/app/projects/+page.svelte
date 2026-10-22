@@ -30,6 +30,8 @@
     type ProjectListItem
   } from '$lib/project/project-list';
   import { flattenTree } from '$shared/utils/hierarchy';
+  import { doneShown, matchesDone } from '$shared/utils/archive';
+  import { isProjectDone } from '$shared/utils/project-status';
 
   const VIEW_OPTIONS = [
     { id: 'table', name: 'Table' },
@@ -41,7 +43,10 @@
   ];
 
   const { data } = $props<{ data: PageData }>();
-  const allProjects = $derived((data.projects.ok ? data.projects.value : []) as readonly ProjectListItem[]);
+  const loadedProjects = $derived((data.projects.ok ? data.projects.value : []) as readonly ProjectListItem[]);
+  // Active leaves done projects out; Done shows only them.
+  const shownDone = $derived(doneShown(page.url.searchParams.get('archived')));
+  const allProjects = $derived(loadedProjects.filter((p) => matchesDone(isProjectDone(p.status), shownDone)));
   const teams = $derived(projectTeamOptions(allProjects));
   const teamFilterOptions = $derived([{ id: '', name: 'All teams' }, ...teams]);
   const params = $derived(parseProjectListParams(page.url.searchParams, teams));
@@ -104,7 +109,7 @@
   </PageHeader>
 
   <div class="toolbar filters">
-    <ArchiveFilter />
+    <ArchiveFilter done />
     {#if teams.length > 0}
       <ParamSelect param="team" options={teamFilterOptions} defaultValue="" ariaLabel="Filter by team" />
       {#if !isMap}
@@ -178,10 +183,12 @@
     </div>
   {/snippet}
 
-  {#if allProjects.length === 0}
+  {#if loadedProjects.length === 0 && shownDone !== 'only'}
     <EmptyState message="No projects yet." boxed>
       <button type="button" class="btn sm" onclick={() => openPopup('new-project')}>Add project</button>
     </EmptyState>
+  {:else if allProjects.length === 0}
+    <EmptyState message="No projects match these filters." boxed />
   {:else if isMap}
     {#if data.dependencies}
       <DependencyMap projects={allProjects} dependencies={data.dependencies} team={params.team} {tableHref} />

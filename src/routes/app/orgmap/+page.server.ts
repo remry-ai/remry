@@ -6,6 +6,8 @@ import { listPersons } from '$api/person/operations';
 import { listProjects } from '$api/project/operations';
 import { listGoals } from '$api/goal/operations';
 import { listProjectDependencies } from '$api/project/dependencies';
+import { isProjectDone } from '$shared/utils/project-status';
+import { isGoalDone } from '$lib/goal/utils';
 
 // The org module's page: reporting lines (org_person leads), its Team and
 // Department groups, and in the Work view who owns which projects and goals.
@@ -26,7 +28,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const departments = departmentsResult.ok ? departmentsResult.value : [];
   const teams = teamsResult.ok ? teamsResult.value : [];
   const work = projectsResult?.ok && goalsResult?.ok && dependenciesResult?.ok
-    ? { projects: projectsResult.value, goals: goalsResult.value, dependencies: dependenciesResult.value, teams, departments }
+    // Done work is left out: the map shows what's under way.
+    ? { projects: projectsResult.value.filter((p) => !isProjectDone(p.status)), goals: goalsResult.value.filter((g) => !isGoalDone(g.status)), dependencies: dependenciesResult.value, teams, departments }
     : null;
 
   // The org tree reads each person's lead from the org module's data.

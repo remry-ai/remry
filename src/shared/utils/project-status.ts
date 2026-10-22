@@ -55,6 +55,9 @@ const TONES: Readonly<Record<ProjectStatus, ProjectStatusTone>> = {
 export const projectStatusTone = (status: string | null | undefined): ProjectStatusTone =>
   isProjectStatus(status) ? TONES[status] : 'muted';
 
+/** Done: left out of Active lists, and what their Done filter shows. */
+export const isProjectDone = (status: string | null | undefined): boolean => status === 'done';
+
 /** Done or abandoned: no longer running, so never late. */
 export const isFinishedStatus = (status: string | null | undefined): boolean => status === 'done' || status === 'abandoned';
 
