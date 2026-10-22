@@ -28,7 +28,7 @@ Everything belongs to one user; there are no accounts, orgs or permissions. Ids 
 **Project**: `name`, `description?`, `status?` (one of `proposed` for prospective projects, `committed`, `in-progress`, `blocked`, `done`, `abandoned`; common words map onto these, such as `active` → `in-progress`, `planning` → `committed`, `cancelled` → `abandoned`, and anything else is refused), `startDate?`, `endDate?`, `parentId?` (sub-projects), an owner (`ownerType` `PERSON` or `GROUP` + `ownerId`), and three-point estimates `daysOptimistic?`, `daysLikely?`, `daysPessimistic?`.
 
 - Set `ownerType` and `ownerId` together. Set both to `null` to clear the owner. The owner must exist.
-- `project.list` filters by `ownerType` + `ownerId`. `project.get` returns the `owner` with its name and path. `project.create` returns `{ id, path }`.
+- `project.list` filters by `ownerType` + `ownerId`. It leaves out `done` and `abandoned` projects: pass `--closed only` for just those, or `--closed include` for every status. `project.get` returns the `owner` with its name and path. `project.create` returns `{ id, path }`.
 - A parent that would make a loop (a project under its own sub-project) is rejected.
 
 ## Goals
@@ -37,7 +37,7 @@ Everything belongs to one user; there are no accounts, orgs or permissions. Ids 
 
 - `period` is `2026`, `2026-H2` or `2026-Q3`: a calendar year, half or quarter. The app reads it as dates (`2026-H2` is 1 Jul to 31 Dec 2026), shows how much of it has gone by, draws a pace line from `baseline` to `target` across it, and flags a goal "Behind pace" when `progress` trails the time elapsed by more than 10 points, or "Period ended" when the period is over and the goal isn't `DONE` or `DROPPED`. The flags are hints; they never change `status`.
 - `status` is one of `NOT_STARTED ON_TRACK AT_RISK OFF_TRACK DONE DROPPED` (default `NOT_STARTED`).
-- `goal.list` filters by `ownerType` + `ownerId`, `period`, `status`, `parentId` (`null` for top-level goals) and `projectId`.
+- `goal.list` filters by `ownerType` + `ownerId`, `period`, `status`, `parentId` (`null` for top-level goals) and `projectId`. It leaves out `DONE` and `DROPPED` goals unless `--status` names one: pass `--closed only` for just those, or `--closed include` for every status.
 - `goal.get` returns the owner, parent, sub-goals, check-ins (newest first), linked projects, `current`, `progress` and `path`. `goal.create` returns `{ id, path }`.
 - `current` is the value of the latest check-in that has one. `progress` is 0–1 from `baseline` (0 if unset) to `target`, and `null` until there is a target and a current value. It works for goals where lower is better.
 - Owner rules are the same as for projects. A parent that would make a loop is rejected.

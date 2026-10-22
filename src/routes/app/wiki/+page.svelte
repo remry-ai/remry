@@ -13,18 +13,24 @@
   import PagePeek from '$lib/page/components/PagePeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
   import { openPeek, parsePeek, PEEK_PARAM } from '$lib/ui/peek-url';
+  import { onMount } from 'svelte';
+  import { loadCollapsed, parentIds, saveCollapsed, toggleId } from '$lib/page/tree-state';
 
   const { data } = $props<{ data: PageData }>();
   const pages = $derived(data.pages as readonly PageSummary[]);
-  // Pages start expanded; this holds the ones collapsed.
-  let collapsed = $state<ReadonlySet<string>>(new Set());
-
-  const toggleRow = (id: string) => {
-    const next = new Set(collapsed);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+  // Pages start expanded; this holds the ones collapsed, remembered per notebook in this
+  // browser. Read after mounting, so the server's render and the first client one agree.
+  const notebookId = $derived(data.notebook.id);
+  let collapsed = $state.raw<ReadonlySet<string>>(new Set());
+  onMount(() => {
+    collapsed = loadCollapsed(notebookId);
+  });
+  const setCollapsed = (next: ReadonlySet<string>) => {
     collapsed = next;
+    saveCollapsed(notebookId, next);
   };
+  const toggleRow = (id: string) => setCollapsed(toggleId(collapsed, id));
+  const parents = $derived(parentIds(pages));
 
   // Sub-pages whose parent is filtered out show at the top level.
   const rows = $derived(
@@ -50,6 +56,11 @@
 
   <div class="toolbar filters">
     <ArchiveFilter />
+    {#if parents.size > 0}
+      <span class="spacer"></span>
+      <button type="button" class="btn sm ghost" onclick={() => setCollapsed(new Set())}>Expand all</button>
+      <button type="button" class="btn sm ghost" onclick={() => setCollapsed(new Set([...collapsed, ...parents]))}>Collapse all</button>
+    {/if}
   </div>
 
   {#if data.pages.length > 0}

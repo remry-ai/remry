@@ -1,5 +1,5 @@
 // Wiki pages: a page tree of markdown documents and spreadsheets. Pages have no
-// kinds or fields (removed in 0.16.41: the drop_page_kinds migration wrote each
+// kinds or fields (removed in 0.16.42: the drop_page_kinds migration wrote each
 // page's field values into the top of its text). Shared by the server and the client.
 
 /** What a page's body is: markdown (`doc`) or a spreadsheet's JSON (`sheet`, see $shared/utils/sheet). */

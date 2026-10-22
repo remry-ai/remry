@@ -177,6 +177,10 @@
 
     :global(p:last-child) { margin-bottom: 0; }
 
+    // Room below a table, so the text after it doesn't sit on its last row.
+    :global(.table-wrap) { margin-bottom: var(--sp-4); }
+    :global(.table-wrap:last-child) { margin-bottom: 0; }
+
     :global(.chart-block) {
       margin: 1rem 0;
     }

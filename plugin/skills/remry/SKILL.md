@@ -57,7 +57,7 @@ Every call works on one notebook: the default, unless you name another.
 
 ## Rules
 
-1. **Look before you write**, in the notebook you're writing to. Find ids with `person.list`, `group.list` (`--kind TEAM`), `project.list`, `goal.list` and `page.list`, or `search.query` when you only know roughly what it's called. Match names and titles case-insensitively. Never create a second goal or page with a title that already exists. `person.create`, `group.create` and `project.create` refuse a name already in use (archived ones too) and name the one that exists: update that one instead. Pass `allowDuplicate: true` only when the user confirms it's a different person or thing with the same name.
+1. **Look before you write**, in the notebook you're writing to. Find ids with `person.list`, `group.list` (`--kind TEAM`), `project.list`, `goal.list` and `page.list`, or `search.query` when you only know roughly what it's called. Match names and titles case-insensitively. Never create a second goal or page with a title that already exists (`goal.list` leaves out done and dropped goals, so check with `--closed include`). `person.create`, `group.create` and `project.create` refuse a name already in use (archived ones too) and name the one that exists: update that one instead. Pass `allowDuplicate: true` only when the user confirms it's a different person or thing with the same name.
 2. **Ask when it's ambiguous.** For example, two people match "Sam", or it's unclear which project a note belongs to.
 3. **Confirm before deleting anything**, and say exactly what will be removed. When someone leaves, or a group, project, goal or page is finished, offer to **archive** it instead: archiving keeps its history, and deleting removes everything attached to it.
 4. **Snapshot before bulk or destructive changes.** That means any delete, or more than about five writes in one go:
@@ -145,7 +145,7 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 
 Wiki pages have no kinds or fields: a page is a document or a spreadsheet. Pick by what the user keeps:
 
-- **One thing with details** (a tool, a policy, a place, a recipe): a document page whose text starts with a short details list, `- **Label:** value` per line, then everything else. Pages from before 0.16.41 had their fields written into their text this way.
+- **One thing with details** (a tool, a policy, a place, a recipe): a document page whose text starts with a short details list, `- **Label:** value` per line, then everything else. Pages from before 0.16.42 had their fields written into their text this way.
 - **Many things of the same shape** (expenses, subscriptions, contacts, a reading list): one spreadsheet page with a row each and a column per detail (`--bodyType sheet`; the content is `{"columns":[{"title":"…"}],"data":[["…"]]}`, and a cell starting with `=` is a formula, like `=SUM(B1:B9)`). Find an existing sheet before starting a new one, and keep one sheet per kind of record. To add or change rows, `page.get` the sheet, edit `data`, and `page.update --content` with the whole sheet.
 - **Answering "how much" or "which"**: read the sheet (`values` are what each cell showed, totals included) and work it out; don't make a page per row just to count them.
 

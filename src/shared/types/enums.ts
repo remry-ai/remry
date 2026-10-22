@@ -37,6 +37,11 @@ export const GOAL_STATUSES = ['NOT_STARTED', 'ON_TRACK', 'AT_RISK', 'OFF_TRACK',
 
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
+/** Done or dropped: left out of `goal.list` and the app's Active lists unless asked for. */
+export const CLOSED_GOAL_STATUSES: readonly GoalStatus[] = ['DONE', 'DROPPED'];
+
+export const isGoalClosed = (status: GoalStatus): boolean => CLOSED_GOAL_STATUSES.includes(status);
+
 /**
  * Relation kinds: RELATED has no direction, DEPENDS_ON does, and MENTIONS is derived
  * from app links in content and never written by hand. Relationships between people

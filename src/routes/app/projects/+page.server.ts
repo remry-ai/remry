@@ -1,15 +1,16 @@
 import type { PageServerLoad } from './$types';
 import { trpc } from '$shared/trpc/client';
 import { notebookModel } from '$shared/modules/model';
-import { parseArchiveFilter } from '$shared/utils/archive';
+import { statusListFilters } from '$shared/utils/archive';
 import { loadOwnerOptions } from '$shared/trpc/load-owner-options';
 
 export const load: PageServerLoad = async ({ fetch, url, locals }) => {
   const client = trpc(fetch);
-  const archived = parseArchiveFilter(url.searchParams.get('archived'));
+  // Active leaves closed projects (done, abandoned) out; Closed shows only those.
+  const { archived, closed } = statusListFilters(url.searchParams.get('archived'));
   // The Map view also needs every dependency and goal link; the table doesn't.
   const [projects, ownerOptions, dependencies] = await Promise.all([
-    client.project.list.query({ archived }),
+    client.project.list.query({ archived, closed }),
     loadOwnerOptions(client),
     url.searchParams.get('view') === 'map' ? client.project.dependencies.query({ archived }) : null
   ]);

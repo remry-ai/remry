@@ -296,6 +296,7 @@
       display: block;
       max-width: 100%;
       overflow-x: auto;
+      margin-bottom: var(--sp-4);
     }
     :global(h1) { font-size: var(--fs-xl); }
     :global(h2) { font-size: var(--fs-lg); margin-top: var(--sp-4); }

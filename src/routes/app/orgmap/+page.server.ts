@@ -26,6 +26,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const departments = departmentsResult.ok ? departmentsResult.value : [];
   const teams = teamsResult.ok ? teamsResult.value : [];
   const work = projectsResult?.ok && goalsResult?.ok && dependenciesResult?.ok
+    // The lists leave closed work (done, abandoned, dropped) out: the map shows what's under way.
     ? { projects: projectsResult.value, goals: goalsResult.value, dependencies: dependenciesResult.value, teams, departments }
     : null;
 

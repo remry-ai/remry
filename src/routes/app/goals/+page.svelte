@@ -80,7 +80,7 @@
   </PageHeader>
 
   <div class="toolbar filters">
-    <ArchiveFilter />
+    <ArchiveFilter closedLabel="Done or dropped" />
     {#if data.goals.length > 0}
       <select class="sm" value={periodFilter} onchange={(e) => (periodChoice = e.currentTarget.value)} aria-label="Filter by period">
         <option value="CURRENT">Current periods</option>
@@ -171,6 +171,8 @@
     {:else}
       <EmptyState message="No goals match these filters." />
     {/if}
+  {:else if page.url.searchParams.has('archived')}
+    <EmptyState message="No goals match this filter." boxed />
   {:else}
     <EmptyState message="No goals yet." boxed>
       <button type="button" class="btn sm" onclick={() => openPopup('new-goal')}>Add goal</button>

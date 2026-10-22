@@ -21,7 +21,7 @@ const goalProject = z.object({ goalId: z.string(), projectId: z.string() });
 
 export const goalRouter = router({
   list: procedure
-    .meta({ description: 'Lists goals, filtered by owner, period, status, parent goal or linked project.' })
+    .meta({ description: 'Lists open goals (not done or dropped unless closed or status says so), filtered by owner, period, status, parent goal or linked project.' })
     .input(z.object({
       ownerType: z.enum(OWNER_TYPES).optional(),
       ownerId: z.string().optional(),
@@ -29,7 +29,8 @@ export const goalRouter = router({
       status: status.optional(),
       parentId: z.string().nullable().optional(),
       projectId: z.string().optional(),
-      archived: z.enum(ARCHIVE_FILTERS).default('exclude')
+      archived: z.enum(ARCHIVE_FILTERS).default('exclude'),
+      closed: z.enum(ARCHIVE_FILTERS).default('exclude').describe('done and dropped goals: exclude (the default), only, or include; ignored when status is given')
     }).default({}))
     .query(({ ctx, input }) => listGoals(ctx.reg, input)),
 

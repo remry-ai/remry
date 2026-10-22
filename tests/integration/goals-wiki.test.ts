@@ -353,3 +353,31 @@ describe('images taken out of a page\'s text', () => {
     expect(await reg.storage.readObject(removedKey)).toBeNull();
   });
 });
+
+describe('closed work', () => {
+  it('lists leave closed work out unless asked', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const owner = { ownerType: 'PERSON', ownerId: 'person_carol' } as const;
+    for (const [name, status] of [['Open one', 'in-progress'], ['No status', undefined], ['Shipped', 'done'], ['Shelved', 'abandoned']] as const) {
+      expect((await createProject(reg, { name, status, ...owner })).ok).toBe(true);
+    }
+    const names = async (closed?: 'exclude' | 'only' | 'include') => {
+      const r = await listProjects(reg, { ...owner, closed });
+      return r.ok ? r.value.map((p) => p.name) : null;
+    };
+    expect(await names()).toEqual(['No status', 'Open one']);
+    expect(await names('only')).toEqual(['Shelved', 'Shipped']);
+    expect(await names('include')).toHaveLength(4);
+
+    for (const [title, status] of [['Goal open', 'ON_TRACK'], ['Goal done', 'DONE'], ['Goal dropped', 'DROPPED']] as const) {
+      expect((await createGoal(reg, { title, status, ...owner })).ok).toBe(true);
+    }
+    const titles = async (filters: { closed?: 'exclude' | 'only' | 'include'; status?: 'DONE' }) => {
+      const r = await listGoals(reg, { ...owner, ...filters });
+      return r.ok ? r.value.map((g) => g.title).sort() : null;
+    };
+    expect(await titles({})).toEqual(['Goal open']);
+    expect(await titles({ closed: 'only' })).toEqual(['Goal done', 'Goal dropped']);
+    expect(await titles({ status: 'DONE' })).toEqual(['Goal done']);
+  });
+});

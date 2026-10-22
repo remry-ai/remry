@@ -30,6 +30,7 @@
     type ProjectListItem
   } from '$lib/project/project-list';
   import { flattenTree } from '$shared/utils/hierarchy';
+  import { CLOSED_FILTER } from '$shared/utils/archive';
 
   const VIEW_OPTIONS = [
     { id: 'table', name: 'Table' },
@@ -42,6 +43,8 @@
 
   const { data } = $props<{ data: PageData }>();
   const allProjects = $derived((data.projects.ok ? data.projects.value : []) as readonly ProjectListItem[]);
+  // The Closed filter's empty list isn't "no projects yet".
+  const showingClosed = $derived(page.url.searchParams.get('archived') === CLOSED_FILTER);
   const teams = $derived(projectTeamOptions(allProjects));
   const teamFilterOptions = $derived([{ id: '', name: 'All teams' }, ...teams]);
   const params = $derived(parseProjectListParams(page.url.searchParams, teams));
@@ -104,7 +107,7 @@
   </PageHeader>
 
   <div class="toolbar filters">
-    <ArchiveFilter />
+    <ArchiveFilter closedLabel="Done or abandoned" />
     {#if teams.length > 0}
       <ParamSelect param="team" options={teamFilterOptions} defaultValue="" ariaLabel="Filter by team" />
       {#if !isMap}
@@ -178,10 +181,12 @@
     </div>
   {/snippet}
 
-  {#if allProjects.length === 0}
+  {#if allProjects.length === 0 && !showingClosed}
     <EmptyState message="No projects yet." boxed>
       <button type="button" class="btn sm" onclick={() => openPopup('new-project')}>Add project</button>
     </EmptyState>
+  {:else if allProjects.length === 0}
+    <EmptyState message="No projects are done or abandoned." boxed />
   {:else if isMap}
     {#if data.dependencies}
       <DependencyMap projects={allProjects} dependencies={data.dependencies} team={params.team} {tableHref} />
