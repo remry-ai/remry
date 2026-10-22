@@ -6,6 +6,7 @@
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import type { ChartBranding } from '$shared/types/branding';
   import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
+  import { imageFilesIn, insertImages } from '$lib/doc/pasted-images';
 
   interface PdfNotice {
     readonly tone: 'warning' | 'error';
@@ -164,6 +165,35 @@
     return result;
   };
 
+  // The title box and the Markdown textarea would drop a pasted image without a word (a new
+  // doc opens with the title focused), so it goes into the body, uploaded on save like any other.
+  let editorKey = $state(0);
+  const pasteImagesIntoBody = (e: ClipboardEvent, at?: number): boolean => {
+    const files = imageFilesIn(e.clipboardData);
+    if (files.length === 0 || !onUploadImage) return false;
+    e.preventDefault();
+    const images = files.map((file) => {
+      const url = URL.createObjectURL(file);
+      pendingImages.set(url, file);
+      return { url, name: file.name || 'image' };
+    });
+    draft = insertImages(draft, images, at);
+    // The editor reads its content when it mounts.
+    editorKey += 1;
+    return true;
+  };
+
+  const handleTitlePaste = (e: ClipboardEvent) => {
+    if (!pasteImagesIntoBody(e)) return;
+    void commitTitle();
+    if (mode === 'preview') mode = 'editor';
+  };
+
+  const handleTextareaPaste = (e: ClipboardEvent) => {
+    const textarea = e.currentTarget as HTMLTextAreaElement;
+    pasteImagesIntoBody(e, textarea.selectionStart);
+  };
+
   const handleSave = async () => {
     if (!isDirty) return;
     saving = true;
@@ -208,6 +238,7 @@
         bind:value={titleDraft}
         onblur={commitTitle}
         onkeydown={handleTitleKeydown}
+        onpaste={handleTitlePaste}
         use:focusOnMount
         aria-label="Document title"
       />
@@ -259,9 +290,9 @@
         </div>
       </div>
       {#if mode === 'write'}
-        <textarea class="doc-textarea mono" bind:value={draft} rows={20} placeholder="Write in markdown..."></textarea>
+        <textarea class="doc-textarea mono" bind:value={draft} onpaste={handleTextareaPaste} rows={20} placeholder="Write in markdown..."></textarea>
       {:else if mode === 'editor'}
-        {#key resolvedContent}
+        {#key `${resolvedContent}|${editorKey}`}
           <MarkdownEditor value={draft} onChange={(md) => (draft = md)} {pendingImages} />
         {/key}
       {:else}

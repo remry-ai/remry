@@ -1,15 +1,14 @@
 import { $prose } from '@milkdown/utils';
 import { Plugin } from '@milkdown/prose/state';
 import { Fragment } from '@milkdown/prose/model';
+import { imageFilesIn } from '$lib/doc/pasted-images';
 
 export const createImageDropPlugin = (pendingImages: Map<string, File>) =>
   $prose(() => {
     return new Plugin({
       props: {
         handleDrop(view, event) {
-          const files = event.dataTransfer?.files;
-          if (!files?.length) return false;
-          const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+          const imageFiles = imageFilesIn(event.dataTransfer);
           if (!imageFiles.length) return false;
           event.preventDefault();
 
@@ -30,9 +29,7 @@ export const createImageDropPlugin = (pendingImages: Map<string, File>) =>
           return true;
         },
         handlePaste(view, event) {
-          const files = event.clipboardData?.files;
-          if (!files?.length) return false;
-          const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+          const imageFiles = imageFilesIn(event.clipboardData);
           if (!imageFiles.length) return false;
           event.preventDefault();
 
