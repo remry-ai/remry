@@ -41,6 +41,7 @@ const staleAppStopped = await stopStaleApp(appOwner).catch((error: unknown) => {
 
 const { procedures, callProcedure, disconnect } = await import('./api');
 const { appPageLink, withAppLinks } = await import('./app-links');
+const { callInstalled, installedNow, shouldHandOff } = await import('./newer-install');
 const { createSnapshot, listSnapshots } = await import('../scripts/backup/snapshot');
 const { resolveCurrentNotebook } = await import('../src/shared/notebooks/current.server');
 const { notebookFromEnv } = await import('../src/shared/notebooks/resolve');
@@ -151,7 +152,12 @@ const callTool = async (name: string, rawArgs: Readonly<Record<string, unknown>>
   if (extraTools.some((t) => t.name === name)) return callExtraTool(name, split.args, split.notebook);
   const procedure = procedureByTool.get(name);
   if (!procedure) return textResult(`Unknown tool: ${name}`, true);
-  const outcome = await callProcedure(procedure, split.args, { notebook: split.notebook });
+  // Remry updated while this server ran: the newer version runs the call (cli/newer-install.ts),
+  // since it may have migrated the notebook past what this version's queries know.
+  const installed = await installedNow({ standalone: appOwner.standalone, repoDir: REPO }).catch(() => null);
+  const outcome = installed && shouldHandOff(pluginManifest.version, installed.version)
+    ? await callInstalled(installed, procedure, split.args, split.notebook)
+    : await callProcedure(procedure, split.args, { notebook: split.notebook });
   if (outcome.kind !== 'result' || outcome.failed) return resultFromOutcome(outcome);
   // A full link beside each app path (cli/app-links.ts), in the notebook the call used.
   const notebook = await resolveCurrentNotebook({ explicit: split.notebook, env: notebookFromEnv(process.env) });
