@@ -51,16 +51,15 @@
   const hasOwnTitle = $derived(body.trimStart().startsWith('# '));
   const content = $derived(markPageBreaks(body));
 
-  let sheet = $state<HTMLDivElement | null>(null);
   let exporting = $state(false);
   let exportError = $state('');
 
   const handleDownload = async (): Promise<void> => {
-    if (!sheet || exporting) return;
+    if (exporting) return;
     exporting = true;
     exportError = '';
     try {
-      await downloadPdf(sheet, '.doc-print-header, .plain-title, .print-details, .md-rendered > *', title);
+      await downloadPdf({ title, markdown: body, branding, letterhead: showHeader, showTitle: !hasOwnTitle });
     } catch (e: unknown) {
       exportError = `Couldn't make the PDF: ${e instanceof Error ? e.message : String(e)}. Print it to PDF instead.`;
     } finally {
@@ -110,7 +109,7 @@
 {#if exportError}<p class="form-error export-error no-print" role="alert">{exportError}</p>{/if}
 
 <main class="print-page">
-  <div class="sheet" bind:this={sheet}>
+  <div class="sheet">
     {#if showHeader && branding}
       <DocPrintHeader {branding} title={title} />
     {:else if !hasOwnTitle}

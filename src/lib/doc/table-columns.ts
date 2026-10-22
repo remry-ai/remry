@@ -18,18 +18,6 @@ export const nowrapColumns = (rows: readonly (readonly string[])[]): readonly bo
   return longest.map((chars) => chars <= SHORT_COLUMN_CHARS);
 };
 
-/**
- * For a page that can't scroll (the PDF): a table whose kept-whole columns make it wider than
- * its box wraps them again, since a cut-off right side is worse than a wrapped date.
- */
-export const wrapOverflowingTables = (container: ParentNode): void => {
-  for (const table of container.querySelectorAll('table')) {
-    const box = table.parentElement;
-    if (!box || box.clientWidth === 0 || table.scrollWidth <= box.clientWidth) continue;
-    for (const cell of table.querySelectorAll('.nowrap')) cell.classList.remove('nowrap');
-  }
-};
-
 /** Marks the cells of each table's short columns with `.nowrap` (styled in `_base.scss`). */
 export const fitTableColumns = (container: HTMLElement): void => {
   for (const table of container.querySelectorAll('table')) {
