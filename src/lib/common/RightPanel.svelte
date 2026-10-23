@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { rightPanelNotes, rightPanelPage, rightPanelPeek, rightPanelTab } from '$lib/stores/right-panel';
+  import { rightPanelNotes, rightPanelPage, rightPanelPeek, rightPanelTab, rightPanelTodos } from '$lib/stores/right-panel';
   import { panelWidth, activeDrawer, openDrawer, closeFloating, toggleDrawer } from '$lib/stores/drawers';
   import { clampDrawerWidth, PANEL_MIN_W } from '$lib/common/panel-width';
   import NotesList from '$lib/common/NotesList.svelte';
   import PageChat from '$lib/common/PageChat.svelte';
+  import TodoWidget from '$lib/todo/components/TodoWidget.svelte';
+  import DoneTodos from '$lib/todo/components/DoneTodos.svelte';
+  import { isClosedTodo } from '$lib/todo/utils';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
   import ChevronIcon from '$lib/ui/ChevronIcon.svelte';
@@ -21,7 +24,9 @@
 
   const { floating, open, floatOpen, collapseMedium }: Props = $props();
 
-  const tabLabel = $derived($rightPanelTab === 'chat' ? 'chat' : $rightPanelTab === 'peek' ? 'peek' : 'notes');
+  const TAB_LABELS = { notes: 'notes', done: 'done todos', chat: 'chat', peek: 'peek' } as const;
+  const tabLabel = $derived(TAB_LABELS[$rightPanelTab]);
+  const doneCount = $derived($rightPanelTodos?.todos.filter((t) => isClosedTodo(t.status)).length ?? 0);
   const toggleLabel = $derived(`${open ? 'Hide' : 'Show'} ${tabLabel}`);
 
   // A peek opening switches to its tab and shows the panel; closing it goes back to Notes.
@@ -57,6 +62,9 @@
       <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'notes'} aria-selected={$rightPanelTab === 'notes'} onclick={() => rightPanelTab.set('notes')}>
         Notes{#if $rightPanelNotes} <span class="count">{$rightPanelNotes.notes.length}</span>{/if}
       </button>
+      <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'done'} aria-selected={$rightPanelTab === 'done'} onclick={() => rightPanelTab.set('done')}>
+        Done{#if $rightPanelTodos} <span class="count">{doneCount}</span>{/if}
+      </button>
       <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'chat'} aria-selected={$rightPanelTab === 'chat'} onclick={() => rightPanelTab.set('chat')}>
         Chat
       </button>
@@ -71,7 +79,14 @@
     {/if}
   </div>
 
-  <div class="panel-body" hidden={$rightPanelTab !== 'notes'}>
+  <!-- Active todos are pinned above the notes, which scroll on their own beneath them. -->
+  <div class="panel-notes" hidden={$rightPanelTab !== 'notes'}>
+    {#if $rightPanelTodos}
+      <div class="pinned-todos">
+        <TodoWidget todos={$rightPanelTodos.todos} onCreate={$rightPanelTodos.onCreate} onEditTodo={$rightPanelTodos.onEdit} />
+      </div>
+    {/if}
+    <div class="panel-body">
     {#if $rightPanelNotes}
       <NotesList
         notes={$rightPanelNotes.notes}
@@ -80,6 +95,15 @@
       />
     {:else}
       <div class="panel-empty"><EmptyState message="Open a person, team, department or project to see its notes." /></div>
+    {/if}
+    </div>
+  </div>
+
+  <div class="panel-body" hidden={$rightPanelTab !== 'done'}>
+    {#if $rightPanelTodos}
+      <DoneTodos todos={$rightPanelTodos.todos} onEditTodo={$rightPanelTodos.onEdit} />
+    {:else}
+      <div class="panel-empty"><EmptyState message="Open a person, team, project, goal or page to see its done todos." /></div>
     {/if}
   </div>
 
@@ -152,8 +176,24 @@
   }
   .panel-body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: var(--sp-3) var(--sp-4);
+  }
+  .panel-notes {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    &[hidden] { display: none; }
+  }
+  // Up to 40% of the panel; past that the todos scroll and the notes keep the rest.
+  .pinned-todos {
+    flex-shrink: 0;
+    max-height: 40%;
+    overflow-y: auto;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
   }
   .panel-chat {
     flex: 1;

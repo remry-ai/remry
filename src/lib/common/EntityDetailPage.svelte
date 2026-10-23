@@ -19,7 +19,6 @@
   import NoteEditor from '$lib/common/NoteEditor.svelte';
   import Popup from '$lib/common/Popup.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import TodoWidget from '$lib/todo/components/TodoWidget.svelte';
   import TodoForm from '$lib/todo/components/TodoForm.svelte';
   import ReportsWidget from '$lib/report/components/ReportsWidget.svelte';
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
@@ -28,7 +27,7 @@
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
-  import { rightPanelNotes, rightPanelPage } from '$lib/stores/right-panel';
+  import { rightPanelNotes, rightPanelPage, rightPanelTodos } from '$lib/stores/right-panel';
   import { activeDrawer } from '$lib/stores/drawers';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
@@ -240,8 +239,9 @@
     draftDocId = null;
     openDoc(NEW_DOC);
   };
-  const openNewTodo = () => { showInCenter({ type: 'newTodo' }); };
-  const openEditTodo = (id: string) => { showInCenter({ type: 'editTodo', id }); };
+  // From the right panel: close it where it floats, so the form in the center pane is reachable.
+  const openNewTodo = () => { activeDrawer.set(null); showInCenter({ type: 'newTodo' }); };
+  const openEditTodo = (id: string) => { activeDrawer.set(null); showInCenter({ type: 'editTodo', id }); };
   const closeCenter = () => { center = { type: 'overview' }; };
   const closeDoc = () => { void closeDocUrl(); };
 
@@ -276,6 +276,9 @@
       onEdit: (id) => openNote(id),
     });
   });
+  $effect(() => {
+    rightPanelTodos.set({ todos, onCreate: openNewTodo, onEdit: openEditTodo });
+  });
   // The chat tab reads the page as the user sees it: the center pane, then the notes.
   let centerEl: HTMLDivElement | undefined = $state();
   // Sticky things in the pane (the doc editor's toolbar) sit below the sticky header.
@@ -290,6 +293,7 @@
   });
   onDestroy(() => {
     rightPanelNotes.set(null);
+    rightPanelTodos.set(null);
     rightPanelPage.set(null);
   });
 
@@ -416,15 +420,6 @@
 
 <DetailLayout>
   {#snippet sidebar()}
-    <div class="section">
-      <TodoWidget
-        {entityType}
-        {entityId}
-        {todos}
-        onCreate={openNewTodo}
-        onEditTodo={openEditTodo}
-      />
-    </div>
     {#if features.reports}
       <div class="section">
         <ReportsWidget {entityType} {entityId} {reports} />

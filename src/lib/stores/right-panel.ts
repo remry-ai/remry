@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { Snippet } from 'svelte';
 import type { EntityType } from '$shared/types/enums';
+import type { TodoStatus } from '$lib/todo/utils';
 
 interface Note {
   readonly id: string;
@@ -16,6 +17,22 @@ export interface RightPanelNotes {
   readonly onRemove: (id: string) => Promise<void>;
   readonly onStartAdd?: (parentId?: string) => void;
   readonly onEdit?: (noteId: string) => void;
+}
+
+interface Todo {
+  readonly id: string;
+  readonly title: string;
+  readonly status: TodoStatus;
+  readonly priority: number;
+  readonly targetDate: Date | null;
+  readonly completedAt: Date | null;
+}
+
+/** The open entity's todos: active ones pinned above the notes, closed ones in the Done tab. */
+export interface RightPanelTodos {
+  readonly todos: readonly Todo[];
+  readonly onCreate: () => void;
+  readonly onEdit: (id: string) => void;
 }
 
 /** The entity page open in the center, for the chat tab. */
@@ -36,9 +53,10 @@ export interface RightPanelPeek {
   readonly onClose: () => void;
 }
 
-export type RightPanelTabId = 'notes' | 'chat' | 'peek';
+export type RightPanelTabId = 'notes' | 'done' | 'chat' | 'peek';
 
 export const rightPanelNotes = writable<RightPanelNotes | null>(null);
+export const rightPanelTodos = writable<RightPanelTodos | null>(null);
 export const rightPanelPage = writable<RightPanelPage | null>(null);
 export const rightPanelPeek = writable<RightPanelPeek | null>(null);
 export const rightPanelTab = writable<RightPanelTabId>('notes');

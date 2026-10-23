@@ -4,7 +4,7 @@
   import { trpc } from '$shared/trpc/client';
   import StatusDot from './StatusDot.svelte';
   import PriorityBadge from './PriorityBadge.svelte';
-  import { nextStatus, describeDueDate, formatDueDateFull, formatTodoDate, type TodoStatus } from '../utils';
+  import { nextStatus, describeDueDate, formatDueDateFull, isClosedTodo, type TodoStatus } from '../utils';
   import { openPopup } from '$lib/ui/popup-url';
   import { submit } from '$lib/ui/submit';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -19,8 +19,6 @@
   }
 
   interface Props {
-    readonly entityType: string;
-    readonly entityId: string;
     readonly todos: readonly Todo[];
     readonly onCreate?: () => void;
     readonly onEditTodo?: (id: string) => void;
@@ -30,12 +28,8 @@
 
   let expanded = $state(true);
 
-  const activeTodos = $derived(
-    todos.filter((t) => t.status !== 'COMPLETE' && t.status !== 'CANCELLED'),
-  );
-  const completedTodos = $derived(
-    todos.filter((t) => t.status === 'COMPLETE' || t.status === 'CANCELLED'),
-  );
+  // Complete and cancelled ones are in the right panel's Done tab (DoneTodos).
+  const activeTodos = $derived(todos.filter((t) => !isClosedTodo(t.status)));
 
   const openCreate = () => {
     if (onCreate) return onCreate();
@@ -92,20 +86,6 @@
       <EmptyState message="No active todos." small />
     {/if}
 
-    {#if completedTodos.length > 0}
-      <details class="completed">
-        <summary>Completed ({completedTodos.length})</summary>
-        <ul class="list">
-          {#each completedTodos as todo (todo.id)}
-            <li class="list-row todo-row done">
-              <StatusDot status={todo.status} />
-              <button type="button" class="grow wrap todo-title" onclick={() => openEdit(todo.id)}>{todo.title}</button>
-              {#if todo.completedAt}<span class="meta">{formatTodoDate(todo.completedAt)}</span>{/if}
-            </li>
-          {/each}
-        </ul>
-      </details>
-    {/if}
   {/if}
 </div>
 
@@ -136,6 +116,4 @@
     font-size: var(--fs-md);
     &:hover { color: var(--accent); }
   }
-  .done .todo-title { color: var(--text-3); text-decoration: line-through; }
-  .completed { margin-top: var(--sp-2); }
 </style>

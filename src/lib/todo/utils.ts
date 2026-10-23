@@ -67,3 +67,6 @@ export const priorityLabel = (p: number): string => {
       return '';
   }
 };
+
+/** Complete or cancelled: shown in the right panel's Done tab, not with the active ones. */
+export const isClosedTodo = (status: TodoStatus): boolean => status === 'COMPLETE' || status === 'CANCELLED';
