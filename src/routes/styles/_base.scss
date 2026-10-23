@@ -292,3 +292,12 @@ nav[aria-label="breadcrumb"] ul {
     &.crumb-menu { flex-shrink: 0; }
   }
 }
+
+// Find on page in the desktop window (common/FindBar): every match, and the current one.
+::highlight(find-match) {
+  background-color: color-mix(in srgb, var(--warning) 30%, transparent);
+}
+::highlight(find-current) {
+  background-color: var(--warning);
+  color: var(--text);
+}

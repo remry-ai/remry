@@ -109,6 +109,8 @@
   --z-modal: 100;
   // Above popups, whose markdown can open it.
   --z-viewer: 200;
+  // The desktop window's find bar (⌘F): above popups and the viewer, whose text it searches too.
+  --z-find: 300;
   --z-finder: 1000;
   --z-loading: 1100;
 }

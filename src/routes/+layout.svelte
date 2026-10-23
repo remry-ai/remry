@@ -1,6 +1,7 @@
 <script lang="ts">
   import "./styles.scss";
   import { navigating } from "$app/stores";
+  import FindBar from "$lib/common/FindBar.svelte";
 
   import type { Snippet } from "svelte";
   import type { LayoutData } from "./$types";
@@ -32,6 +33,9 @@
 <svelte:head></svelte:head>
 
 {@render children()}
+
+<!-- ⌘F in the desktop window, which has no find bar of its own; nothing in a browser. -->
+<FindBar />
 
 {#if pageChanging}
   <div
