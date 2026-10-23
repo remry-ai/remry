@@ -195,13 +195,13 @@
     }
   }
   // On screen a page break (a horizontal rule, or a `<!-- pagebreak -->` line) shows as a faint
-  // dashed rule, never in brand colours: it marks where the page ends rather than decorating it.
+  // gray rule, never in brand colours: it marks where the page ends rather than decorating it.
   // It's hidden in the PDF and when printing.
   .doc-body :global(hr),
   .doc-body :global(.page-break) {
     border: 0;
     margin: var(--sp-5) 0;
-    border-top: 1px dashed var(--border);
+    border-top: 1px solid var(--border);
   }
   @media print {
     // Paper can't scroll, so a wide table runs on rather than being cut at its box's edge.
