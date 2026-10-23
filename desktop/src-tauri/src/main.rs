@@ -46,6 +46,7 @@ const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
 const CHECK_UPDATES: &str = "check-for-updates";
 const RELOAD: &str = "reload";
+const NEW_WINDOW: &str = "new-window";
 const DEEP_LINK_SCHEME: &str = "remry";
 
 fn binary_name() -> &'static str {
@@ -195,10 +196,36 @@ fn open_link(app: &AppHandle, url: &Url) {
             return;
         }
     }
-    if let (Some(window), Some(page)) = (app.get_webview_window("main"), app_page(&path)) {
+    if let (Some(window), Some(page)) = (front_window(app), app_page(&path)) {
         let _ = window.navigate(page);
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+/// The window a menu command or a link acts on: the focused one, else the first window opened,
+/// else any. With several windows open, "main" may be closed or behind another.
+fn front_window(app: &AppHandle) -> Option<WebviewWindow> {
+    let windows = app.webview_windows();
+    windows
+        .values()
+        .find(|w| w.is_focused().unwrap_or(false))
+        .or_else(|| windows.get("main"))
+        .or_else(|| windows.values().next())
+        .cloned()
+}
+
+/// File → New Window (⌘N / Ctrl+N): another window on the app's home page, as a browser opens
+/// one. While the server is still starting there's no page to open, so it brings the window forward.
+fn new_window(app: &AppHandle) {
+    let ready = app.state::<LinkState>().0.lock().unwrap().ready;
+    match app_page("/app").filter(|_| ready) {
+        Some(home) => open_window(app, home),
+        None => {
+            if let Some(window) = front_window(app) {
+                let _ = window.set_focus();
+            }
+        }
     }
 }
 
@@ -444,7 +471,7 @@ fn check_for_updates(app: AppHandle, announce_none: bool) {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = front_window(app) {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
@@ -483,13 +510,20 @@ fn main() {
             // Tauri's default menu has no Reload, so ⌘R (Ctrl+R) did nothing: add it at the top of
             // View, or in a View menu of its own where the default has none.
             let reload = MenuItem::with_id(&handle, RELOAD, "Reload", true, Some("CmdOrCtrl+R"))?;
-            let view = menu
-                .items()?
-                .into_iter()
-                .find_map(|item| item.as_submenu().filter(|s| s.text().is_ok_and(|t| t == "View")).cloned());
-            match view {
+            let submenu = |name: &str| {
+                menu.items().ok()?.into_iter().find_map(|item| {
+                    item.as_submenu().filter(|s| s.text().is_ok_and(|t| t == name)).cloned()
+                })
+            };
+            match submenu("View") {
                 Some(view) => view.insert(&reload, 0)?,
                 None => menu.append(&Submenu::with_items(&handle, "View", true, &[&reload])?)?,
+            }
+            // The default menu has no New Window either: at the top of File, as in a browser.
+            let new_window_item = MenuItem::with_id(&handle, NEW_WINDOW, "New Window", true, Some("CmdOrCtrl+N"))?;
+            match submenu("File") {
+                Some(file) => file.insert(&new_window_item, 0)?,
+                None => menu.insert(&Submenu::with_items(&handle, "File", true, &[&new_window_item])?, 1)?,
             }
             let claude = Submenu::with_items(
                 &handle,
@@ -513,8 +547,9 @@ fn main() {
                 CONNECT_DESKTOP => connect(app.clone(), "claude-desktop"),
                 CONNECT_CODE => connect(app.clone(), "claude-code"),
                 CHECK_UPDATES => check_for_updates(app.clone(), true),
+                NEW_WINDOW => new_window(app),
                 RELOAD => {
-                    if let Some(window) = app.get_webview_window("main") {
+                    if let Some(window) = front_window(app) {
                         let _ = window.eval("location.reload()");
                     }
                 }
