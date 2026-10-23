@@ -36,6 +36,19 @@ describe('markdownToPdf', () => {
     expect(json('One\n\n<!-- page-break -->')).not.toContain('pageBreak');
   });
 
+  it('starts a new page at a horizontal rule, drawing no line', () => {
+    const content = convert('One\n\n---\n\nTwo\n\n***\n\nThree');
+    expect(content.filter((c) => (c as { pageBreak?: string }).pageBreak === 'after')).toHaveLength(2);
+    expect(json('One\n\n---\n\nTwo')).not.toContain('canvas');
+  });
+
+  it('leaves no blank page for a rule at the start or end, or two breaks in a row', () => {
+    const breaks = (md: string): number =>
+      convert(md).filter((c) => (c as { pageBreak?: string }).pageBreak === 'after').length;
+    expect(breaks('---\n\nOne\n\n---')).toBe(0);
+    expect(breaks('One\n\n---\n\n<!-- pagebreak -->\n\n---\n\nTwo')).toBe(1);
+  });
+
   it('makes a table with a repeated header row that never splits a row', () => {
     const [table] = convert('| Date | Note |\n|---|---|\n| 2027-03-01 | a note much longer than twenty-four characters |') as { table: Record<string, unknown> }[];
     expect(table!.table).toMatchObject({ headerRows: 1, dontBreakRows: true, widths: ['auto', '*'] });

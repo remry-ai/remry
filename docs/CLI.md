@@ -244,7 +244,7 @@ Exporting happens in the app, not the CLI. A doc's **Export PDF** opens `/app/do
 a wiki page's opens `/app/wiki/<id>/print`, which also prints the page's properties under the
 title. The toolbar picks the branding and turns the letterhead on or off. **Download PDF** builds
 the file in the browser, as page images; **Print…** uses the browser's dialog, for a PDF with
-selectable text. A line of just `<!-- pagebreak -->` starts a new page.
+selectable text. A horizontal rule (`---`) starts a new page and isn't drawn (a line of just `<!-- pagebreak -->` does too).
 
 ## Remry Pro
 

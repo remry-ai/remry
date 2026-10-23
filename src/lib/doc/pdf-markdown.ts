@@ -334,15 +334,16 @@ const table = (token: Tokens.Table, ctx: Context): Content => {
 /** Raw HTML on its own lines: a page break, or its text with the tags dropped. */
 const htmlBlock = (token: Tokens.HTML): Content[] => {
   const html = token.text.trim();
-  if (PAGE_BREAK.test(html)) return [{ text: '', pageBreak: 'after' }];
+  if (PAGE_BREAK.test(html)) return [pageBreak()];
   const text = decodeEntities(html.replace(/<br\s*\/?>/gi, '\n').replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, '')).trim();
   return text ? [{ text, margin: [0, 0, 0, 8] }] : [];
 };
 
-const rule = (ctx: Context): Content => ({
-  canvas: [{ type: 'line', x1: 0, y1: 0, x2: ctx.width, y2: 0, lineWidth: 0.75, lineColor: ctx.options.branded ? ctx.options.colors.accent : RULE }],
-  margin: [0, 6, 0, 12]
-});
+/** A page break: what a horizontal rule (`---`) or a `<!-- pagebreak -->` line becomes. Nothing is drawn. */
+const pageBreak = (): Content => ({ text: '', pageBreak: 'after' });
+
+const isPageBreak = (c: Content | undefined): boolean =>
+  !!c && typeof c === 'object' && 'pageBreak' in c && 'text' in c && c.text === '';
 
 const block = (token: Token, ctx: Context): Content[] => {
   switch (token.type) {
@@ -361,7 +362,7 @@ const block = (token: Token, ctx: Context): Content[] => {
     case 'table':
       return [table(token as Tokens.Table, ctx)];
     case 'hr':
-      return [rule(ctx)];
+      return [pageBreak()];
     case 'html':
       return htmlBlock(token as Tokens.HTML);
     default:
@@ -371,10 +372,13 @@ const block = (token: Token, ctx: Context): Content[] => {
 
 const blocks = (tokens: readonly Token[], ctx: Context): Content[] => tokens.flatMap((token) => block(token, ctx));
 
-/** The markdown as pdfmake content. A page break as the last block adds nothing. */
+/**
+ * The markdown as pdfmake content. A page break with nothing before it, right after another one,
+ * or as the last block adds nothing, so a stray rule never leaves a blank page.
+ */
 export const markdownToPdf = (markdown: string, assets: PdfAssets, options: PdfMarkdownOptions): Content[] => {
   const content = blocks(lex(markdown), { assets, options, width: options.width });
-  const last = content.at(-1);
-  if (last && typeof last === 'object' && 'pageBreak' in last && 'text' in last && last.text === '') content.pop();
-  return content;
+  const kept = content.filter((c, i) => !isPageBreak(c) || (i > 0 && !isPageBreak(content[i - 1])));
+  while (isPageBreak(kept.at(-1))) kept.pop();
+  return kept;
 };

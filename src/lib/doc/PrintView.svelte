@@ -184,7 +184,6 @@
         border-bottom: 1px solid var(--doc-accent);
       }
       :global(blockquote) { border-left: 3px solid var(--doc-accent); }
-      :global(hr) { border: 0; border-top: 1px solid var(--doc-accent); }
       :global(a) { color: var(--doc-primary); }
       :global(th) {
         background: var(--doc-primary);
@@ -195,14 +194,19 @@
       }
     }
   }
-  // On screen a declared page break shows as a dashed rule; it's hidden in the PDF and when printing.
+  // On screen a page break (a horizontal rule, or a `<!-- pagebreak -->` line) shows as a faint
+  // dashed rule, never in brand colours: it marks where the page ends rather than decorating it.
+  // It's hidden in the PDF and when printing.
+  .doc-body :global(hr),
   .doc-body :global(.page-break) {
+    border: 0;
     margin: var(--sp-5) 0;
     border-top: 1px dashed var(--border);
   }
   @media print {
     // Paper can't scroll, so a wide table runs on rather than being cut at its box's edge.
     .doc-body :global(.table-wrap) { overflow: visible; }
+    .doc-body :global(hr),
     .doc-body :global(.page-break) {
       margin: 0;
       border: 0;

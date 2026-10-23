@@ -173,7 +173,7 @@ Wiki pages have no kinds or fields: a page is a document or a spreadsheet. Pick 
 Reports are switched off for now. When the user asks for a report or write-up, write it as a doc on the person, group, project or goal. A wiki page takes no docs; write into its content instead.
 
 1. Gather the facts first (`person.get`, `note.list`, `todo.forEntity`, and so on). Don't invent numbers; ask for them if they're missing.
-2. Write the markdown. Add charts as fenced `chart` blocks; the syntax is in [references/charts.md](references/charts.md). A line of just `<!-- pagebreak -->` starts a new page when the doc is exported to PDF; use it only where the user wants one (say, before an appendix).
+2. Write the markdown. Add charts as fenced `chart` blocks; the syntax is in [references/charts.md](references/charts.md). A horizontal rule (`---` on its own line, with a blank line above it) starts a new page when the doc is exported to PDF, and isn't drawn; so use `---` only where the user wants a new page (say, before an appendix), not as a decorative divider.
 3. `remry doc.add --entityType GROUP --entityId <id> --title "Q3 review"`, then `remry doc.update --id <doc> --content-file /tmp/q3.md`.
 4. Tell the user where to view it. Call `app_open` (with the doc's `notebook`) so the app is running, then link the doc: the entity's page with `?doc=<doc id>&notebook=<notebook id>`. Its "Export PDF" button makes a PDF with the notebook's branding (Remry Pro).
 
