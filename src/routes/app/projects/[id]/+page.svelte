@@ -8,7 +8,8 @@
   import GoalRows from '$lib/goal/components/GoalRows.svelte';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
-  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
+  import { statusCounts } from '$lib/project/sub-project-summary';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import StatusBadge from '$lib/project/components/StatusBadge.svelte';
   import Menu from '$lib/ui/Menu.svelte';
@@ -51,6 +52,12 @@
       .filter((g) => !linkedGoals.some((linked) => linked.id === g.id))
       .map((g) => ({ id: g.id, name: g.title })),
   );
+
+  // Sub-projects show as one line of status counts until opened: the page leads with the brief.
+  let childrenOpen = $state(false);
+  const childCounts = $derived(statusCounts(project.children));
+  // The add-sub-project form, shown from the add row at the bottom.
+  let addingChild = $state(false);
 
   let newChildName = $state('');
   let creatingChild = $state(false);
@@ -123,6 +130,7 @@
       return;
     }
     newChildName = '';
+    addingChild = false;
     await goto(`/app/projects/${outcome.value.id}`);
   };
 
@@ -138,6 +146,8 @@
   archivedAt={project.archivedAt}
   entityName={project.name}
   description={project.description}
+  descriptionLabel="Brief"
+  docsFolded
   breadcrumbLabel="Projects"
   breadcrumbHref="/app/projects"
   {breadcrumbTrail}
@@ -194,29 +204,36 @@
   {/snippet}
 
   {#snippet renderOverview()}
-
-    <!-- A home notebook has no goals. -->
-    {#if $model.has('goals')}
+    <!-- Only what the project has: an empty section is noise. Adding goes through the row at the bottom. -->
+    {#if $model.has('goals') && linkedGoals.length > 0}
     <section class="section">
       <div class="section-header">
-        <h4>Goals <span class="count">{data.linkedGoals.length}</span></h4>
+        <h4>Goals <span class="count">{linkedGoals.length}</span></h4>
       </div>
-      {#if data.linkedGoals.length > 0}
-        <GoalRows goals={data.linkedGoals} showOwner removeLabel="Unlink goal" onRemove={handleUnlinkGoal} />
-      {:else}
-        <EmptyState message="Not linked to any goal." />
-      {/if}
-      <div class="section-footer">
-        <InlinePicker label="Link goal" options={goalOptions} placeholder="Select a goal…" onPick={handleLinkGoal} />
-      </div>
+      <GoalRows goals={linkedGoals} showOwner removeLabel="Unlink goal" onRemove={handleUnlinkGoal} />
     </section>
     {/if}
 
+    {#if project.children.length > 0}
     <section class="section">
       <div class="section-header">
-        <h4>Sub-projects <span class="count">{project.children.length}</span></h4>
+        <h4>
+          <DisclosureButton expanded={childrenOpen} label="Sub-projects" onToggle={() => (childrenOpen = !childrenOpen)}>
+            Sub-projects <span class="count">{project.children.length}</span>
+          </DisclosureButton>
+        </h4>
+        {#if !childrenOpen}
+          <span class="child-counts">
+            {#each childCounts as c (c.status)}
+              <span class="child-count">
+                {#if c.status}<StatusBadge status={c.status} />{:else}<span class="muted text-sm">{c.label}</span>{/if}
+                {#if c.count > 1}<span class="muted text-sm">×{c.count}</span>{/if}
+              </span>
+            {/each}
+          </span>
+        {/if}
       </div>
-      {#if project.children.length > 0}
+      {#if childrenOpen}
         <ul class="list">
           {#each project.children as child (child.id)}
             <EntityRow href="/app/projects/{child.id}" label={child.name}>
@@ -225,16 +242,28 @@
             </EntityRow>
           {/each}
         </ul>
-      {:else}
-        <EmptyState message="No sub-projects." />
       {/if}
-
-      <form class="toolbar child-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); handleCreateChild(); }}>
-        <input type="text" class="sm" bind:value={newChildName} placeholder="New sub-project name" aria-label="New sub-project name" />
-        <button type="submit" class="btn sm" disabled={creatingChild || !newChildName.trim()} aria-busy={creatingChild}>Add</button>
-      </form>
-      {#if childError}<p class="form-error">{childError}</p>{/if}
     </section>
+    {/if}
+
+    {#if !project.archivedAt}
+    <div class="add-row">
+      {#if $model.has('goals')}
+        <InlinePicker label="Link goal" options={goalOptions} placeholder="Select a goal…" onPick={handleLinkGoal} />
+      {/if}
+      {#if addingChild}
+        <form class="toolbar child-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); handleCreateChild(); }}>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input type="text" class="sm" bind:value={newChildName} placeholder="New sub-project name" aria-label="New sub-project name" autofocus />
+          <button type="submit" class="btn sm" disabled={creatingChild || !newChildName.trim()} aria-busy={creatingChild}>Add</button>
+          <button type="button" class="btn ghost sm" onclick={() => { addingChild = false; newChildName = ''; childError = ''; }}>Cancel</button>
+        </form>
+      {:else}
+        <button type="button" class="btn ghost sm" onclick={() => (addingChild = true)}>+ Sub-project</button>
+      {/if}
+    </div>
+    {#if childError}<p class="form-error">{childError}</p>{/if}
+    {/if}
   {/snippet}
 
   {#snippet renderAssetHeader()}
@@ -248,10 +277,24 @@
 </EntityDetailPage>
 
 <style lang="scss">
-  .child-form {
+  .child-counts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-right: auto;
+    margin-left: var(--sp-3);
+  }
+  .child-count { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .add-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
     margin-top: var(--sp-2);
+  }
+  .child-form {
     max-width: 360px;
     input { flex: 1; }
   }
-  .section-footer { margin-top: var(--sp-2); }
 </style>

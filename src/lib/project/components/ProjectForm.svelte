@@ -126,7 +126,7 @@
       <input {id} type="text" bind:value={name} required placeholder="Project name" />
     {/snippet}
   </Field>
-  <Field label="Description">
+  <Field label="Brief" hint="What it is and why, in a few lines. Longer write-ups go in a doc, updates in a note.">
     <MarkdownEditor value={description} onChange={(md: string) => { description = md; }} />
   </Field>
   <Field label="Status">

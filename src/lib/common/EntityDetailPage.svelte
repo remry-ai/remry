@@ -108,6 +108,10 @@
     readonly breadcrumbTrail?: readonly BreadcrumbLink[];
     /** Markdown, shown in an outlined box above the docs list. */
     readonly description?: string | null;
+    /** A small heading on that box (a project's "Brief"). */
+    readonly descriptionLabel?: string;
+    /** Start the docs list folded, so a page with an overview of its own leads with that. */
+    readonly docsFolded?: boolean;
     /** Set for archivable entities. An archived entity shows a banner and no edit button. */
     readonly archivedAt?: Date | string | null;
     readonly renderOverview: Snippet<[OverviewCtx]>;
@@ -131,6 +135,8 @@
     relations = [],
     links = [],
     description = null,
+    descriptionLabel = undefined,
+    docsFolded = false,
     breadcrumbTrail = [],
     archivedAt = undefined,
     renderOverview,
@@ -478,7 +484,10 @@
     {/if}
 
     {#if description?.trim() && !docOpen}
-      <div class="card compact description-panel"><MarkdownRenderer content={description} /></div>
+      <div class="card compact description-panel">
+        {#if descriptionLabel}<div class="eyebrow">{descriptionLabel}</div>{/if}
+        <MarkdownRenderer content={description} />
+      </div>
     {/if}
 
     {#if acceptsDocs(entityType)}
@@ -486,6 +495,7 @@
         <DocsManager
           {docs}
           {activeDocId}
+          startExpanded={!docsFolded}
           onSelect={openDoc}
           onStartAdd={openNewDoc}
           onRemove={docHandlers.handleRemoveDoc}

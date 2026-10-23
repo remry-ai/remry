@@ -168,6 +168,17 @@ Wiki pages have no kinds or fields: a page is a document or a spreadsheet. Pick 
 - **Relationships between people:** `personRelation.add --fromId --toId --kind --note`, of the notebook's kinds (`personRelationKind.list`). Each reads one way from `from` and another from `to`: `PARENT_OF` goes from parent to child, and the child shows "Child of"; `LEAD_OF` from lead to report, who shows "Reports to". A kind with no direction (friend, partner, sibling) is one relationship either way. A one-each kind (`LEAD_OF`) replaces the person's old one and returns it as `replaced`; it also refuses a loop. `personRelation.update --id --kind --note`, `personRelation.remove --id`, `personRelation.forPerson --personId`. Ending a relationship deletes it; there's no history.
 - **Linking in content:** in a page, doc, note or report, write `[Title](<path>)` using the `path` from a get or create result. Saving the content turns the link into a backlink: the target shows "Mentioned in". Other paths are `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, and `/app/wiki/<id>`. Links inside code blocks don't count. Don't add `MENTIONS` with `relation.add`; to remove a backlink, remove the link from the content.
 
+## Where things go on a project
+
+A project page shows four kinds of text. Give each one its own job, so the user finds things in one place:
+
+- **Description (the Brief):** what the project is and why, in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates to it. If it's grown past a few lines, move the detail into a doc and shorten the brief.
+- **Notes (the log):** status updates, decisions, what someone said, what changed. One note per event, dated by when it's added. "We slipped a week", "Dana approved the budget", "the vendor said no" are notes.
+- **Docs (reference):** things to read or look up: specs, plans, briefs written from sources (sync docs), imported PDFs, write-ups. Not for updates.
+- **Sub-projects:** only when a piece has its own owner, its own dates or its own status worth tracking. Smaller steps are todos on the project.
+
+The same goes for groups and goals: a short description, notes for what happens, docs for reference.
+
 ## Write-ups
 
 Reports are switched off for now. When the user asks for a report or write-up, write it as a doc on the person, group, project or goal. A wiki page takes no docs; write into its content instead.
