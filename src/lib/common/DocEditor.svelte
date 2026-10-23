@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
   import ProBadge from '$lib/ui/ProBadge.svelte';
+  import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import type { ChartBranding } from '$shared/types/branding';
   import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
@@ -280,6 +281,10 @@
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
         </div>
         <div class="doc-actions">
+          {#if mode === 'preview'}
+            <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
+            <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
+          {/if}
           {#if exportHref && content.trim()}
             <a class="btn ghost sm" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
           {/if}
