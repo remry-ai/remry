@@ -160,6 +160,8 @@
   transition: color var(--ease), border-color var(--ease);
   &:hover { color: var(--text); }
   &.active { color: var(--text); border-bottom-color: var(--accent); }
+  // A tab with nothing in it (the right panel's Done tab with no closed todos): fainter until it's picked.
+  &.empty:not(.active) { opacity: 0.5; }
 }
 
 // --- Segmented toggle (ParamToggle) ---

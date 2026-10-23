@@ -60,10 +60,10 @@
   <div class="panel-header">
     <div class="tabs" role="tablist">
       <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'notes'} aria-selected={$rightPanelTab === 'notes'} onclick={() => rightPanelTab.set('notes')}>
-        Notes{#if $rightPanelNotes} <span class="count">{$rightPanelNotes.notes.length}</span>{/if}
+        Notes
       </button>
-      <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'done'} aria-selected={$rightPanelTab === 'done'} onclick={() => rightPanelTab.set('done')}>
-        Done{#if $rightPanelTodos} <span class="count">{doneCount}</span>{/if}
+      <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'done'} class:empty={doneCount === 0} aria-selected={$rightPanelTab === 'done'} onclick={() => rightPanelTab.set('done')}>
+        Done
       </button>
       <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'chat'} aria-selected={$rightPanelTab === 'chat'} onclick={() => rightPanelTab.set('chat')}>
         Chat
@@ -172,7 +172,6 @@
     padding: 0 var(--sp-3) 0 var(--sp-4);
     border-bottom: 1px solid var(--border);
     .tabs { align-self: stretch; align-items: flex-end; border-bottom: none; }
-    .count { font-weight: 400; margin-left: 2px; }
   }
   .panel-body {
     flex: 1;
