@@ -106,6 +106,14 @@
     @include mobile { width: 14px; }
   }
 
+  // Docked (1300px up), the centre column scrolls on its own. The page's right padding moves
+  // inside it, so its scrollbar sits on the window's edge (or the right panel's) rather than
+  // over the text.
+  @media (min-width: 1300px) {
+    .page-wrap { padding-right: 0; }
+    .col-center { padding-right: var(--sp-8); }
+  }
+
   // Docked and closed (set on <html> before the first paint).
   @media (min-width: 1300px) {
     :global(:root[data-left-closed]) .columns {
