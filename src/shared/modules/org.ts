@@ -14,7 +14,7 @@ export const ORG_MODULE: ModuleDefinition = {
   ],
   personRelationKinds: [{ key: 'LEAD_OF', label: 'Lead of', inverseLabel: 'Reports to', symmetric: false, exclusive: true }],
   entityTypes: [],
-  nav: [{ href: '/app/orgmap', label: 'Org Map', replaces: ['/app/people', '/app/groups'], after: '/app' }],
+  nav: [{ href: '/app/orgmap', label: 'Org', replaces: ['/app/people', '/app/groups'], after: '/app' }],
   routes: ['/app/orgmap'],
   procedures: [],
   homeWidgets: []

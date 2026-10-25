@@ -131,10 +131,10 @@
   const removeTeamMember = removeMember;
 </script>
 
-<svelte:head><title>Org Map</title></svelte:head>
+<svelte:head><title>Org</title></svelte:head>
 
 <div class="page wide">
-  <PageHeader title="Org Map" description="Reporting lines, departments and teams, and the work each one owns.">
+  <PageHeader title="Org" description="Reporting lines, departments and teams, and the work each one owns.">
     <button type="button" class="btn sm" onclick={() => startEditDept(null)}>Add department</button>
     <button type="button" class="btn sm" onclick={() => startEditTeam(null)}>Add team</button>
     <button type="button" class="btn primary sm" onclick={() => startEditPerson(null)}>Add person</button>

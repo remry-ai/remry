@@ -5,7 +5,7 @@ describe('notebookModel', () => {
   it('gives a work notebook the org chart and goals', () => {
     const work = notebookModel('work');
     expect(work.modules).toEqual(['org', 'goals']);
-    expect(work.nav.map((n) => n.label)).toEqual(['Home', 'Org Map', 'Projects', 'Goals', 'Wiki', 'Todos']);
+    expect(work.nav.map((n) => n.label)).toEqual(['Home', 'Org', 'Projects', 'Goals', 'Wiki', 'Todos']);
     expect(work.shows('GOAL')).toBe(true);
     expect(work.personFields.map((f) => f.key)).toEqual(['title', 'leadId']);
     expect(work.groupKinds.map((k) => [k.key, k.exclusive])).toEqual([['TEAM', false], ['DEPARTMENT', true]]);
