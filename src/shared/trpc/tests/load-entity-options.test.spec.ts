@@ -29,4 +29,24 @@ describe('withFamily', () => {
     ];
     expect(withFamily(rows).map((r) => r.parents)).toEqual([undefined, 'Y', 'X']);
   });
+
+  it('gives the same trails whichever order the rows come in', () => {
+    const rows = [
+      { id: 'd', name: 'D', parentId: 'c' },
+      { id: 'b', name: 'B', parentId: 'a' },
+      { id: 'c', name: 'C', parentId: 'b' },
+      { id: 'a', name: 'A', parentId: null },
+      { id: 'e', name: 'E', parentId: 'c' }
+    ];
+    expect(withFamily(rows).map((r) => r.parents)).toEqual(['A / B / C', 'A', 'A / B', undefined, 'A / B / C']);
+  });
+
+  it('keeps a loop\'s trails apart from where the walk started', () => {
+    const rows = [
+      { id: 'x', name: 'X', parentId: 'y' },
+      { id: 'y', name: 'Y', parentId: 'x' },
+      { id: 'z', name: 'Z', parentId: 'x' }
+    ];
+    expect(withFamily(rows).map((r) => r.parents)).toEqual(['Y', 'X', 'Y / X']);
+  });
 });

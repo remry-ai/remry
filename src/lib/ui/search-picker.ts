@@ -67,8 +67,21 @@ export const completeScopeWord = (query: string, scopes: readonly SearchScope[],
 };
 
 /** Lower case, accents and apostrophes dropped, other punctuation as spaces: "Café-Ops" → "cafe ops", "Dana's" → "danas". */
-const normalize = (text: string): string =>
+const normalizeUncached = (text: string): string =>
   text.normalize('NFD').replace(/\p{M}/gu, '').replace(/['’]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+// Every keystroke matches the same names (and parent and child titles) again, so each is
+// normalized once. Cleared when it grows past NORMALIZED_MAX, so it can't grow without end.
+const NORMALIZED_MAX = 100_000;
+const normalized = new Map<string, string>();
+const normalize = (text: string): string => {
+  const known = normalized.get(text);
+  if (known !== undefined) return known;
+  if (normalized.size >= NORMALIZED_MAX) normalized.clear();
+  const value = normalizeUncached(text);
+  normalized.set(text, value);
+  return value;
+};
 
 /**
  * How well a name matches a query, lower is better, or null for no match. Best first: the
