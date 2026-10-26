@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SearchHit } from '$shared/types/search';
-import { FINDER_SCOPES, appLink, groupKindScopes, inScope, autocompleteRows, completeCommand, completeScope, docEntries, parseScope, scopeSuggestions, todoEntries, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
+import { FINDER_SCOPES, appLink, groupKindScopes, inScope, autocompleteRows, completeCommand, completeScope, docEntries, finderHierarchy, parseScope, scopeSuggestions, todoEntries, parseFinderQuery, snippetParts, submittedRows, titleMatches, type FinderEntry, type FinderRow } from '../quick-finder';
 
 const entries: readonly FinderEntry[] = [
   { id: 'GROUP:1', name: 'Console', scope: 'GROUP', meta: 'Team' },
@@ -241,5 +241,17 @@ describe('group kinds as scopes', () => {
     expect(inScope(grouped[0]!, team)).toBe(true);
     expect(inScope(grouped[1]!, team)).toBe(false);
     expect(inScope(grouped[1]!, groups)).toBe(true);
+  });
+});
+
+describe('finderHierarchy', () => {
+  it('gives the parents, top first, and how many sit under it', () => {
+    expect(finderHierarchy({ scope: 'PAGE', parents: ['Eng', 'Platform'], children: ['A', 'B', 'C'] })).toEqual({
+      trail: ['Eng', 'Platform'],
+      children: { count: 3, label: '3 sub-pages' }
+    });
+    expect(finderHierarchy({ scope: 'PROJECT', children: ['A'] }).children?.label).toBe('1 sub-project');
+    expect(finderHierarchy({ scope: 'GOAL' })).toEqual({ trail: [], children: null });
+    expect(finderHierarchy({ scope: 'PERSON' })).toEqual({ trail: [], children: null });
   });
 });

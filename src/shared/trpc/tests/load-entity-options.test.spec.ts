@@ -18,7 +18,7 @@ describe('withFamily', () => {
       { id: 'b', name: 'Platform', parentId: 'a' },
       { id: 'c', name: 'Q3', parentId: 'b' }
     ];
-    expect(withFamily(rows).map((r) => r.parents)).toEqual([undefined, 'Eng', 'Eng / Platform']);
+    expect(withFamily(rows).map((r) => r.parents)).toEqual([undefined, ['Eng'], ['Eng', 'Platform']]);
   });
 
   it('stops at a parent that is missing or loops', () => {
@@ -27,7 +27,7 @@ describe('withFamily', () => {
       { id: 'x', name: 'X', parentId: 'y' },
       { id: 'y', name: 'Y', parentId: 'x' }
     ];
-    expect(withFamily(rows).map((r) => r.parents)).toEqual([undefined, 'Y', 'X']);
+    expect(withFamily(rows).map((r) => r.parents)).toEqual([undefined, ['Y'], ['X']]);
   });
 
   it('gives the same trails whichever order the rows come in', () => {
@@ -38,7 +38,7 @@ describe('withFamily', () => {
       { id: 'a', name: 'A', parentId: null },
       { id: 'e', name: 'E', parentId: 'c' }
     ];
-    expect(withFamily(rows).map((r) => r.parents)).toEqual(['A / B / C', 'A', 'A / B', undefined, 'A / B / C']);
+    expect(withFamily(rows).map((r) => r.parents)).toEqual([['A', 'B', 'C'], ['A'], ['A', 'B'], undefined, ['A', 'B', 'C']]);
   });
 
   it('keeps a loop\'s trails apart from where the walk started', () => {
@@ -47,6 +47,6 @@ describe('withFamily', () => {
       { id: 'y', name: 'Y', parentId: 'x' },
       { id: 'z', name: 'Z', parentId: 'x' }
     ];
-    expect(withFamily(rows).map((r) => r.parents)).toEqual(['Y', 'X', 'Y / X']);
+    expect(withFamily(rows).map((r) => r.parents)).toEqual([['Y'], ['X'], ['Y', 'X']]);
   });
 });

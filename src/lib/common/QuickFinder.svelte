@@ -29,6 +29,7 @@
     completeCommand,
     completeScope,
     docEntries,
+    finderHierarchy,
     parseFinderQuery,
     parseScope,
     todoEntries,
@@ -50,7 +51,8 @@
   const CACHE_TTL = 24 * 60 * 60 * 1000;
   const HIT_LIMIT = 20;
   // One cache per notebook, so another notebook's entities never show up.
-  const cacheKey = $derived(`quick-finder-cache:${$page.data.notebook?.id ?? ''}`);
+  // v2: parents became a list of titles. The old key's entries had them joined, so they're left behind.
+  const cacheKey = $derived(`quick-finder-cache:v2:${$page.data.notebook?.id ?? ''}`);
 
   const scopeLabel = (scope: string): string => ENTITY_SEARCH_SCOPES.find((s) => s.id === scope)?.label ?? '';
 
@@ -93,8 +95,8 @@
   const entries: readonly FinderEntry[] = $derived(
     entities.filter((e) => $model.shows(e.scope)).map((e) => ({
       ...e,
-      // A group shows its kind ("Team"); anything else its type, then its parents' titles.
-      meta: [groupKinds.find((k) => e.groupKind && k.key === e.groupKind)?.name ?? scopeLabel(e.scope), e.parents].filter(Boolean).join(' · ')
+      // A group shows its kind ("Team"); anything else its type. The row draws its parents itself.
+      meta: groupKinds.find((k) => e.groupKind && k.key === e.groupKind)?.name ?? scopeLabel(e.scope)
     }))
   );
 
@@ -455,6 +457,7 @@
               id="quick-finder-row-{i}"
               class="result-item"
               class:hit={row.kind === 'hit'}
+              class:stacked={row.kind === 'entry' && !!row.entry.parents?.length}
               class:selected={i === active}
               role="option"
               aria-selected={i === active}
@@ -479,8 +482,28 @@
                   </span>
                 {/if}
               {:else}
-                <span class="name truncate">{row.entry.name}</span>
-                <span class="kind">{row.entry.meta}</span>
+                {@const tree = finderHierarchy(row.entry)}
+                <span class="line">
+                  <span class="name truncate">{row.entry.name}</span>
+                  {#if tree.children}
+                    <span class="sub-count" title={tree.children.label}>
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 2.5v8.5a1.5 1.5 0 0 0 1.5 1.5H9M4 6.5h5" /><circle cx="11" cy="6.5" r="1.6" /><circle cx="11" cy="12.5" r="1.6" />
+                      </svg>
+                      <span class="sr-only">{tree.children.label}</span><span aria-hidden="true">{tree.children.count}</span>
+                    </span>
+                  {/if}
+                  <span class="kind">{row.entry.meta}</span>
+                </span>
+                {#if tree.trail.length > 0}
+                  <span class="trail truncate" title="In {tree.trail.join(' › ')}">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M3 2.5v6a2 2 0 0 0 2 2h8M10 7.5l3 3-3 3" />
+                    </svg>
+                    <span class="sr-only">In</span>
+                    {#each tree.trail as title, t (t)}{#if t > 0}<span class="sep" aria-hidden="true">›</span>{/if}<span>{title}</span>{/each}
+                  </span>
+                {/if}
               {/if}
             </li>
           {/each}
@@ -591,7 +614,9 @@
     &.selected { background: var(--surface-hover); }
   }
 
-  .result-item.hit {
+  // Two lines: a full-text hit and its snippet, or an entry and the parents it sits under.
+  .result-item.hit,
+  .result-item.stacked {
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
@@ -602,6 +627,7 @@
 
   .line {
     display: flex;
+    flex: 1;
     align-items: center;
     gap: var(--sp-3);
     min-width: 0;
@@ -639,6 +665,25 @@
   }
 
   .kind {
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+
+  // An item's place in its tree: the parents above it on a second line, and how many sit under it.
+  .trail {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+    svg { flex: none; }
+  }
+  .sep { color: var(--text-3); opacity: 0.7; }
+  .sub-count {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex: none;
     font-size: var(--fs-xs);
     color: var(--text-3);
   }

@@ -6,8 +6,8 @@ export interface SearchOption {
   readonly id: string;
   readonly name: string;
   readonly scope?: string;
-  /** Its parents' titles ("Platform / Q3"): a query matches them too, below matches on the name itself. */
-  readonly parents?: string;
+  /** Its parents' titles, the top one first: a query matches them too, below matches on the name itself. */
+  readonly parents?: readonly string[];
   /** Its direct children's titles: a query matches the name with one of them, below matches on the parents. */
   readonly children?: readonly string[];
 }
@@ -118,7 +118,7 @@ const CHILD_MATCH_OFFSET = 20;
 export const optionMatchRank = (option: SearchOption, query: string): number | null => {
   const rank = nameMatchRank(option.name, query);
   if (rank !== null) return rank;
-  const withParents = option.parents ? nameMatchRank(`${option.parents} ${option.name}`, query) : null;
+  const withParents = option.parents?.length ? nameMatchRank(`${option.parents.join(' ')} ${option.name}`, query) : null;
   if (withParents !== null) return withParents + PARENT_MATCH_OFFSET;
   const childRanks = (option.children ?? [])
     .map((child) => nameMatchRank(`${option.name} ${child}`, query))

@@ -16,8 +16,8 @@ export interface EntityOption {
   readonly scope: RelatableType;
   /** A group's kind key (TEAM). */
   readonly groupKind?: string;
-  /** Its parents' titles, the top one first ("Platform / Q3"), for a project, goal or page under another. */
-  readonly parents?: string;
+  /** Its parents' titles, the top one first (["Platform", "Q3"]), for a project, goal or page under another. */
+  readonly parents?: readonly string[];
   /** Its direct children's titles, for a project, goal or page with sub-items. */
   readonly children?: readonly string[];
 }
@@ -29,12 +29,12 @@ interface TreeRow {
 }
 
 /**
- * Each row's parents' titles, the top one first, joined by " / " (none for a top-level row),
+ * Each row's parents' titles, the top one first (none for a top-level row),
  * and its direct children's titles (none for a row without any). Pure.
  */
 export const withFamily = <T extends TreeRow>(
   rows: readonly T[]
-): readonly (T & { readonly parents?: string; readonly children?: readonly string[] })[] => {
+): readonly (T & { readonly parents?: readonly string[]; readonly children?: readonly string[] })[] => {
   // One map, and each row's trail kept once worked out, so a big notebook stays fast
   // (ancestorsOf per row rebuilt the map each time: 3s at 5,000 rows).
   const byId = new Map(rows.map((row): [string, T] => [row.id, row]));
@@ -76,7 +76,7 @@ export const withFamily = <T extends TreeRow>(
     const children = childNames.get(row.id);
     return {
       ...row,
-      ...(trail.length > 0 && { parents: trail.join(' / ') }),
+      ...(trail.length > 0 && { parents: trail }),
       ...(children && { children })
     };
   });

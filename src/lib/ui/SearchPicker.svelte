@@ -157,7 +157,7 @@
             tabindex="-1"
             onmousedown={(e) => { e.preventDefault(); void pick(o); }}
           >
-            <span class="grow truncate" title={o.parents ? `${o.parents} / ${o.name}` : undefined}>{#if o.parents}<span class="muted">{o.parents} / </span>{/if}{o.name}</span>
+            <span class="grow truncate" title={o.parents?.length ? [...o.parents, o.name].join(' / ') : undefined}>{#if o.parents?.length}<span class="muted">{o.parents.join(' / ')} / </span>{/if}{o.name}</span>
             {#if !parsed.scope && o.scope}<span class="meta">{scopeLabel(o.scope)}</span>{/if}
           </li>
         {/each}

@@ -40,6 +40,29 @@ export const todoEntries = (
   }));
 };
 
+const SUB_ITEMS: Readonly<Record<string, readonly [string, string]>> = {
+  PAGE: ['sub-page', 'sub-pages'],
+  PROJECT: ['sub-project', 'sub-projects'],
+  GOAL: ['sub-goal', 'sub-goals']
+};
+
+export interface FinderHierarchy {
+  /** Its parents' titles, the top one first; empty for a top-level item. */
+  readonly trail: readonly string[];
+  /** How many items sit directly under it ("3 sub-pages"), or null for none. */
+  readonly children: { readonly count: number; readonly label: string } | null;
+}
+
+/** Where an entry sits in its tree, for the row's trail line and sub-item count. Pure. */
+export const finderHierarchy = (entry: Pick<FinderEntry, 'scope' | 'parents' | 'children'>): FinderHierarchy => {
+  const count = entry.children?.length ?? 0;
+  const [one, many] = SUB_ITEMS[entry.scope ?? ''] ?? ['sub-item', 'sub-items'];
+  return {
+    trail: entry.parents ?? [],
+    children: count > 0 ? { count, label: `${count} ${count === 1 ? one : many}` } : null
+  };
+};
+
 export type FinderCommandId = 'search' | 'ask';
 
 export interface FinderCommand {

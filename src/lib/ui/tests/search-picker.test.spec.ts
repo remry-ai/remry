@@ -144,7 +144,7 @@ describe('searchOptions ranking', () => {
 });
 describe('optionMatchRank', () => {
   it('matches the parents\' titles after any match on the name alone', () => {
-    const child = { id: 'c', name: 'Launch plan', parents: 'Q3 / Platform' };
+    const child = { id: 'c', name: 'Launch plan', parents: ['Q3', 'Platform'] };
     expect(optionMatchRank(child, 'launch')).toBe(1);
     expect(optionMatchRank(child, 'platform launch')).not.toBeNull();
     expect(optionMatchRank(child, 'platform launch')!).toBeGreaterThan(6);
@@ -153,7 +153,7 @@ describe('optionMatchRank', () => {
 
   it('ranks an option named for the query above one whose parent is', () => {
     const options = [
-      { id: 'child', name: 'Notes', parents: 'Budget' },
+      { id: 'child', name: 'Notes', parents: ['Budget'] },
       { id: 'top', name: 'Budget' }
     ];
     expect(searchOptions(options, 'budget', null).map((o) => o.id)).toEqual(['top', 'child']);
@@ -171,8 +171,8 @@ describe('optionMatchRank with children', () => {
   it('lists the item named for the query, then one under a matching parent, then the parent', () => {
     const options = [
       { id: 'parent', name: 'Platform', children: ['Launch plan'] },
-      { id: 'grandchild', name: 'Notes', parents: 'Launch plan' },
-      { id: 'child', name: 'Launch plan', parents: 'Platform', children: ['Notes'] }
+      { id: 'grandchild', name: 'Notes', parents: ['Launch plan'] },
+      { id: 'child', name: 'Launch plan', parents: ['Platform'], children: ['Notes'] }
     ];
     expect(searchOptions(options, 'launch', null).map((o) => o.id)).toEqual(['child', 'grandchild', 'parent']);
   });
@@ -194,7 +194,7 @@ describe('searchOptions narrowing', () => {
       id: `o${i}`,
       name: name(),
       scope: pick(['PAGE', 'PROJECT']),
-      ...(next() < 0.4 && { parents: name() }),
+      ...(next() < 0.4 && { parents: [name(), name()] }),
       ...(next() < 0.4 && { children: [name(), name()] })
     }));
     const fresh = (query: string, scope: string | null) => searchOptions([...options], query, scope, 500).map((o) => o.id);
