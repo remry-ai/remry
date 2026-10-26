@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Remry: a local notebook that Claude keeps for you",
-    "version": "0.16.50"
+    "version": "0.16.51"
   },
   "plugins": [
     {
       "name": "remry",
-      "source": { "source": "github", "repo": "remry-ai/remry", "ref": "dist-v0.16.50" },
+      "source": { "source": "github", "repo": "remry-ai/remry", "ref": "dist-v0.16.51" },
       "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Needs the Remry desktop app (Mac or Windows), or a clone of the repo.",
-      "version": "0.16.50",
+      "version": "0.16.51",
       "category": "productivity",
       "keywords": ["notes", "org-chart", "todos", "reports", "local-first"]
     }
