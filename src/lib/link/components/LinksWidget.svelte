@@ -1,11 +1,14 @@
 <script lang="ts">
-  // Sidebar list of an entity's links, shown only when it has some. A link is
-  // a source when Claude has synced the entity from it: its row shows when, in
-  // the warning colour once that's more than a week ago. Links open in a new tab.
+  // Sidebar list of an entity's links. A link is a source when Claude has synced
+  // the entity from it: its row shows when, in the warning colour once that's more
+  // than a week ago. Links open in a new tab. The header's "+" adds one by hand
+  // (unsynced: Claude reads it on its next refresh of a sync page).
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
+  import { ENTITY_TYPES, type EntityType } from '$shared/types/enums';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
-  import { submitOrThrow } from '$lib/ui/submit';
+  import EmptyState from '$lib/ui/EmptyState.svelte';
+  import { submit, submitOrThrow } from '$lib/ui/submit';
   import { timeAgo } from '$lib/home/utils';
   import { isSyncStale, linkLabel, linkSource } from '../source';
   import SourceIcon from './SourceIcon.svelte';
@@ -18,11 +21,41 @@
   }
 
   interface Props {
+    readonly entityType: string;
+    readonly entityId: string;
     readonly links: readonly LinkItem[];
     readonly readOnly?: boolean;
   }
 
-  const { links, readOnly = false }: Props = $props();
+  const { entityType, entityId, links, readOnly = false }: Props = $props();
+
+  // EntityDetailPage passes its type as a string; anything else can't take a link.
+  const linkType = $derived((ENTITY_TYPES as readonly string[]).includes(entityType) ? (entityType as EntityType) : null);
+
+  let adding = $state(false);
+  let url = $state('');
+  let title = $state('');
+  let saving = $state(false);
+  let error = $state('');
+
+  const toggleAdding = () => {
+    url = '';
+    title = '';
+    error = '';
+    adding = !adding;
+  };
+
+  const handleAdd = async () => {
+    if (!linkType || !url.trim()) return;
+    saving = true;
+    const outcome = await submit(() =>
+      trpc().link.add.mutate({ entityType: linkType, entityId, url: url.trim(), ...(title.trim() && { title: title.trim() }) })
+    );
+    saving = false;
+    if (!outcome.ok) { error = outcome.error; return; }
+    adding = false;
+    await invalidateAll();
+  };
 
   const rows = $derived(links.map((link) => {
     const source = linkSource(link.url);
@@ -52,7 +85,25 @@
 <div class="links-widget">
   <div class="section-header">
     <h4>Links <span class="count">{links.length}</span></h4>
+    {#if !readOnly && linkType}
+      <button type="button" class="btn icon sm" onclick={toggleAdding} title="Add link" aria-label="Add link" aria-expanded={adding}>+</button>
+    {/if}
   </div>
+  {#if adding}
+    <form class="add-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void handleAdd(); }}>
+      <!-- svelte-ignore a11y_autofocus -->
+      <input type="url" class="sm" bind:value={url} placeholder="https://…" aria-label="Link address" maxlength="2000" required autofocus />
+      <input type="text" class="sm" bind:value={title} placeholder="Title (optional)" aria-label="Link title" maxlength="200" />
+      <div class="toolbar">
+        <button type="submit" class="btn sm" disabled={saving || !url.trim()} aria-busy={saving}>{saving ? 'Adding…' : 'Add'}</button>
+        <button type="button" class="btn ghost sm" onclick={toggleAdding}>Cancel</button>
+      </div>
+      {#if error}<p class="form-error">{error}</p>{/if}
+    </form>
+  {/if}
+  {#if links.length === 0}
+    {#if !adding}<EmptyState message="No links yet." small />{/if}
+  {:else}
   <ul class="list">
     {#each rows as row (row.id)}
       <li class="list-row">
@@ -74,9 +125,16 @@
       </li>
     {/each}
   </ul>
+  {/if}
 </div>
 
 <style lang="scss">
+  .add-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+  }
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
   .stale { color: var(--warning); }
 </style>

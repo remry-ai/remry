@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { completeScopeWord, matchScopes, nameMatchRank, parseSearchQuery, searchOptions, typedScope } from '../search-picker';
+import { completeScopeWord, matchScopes, nameMatchRank, optionMatchRank, parseSearchQuery, searchOptions, typedScope } from '../search-picker';
 
 const scopes = [
   { id: 'PERSON', label: 'Person', slash: 'person' },
@@ -140,5 +140,22 @@ describe('searchOptions ranking', () => {
 
   it('finds a title by a later word', () => {
     expect(searchOptions(named('Paperwall expenses', 'Rent'), 'expenses', null).map((o) => o.name)).toEqual(['Paperwall expenses']);
+  });
+});
+describe('optionMatchRank', () => {
+  it('matches the parents\' titles after any match on the name alone', () => {
+    const child = { id: 'c', name: 'Launch plan', parents: 'Q3 / Platform' };
+    expect(optionMatchRank(child, 'launch')).toBe(1);
+    expect(optionMatchRank(child, 'platform launch')).not.toBeNull();
+    expect(optionMatchRank(child, 'platform launch')!).toBeGreaterThan(6);
+    expect(optionMatchRank({ id: 'x', name: 'Launch plan' }, 'platform launch')).toBeNull();
+  });
+
+  it('ranks an option named for the query above one whose parent is', () => {
+    const options = [
+      { id: 'child', name: 'Notes', parents: 'Budget' },
+      { id: 'top', name: 'Budget' }
+    ];
+    expect(searchOptions(options, 'budget', null).map((o) => o.id)).toEqual(['top', 'child']);
   });
 });

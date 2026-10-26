@@ -6,6 +6,8 @@ export interface SearchOption {
   readonly id: string;
   readonly name: string;
   readonly scope?: string;
+  /** Its parents' titles ("Platform / Q3"): a query matches them too, below matches on the name itself. */
+  readonly parents?: string;
 }
 
 export interface SearchScope {
@@ -88,7 +90,21 @@ export const nameMatchRank = (name: string, query: string): number | null => {
   return null;
 };
 
-/** Options in `scope` (every scope when null) that match the query (`nameMatchRank`), best first, in their own order within a rank. */
+/** Ranks past every rank `nameMatchRank` gives a name, for a match that needs the parents' titles. */
+const PARENT_MATCH_OFFSET = 10;
+
+/**
+ * How well an option matches: its name (`nameMatchRank`), else its parents' titles and name
+ * together ("q3 launch" → "Launch plan" under "Q3"), ranked after every match on a name.
+ */
+export const optionMatchRank = (option: SearchOption, query: string): number | null => {
+  const rank = nameMatchRank(option.name, query);
+  if (rank !== null || !option.parents) return rank;
+  const withParents = nameMatchRank(`${option.parents} ${option.name}`, query);
+  return withParents === null ? null : withParents + PARENT_MATCH_OFFSET;
+};
+
+/** Options in `scope` (every scope when null) that match the query (`optionMatchRank`), best first, in their own order within a rank. */
 export const searchOptions = <T extends SearchOption>(
   options: readonly T[],
   query: string,
@@ -98,7 +114,7 @@ export const searchOptions = <T extends SearchOption>(
   const inScope = scope === null ? options : options.filter((o) => o.scope === scope);
   if (!query.trim()) return inScope.slice(0, limit);
   return inScope
-    .map((option, index) => ({ option, index, rank: nameMatchRank(option.name, query) }))
+    .map((option, index) => ({ option, index, rank: optionMatchRank(option, query) }))
     .filter((m): m is { option: T; index: number; rank: number } => m.rank !== null)
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .slice(0, limit)

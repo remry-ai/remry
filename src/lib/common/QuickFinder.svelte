@@ -93,8 +93,8 @@
   const entries: readonly FinderEntry[] = $derived(
     entities.filter((e) => $model.shows(e.scope)).map((e) => ({
       ...e,
-      // A group shows its kind ("Team"); anything else its type.
-      meta: groupKinds.find((k) => e.groupKind && k.key === e.groupKind)?.name ?? scopeLabel(e.scope)
+      // A group shows its kind ("Team"); anything else its type, then its parents' titles.
+      meta: [groupKinds.find((k) => e.groupKind && k.key === e.groupKind)?.name ?? scopeLabel(e.scope), e.parents].filter(Boolean).join(' · ')
     }))
   );
 

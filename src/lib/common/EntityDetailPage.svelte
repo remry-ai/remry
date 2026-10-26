@@ -102,7 +102,7 @@
     readonly todos: readonly TodoItem[];
     readonly reports?: readonly ReportItem[];
     readonly relations?: readonly RelationGroup[];
-    /** External links; the sidebar lists them, with their source tool and last sync, when there are any. */
+    /** External links; the sidebar lists them, with their source tool and last sync, and adds one by hand. */
     readonly links?: readonly LinkItem[];
     /** Links between the list and the entity in the breadcrumb, such as a wiki page's parents. */
     readonly breadcrumbTrail?: readonly BreadcrumbLink[];
@@ -434,11 +434,9 @@
     <div class="section">
       <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} />
     </div>
-    {#if links.length > 0}
-      <div class="section">
-        <LinksWidget {links} readOnly={!!archivedAt} />
-      </div>
-    {/if}
+    <div class="section">
+      <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} />
+    </div>
   {/snippet}
 
   <div class="center-pane" bind:this={centerEl} style="--sticky-top: {centerHeaderH}px">

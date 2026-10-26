@@ -14,6 +14,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
+  import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import { wikiPrintUrl } from '$lib/doc/print-options';
@@ -174,6 +175,9 @@
       <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
     {:else if makingSync}
       <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onCancel={() => { makingSync = false; }} />
+    {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}
+      <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
+      <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
     {/if}
     {#if isSheet}
       <section class="section">
@@ -206,9 +210,6 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
-            {/if}
-            {#if canMakeSync}
-              <button type="button" class="btn ghost sm" title="Claude keeps it in step with its sources, following a prompt you write" onclick={() => { makingSync = true; }}>Make sync page</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
           </span>
