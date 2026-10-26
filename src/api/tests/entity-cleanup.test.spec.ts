@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
-import { planEntityCleanup } from '../_entity-cleanup';
+import { CLEANUP_BATCH, planEntityCleanup } from '../_entity-cleanup';
 import { cleanupPrisma } from './cleanup-prisma';
 
 describe('planEntityCleanup', () => {
@@ -29,16 +29,16 @@ describe('planEntityCleanup', () => {
     expect(prisma.doc.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['d1'] } } });
 
     // Tags, emoji and relations go for the entity and for everything attached to it.
-    const tagged = (prisma.tagAttachment.deleteMany.mock.calls[0] as unknown as [{ where: { OR: { entityType: string; entityId: { in: string[] } }[] } }])[0].where.OR;
-    expect(tagged).toEqual(expect.arrayContaining([
+    // One statement per type, each with a batch of its ids.
+    const wheres = (calls: readonly unknown[][]) => calls.map((call) => (call[0] as { where: unknown }).where);
+    expect(wheres(prisma.tagAttachment.deleteMany.mock.calls)).toEqual(expect.arrayContaining([
       { entityType: 'PERSON', entityId: { in: ['p1'] } },
       { entityType: 'NOTE', entityId: { in: ['n1', 'n2'] } },
       { entityType: 'COMMENT', entityId: { in: ['c1'] } },
       { entityType: 'TODO', entityId: { in: ['t1'] } },
       { entityType: 'DOC', entityId: { in: ['d1'] } }
     ]));
-    const relationWhere = (prisma.relation.deleteMany.mock.calls[0] as unknown as [{ where: { OR: unknown[] } }])[0].where.OR;
-    expect(relationWhere).toEqual(expect.arrayContaining([
+    expect(wheres(prisma.relation.deleteMany.mock.calls)).toEqual(expect.arrayContaining([
       { fromType: 'NOTE', fromId: { in: ['n1', 'n2'] } },
       { toType: 'DOC', toId: { in: ['d1'] } }
     ]));
@@ -63,5 +63,20 @@ describe('planEntityCleanup', () => {
     expect((await planEntityCleanup(reg, 'PAGE', 'pg1')).folders).toEqual(['pages/pg1']);
     expect((await planEntityCleanup(reg, 'DOC', 'd9')).folders).toEqual(['docs/d9']);
     expect((await planEntityCleanup(reg, 'PERSON', 'p1')).folders).toEqual([]);
+  });
+});
+
+describe('planEntityCleanup batches', () => {
+  it('splits a long list of ids across statements', async () => {
+    const notes = Array.from({ length: CLEANUP_BATCH * 2 + 1 }, (_, i) => ({ id: `n${i}`, entityType: 'PERSON', entityId: 'p1' }));
+    const prisma = cleanupPrisma({ note: notes });
+    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'] });
+    await prisma.$transaction((await planEntityCleanup(reg, 'PERSON', 'p1')).ops as unknown as Promise<unknown>[]);
+
+    const sizes = (calls: readonly unknown[][], key: 'id' | 'entityId' | 'fromId') =>
+      calls.map((call) => ((call[0] as { where: Record<string, { in: string[] }> }).where[key]?.in.length ?? 0)).filter((n) => n > 0);
+    expect(sizes(prisma.note.deleteMany.mock.calls, 'id')).toEqual([CLEANUP_BATCH, CLEANUP_BATCH, 1]);
+    expect(Math.max(...sizes(prisma.tagAttachment.deleteMany.mock.calls, 'entityId'))).toBe(CLEANUP_BATCH);
+    expect(Math.max(...sizes(prisma.relation.deleteMany.mock.calls, 'fromId'))).toBe(CLEANUP_BATCH);
   });
 });

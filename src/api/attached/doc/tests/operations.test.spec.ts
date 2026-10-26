@@ -162,9 +162,8 @@ describe('removeDoc', () => {
     expect(result.ok).toBe(true);
     expect(deleteObject).toHaveBeenCalledWith('docs/doc_1/source.pdf');
     expect(del).toHaveBeenCalledWith({ where: { id: 'doc_1' } });
-    expect(prisma.relation.deleteMany).toHaveBeenCalledWith({
-      where: { OR: [{ fromType: 'DOC', fromId: { in: ['doc_1'] } }, { toType: 'DOC', toId: { in: ['doc_1'] } }] }
-    });
+    expect(prisma.relation.deleteMany).toHaveBeenCalledWith({ where: { fromType: 'DOC', fromId: { in: ['doc_1'] } } });
+    expect(prisma.relation.deleteMany).toHaveBeenCalledWith({ where: { toType: 'DOC', toId: { in: ['doc_1'] } } });
   });
 
   it('deletes what is attached to the doc, in the same transaction', async () => {

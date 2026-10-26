@@ -59,12 +59,39 @@ export const enableWal = async (client: Client, attempts = 50, delayMs = 100): P
   }
 };
 
-/** Prisma's libsql adapter, with every connection waiting for locks. */
+/**
+ * The most values SQLite takes in one statement (SQLITE_MAX_VARIABLE_NUMBER, 32,766 since
+ * SQLite 3.32; libsql's build answers "too many SQL variables" at 32,767).
+ */
+export const SQLITE_MAX_BIND_VALUES = 32766;
+
+type LibSqlAdapter = Awaited<ReturnType<PrismaLibSql['connect']>>;
+
+/**
+ * Tells Prisma how many values a statement can take. The libsql adapter doesn't say, so
+ * Prisma assumes 999 for SQLite and refuses (P2029, "query parameter limit exceeded") to
+ * load related rows for 1,000 parents or more: goal.list failed at 1,000 goals, since it
+ * loads each one's latest check-in. Prisma splits a longer list across statements itself.
+ */
+export const withBindLimit = (adapter: LibSqlAdapter): LibSqlAdapter => {
+  const info = adapter.getConnectionInfo?.() ?? { supportsRelationJoins: false };
+  return Object.assign(adapter, { getConnectionInfo: () => ({ ...info, maxBindValues: SQLITE_MAX_BIND_VALUES }) });
+};
+
+/** Prisma's libsql adapter, with every connection waiting for locks and the real bind limit. */
 export class PrismaLibSqlWaiting extends PrismaLibSql {
   override createClient(config: Config): Client {
     const client = withBusyTimeout(super.createClient(config));
     // The local client runs statements synchronously, so this applies before any query Prisma sends.
     void client.execute(BUSY_TIMEOUT);
     return client;
+  }
+
+  override async connect(): Promise<LibSqlAdapter> {
+    return withBindLimit(await super.connect());
+  }
+
+  override async connectToShadowDb(): Promise<LibSqlAdapter> {
+    return withBindLimit(await super.connectToShadowDb());
   }
 }

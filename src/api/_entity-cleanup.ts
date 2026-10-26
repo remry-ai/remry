@@ -34,12 +34,29 @@ interface Ref {
   readonly entityId: string;
 }
 
-// Mutable arrays: Prisma's where-input types don't accept readonly ones.
-const attachedToAny = (refs: readonly Ref[]): { OR: { entityType: string; entityId: { in: string[] } }[] } => {
-  const byType = new Map<string, string[]>();
-  for (const { entityType, entityId } of refs) byType.set(entityType, [...(byType.get(entityType) ?? []), entityId]);
-  return { OR: [...byType].map(([entityType, ids]) => ({ entityType, entityId: { in: ids } })) };
+/** Ids per statement: well under SQLite's 32,766 values, however many rows a delete reaches. */
+export const CLEANUP_BATCH = 5000;
+
+const inBatches = <T>(items: readonly T[], size = CLEANUP_BATCH): T[][] => {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
+  return batches;
 };
+
+/** Ids by type, in first-seen order. */
+const idsByType = (refs: readonly Ref[]): Map<string, string[]> => {
+  const byType = new Map<string, string[]>();
+  for (const { entityType, entityId } of refs) {
+    const ids = byType.get(entityType);
+    if (ids) ids.push(entityId);
+    else byType.set(entityType, [entityId]);
+  }
+  return byType;
+};
+
+/** The refs, one batch of at most CLEANUP_BATCH ids of one type at a time (mutable: Prisma's where-input types don't take readonly arrays). */
+const refBatches = (refs: readonly Ref[]): { readonly entityType: string; readonly ids: string[] }[] =>
+  [...idsByType(refs)].flatMap(([entityType, ids]) => inBatches(ids).map((batch) => ({ entityType, ids: batch })));
 
 /**
  * Everything attached to the roots, at any depth: a note's comments, a todo's
@@ -57,18 +74,23 @@ const collectAttached = async (
   let frontier: readonly Ref[] = roots;
 
   while (frontier.length > 0) {
-    const where = attachedToAny(frontier);
-    const noteIds = frontier.filter((r) => r.entityType === 'NOTE').map((r) => r.entityId);
     const select = { id: true } as const;
-    const [docs, notes, reports, todos, links, comments, replies] = await Promise.all([
-      p.doc.findMany({ where, select: { id: true, sourceUrl: true } }),
-      p.note.findMany({ where, select }),
-      p.report.findMany({ where, select }),
-      p.todo.findMany({ where, select }),
-      p.link.findMany({ where, select }),
-      p.comment.findMany({ where, select }),
-      noteIds.length > 0 ? p.note.findMany({ where: { parentId: { in: noteIds } }, select }) : Promise.resolve([])
-    ]);
+    // One batch of ids per statement, so a pass that finds tens of thousands stays under SQLite's limit.
+    const found = await Promise.all(refBatches(frontier).map(async ({ entityType: type, ids: batch }) => {
+      const where = { entityType: type, entityId: { in: batch } };
+      return Promise.all([
+        p.doc.findMany({ where, select: { id: true, sourceUrl: true } }),
+        p.note.findMany({ where, select }),
+        p.report.findMany({ where, select }),
+        p.todo.findMany({ where, select }),
+        p.link.findMany({ where, select }),
+        p.comment.findMany({ where, select }),
+        type === 'NOTE' ? p.note.findMany({ where: { parentId: { in: batch } }, select }) : Promise.resolve([])
+      ]);
+    }));
+    const [docs, notes, reports, todos, links, comments, replies] = [0, 1, 2, 3, 4, 5, 6].map((i) => found.flatMap((rows) => rows[i]!)) as [
+      { id: string; sourceUrl: string | null }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[]
+    ];
 
     const next: Ref[] = [];
     const add = (entityType: AttachedType, rows: readonly { readonly id: string }[]): void => {
@@ -102,30 +124,26 @@ export const planEntityCleanup = async (
   const { ids, files } = await collectAttached(reg, [root]);
   // The entity and everything attached to it, at any depth, are going.
   const going: Ref[] = [root, ...ATTACHED_TYPES.flatMap((type) => ids[type].map((id) => ({ entityType: type, entityId: id })))];
-  const attached = { where: attachedToAny(going) };
-  const byId = (type: AttachedType) => ({ where: { id: { in: [...ids[type]] } } });
-  const ends = attachedToAny(going).OR;
   const owned = { where: { ownerType: entityType, ownerId: entityId }, data: { ownerType: null, ownerId: null } };
+  // Every statement takes one batch of ids, so a delete reaching tens of thousands of rows stays fast
+  // and under SQLite's limit on values per statement.
+  const byId = (type: AttachedType) => inBatches(ids[type]).map((batch) => ({ where: { id: { in: batch } } }));
+  const attached = refBatches(going).map(({ entityType: type, ids: batch }) => ({ where: { entityType: type, entityId: { in: batch } } }));
+  const relationEnds = refBatches(going).flatMap(({ entityType: type, ids: batch }) => [
+    p.relation.deleteMany({ where: { fromType: type, fromId: { in: batch } } }),
+    p.relation.deleteMany({ where: { toType: type, toId: { in: batch } } })
+  ]);
 
   return {
     ops: [
-      p.doc.deleteMany(byId('DOC')),
-      p.note.deleteMany(byId('NOTE')),
-      p.report.deleteMany(byId('REPORT')),
-      p.todo.deleteMany(byId('TODO')),
-      p.link.deleteMany(byId('LINK')),
-      p.comment.deleteMany(byId('COMMENT')),
-      p.tagAttachment.deleteMany(attached),
-      p.emoji.deleteMany(attached),
-      p.pageChat.deleteMany(attached),
-      p.relation.deleteMany({
-        where: {
-          OR: [
-            ...ends.map((e) => ({ fromType: e.entityType, fromId: e.entityId })),
-            ...ends.map((e) => ({ toType: e.entityType, toId: e.entityId }))
-          ]
-        }
-      }),
+      ...byId('DOC').map((args) => p.doc.deleteMany(args)),
+      ...byId('NOTE').map((args) => p.note.deleteMany(args)),
+      ...byId('REPORT').map((args) => p.report.deleteMany(args)),
+      ...byId('TODO').map((args) => p.todo.deleteMany(args)),
+      ...byId('LINK').map((args) => p.link.deleteMany(args)),
+      ...byId('COMMENT').map((args) => p.comment.deleteMany(args)),
+      ...attached.flatMap((args) => [p.tagAttachment.deleteMany(args), p.emoji.deleteMany(args), p.pageChat.deleteMany(args)]),
+      ...relationEnds,
       p.goal.updateMany(owned),
       p.project.updateMany(owned)
     ],

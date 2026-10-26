@@ -14,13 +14,15 @@ export interface AttachedRow {
 
 type Model = 'doc' | 'note' | 'report' | 'todo' | 'link' | 'comment';
 
+// The cleanup asks for one type and a batch of its ids at a time, or for replies to notes.
 interface AttachedWhere {
-  readonly OR?: readonly { readonly entityType: string; readonly entityId: { readonly in: readonly string[] } }[];
+  readonly entityType?: string;
+  readonly entityId?: { readonly in: readonly string[] };
   readonly parentId?: { readonly in: readonly string[] };
 }
 
 const matches = (row: AttachedRow, where: AttachedWhere): boolean =>
-  (where.OR ?? []).some((w) => w.entityType === row.entityType && w.entityId.in.includes(row.entityId)) ||
+  (where.entityType === row.entityType && (where.entityId?.in.includes(row.entityId) ?? false)) ||
   (where.parentId?.in.includes(row.parentId ?? '') ?? false);
 
 const model = (rows: readonly AttachedRow[]) => ({
