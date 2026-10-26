@@ -8,6 +8,8 @@ export interface SearchOption {
   readonly scope?: string;
   /** Its parents' titles ("Platform / Q3"): a query matches them too, below matches on the name itself. */
   readonly parents?: string;
+  /** Its direct children's titles: a query matches the name with one of them, below matches on the parents. */
+  readonly children?: readonly string[];
 }
 
 export interface SearchScope {
@@ -92,16 +94,23 @@ export const nameMatchRank = (name: string, query: string): number | null => {
 
 /** Ranks past every rank `nameMatchRank` gives a name, for a match that needs the parents' titles. */
 const PARENT_MATCH_OFFSET = 10;
+/** Ranks past every parent match, for one that needs a child's title. */
+const CHILD_MATCH_OFFSET = 20;
 
 /**
  * How well an option matches: its name (`nameMatchRank`), else its parents' titles and name
- * together ("q3 launch" → "Launch plan" under "Q3"), ranked after every match on a name.
+ * together ("q3 launch" → "Launch plan" under "Q3"), else its name and one of its children's
+ * titles ("launch" → "Q3", which has "Launch plan"); each after every match of the kind before.
  */
 export const optionMatchRank = (option: SearchOption, query: string): number | null => {
   const rank = nameMatchRank(option.name, query);
-  if (rank !== null || !option.parents) return rank;
-  const withParents = nameMatchRank(`${option.parents} ${option.name}`, query);
-  return withParents === null ? null : withParents + PARENT_MATCH_OFFSET;
+  if (rank !== null) return rank;
+  const withParents = option.parents ? nameMatchRank(`${option.parents} ${option.name}`, query) : null;
+  if (withParents !== null) return withParents + PARENT_MATCH_OFFSET;
+  const childRanks = (option.children ?? [])
+    .map((child) => nameMatchRank(`${option.name} ${child}`, query))
+    .filter((r): r is number => r !== null);
+  return childRanks.length > 0 ? Math.min(...childRanks) + CHILD_MATCH_OFFSET : null;
 };
 
 /** Options in `scope` (every scope when null) that match the query (`optionMatchRank`), best first, in their own order within a rank. */

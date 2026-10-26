@@ -159,3 +159,21 @@ describe('optionMatchRank', () => {
     expect(searchOptions(options, 'budget', null).map((o) => o.id)).toEqual(['top', 'child']);
   });
 });
+
+describe('optionMatchRank with children', () => {
+  it('matches a parent by a child\'s title, after name and parent matches', () => {
+    const parent = { id: 'p', name: 'Platform', children: ['Launch plan', 'Budget'] };
+    expect(optionMatchRank(parent, 'launch')).toBeGreaterThanOrEqual(20);
+    expect(optionMatchRank(parent, 'platform budget')).toBeGreaterThanOrEqual(20);
+    expect(optionMatchRank(parent, 'hiring')).toBeNull();
+  });
+
+  it('lists the item named for the query, then one under a matching parent, then the parent', () => {
+    const options = [
+      { id: 'parent', name: 'Platform', children: ['Launch plan'] },
+      { id: 'grandchild', name: 'Notes', parents: 'Launch plan' },
+      { id: 'child', name: 'Launch plan', parents: 'Platform', children: ['Notes'] }
+    ];
+    expect(searchOptions(options, 'launch', null).map((o) => o.id)).toEqual(['child', 'grandchild', 'parent']);
+  });
+});
