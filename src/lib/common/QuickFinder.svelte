@@ -29,7 +29,6 @@
     completeCommand,
     completeScope,
     docEntries,
-    finderHierarchy,
     parseFinderQuery,
     parseScope,
     todoEntries,
@@ -482,26 +481,18 @@
                   </span>
                 {/if}
               {:else}
-                {@const tree = finderHierarchy(row.entry)}
+                {@const trail = row.entry.parents ?? []}
                 <span class="line">
                   <span class="name truncate">{row.entry.name}</span>
-                  {#if tree.children}
-                    <span class="sub-count" title={tree.children.label}>
-                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M4 2.5v8.5a1.5 1.5 0 0 0 1.5 1.5H9M4 6.5h5" /><circle cx="11" cy="6.5" r="1.6" /><circle cx="11" cy="12.5" r="1.6" />
-                      </svg>
-                      <span class="sr-only">{tree.children.label}</span><span aria-hidden="true">{tree.children.count}</span>
-                    </span>
-                  {/if}
                   <span class="kind">{row.entry.meta}</span>
                 </span>
-                {#if tree.trail.length > 0}
-                  <span class="trail truncate" title="In {tree.trail.join(' › ')}">
+                {#if trail.length > 0}
+                  <span class="trail truncate" title="In {trail.join(' › ')}">
                     <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M3 2.5v6a2 2 0 0 0 2 2h8M10 7.5l3 3-3 3" />
                     </svg>
                     <span class="sr-only">In</span>
-                    {#each tree.trail as title, t (t)}{#if t > 0}<span class="sep" aria-hidden="true">›</span>{/if}<span>{title}</span>{/each}
+                    {#each trail as title, t (t)}{#if t > 0}<span class="sep" aria-hidden="true">›</span>{/if}<span>{title}</span>{/each}
                   </span>
                 {/if}
               {/if}
@@ -669,7 +660,7 @@
     color: var(--text-3);
   }
 
-  // An item's place in its tree: the parents above it on a second line, and how many sit under it.
+  // An item's place in its tree: the parents above it, on a second line.
   .trail {
     display: flex;
     align-items: center;
@@ -679,14 +670,7 @@
     svg { flex: none; }
   }
   .sep { color: var(--text-3); opacity: 0.7; }
-  .sub-count {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-1);
-    flex: none;
-    font-size: var(--fs-xs);
-    color: var(--text-3);
-  }
+
 
   .no-results {
     padding: var(--sp-4);
