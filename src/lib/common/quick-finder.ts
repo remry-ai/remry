@@ -135,6 +135,20 @@ export const groupKindScopes = (
 export const inScope = (entry: FinderEntry, scope: FinderScope): boolean =>
   entry.scope === scope.type && (!scope.groupKind || entry.groupKind === scope.groupKind);
 
+// The entries of each scope, kept while the entries are the same, so typing within a scope
+// hands searchOptions the same list each time and it can narrow from its last matches.
+const scopedEntries = new WeakMap<readonly FinderEntry[], Map<string, readonly FinderEntry[]>>();
+const entriesIn = (entries: readonly FinderEntry[], scope: FinderScope): readonly FinderEntry[] => {
+  const byScope = scopedEntries.get(entries) ?? new Map<string, readonly FinderEntry[]>();
+  scopedEntries.set(entries, byScope);
+  const key = scopeKey(scope);
+  const known = byScope.get(key);
+  if (known) return known;
+  const list = entries.filter((e) => inScope(e, scope));
+  byScope.set(key, list);
+  return list;
+};
+
 /** A scope's row key: `scope:GROUP`, or `scope:GROUP:TEAM` for a group kind. */
 const scopeKey = (scope: FinderScope): string => (scope.groupKind ? `scope:${scope.type}:${scope.groupKind}` : `scope:${scope.type}`);
 
@@ -204,7 +218,7 @@ export const autocompleteRows = (
   limit = 12
 ): readonly FinderRow[] => {
   const { scope, text: rest } = parseScope(text, available);
-  if (scope) return entryRows(searchOptions(entries.filter((e) => inScope(e, scope)), rest, null, limit));
+  if (scope) return entryRows(searchOptions(entriesIn(entries, scope), rest, null, limit));
   if (!text.trim()) return commandRows(FINDER_COMMANDS);
   const scopes = scopeSuggestions(text, available).map((s): FinderRow => ({ kind: 'scope', key: scopeKey(s), scope: s }));
   return [...entryRows(searchOptions(entries, text, null, limit)), ...scopes];

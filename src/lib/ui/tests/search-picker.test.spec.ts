@@ -177,3 +177,54 @@ describe('optionMatchRank with children', () => {
     expect(searchOptions(options, 'launch', null).map((o) => o.id)).toEqual(['child', 'grandchild', 'parent']);
   });
 });
+
+describe('searchOptions narrowing', () => {
+  // A seeded generator, so a failure repeats.
+  const random = (seed: number) => () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const WORDS = ['launch', 'plan', 'Platform', 'café', 'q3', 'Dana\'s', 'road-map', 'paper', 'expenses', 'pe', 'la'];
+
+  it('gives what a fresh search gives, while typing, deleting and switching scope', () => {
+    const next = random(42);
+    const pick = <T>(items: readonly T[]): T => items[Math.floor(next() * items.length)]!;
+    const name = () => Array.from({ length: 1 + Math.floor(next() * 3) }, () => pick(WORDS)).join(' ');
+    const options = Array.from({ length: 300 }, (_, i) => ({
+      id: `o${i}`,
+      name: name(),
+      scope: pick(['PAGE', 'PROJECT']),
+      ...(next() < 0.4 && { parents: name() }),
+      ...(next() < 0.4 && { children: [name(), name()] })
+    }));
+    const fresh = (query: string, scope: string | null) => searchOptions([...options], query, scope, 500).map((o) => o.id);
+
+    for (let run = 0; run < 200; run++) {
+      const target = `${pick(WORDS)}${next() < 0.5 ? ` ${pick(WORDS)}` : ''}`;
+      const scope = next() < 0.3 ? pick(['PAGE', 'PROJECT']) : null;
+      // Type it letter by letter, then delete back a few.
+      const typed = [...target].map((_, i) => target.slice(0, i + 1));
+      const deleted = typed.slice(0, -1).reverse().slice(0, 3);
+      for (const query of [...typed, ...deleted]) {
+        expect(searchOptions(options, query, scope, 500).map((o) => o.id), `${JSON.stringify(query)} in ${scope}`).toEqual(fresh(query, scope));
+      }
+    }
+  });
+
+  it('checks only the last matches when the query grows', () => {
+    let reads = 0;
+    const options = Array.from({ length: 1000 }, (_, i) => {
+      const value = i < 10 ? `Launch plan ${i}` : `Budget ${i}`;
+      return { id: `o${i}`, get name() { reads++; return value; } };
+    });
+    searchOptions(options, 'la', null);
+    reads = 0;
+    searchOptions(options, 'lau', null);
+    expect(reads).toBeLessThanOrEqual(10 * 2);
+
+    // A shorter query searches them all again.
+    reads = 0;
+    searchOptions(options, 'l', null);
+    expect(reads).toBeGreaterThanOrEqual(1000);
+  });
+});

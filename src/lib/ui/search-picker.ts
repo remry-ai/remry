@@ -126,7 +126,29 @@ export const optionMatchRank = (option: SearchOption, query: string): number | n
   return childRanks.length > 0 ? Math.min(...childRanks) + CHILD_MATCH_OFFSET : null;
 };
 
-/** Options in `scope` (every scope when null) that match the query (`optionMatchRank`), best first, in their own order within a rank. */
+interface Candidate<T> {
+  readonly option: T;
+  /** Its place in the options, which breaks ties in rank. */
+  readonly index: number;
+}
+
+/** The last query each options list was searched for, per scope, with every option it matched (not just those shown). */
+interface LastSearch {
+  readonly query: string;
+  readonly matches: readonly Candidate<unknown>[];
+}
+
+const lastSearches = new WeakMap<readonly object[], Map<string, LastSearch>>();
+const ALL_SCOPES = '\u0000all';
+
+/**
+ * Options in `scope` (every scope when null) that match the query (`optionMatchRank`), best first, in their own order within a rank.
+ *
+ * Typing one more letter only narrows: whatever matches "plat" also matches "pla", in every
+ * tier of `nameMatchRank` and with parents or children. So when the query extends the last
+ * one searched on the same options and scope, only the last one's matches are checked.
+ * Deleting a letter, or a new options list, searches them all again.
+ */
 export const searchOptions = <T extends SearchOption>(
   options: readonly T[],
   query: string,
@@ -135,9 +157,23 @@ export const searchOptions = <T extends SearchOption>(
 ): readonly T[] => {
   const inScope = scope === null ? options : options.filter((o) => o.scope === scope);
   if (!query.trim()) return inScope.slice(0, limit);
-  return inScope
-    .map((option, index) => ({ option, index, rank: optionMatchRank(option, query) }))
-    .filter((m): m is { option: T; index: number; rank: number } => m.rank !== null)
+
+  const normalizedQuery = normalize(query);
+  const searches = lastSearches.get(options) ?? new Map<string, LastSearch>();
+  lastSearches.set(options, searches);
+  const scopeKey = scope ?? ALL_SCOPES;
+  const last = searches.get(scopeKey);
+  const candidates: readonly Candidate<T>[] =
+    last && normalizedQuery.startsWith(last.query)
+      ? (last.matches as readonly Candidate<T>[])
+      : inScope.map((option, index) => ({ option, index }));
+
+  const matched = candidates
+    .map((c) => ({ ...c, rank: optionMatchRank(c.option, query) }))
+    .filter((m): m is Candidate<T> & { rank: number } => m.rank !== null);
+  searches.set(scopeKey, { query: normalizedQuery, matches: matched.map(({ option, index }) => ({ option, index })) });
+
+  return matched
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .slice(0, limit)
     .map((m) => m.option);
