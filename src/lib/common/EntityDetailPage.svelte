@@ -19,7 +19,6 @@
   import NoteEditor from '$lib/common/NoteEditor.svelte';
   import Popup from '$lib/common/Popup.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import TodoForm from '$lib/todo/components/TodoForm.svelte';
   import ReportsWidget from '$lib/report/components/ReportsWidget.svelte';
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
@@ -155,14 +154,9 @@
 
   // ----- Center pane state -----
   // The open doc lives in the URL (`?doc=<id>`, or `?doc=new` for a draft) and
-  // takes the pane over everything else. Todos are local state; notes open in a popup
-  // (`?popup=note`, with `&note=<id>` to edit one), so the page stays in view.
-  type CenterView =
-    | { readonly type: 'overview' }
-    | { readonly type: 'newTodo' }
-    | { readonly type: 'editTodo'; readonly id: string };
-
-  let center = $state<CenterView>({ type: 'overview' });
+  // takes the pane over everything else. Notes and todos open in popups (`?popup=note`,
+  // with `&note=<id>` to edit one; the app's `?popup=todo`, with `&todo=<id>`), so the page
+  // and an open doc stay in view.
   let newDocTitleDraft = $state('Untitled');
 
   const docParam = $derived(page.url.searchParams.get(DOC_PARAM));
@@ -226,16 +220,7 @@
   // A doc fills the centre pane, so the metadata above it gives way.
   const docOpen = $derived(activeDoc !== null || newDocOpen);
 
-  // Anything else opened in the pane closes the doc first.
-  const showInCenter = (view: CenterView) => {
-    void closeDocUrl();
-    center = view;
-  };
-
-  const openDoc = (id: string) => {
-    center = { type: 'overview' };
-    void openDocUrl(id);
-  };
+  const openDoc = (id: string) => { void openDocUrl(id); };
   // Close a floating drawer so the editor in the center pane is reachable.
   const openNote = (id: string) => { activeDrawer.set(null); void openPopup(NOTE_POPUP, { [NOTE_PARAM]: id }); };
   const openNewNote = () => { activeDrawer.set(null); void openPopup(NOTE_POPUP); };
@@ -245,16 +230,11 @@
     draftDocId = null;
     openDoc(NEW_DOC);
   };
-  // From the right panel: close it where it floats, so the form in the center pane is reachable.
-  const openNewTodo = () => { activeDrawer.set(null); showInCenter({ type: 'newTodo' }); };
-  const openEditTodo = (id: string) => { activeDrawer.set(null); showInCenter({ type: 'editTodo', id }); };
-  const closeCenter = () => { center = { type: 'overview' }; };
+  // From the right panel: the app's todo popup (CreateTodoPopup), which takes this page's entity
+  // for a new one. A floating panel closes first, so it doesn't sit over the popup.
+  const openNewTodo = () => { activeDrawer.set(null); void openPopup('todo'); };
+  const openEditTodo = (id: string) => { activeDrawer.set(null); void openPopup('todo', { todo: id }); };
   const closeDoc = () => { void closeDocUrl(); };
-
-  const handleTodoSuccess = async () => {
-    center = { type: 'overview' };
-    await invalidateAll();
-  };
 
   // ----- Handlers -----
   const docHandlers = $derived(
@@ -384,8 +364,6 @@
   const openEdit = () => { openPopup(editPopupId); };
   const handleEditSuccess = () => closePopup({ invalidate: true });
   const handleEditCancel = () => { closePopup(); };
-
-  const todoEntityType = $derived(entityType as EntityType);
 
   // ----- Archive -----
   const archivable = $derived(archivedAt !== undefined);
@@ -535,22 +513,6 @@
         onClose={closeNewDoc}
         autoEditTitle
       />
-    {:else if center.type === 'newTodo'}
-      <section class="card pane-card">
-        <div class="pane-header">
-          <h2>New todo</h2>
-          <button type="button" class="btn icon" aria-label="Close" onclick={closeCenter}>&times;</button>
-        </div>
-        <TodoForm entityType={todoEntityType} {entityId} onSuccess={handleTodoSuccess} onCancel={closeCenter} />
-      </section>
-    {:else if center.type === 'editTodo'}
-      <section class="card pane-card">
-        <div class="pane-header">
-          <h2>Edit todo</h2>
-          <button type="button" class="btn icon" aria-label="Close" onclick={closeCenter}>&times;</button>
-        </div>
-        <TodoForm entityType={todoEntityType} {entityId} editId={center.id} onSuccess={handleTodoSuccess} onCancel={closeCenter} />
-      </section>
     {:else}
       <div class="overview">
         {@render renderOverview({ openEdit })}
@@ -594,15 +556,13 @@
 
 <style lang="scss">
   .center-pane {
-    // The width of the page's text, the same as a list page's: the header (title, Edit, Archive)
-    // lines up with the panels below it. The right panel is resizable, so it can be this wide.
-    --detail-w: var(--content-max);
+    // Every block fills the column, so the header (title, Edit, Archive), the metadata, the docs
+    // list and whatever is open below them always share one width. Nothing caps itself.
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
   }
   .center-header {
-    max-width: var(--detail-w);
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
@@ -642,22 +602,12 @@
   .meta-panel,
   .description-panel,
   .docs-panel {
-    max-width: var(--detail-w);
     margin-bottom: var(--sp-2);
   }
   .description-panel { color: var(--text-2); }
-  .pane-card { max-width: 640px; }
-  .pane-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--sp-3);
-    h2 { margin: 0; font-size: var(--fs-base); }
-  }
   // Overview children are `.section`s, which space themselves (`margin-top`, none on the first).
   .overview {
     display: flex;
     flex-direction: column;
-    max-width: var(--detail-w);
   }
 </style>
