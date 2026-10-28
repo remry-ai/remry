@@ -1,6 +1,6 @@
 ---
 name: remry
-description: Read and write the user's local Remry notebooks (separate ones for work, home life and personal projects) — their people and groups (teams, departments, families, friend groups — a group's kind is defined per notebook), reporting lines, friends and family and how they're related, projects and who owns them, goals with targets and check-ins, a wiki of pages and spreadsheets (policies, software, expenses, recipes, places, home things, tax records), relations between any of these, notes, docs (with charts), recurring todos and tags. Use whenever the user talks about the people or teams they work with, friends, family, birthdays, who is whose partner, sibling or parent, bills, subscriptions, recurring expenses, taxes, recipes, places to visit, things around the house, personal projects, 1:1s, who reports to whom, org changes ("X moved to team Y", "Z is now X's manager"), projects, goals, OKRs, targets or progress ("we're at 80%", "that goal is at risk"), policies, products, the software or vendors they use, decisions, wiki pages, links between things ("link X to Y", "X depends on Y", "team X uses Y"), follow-ups or reminders about their work, asks you to "remember", "note", "log" or "track" something about their org, wants a report or write-up about a person, team, project or goal, wants a PDF imported into their notes, or wants projects, issues, pages or people from Linear, Notion, Jira, GitHub or another tool brought into their notes.
+description: Read and write the user's local Remry notebooks (separate ones for work, home life and personal projects) — their people and groups (teams, departments, families, friend groups — a group's kind is defined per notebook), reporting lines, friends and family and how they're related, projects and who owns them, goals with targets and check-ins, a wiki of pages and spreadsheets (policies, software, expenses, recipes, places, home things, tax records), relations between any of these, notes, docs (with charts), recurring todos and tags. Use whenever the user talks about the people or teams they work with, friends, family, birthdays, who is whose partner, sibling or parent, bills, subscriptions, recurring expenses, taxes, recipes, places to visit, things around the house, personal projects, 1:1s, who reports to whom, org changes ("X moved to team Y", "Z is now X's manager"), projects, goals, OKRs, targets or progress ("we're at 80%", "that goal is at risk"), policies, products, the software or vendors they use, decisions, wiki pages, links between things ("link X to Y", "X depends on Y", "team X uses Y"), follow-ups or reminders about their work, meetings and calendar events (prep, "brief me before my meetings", "what's my next meeting about"), asks you to "remember", "note", "log" or "track" something about their org, wants a report or write-up about a person, team, project or goal, wants a PDF imported into their notes, or wants projects, issues, pages or people from Linear, Notion, Jira, GitHub or another tool brought into their notes.
 ---
 
 # Remry
@@ -91,6 +91,28 @@ Whenever you list todos in chat (what's due, a person's open todos, the result o
 - The user ticks todos done, moves dates and changes priorities, then presses **Save changes**. That sends you a message listing each change by todo id. Make each one with `todo_update` (`status`, `targetDate`, `priority`; `null` clears the date), without listing the todos again first. Then reply with the links, as for any write. Completing a recurring todo returns `nextId`: say when the next one is due.
 - For one or two todos, or without a widget tool (Claude Code in a terminal, say), list them in markdown with their links instead.
 
+## Meeting briefs
+
+When the user has a calendar connected to Claude (a Google Calendar or Outlook connector, say), you can brief them on a meeting just before it starts: what it is, who's coming, and the open todos that touch it. Remry never reads the calendar itself; you do, with the calendar's tools, and Remry supplies the rest.
+
+**Setting it up** ("brief me 5 minutes before each meeting"):
+1. Find the calendar tools (search for "calendar" with your tool-search tool). If there are none, tell the user to connect their calendar in Claude's connector settings, and stop.
+2. The briefs need the Remry tools, which run only on the user's computer, so the scheduled task must run there too (a scheduled task in Claude desktop or Cowork on their Mac), never in a cloud session. If this session can't create one, say so and offer the on-demand brief instead.
+3. List the scheduled tasks that exist first, and don't create a second "meeting briefs" task. Then create one that runs each weekday morning (before the first meeting) with a prompt like: "List today's calendar events. Skip all-day events, ones I declined, and ones with no one else invited. For each, schedule a one-time reminder 5 minutes before it starts, saying: write my Remry meeting brief for <event title> at <start time> (event id <id>)." Each reminder then writes one brief, as below. If one-time reminders aren't available, make the task recurring instead (as often as the host allows) and brief the events starting before its next run.
+4. Tell the user what you scheduled and when the first brief will arrive. The user stops it by deleting the scheduled task.
+
+**Writing a brief** (from a reminder, or when the user asks "brief me on my next meeting"):
+1. Read the event again with the calendar's tools: it may have moved or been cancelled. If it was cancelled, or now starts more than 15 minutes from now, say so in one line and stop.
+2. Pick the notebook: a work calendar's meetings go in the work notebook. If there's more than one notebook that could fit and nothing in the event says which, use the default.
+3. Match the people: `person.list` returns each person's `email`; match attendees by email, then by name. Match the title to a project or group by name (`project.list`, `group.list`). Don't create anyone or anything.
+4. Gather, for each match: `search.recall` (Remry Pro); without Pro, `person.get`, `todo.forEntity` and the latest few notes from `note.list`. Add the user's own todos that are overdue or due today (`todo.list --status ACTIVE`).
+5. Write it short, for a phone notification:
+   - **When and where:** start time, title, location or call link.
+   - **Who:** each attendee you matched, with their title or team and the latest note about them in a line; name the ones not in the notebook.
+   - **Open todos:** on those people, the project or group, and overdue ones of the user's that touch them, oldest due first, at most five, each with its link (see **Links to what you changed** for todo links). Say how many more there are.
+   - **Worth knowing:** anything overdue, a goal at risk, a tracked doc that changed (only if you already know it; don't run the tracked-docs check here).
+6. Write nothing to the notebook. Leave out archived items and finished todos (rule 7). If nothing in the notebook matches the meeting, say "Nothing in your notes about this one" with the event details, rather than padding it.
+
 ## Recipes
 
 These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `person_create` with `{"name": "Dana Park"}`.
@@ -111,6 +133,8 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Note that Dana wants to lead the migration" | `note.add --entityType PERSON --entityId <dana> --content "..."` |
 | "Remind me to book a 1:1 with Dana" | `todo.create --title "Book 1:1 with Dana" --entityType PERSON --entityId <dana>` (optional `--priority 0-3`, `--targetDate 2026-10-01`) |
 | "That's done" | `todo.update --id <todo> --status COMPLETE` |
+| "Brief me 5 minutes before each meeting" | A scheduled task on their computer that reads the calendar each morning and arms a reminder per meeting. See **Meeting briefs** |
+| "What's my next meeting about?" / "Prep me for my 2pm" | Read the event from the calendar, then write a brief. See **Meeting briefs** |
 | "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --status in-progress` (optional `--parentId`, `--startDate`, `--daysLikely`) |
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
