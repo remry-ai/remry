@@ -12,11 +12,17 @@
     readonly onEdit: (id: string) => void;
     readonly parentGroups?: readonly string[];
     readonly isRoot?: boolean;
-    /** Ids from a root down to a person to open the chart to and highlight (the last id). */
+    /** Ids from a root down to the person a jump landed on, highlighted (the last id). */
     readonly focusPath?: readonly string[];
+    /** The open lead in each row, from the top (`OrgTree` keeps it, and remembers it). */
+    readonly openPath: readonly string[];
+    /** This row's place in the chart: 0 for the top row. */
+    readonly depth?: number;
+    /** A lead in this row opened (its id) or closed (null). */
+    readonly onOpenChange: (depth: number, id: string | null) => void;
   }
 
-  const { nodes, groupsByPerson, onEdit, parentGroups = [], isRoot = false, focusPath = [] }: Props = $props();
+  const { nodes, groupsByPerson, onEdit, parentGroups = [], isRoot = false, focusPath = [], openPath, depth = 0, onOpenChange }: Props = $props();
   const focusedId = $derived(focusPath.at(-1) ?? null);
 
   // Big teams wrap into a boxed grid so the chart doesn't grow endlessly sideways.
@@ -27,19 +33,13 @@
   const cols = $derived(Math.min(MAX_COLS, Math.ceil(nodes.length / Math.ceil(nodes.length / MAX_COLS))));
 
   // At most one peer is open per row; its reports render as the next row, below all peers.
-  // A jump opens the lead on `focusPath`; otherwise the top row starts with its first lead open.
-  let openId = $state<string | null>(
-    untrack(() => {
-      const onPath = nodes.find((n) => focusPath.includes(n.person.id) && n.children.length > 0);
-      if (onPath) return onPath.person.id;
-      if (focusPath.length > 0) return null;
-      return isRoot ? (nodes.find((n) => n.children.length > 0)?.person.id ?? null) : null;
-    })
-  );
+  // A row starts with the lead `openPath` names for it open, and tells `OrgTree` of each change.
+  let openId = $state<string | null>(untrack(() => openPath[depth] ?? null));
   const openNode = $derived(nodes.find((n) => n.person.id === openId && n.children.length > 0) ?? null);
 
   const toggle = (id: string): void => {
     openId = openId === id ? null : id;
+    onOpenChange(depth, openId);
   };
 
   // Only show tags the lead doesn't already show.
@@ -76,7 +76,7 @@
     <div class="next">
       <span class="next-label">{openNode.person.name}'s reports</span>
       {#key openNode.person.id}
-        <Self nodes={openNode.children} {groupsByPerson} {onEdit} {focusPath} parentGroups={groupsByPerson.get(openNode.person.id) ?? []} />
+        <Self nodes={openNode.children} {groupsByPerson} {onEdit} {focusPath} {openPath} depth={depth + 1} {onOpenChange} parentGroups={groupsByPerson.get(openNode.person.id) ?? []} />
       {/key}
     </div>
   {/if}

@@ -161,7 +161,7 @@
         <div class="view-tools">{@render viewToggle()}</div>
         <EmptyState message="No people yet." />
       {:else}
-        <OrgTree roots={orgRoots} {groupsByPerson} onEdit={startEditPerson} tools={viewToggle} />
+        <OrgTree roots={orgRoots} {groupsByPerson} onEdit={startEditPerson} notebookId={data.notebook.id} tools={viewToggle} />
       {/if}
     </section>
 

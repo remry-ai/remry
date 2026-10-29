@@ -1,22 +1,44 @@
 <script lang="ts">
-  import { tick, type Snippet } from 'svelte';
+  import { onMount, tick, untrack, type Snippet } from 'svelte';
   import OrgLevel from './OrgLevel.svelte';
   import SearchPicker from '$lib/ui/SearchPicker.svelte';
   import { pathToPerson, type OrgTreeNode } from '$lib/org/org-tree';
+  import { defaultOpenPath, loadOpenPath, saveOpenPath, setOpenAt, startingOpenPath } from '$lib/org/open-path';
 
   interface Props {
     readonly roots: readonly OrgTreeNode[];
     readonly groupsByPerson: ReadonlyMap<string, readonly string[]>;
     readonly onEdit: (id: string) => void;
+    /** The open notebook, whose chart's open leads this browser remembers. */
+    readonly notebookId: string;
     /** Extra controls at the far right, after "Jump to person" (the Org Map's view toggle). */
     readonly tools?: Snippet;
   }
 
-  const { roots, groupsByPerson, onEdit, tools }: Props = $props();
+  const { roots, groupsByPerson, onEdit, notebookId, tools }: Props = $props();
 
-  // Bumping this remounts the chart: back to its default (top lead open), or opened along `focusPath`.
+  // Bumping this remounts the chart, opened along `openPath`.
   let resetVersion = $state(0);
   let focusPath = $state<readonly string[]>([]);
+  // The open lead in each row. It starts on the default (the top lead open), so the server's
+  // render and the first client one agree, then moves to the remembered path once mounted.
+  let openPath = $state<readonly string[]>(untrack(() => defaultOpenPath(roots)));
+  onMount(() => {
+    const start = startingOpenPath(roots, loadOpenPath(notebookId));
+    if (start.join() === openPath.join()) return;
+    openPath = start;
+    resetVersion++;
+  });
+
+  const setOpenPath = (path: readonly string[]): void => {
+    openPath = path;
+    saveOpenPath(notebookId, path);
+  };
+
+  const handleOpenChange = (depth: number, id: string | null): void => {
+    focusPath = [];
+    setOpenPath(setOpenAt(openPath, depth, id));
+  };
   let chartEl = $state<HTMLDivElement | null>(null);
 
   const people = $derived.by(() => {
@@ -31,13 +53,17 @@
     return all.sort((a, b) => a.name.localeCompare(b.name));
   });
 
+  // Back to the default, and forget what was open.
   const collapseAll = () => {
     focusPath = [];
+    openPath = defaultOpenPath(roots);
+    saveOpenPath(notebookId, null);
     resetVersion++;
   };
 
   const jumpTo = async (id: string) => {
     focusPath = pathToPerson(roots, id);
+    setOpenPath(focusPath);
     resetVersion++;
     await tick();
     chartEl
@@ -58,7 +84,7 @@
 <div class="scroller">
   <div class="org-chart" bind:this={chartEl}>
     {#key resetVersion}
-      <OrgLevel nodes={roots} {groupsByPerson} {onEdit} {focusPath} isRoot />
+      <OrgLevel nodes={roots} {groupsByPerson} {onEdit} {focusPath} {openPath} onOpenChange={handleOpenChange} isRoot />
     {/key}
   </div>
 </div>
