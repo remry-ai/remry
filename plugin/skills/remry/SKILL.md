@@ -133,7 +133,7 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, then `doc.update --prompt "<what to take from each>" --content-file <the write-up, with ## Discrepancies>` and mark each synced. See **Sync docs** |
 | "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
 | "Move the Checkout brief to the Payments project" | `doc_update --id <doc> --entityType PROJECT --entityId <payments>`. The doc keeps its id, images, sources, prompt, notes and PDF. Never move a doc by copying it into a new doc and deleting the old one |
-| "Turn this doc into a wiki page" | `page_create --title "<title>" --content <the doc's content>` (its images are copied to the page), check the page, then confirm and delete the doc |
+| "Turn this doc into a wiki page" / "Move the Q4 migration into the wiki" / "Make this page a project" | `entity.convert`. See **Moving between projects and the wiki** |
 | "Put this screenshot in the Checkout brief" (an image in the chat) | Shrink it, `doc_uploadImage --docId <brief> --dataBase64 <base64>`, put the returned `markdown` where it belongs and `doc_update` the content. See **Files from the chat** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
@@ -193,6 +193,25 @@ A project page shows four kinds of text. Give each one its own job, so the user 
 - **Sub-projects:** only when a piece has its own owner, its own dates or its own status worth tracking. Smaller steps are todos on the project.
 
 The same goes for groups and goals: a short description, notes for what happens, docs for reference.
+
+## Moving between projects and the wiki
+
+`entity.convert` turns one kind of item into another and deletes the old one. Everything attached comes along (notes, todos, links, tags, comments, relations), links to the old item in other pages, docs and notes are rewritten to the new one (`relinked` counts them), and the result lists everything it made.
+
+| From → to | What happens | Add |
+|---|---|---|
+| Project → page | A page with the project's facts at the top (status, owner, dates, estimate, goals, as links) then its brief. Sub-projects become sub-pages, then each doc becomes a sub-page. Goal links and the owner live on as links in the text | `--parentId <page>` to put it under a page |
+| Doc → page | The doc's text and images; a sync doc stays a sync page with its sources. The page is related to where the doc was | `--parentId <page>` |
+| Note → page | The note's text; its replies become notes on the page. Related to where the note was | `--title` (default: its first line), `--parentId <page>` |
+| Page → project | Sub-pages become sub-projects. Each page's text becomes a doc of the same name on its project (a sheet becomes a table) | `--description` (a 3–5 line brief you write from the page), `--status`, `--ownerType --ownerId`, `--parentId <project>` |
+| Page → doc | The page's text and images, as a doc | `--onType --onId` (a person, group, project or goal) |
+| Page → note | The title in bold, then the text; the page's notes become replies | `--onType --onId` |
+
+- **Confirm first, and snapshot** (`backup_snapshot`): the old item is deleted, and a project tree is many writes. Say what it'll make: "Q4 migration becomes a wiki page under Engineering, with its 2 sub-projects and 3 docs as sub-pages."
+- **It refuses, with what to do,** when: a doc has an attached PDF (a page can't hold one; `--dropPdfs true` keeps the text and deletes the PDF, only if the user agrees), a page with sub-pages is going to a doc or note (convert it to a project, or move the sub-pages), a page with images is going to a note (make it a doc), or a page tree's titles are already project names (`--allowDuplicate true` only if they're different projects).
+- **Archived items** must be unarchived first.
+- **Moving a doc** to another person, group, project or goal isn't a conversion: `doc.update --entityType --entityId`.
+- Reply with the link to the new item and what came along, and pass on any `warnings`.
 
 ## Write-ups
 

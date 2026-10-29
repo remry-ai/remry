@@ -132,7 +132,7 @@ export interface UpdateDocInput {
 }
 
 /** What a doc can move to: the entities whose pages show docs. */
-const DOC_HOLDERS: readonly EntityType[] = ['PERSON', 'GROUP', 'PROJECT', 'GOAL'];
+export const DOC_HOLDERS: readonly EntityType[] = ['PERSON', 'GROUP', 'PROJECT', 'GOAL'];
 
 /** Where a moved doc goes, checked: both ends given, an entity that takes docs, there and writable. */
 const moveTarget = async (
@@ -145,7 +145,7 @@ const moveTarget = async (
   }
   if (!DOC_HOLDERS.includes(input.entityType)) {
     return err(new Error(input.entityType === 'PAGE'
-      ? "Wiki pages don't take docs. To turn the doc into a page, page.create with its content (its images come along), then delete the doc."
+      ? "Wiki pages don't take docs. To turn the doc into a page, entity.convert --entityType DOC --id <doc> --to PAGE."
       : `A doc moves to a person, group, project or goal, not a ${input.entityType.toLowerCase()}.`));
   }
   const attachable = await ensureAttachable(reg, input.entityType, input.entityId);
