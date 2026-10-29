@@ -147,7 +147,6 @@
   entityName={project.name}
   description={project.description}
   descriptionLabel="Brief"
-  docsFolded
   breadcrumbLabel="Projects"
   breadcrumbHref="/app/projects"
   {breadcrumbTrail}
