@@ -18,6 +18,8 @@
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import type { GoalSummary } from '$shared/types/goals';
   import { model } from '$lib/stores/notebook-model';
+  import { loadOpenIds, saveOpenIds, setOpen } from '$lib/project/subprojects-open';
+  import { onMount } from 'svelte';
 
   interface ProjectOption {
     readonly id: string;
@@ -54,7 +56,18 @@
   );
 
   // Sub-projects show as one line of status counts until opened: the page leads with the brief.
-  let childrenOpen = $state(false);
+  // Remembered per project, per notebook in this browser. Read after mounting, so the server's
+  // render and the first client one agree; the page stays mounted across projects, so it's keyed by id.
+  const notebookId = $derived(data.notebook.id);
+  let openIds = $state.raw<readonly string[]>([]);
+  onMount(() => {
+    openIds = loadOpenIds(notebookId);
+  });
+  const childrenOpen = $derived(openIds.includes(project.id));
+  const toggleChildren = () => {
+    openIds = setOpen(openIds, project.id, !childrenOpen);
+    saveOpenIds(notebookId, openIds);
+  };
   const childCounts = $derived(statusCounts(project.children));
   // The add-sub-project form, shown from the add row at the bottom.
   let addingChild = $state(false);
@@ -217,7 +230,7 @@
     <section class="section">
       <div class="section-header">
         <h4>
-          <DisclosureButton expanded={childrenOpen} label="Sub-projects" onToggle={() => (childrenOpen = !childrenOpen)}>
+          <DisclosureButton expanded={childrenOpen} label="Sub-projects" onToggle={toggleChildren}>
             Sub-projects <span class="count">{project.children.length}</span>
           </DisclosureButton>
         </h4>
