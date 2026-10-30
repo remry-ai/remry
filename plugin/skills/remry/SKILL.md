@@ -126,7 +126,7 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "That's done" | `todo.update --id <todo> --status COMPLETE` |
 | "Brief me 5 minutes before each meeting" | See **Meeting briefs** |
 | "What's my next meeting about?" / "Prep me for my 2pm" | Write a brief. See **Meeting briefs** |
-| "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --status in-progress` (optional `--parentId`, `--startDate`, `--daysLikely`) |
+| "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --description "<why and what, 3–5 lines>" --status in-progress --endDate 2026-12-18` (ask for the end date if the user didn't say; optional `--parentId`, `--startDate`, `--daysLikely`), then its sync doc, "Q4 migration brief". See **Where things go on a project** |
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
 | "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
@@ -185,14 +185,18 @@ Wiki pages have no kinds or fields: a page is a document or a spreadsheet. Pick 
 
 ## Where things go on a project
 
-A project page shows four kinds of text. Give each one its own job, so the user finds things in one place:
+**A project ends; a wiki page doesn't.** A project is work that finishes, so it has an end date (`--endDate`; ask for one when the user hasn't given it, and note a rough one as rough). Something ongoing with no end (a policy, a runbook, a vendor, a recipe, how a team works) is a wiki page. When a project has no end in sight, or a page has become a piece of work with a deadline, offer to convert it (**Moving between projects and the wiki**).
 
-- **Description (the Brief):** what the project is and why, in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates to it. If it's grown past a few lines, move the detail into a doc and shorten the brief.
-- **Notes (the log):** status updates, decisions, what someone said, what changed. One note per event, dated by when it's added. "We slipped a week", "Dana approved the budget", "the vendor said no" are notes.
-- **Docs (reference):** things to read or look up: specs, plans, briefs written from sources (sync docs), imported PDFs, write-ups. Not for updates.
+A project page pairs two things, with notes alongside. Give each its own job, so the user finds things in one place:
+
+- **Description (the Brief): why, and what's being done,** in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates or details to it.
+- **The project's sync doc: the details.** Scope, plan, timeline, decisions, open questions, and anything from its sources. One per project, titled "<Project> brief", with a prompt saying what it covers and the sources it draws on linked (see **Sync docs**). When the details live in the user's head rather than a tool, it still gets a prompt saying what it holds, and sources are linked as they turn up. Facts and decisions go here, not in notes.
+- **Split it when it gets too large.** When the doc runs past a few screens, or one part (pricing, the rollout, an API design) has grown enough to be read on its own, propose moving that part into its own sync doc on the project, with its own prompt and the sources it draws on. Leave a two-line summary and a link to it in the main doc, and narrow the main doc's prompt to match. Ask before splitting.
+- **Notes: commentary and feedback.** What the user and others think about the work: reactions, concerns, praise, feedback from a review, what someone said about it, the user's own read ("I don't believe that date"). One note per remark, dated by when it's added. A note doesn't hold the plan or the facts; if one does, the fact belongs in the doc and the note keeps the reaction.
+- **Other docs:** reference that isn't the project's own details: an imported PDF, a write-up for someone else.
 - **Sub-projects:** only when a piece has its own owner, its own dates or its own status worth tracking. Smaller steps are todos on the project.
 
-The same goes for groups and goals: a short description, notes for what happens, docs for reference.
+The same goes for groups and goals: a short description, the details in docs, notes for commentary.
 
 ## Moving between projects and the wiki
 
