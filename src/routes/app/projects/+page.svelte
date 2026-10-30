@@ -30,6 +30,8 @@
     type ProjectListItem
   } from '$lib/project/project-list';
   import { flattenTree } from '$shared/utils/hierarchy';
+  import { loadStoredCollapse, saveStoredCollapse, withView, type StoredCollapse } from '$lib/project/collapse-state';
+  import { onMount } from 'svelte';
   import { CLOSED_FILTER } from '$shared/utils/archive';
 
   const VIEW_OPTIONS = [
@@ -50,7 +52,8 @@
   const params = $derived(parseProjectListParams(page.url.searchParams, teams));
   const groups = $derived(projectListGroups(allProjects, params, teams));
 
-  // Rows flipped away from the view's starting state. Changing the team filter or grouping starts over.
+  // Rows flipped away from the view's starting state, per view (team filter and grouping), remembered
+  // per notebook in this browser. Read after mounting, so the server's render and the first client one agree.
   interface CollapseState {
     readonly viewKey: string;
     readonly base: CollapseBase;
@@ -58,18 +61,32 @@
   }
   const viewKey = $derived(`${params.team ?? ''}|${params.groupBy}`);
   let collapseState = $state.raw<CollapseState | null>(null);
-  const collapse = $derived<CollapseState>(
-    collapseState?.viewKey === viewKey ? collapseState : { viewKey, base: defaultCollapseBase(params), toggled: new Set() }
-  );
+  const notebookId = $derived(data.notebook.id);
+  let stored = $state.raw<StoredCollapse>({});
+  onMount(() => {
+    stored = loadStoredCollapse(notebookId);
+  });
+  const collapse = $derived.by<CollapseState>(() => {
+    if (collapseState?.viewKey === viewKey) return collapseState;
+    const remembered = stored[viewKey];
+    return remembered
+      ? { viewKey, base: remembered.base, toggled: new Set(remembered.toggled) }
+      : { viewKey, base: defaultCollapseBase(params), toggled: new Set() };
+  });
+  const setCollapse = (next: CollapseState) => {
+    collapseState = next;
+    stored = withView(stored, next.viewKey, { base: next.base, toggled: [...next.toggled] }, defaultCollapseBase(params), new Set(allProjects.map((p) => p.id)));
+    saveStoredCollapse(notebookId, stored);
+  };
 
   const toggleRow = (id: string) => {
     const toggled = new Set(collapse.toggled);
     if (toggled.has(id)) toggled.delete(id);
     else toggled.add(id);
-    collapseState = { viewKey, base: collapse.base, toggled };
+    setCollapse({ viewKey, base: collapse.base, toggled });
   };
   const setAll = (base: CollapseBase) => {
-    collapseState = { viewKey, base, toggled: new Set() };
+    setCollapse({ viewKey, base, toggled: new Set() });
   };
 
   const tables = $derived(
