@@ -60,14 +60,12 @@ export const decodeUpload = <T extends UploadType>(
   return ok({ bytes, contentType: type as T });
 };
 
-/** A doc's source file. */
+/** A doc's source file: what Claude can read to write the doc. */
 export interface SourceFile {
   readonly bytes: Buffer;
-  /** The extension it's stored under (pdf, png, csv, md, docx…), which decides how it's served. */
+  /** The extension it's stored under (pdf, png, csv, md…), which decides how it's served. */
   readonly extension: string;
   readonly contentType: string;
-  /** Claude can read it (a PDF, an image or text), so the app can convert it to markdown. */
-  readonly readable: boolean;
 }
 
 const IMAGE_EXTENSIONS: Readonly<Record<string, string>> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
@@ -90,24 +88,22 @@ export const isText = (bytes: Uint8Array): boolean => {
 };
 
 /**
- * Decodes a doc's source file. Any file is taken. A PDF or an image (known by their bytes) and
- * any UTF-8 text (Markdown, CSV, JSON, HTML, code…, under its own extension, `txt` without one)
- * are `readable`: Claude reads them. Anything else (Word, Excel, a zip) is kept as it is, under
- * its own extension (`bin` without one), to download; it can't be converted.
+ * Decodes a doc's source file: a PDF or an image (known by their bytes), or any UTF-8 text
+ * (Markdown, CSV, JSON, HTML, code…), kept under its own extension (`txt` without one).
+ * Claude reads all of these; Word, Excel and other binary files are refused, with what to do.
  */
 export const decodeSourceFile = (dataBase64: string, fileName?: string): Result<SourceFile> => {
   const decoded = decodeBase64(dataBase64);
   if (!decoded.ok) return decoded;
   const bytes = decoded.value;
   const type = sniffFileType(bytes);
-  if (type === 'application/pdf') return ok({ bytes, extension: 'pdf', contentType: type, readable: true });
-  if (type) return ok({ bytes, extension: IMAGE_EXTENSIONS[type]!, contentType: type, readable: true });
+  if (type === 'application/pdf') return ok({ bytes, extension: 'pdf', contentType: type });
+  if (type) return ok({ bytes, extension: IMAGE_EXTENSIONS[type]!, contentType: type });
   if (isText(bytes)) {
     // Text is served as plain text whatever it is, so an HTML or SVG file can't run in the app.
     const extension = safeExtension(fileName) ?? 'txt';
-    return ok({ bytes, extension: extension === 'pdf' ? 'txt' : extension, contentType: 'text/plain; charset=utf-8', readable: true });
+    return ok({ bytes, extension: extension === 'pdf' ? 'txt' : extension, contentType: 'text/plain; charset=utf-8' });
   }
-  // Served as a download (the files route), whatever its extension claims.
-  return ok({ bytes, extension: safeExtension(fileName) ?? 'bin', contentType: 'application/octet-stream', readable: false });
+  return err(new Error("That file can't be read: a source must be a PDF, an image (PNG, JPEG, GIF or WebP) or a text file (Markdown, CSV, JSON, HTML…). Save a Word, Excel or other file as PDF or text first."));
 };
 

@@ -65,15 +65,10 @@ describe('decodeSourceFile', () => {
     expect(fake.ok && fake.value.extension).toBe('txt');
   });
 
-  it('takes any other file as it is, not readable, to download', () => {
+  it('refuses a binary file Claude can\'t read, saying what to do', () => {
     // A .docx is a zip: "PK", then binary with NUL bytes.
     const docx = decodeSourceFile(b64(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00])), 'report.docx');
-    expect(docx.ok && [docx.value.extension, docx.value.contentType, docx.value.readable]).toEqual(['docx', 'application/octet-stream', false]);
-    const unnamed = decodeSourceFile(b64(new Uint8Array([0, 1, 2, 3])));
-    expect(unnamed.ok && unnamed.value.extension).toBe('bin');
-    // Text and PDFs are readable.
-    const csv = decodeSourceFile(b64('a,b\n'), 'x.csv');
-    expect(csv.ok && csv.value.readable).toBe(true);
+    expect(!docx.ok && docx.error.message).toContain('Save a Word, Excel or other file as PDF or text first');
   });
 });
 

@@ -24,7 +24,7 @@
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { sourceFileLabel } from '$lib/link/source';
-  import { fileUrl, isReadableSourceKey } from '$shared/utils/files';
+  import { fileUrl } from '$shared/utils/files';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
@@ -347,11 +347,11 @@
     if (activeDoc) await runPdfConversion(activeDoc.id);
   };
 
-  // Attaching a file Claude can read to an empty doc converts it straight away.
+  // Attaching a PDF to an empty doc converts it straight away.
   const handleUploadPdfToDoc = async (file: File) => {
     const doc = activeDoc;
-    const key = await docHandlers.handleUploadPdf(file);
-    if (doc && doc.content.trim() === '' && isReadableSourceKey(key)) void runPdfConversion(doc.id);
+    await docHandlers.handleUploadPdf(file);
+    if (doc && doc.content.trim() === '') void runPdfConversion(doc.id);
   };
 
   // The open doc's source file, first in its sources line, named by its type ("PDF", "CSV");
@@ -363,8 +363,8 @@
     const id = await ensureDraftDoc();
     draftDocId = null;
     await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, '');
-    const key = await docHandlers.handleUploadPdf(file);
-    if (activeDocId && isReadableSourceKey(key)) void runPdfConversion(activeDocId);
+    await docHandlers.handleUploadPdf(file);
+    if (activeDocId) void runPdfConversion(activeDocId);
   };
 
   // ----- Edit popup -----
@@ -493,7 +493,7 @@
       <DocEditor
         title={activeDoc.title}
         content={activeDoc.content}
-        hasSourcePdf={isReadableSourceKey(activeDoc.sourceUrl)}
+        hasSourcePdf={!!activeDoc.sourceUrl}
         converting={pdfJob?.docId === activeDoc.id && pdfJob.running}
         pdfNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}

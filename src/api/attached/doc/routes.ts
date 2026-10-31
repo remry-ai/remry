@@ -58,7 +58,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => reorderDocs(ctx.reg, input.entityType, input.entityId, input.docIds)),
 
   attachSource: procedure
-    .meta({ description: "Attaches the original file (any file: a PDF, an image, Markdown, CSV, a Word file…) to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine); fileName keeps its extension." })
+    .meta({ description: "Attaches the original file (a PDF, an image or a text file such as Markdown or CSV) to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine); fileName keeps a text file's extension." })
     .input(z.object({
       docId: z.string(),
       // Ignored: the bytes decide what the file is. Kept so older callers still validate.

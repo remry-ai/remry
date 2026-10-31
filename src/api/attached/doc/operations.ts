@@ -231,7 +231,7 @@ export const reorderDocs = async (
  * or MCP, Claude reads the PDF and calls `doc.update`; the web app can run the
  * local Claude Code CLI through `doc.convertPdf` (convert.ts).
  */
-/** Attaches a doc's source file, any file (`decodeSourceFile`), replacing any before it. */
+/** Attaches a doc's source file: a PDF, an image or a text file (`decodeSourceFile`), replacing any before it. */
 export const attachSourcePdf = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
   docId: string,
@@ -245,8 +245,7 @@ export const attachSourcePdf = async (
   const file = decodeSourceFile(dataBase64, fileName);
   if (!file.ok) return err(file.error);
 
-  // `source-` marks a file Claude can read and so convert (isReadableSourceKey); `file-` any other.
-  const key = `docs/${docId}/${file.value.readable ? 'source' : 'file'}-${reg.uuid()}.${file.value.extension}`;
+  const key = `docs/${docId}/source-${reg.uuid()}.${file.value.extension}`;
   await reg.storage.putObject(key, file.value.bytes, file.value.contentType);
   await reg.prisma.doc.update({ where: { id: docId }, data: { sourceUrl: key } });
 

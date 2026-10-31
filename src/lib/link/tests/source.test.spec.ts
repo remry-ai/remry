@@ -54,7 +54,5 @@ describe('sourceFileLabel', () => {
     expect(sourceFileLabel('docs/d1/source-abc.md')).toBe('Markdown');
     expect(sourceFileLabel('docs/d1/source-abc.jpg')).toBe('JPEG');
     expect(sourceFileLabel('docs/d1/source-abc')).toBe('File');
-    expect(sourceFileLabel('docs/d1/file-abc.docx')).toBe('Word');
-    expect(sourceFileLabel('docs/d1/file-abc.bin')).toBe('File');
   });
 });
