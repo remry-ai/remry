@@ -192,6 +192,8 @@
         {/key}
       </section>
     {:else if editing}
+      <!-- A section, so it keeps the Content section's gap below the sync banner or links line. -->
+      <section class="section">
       <DocEditor
         title={wikiPage.title}
         content={wikiPage.content}
@@ -203,6 +205,7 @@
         exportHref={wikiPrintUrl(wikiPage.id)}
         startIn="editor"
       />
+      </section>
     {:else}
       <section class="section">
         <div class="section-header">
