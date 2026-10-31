@@ -55,9 +55,12 @@ describe('the registry and the choice', () => {
     expect(llmProvider('copilot')).toBe(copilotProvider);
   });
 
-  it('asks before anything is picked, and says when the default isn\'t installed', () => {
+  it('asks before anything is picked when several are installed, and says when the default isn\'t installed', () => {
     const locate = (id: string) => (id === 'copilot' ? 'C:\\npm\\copilot.cmd' : null);
-    expect(lookupFrom(null, locate)).toEqual({ state: 'unchosen' });
+    // Only one installed: it's used without asking.
+    expect(lookupFrom(null, locate)).toEqual({ state: 'ready', llm: { provider: 'copilot', path: 'C:\\npm\\copilot.cmd' } });
+    expect(lookupFrom(null, () => '/bin/x')).toEqual({ state: 'unchosen' });
+    expect(lookupFrom(null, () => null)).toEqual({ state: 'unchosen' });
     expect(lookupFrom('copilot', locate)).toEqual({ state: 'ready', llm: { provider: 'copilot', path: 'C:\\npm\\copilot.cmd' } });
     expect(lookupFrom('claude', locate)).toEqual({ state: 'missing', provider: 'claude' });
     expect(choiceStatus('copilot', locate)).toEqual({

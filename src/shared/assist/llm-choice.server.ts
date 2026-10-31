@@ -19,8 +19,16 @@ export const savedLlm = async (): Promise<LlmProviderId | null> => {
 /** Every assistant, whether it's installed (looked up now) and the saved default. */
 export const llmChoiceStatus = async (): Promise<LlmChoiceStatus> => choiceStatus(await savedLlm(), locateCli);
 
-/** The default's CLI, ready to run; or that none is picked, or that it isn't installed. */
-export const lookupLlm = async (): Promise<LlmLookup> => lookupFrom(await savedLlm(), locateCli);
+/**
+ * The default's CLI, ready to run; or that none is picked, or that it isn't installed. With none
+ * picked and only one assistant installed, that one becomes the default without asking.
+ */
+export const lookupLlm = async (): Promise<LlmLookup> => {
+  const saved = await savedLlm();
+  const lookup = lookupFrom(saved, locateCli);
+  if (saved === null && lookup.state === 'ready') await updateRootSettings(settings, { llmProvider: lookup.llm.provider });
+  return lookup;
+};
 
 /** Saves the default. Refuses one that isn't installed. */
 export const saveLlm = async (id: LlmProviderId): Promise<Result<LlmChoiceStatus>> => {
