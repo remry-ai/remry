@@ -1,28 +1,26 @@
 // Cross-domain helper (not a domain): everything that points at an entity
 // about to be deleted, and at what's attached to it, at any depth. Attached rows,
 // relations and owners have no foreign key, so without this they'd be left behind.
-// Run `ops` in the same $transaction as the delete, then remove `files` (PDFs of
-// the attached docs) once it commits.
+// Run `ops` in the same $transaction as the delete, then remove its `folders` (the files
+// the entity and its docs keep: images, file links) once it commits.
 
 import type { Registry } from '$shared/registry';
 import type { EntityType } from '$shared/types/enums';
 import { purgeTrash, trashImages } from '$api/_images';
+import { entityFileFolder } from '$shared/utils/file-links';
 
 type BatchWrite = ReturnType<Registry['prisma']['doc']['deleteMany']>;
 
 export interface EntityCleanup {
   readonly ops: readonly BatchWrite[];
-  /** Files to remove once the transaction commits: the deleted docs' PDFs. */
-  readonly files: readonly string[];
-  /** Folders to remove with them: each deleted doc's or page's own files (pasted images, PDFs). */
+  /** Folders to remove once the transaction commits: the entity's own and each deleted doc's (pasted images, files uploaded as links). */
   readonly folders: readonly string[];
 }
 
-// The folder each type keeps its own files in, keyed by id (`docs/<id>/image-….png`).
-const FILE_FOLDERS: Readonly<Partial<Record<string, string>>> = { DOC: 'docs', PAGE: 'pages' };
+// The folder each type keeps its own files in (a doc's images, any entity's file links), keyed by id.
 const folderOf = (entityType: string, entityId: string): readonly string[] => {
-  const folder = FILE_FOLDERS[entityType];
-  return folder ? [`${folder}/${entityId}`] : [];
+  const folder = entityFileFolder(entityType, entityId);
+  return folder ? [folder] : [];
 };
 
 // Rows that are attached to an entity and can have attachments of their own.
@@ -66,10 +64,9 @@ const refBatches = (refs: readonly Ref[]): { readonly entityType: string; readon
 const collectAttached = async (
   reg: Pick<Registry, 'prisma'>,
   roots: readonly Ref[]
-): Promise<{ readonly ids: Readonly<Record<AttachedType, readonly string[]>>; readonly files: readonly string[] }> => {
+): Promise<{ readonly ids: Readonly<Record<AttachedType, readonly string[]>> }> => {
   const p = reg.prisma;
   const ids: Record<AttachedType, string[]> = { DOC: [], NOTE: [], REPORT: [], TODO: [], LINK: [], COMMENT: [] };
-  const files: string[] = [];
   const seen = new Set(roots.map((r) => `${r.entityType}:${r.entityId}`));
   let frontier: readonly Ref[] = roots;
 
@@ -79,7 +76,7 @@ const collectAttached = async (
     const found = await Promise.all(refBatches(frontier).map(async ({ entityType: type, ids: batch }) => {
       const where = { entityType: type, entityId: { in: batch } };
       return Promise.all([
-        p.doc.findMany({ where, select: { id: true, sourceUrl: true } }),
+        p.doc.findMany({ where, select }),
         p.note.findMany({ where, select }),
         p.report.findMany({ where, select }),
         p.todo.findMany({ where, select }),
@@ -89,7 +86,7 @@ const collectAttached = async (
       ]);
     }));
     const [docs, notes, reports, todos, links, comments, replies] = [0, 1, 2, 3, 4, 5, 6].map((i) => found.flatMap((rows) => rows[i]!)) as [
-      { id: string; sourceUrl: string | null }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[]
+      { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[]
     ];
 
     const next: Ref[] = [];
@@ -108,10 +105,9 @@ const collectAttached = async (
     add('TODO', todos);
     add('LINK', links);
     add('COMMENT', comments);
-    for (const d of docs) if (d.sourceUrl && !files.includes(d.sourceUrl)) files.push(d.sourceUrl);
     frontier = next;
   }
-  return { ids, files };
+  return { ids };
 };
 
 export const planEntityCleanup = async (
@@ -121,7 +117,7 @@ export const planEntityCleanup = async (
 ): Promise<EntityCleanup> => {
   const p = reg.prisma;
   const root = { entityType, entityId };
-  const { ids, files } = await collectAttached(reg, [root]);
+  const { ids } = await collectAttached(reg, [root]);
   // The entity and everything attached to it, at any depth, are going.
   const going: Ref[] = [root, ...ATTACHED_TYPES.flatMap((type) => ids[type].map((id) => ({ entityType: type, entityId: id })))];
   const owned = { where: { ownerType: entityType, ownerId: entityId }, data: { ownerType: null, ownerId: null } };
@@ -147,7 +143,6 @@ export const planEntityCleanup = async (
       p.goal.updateMany(owned),
       p.project.updateMany(owned)
     ],
-    files,
     folders: [...folderOf(entityType, entityId), ...ids.DOC.flatMap((id) => folderOf('DOC', id))]
   };
 };
@@ -155,19 +150,12 @@ export const planEntityCleanup = async (
 /**
  * Best effort: a file or folder that can't be removed is logged, not an error. A folder's
  * images go to the trash for a day first (`trashImages`), so text copied from the deleted doc
- * or page can still take them; everything else in it (a PDF) goes now.
+ * or page can still take them; everything else in it (its file links' files) goes now.
  */
 export const removeFiles = async (
   reg: Pick<Registry, 'storage' | 'logger' | 'now'>,
-  cleanup: Pick<EntityCleanup, 'files' | 'folders'>
+  cleanup: Pick<EntityCleanup, 'folders'>
 ): Promise<void> => {
-  for (const key of cleanup.files) {
-    try {
-      await reg.storage.deleteObject(key);
-    } catch (error) {
-      reg.logger.warn({ key, error }, 'failed to delete a file of a deleted entity');
-    }
-  }
   for (const folder of cleanup.folders) {
     try {
       await trashImages(reg, folder);

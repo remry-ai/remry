@@ -2,13 +2,11 @@ import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { ensureAttachable, ensureWritable, loadArchivedIds, notAttachedToArchived } from '$api/_archive';
 import type { EntityType } from '$shared/types/enums';
-import { fileUrl } from '$shared/utils/files';
 import { acceptsDocs, docPath, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { EDITOR_IMAGE_TYPES, adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
-import { decodeSourceFile } from '$api/_uploads';
 
 // ----- Types -----
 
@@ -16,7 +14,6 @@ export interface DocSummary {
   readonly id: string;
   readonly title: string;
   readonly content: string;
-  readonly sourceUrl: string | null;
   /** A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc. */
   readonly prompt: string | null;
   readonly sortOrder: number;
@@ -45,7 +42,6 @@ export const getDoc = async (
     id: doc.id,
     title: doc.title,
     content: doc.content,
-    sourceUrl: doc.sourceUrl,
     prompt: doc.prompt,
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
@@ -124,7 +120,6 @@ export const addDoc = async (
 export interface UpdateDocInput {
   readonly title?: string;
   readonly content?: string;
-  readonly sourceUrl?: string | null;
   readonly prompt?: string | null;
   /** Moves the doc to another entity (both together). It keeps its id, so its images, links, notes and PDF go with it. */
   readonly entityType?: EntityType;
@@ -182,7 +177,6 @@ export const updateDoc = async (
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(content !== undefined && { content }),
-      ...(input.sourceUrl !== undefined && { sourceUrl: input.sourceUrl }),
       ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
       ...(move.value && move.value)
     }
@@ -194,7 +188,7 @@ export const updateDoc = async (
   return ok({ id });
 };
 
-/** Also deletes what's attached to the doc, its relations, and its PDF once the rows are gone. */
+/** Also deletes what's attached to the doc (its file links among them), its relations, and its folder once the rows are gone. */
 export const removeDoc = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
@@ -206,7 +200,7 @@ export const removeDoc = async (
 
   const cleanup = await planEntityCleanup(reg, 'DOC', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.doc.delete({ where: { id } })]);
-  await removeFiles(reg, { ...cleanup, files: existing.sourceUrl ? [existing.sourceUrl, ...cleanup.files] : cleanup.files });
+  await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });
 };
 
@@ -226,40 +220,6 @@ export const reorderDocs = async (
   return ok({ reordered: true as const });
 };
 
-/**
- * Store a PDF as the doc's source file. This doesn't convert it: from the CLI
- * or MCP, Claude reads the PDF and calls `doc.update`; the web app can run the
- * local Claude Code CLI through `doc.convertPdf` (convert.ts).
- */
-/** Attaches a doc's source file: a PDF, an image or a text file (`decodeSourceFile`), replacing any before it. */
-export const attachSourcePdf = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
-  docId: string,
-  dataBase64: string,
-  fileName?: string
-): Promise<Result<{ readonly sourceUrl: string }>> => {
-  const existing = await reg.prisma.doc.findUnique({ where: { id: docId } });
-  if (!existing) return err(new Error('Doc not found'));
-  const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
-  if (!writable.ok) return err(writable.error);
-  const file = decodeSourceFile(dataBase64, fileName);
-  if (!file.ok) return err(file.error);
-
-  const key = `docs/${docId}/source-${reg.uuid()}.${file.value.extension}`;
-  await reg.storage.putObject(key, file.value.bytes, file.value.contentType);
-  await reg.prisma.doc.update({ where: { id: docId }, data: { sourceUrl: key } });
-
-  if (existing.sourceUrl) {
-    try {
-      await reg.storage.deleteObject(existing.sourceUrl);
-    } catch (error) {
-      reg.logger.warn({ docId, sourceUrl: existing.sourceUrl, error }, 'failed to delete the previous source file');
-    }
-  }
-
-  return ok({ sourceUrl: key });
-};
-
 export const DOC_IMAGE_TYPES = EDITOR_IMAGE_TYPES;
 export type DocImageType = EditorImageType;
 
@@ -274,13 +234,4 @@ export const uploadDocImage = async (
   if (!writable.ok) return err(writable.error);
 
   return storeEditorImage(reg, `docs/${docId}`, dataBase64);
-};
-
-export const getDocReadUrl = async (
-  reg: Pick<Registry, 'prisma'>,
-  id: string
-): Promise<Result<{ readonly url: string }>> => {
-  const doc = await reg.prisma.doc.findUnique({ where: { id } });
-  if (!doc || !doc.sourceUrl) return err(new Error('Doc not found'));
-  return ok({ url: fileUrl(doc.sourceUrl) });
 };

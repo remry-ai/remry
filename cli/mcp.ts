@@ -74,7 +74,7 @@ const INSTRUCTIONS = [
   'After any write, end your reply with a markdown link to each item you created or changed. The item a get, create or update returns has a `url` beside its `path`: use it unchanged. It has the notebook and open=app, for example http://127.0.0.1:7369/app/people/<id>?notebook=<id>&open=app. Rows of a list and items nested in a result have only a `path`, and some items have none (a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity): build those links the same way, the app address (scheme, host and port, from another url or app_open), then the path, with notebook=<notebook id>&open=app at the end of the query. open=app shows the page in the Remry desktop app when it\'s installed, and in the browser otherwise.',
   'Results leave out fields that are empty: a missing field is null or an empty list.',
   'When bringing in items from another tool (Linear, Notion, Jira), call link_find with the item URL first and update the entity it finds; attach a link to the source on anything you create.',
-  'A link whose url starts storage:// is a file the user uploaded to a doc or wiki page: read it with link_read.',
+  'A link whose url starts storage:// is a file uploaded to that entity: read it with link_read.',
   "Reach Remry only through these tools. Never read its data folder (~/Library/Application Support/Remry on macOS, %LOCALAPPDATA%\\Remry on Windows) or database directly, and don't ask the user to attach that folder: a sandbox such as Cowork's can't see it, and the database must not be opened from two places at once.",
   'Report back by name, not id. The remry skill has the full rules and recipes.'
 ].join(' ');

@@ -95,7 +95,9 @@ export const planRenames = (
  */
 export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
   '20261017120000_project_parent_index',
-  '20261020120000_synthesis_prompt'
+  '20261020120000_synthesis_prompt',
+  // Moves docs' attached PDFs into links; an older Remry sees the links and no attached PDF.
+  '20261101120000_doc_sources_to_links'
 ]);
 
 /**

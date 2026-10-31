@@ -1,7 +1,6 @@
 import { invalidateAll } from '$app/navigation';
 import { submitOrThrow } from '$lib/ui/submit';
 import { fileUrl } from '$shared/utils/files';
-import { convertAndWait } from '$lib/doc/convert-source';
 
 // Handlers throw the API's error message; DocEditor, DocsManager's
 // ConfirmButton and EntityDetailPage's create flow catch and show it.
@@ -13,13 +12,9 @@ interface DocTrpc {
   remove: { mutate: (input: any) => Promise<any> };
   reorder: { mutate: (input: any) => Promise<any> };
   uploadImage?: { mutate: (input: any) => Promise<any> };
-  getReadUrl?: { query: (input: any) => Promise<any> };
-  convertPdf?: { mutate: (input: any) => Promise<any> };
-  pdfConversion?: { query: (input: any) => Promise<any> };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Uploads an image into a doc's folder and returns its storage key. */
 const uploadImageTo = async (docTrpc: DocTrpc, docId: string, file: File): Promise<string> => {
@@ -56,12 +51,6 @@ export interface DocHandlers {
   readonly handleSaveTitle: (title: string) => Promise<void>;
   readonly handleRemoveDoc: (id: string) => Promise<void>;
   readonly handleReorderDocs: (docIds: readonly string[]) => Promise<void>;
-  /**
-   * Converts the doc's PDF with the local Claude Code CLI and waits for it to
-   * finish. Returns a warning when `claude` isn't installed; throws when the
-   * conversion fails.
-   */
-  readonly handleConvertPdf: (docId: string) => Promise<string | null>;
   readonly handleUploadImage: (file: File) => Promise<string>;
   readonly handleResolveImages: (keys: string[]) => Promise<Record<string, string>>;
 }
@@ -71,8 +60,7 @@ export const createDocHandlers = (
   entityType: string,
   entityId: string,
   getActiveDocId: () => string | null,
-  setActiveDocId: (id: string | null) => void | Promise<void>,
-  pollMs = 3000,
+  setActiveDocId: (id: string | null) => void | Promise<void>
 ): DocHandlers => ({
   handleAddDoc: async (title: string) => {
     const doc = await submitOrThrow(() => docTrpc.add.mutate({ entityType, entityId, title }));
@@ -121,21 +109,6 @@ export const createDocHandlers = (
   handleReorderDocs: async (docIds: readonly string[]) => {
     await submitOrThrow(() => docTrpc.reorder.mutate({ entityType, entityId, docIds: [...docIds] }));
     await invalidateAll();
-  },
-
-  handleConvertPdf: async (docId: string): Promise<string | null> => {
-    const { convertPdf, pdfConversion } = docTrpc;
-    if (!convertPdf || !pdfConversion) return null;
-    return convertAndWait({
-      start: () => submitOrThrow(() => convertPdf.mutate({ id: docId })),
-      // The page reloads once the job ends, so the doc shows the text (or stays as it was).
-      status: async () => {
-        const status = await submitOrThrow(() => pdfConversion.query({ id: docId }));
-        if (status.state !== 'running') await invalidateAll();
-        return status;
-      },
-      wait
-    }, pollMs);
   },
 
   handleUploadImage: async (file: File): Promise<string> => {

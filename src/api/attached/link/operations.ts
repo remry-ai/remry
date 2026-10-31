@@ -132,8 +132,9 @@ const titleFor = (fileName: string | undefined): string | undefined => {
 export type UploadContent = { readonly dataBase64: string } | { readonly text: string };
 
 /**
- * Uploads a file as a link on a doc or wiki page: the file goes in the entity's own folder
- * (`docs/<id>/` or `pages/<id>/`, beside its images, so it goes when the entity does) and the
+ * Uploads a file as a link on any entity whose page shows links: the file goes in the entity's
+ * own folder (`docs/<id>/`, `pages/<id>/`, `projects/<id>/`…; `entityFileFolder`), which goes
+ * when the entity does, and the
  * link points at it, `storage://<key>`, titled with the file's name. Any file Claude can read
  * (`decodeSourceFile`: a PDF, an image or text, or `textSourceFile` for text sent as text);
  * anything else is refused, saying what to do.
@@ -146,7 +147,7 @@ export const uploadLinkFile = async (
   fileName?: string
 ): Promise<Result<{ readonly id: string; readonly url: string }>> => {
   const folder = entityFileFolder(entityType, entityId);
-  if (!folder) return err(new Error('A file can be uploaded to a doc or a wiki page. Add a link to it here instead.'));
+  if (!folder) return err(new Error('A file can be uploaded to a person, group, project, goal, wiki page or doc. Add a link to it here instead.'));
   const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
   const file = 'text' in content ? textSourceFile(content.text, fileName) : decodeSourceFile(content.dataBase64, fileName);

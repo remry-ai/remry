@@ -1,17 +1,20 @@
 <script lang="ts">
   // Sidebar list of an entity's links. A link is a source when Claude has synced
   // the entity from it: its row shows when, in the warning colour once that's more
-  // than a week ago. Links open in a new tab. The header's "+" adds one by hand
-  // (unsynced: Claude reads it on its next refresh of a sync page).
+  // than a week ago. Links open in a new tab. The header's "+" opens the add-link form
+  // (AddLinkForm, the same one a doc's or page's line uses): an address, or a file uploaded as a
+  // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import { ENTITY_TYPES, type EntityType } from '$shared/types/enums';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import { submit, submitOrThrow } from '$lib/ui/submit';
+  import { submitOrThrow } from '$lib/ui/submit';
+  import { uploadFileLink } from '$lib/link/file-links';
+  import AddLinkForm from './AddLinkForm.svelte';
   import { timeAgo } from '$lib/home/utils';
   import { isSyncStale, linkLabel, linkSource } from '../source';
-  import { fileLinkKey, linkHref } from '$shared/utils/file-links';
+  import { FILE_LINK_HOLDERS, fileLinkKey, linkHref, type FileLinkHolder } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
 
   interface LinkItem {
@@ -26,36 +29,31 @@
     readonly entityId: string;
     readonly links: readonly LinkItem[];
     readonly readOnly?: boolean;
+    /** After a file is uploaded here, with its link's id (a wiki page writes itself from it while empty). */
+    readonly onFileUploaded?: (linkId: string) => void;
   }
 
-  const { entityType, entityId, links, readOnly = false }: Props = $props();
+  const { entityType, entityId, links, readOnly = false, onFileUploaded }: Props = $props();
 
   // EntityDetailPage passes its type as a string; anything else can't take a link.
   const linkType = $derived((ENTITY_TYPES as readonly string[]).includes(entityType) ? (entityType as EntityType) : null);
 
-  let adding = $state(false);
-  let url = $state('');
-  let title = $state('');
-  let saving = $state(false);
-  let error = $state('');
+  // Files can be uploaded as links on every entity whose page shows links.
+  const fileHolder = $derived((FILE_LINK_HOLDERS as readonly string[]).includes(entityType) ? (entityType as FileLinkHolder) : null);
 
-  const toggleAdding = () => {
-    url = '';
-    title = '';
-    error = '';
-    adding = !adding;
+  let adding = $state(false);
+
+  const handleAdd = async (link: { readonly url: string; readonly title?: string }): Promise<void> => {
+    if (!linkType) return;
+    await submitOrThrow(() => trpc().link.add.mutate({ entityType: linkType, entityId, ...link }));
+    await invalidateAll();
   };
 
-  const handleAdd = async () => {
-    if (!linkType || !url.trim()) return;
-    saving = true;
-    const outcome = await submit(() =>
-      trpc().link.add.mutate({ entityType: linkType, entityId, url: url.trim(), ...(title.trim() && { title: title.trim() }) })
-    );
-    saving = false;
-    if (!outcome.ok) { error = outcome.error; return; }
-    adding = false;
+  const handleUpload = async (file: File): Promise<void> => {
+    if (!fileHolder) return;
+    const linkId = await uploadFileLink(fileHolder, entityId, file);
     await invalidateAll();
+    onFileUploaded?.(linkId);
   };
 
   const rows = $derived(links.map((link) => {
@@ -91,20 +89,13 @@
   <div class="section-header">
     <h4>Links <span class="count">{links.length}</span></h4>
     {#if !readOnly && linkType}
-      <button type="button" class="btn icon sm" onclick={toggleAdding} title="Add link" aria-label="Add link" aria-expanded={adding}>+</button>
+      <button type="button" class="btn icon sm" onclick={() => { adding = !adding; }} title="Add link" aria-label="Add link" aria-expanded={adding}>+</button>
     {/if}
   </div>
   {#if adding}
-    <form class="add-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void handleAdd(); }}>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input type="url" class="sm" bind:value={url} placeholder="https://…" aria-label="Link address" maxlength="2000" required autofocus />
-      <input type="text" class="sm" bind:value={title} placeholder="Title (optional)" aria-label="Link title" maxlength="200" />
-      <div class="toolbar">
-        <button type="submit" class="btn sm" disabled={saving || !url.trim()} aria-busy={saving}>{saving ? 'Adding…' : 'Add'}</button>
-        <button type="button" class="btn ghost sm" onclick={toggleAdding}>Cancel</button>
-      </div>
-      {#if error}<p class="form-error">{error}</p>{/if}
-    </form>
+    <div class="add-link">
+      <AddLinkForm onAdd={handleAdd} onUploadFile={fileHolder ? handleUpload : undefined} onDone={() => { adding = false; }} stacked />
+    </div>
   {/if}
   {#if links.length === 0}
     {#if !adding}<EmptyState message="No links yet." small />{/if}
@@ -134,12 +125,7 @@
 </div>
 
 <style lang="scss">
-  .add-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-    margin-bottom: var(--sp-2);
-  }
+  .add-link { margin-bottom: var(--sp-2); }
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
   .stale { color: var(--warning); }
 </style>

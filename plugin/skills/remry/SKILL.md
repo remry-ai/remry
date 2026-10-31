@@ -266,7 +266,7 @@ The app stores PDFs but can't read them; you do the reading.
 
 ## Files from the chat
 
-When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores files two ways: images shown in a doc's or page's text, and a file kept as a link on a doc or wiki page (`link_upload`: any file you can read, so a PDF, an image or any text file such as Markdown or CSV; it shows in the line of links with its name, and `link_read` reads it back). What it says goes in as text you write; keep the file as well when it's a source (a sync doc's, or one the user will want to open) or the user asks.
+When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores files two ways: images shown in a doc's or page's text, and a file kept as a link on a person, group, project, goal, wiki page or doc (`link_upload`: any file you can read, so a PDF, an image or any text file such as Markdown or CSV; it shows in the line of links with its name, and `link_read` reads it back). What it says goes in as text you write; keep the file as well when it's a source (a sync doc's, or one the user will want to open) or the user asks.
 
 | The file | What to do |
 |---|---|

@@ -92,57 +92,6 @@ describe('createDocHandlers.handleRemoveDoc', () => {
   });
 });
 
-describe('createDocHandlers.handleConvertPdf', () => {
-  beforeEach(() => {
-    invalidateAll.mockClear();
-  });
-
-  const handlersWith = (convertPdf: ReturnType<typeof vi.fn>, pdfConversion: ReturnType<typeof vi.fn>) =>
-    createDocHandlers(
-      {
-        add: { mutate: vi.fn() },
-        update: { mutate: vi.fn() },
-        remove: { mutate: vi.fn() },
-        reorder: { mutate: vi.fn() },
-        convertPdf: { mutate: convertPdf },
-        pdfConversion: { query: pdfConversion },
-      },
-      'PROJECT',
-      'proj_1',
-      () => 'doc_1',
-      vi.fn(),
-      0,
-    );
-
-  it('returns the warning and does not poll when claude is not installed', async () => {
-    const convertPdf = vi.fn().mockResolvedValue({ ok: true, value: { started: false, warning: 'Install claude' } });
-    const pdfConversion = vi.fn();
-
-    await expect(handlersWith(convertPdf, pdfConversion).handleConvertPdf('doc_1')).resolves.toBe('Install claude');
-    expect(pdfConversion).not.toHaveBeenCalled();
-    expect(invalidateAll).not.toHaveBeenCalled();
-  });
-
-  it('polls until the job finishes, then reloads the doc', async () => {
-    const convertPdf = vi.fn().mockResolvedValue({ ok: true, value: { started: true } });
-    const pdfConversion = vi.fn()
-      .mockResolvedValueOnce({ ok: true, value: { state: 'running' } })
-      .mockResolvedValueOnce({ ok: true, value: { state: 'idle' } });
-
-    await expect(handlersWith(convertPdf, pdfConversion).handleConvertPdf('doc_1')).resolves.toBeNull();
-    expect(convertPdf).toHaveBeenCalledWith({ id: 'doc_1' });
-    expect(pdfConversion).toHaveBeenCalledTimes(2);
-    expect(invalidateAll).toHaveBeenCalledTimes(1);
-  });
-
-  it("throws the job's failure message", async () => {
-    const convertPdf = vi.fn().mockResolvedValue({ ok: true, value: { started: true } });
-    const pdfConversion = vi.fn().mockResolvedValue({ ok: true, value: { state: 'failed', message: 'OAuth session expired' } });
-
-    await expect(handlersWith(convertPdf, pdfConversion).handleConvertPdf('doc_1')).rejects.toThrow('OAuth session expired');
-  });
-});
-
 describe('createDocHandlers images', () => {
   const handlersWith = (uploadImage: ReturnType<typeof vi.fn>, docId: string | null) =>
     createDocHandlers(

@@ -9,7 +9,6 @@ export interface AttachedRow {
   readonly entityType: string;
   readonly entityId: string;
   readonly parentId?: string | null;
-  readonly sourceUrl?: string | null;
 }
 
 type Model = 'doc' | 'note' | 'report' | 'todo' | 'link' | 'comment';

@@ -197,6 +197,7 @@
   {reports}
   {relations}
   links={data.links}
+  onFileLinkUploaded={(linkId) => { if (!wikiPage.content.trim() && !isSheet) void handleConvert(linkId); }}
   renderMeta={editing ? undefined : pageMeta}
 >
   {#snippet renderOverview()}
@@ -233,10 +234,10 @@
         exportHref={wikiPrintUrl(wikiPage.id)}
         startIn="editor"
         showTitle={false}
-        hasSourcePdf={!!fileLink}
+        hasSourceFile={!!fileLink}
         {converting}
-        pdfNotice={convertNotice}
-        onConvertPdf={wikiPage.archivedAt ? undefined : () => handleConvert()}
+        {convertNotice}
+        onConvert={wikiPage.archivedAt ? undefined : () => handleConvert()}
       />
       </section>
     {:else}

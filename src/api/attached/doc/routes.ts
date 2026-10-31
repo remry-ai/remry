@@ -1,12 +1,8 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
-import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, attachSourcePdf, getDocReadUrl, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
+import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
-import { convertDocPdf, getPdfConversion } from './convert';
-
-// Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file).
-const MAX_PDF_BASE64_CHARS = 24_000_000;
 
 export const docRouter = router({
   list: procedure
@@ -57,17 +53,6 @@ export const docRouter = router({
     }))
     .mutation(({ ctx, input }) => reorderDocs(ctx.reg, input.entityType, input.entityId, input.docIds)),
 
-  attachSource: procedure
-    .meta({ description: "Attaches the original file (a PDF, an image or a text file such as Markdown or CSV) to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine); fileName keeps a text file's extension." })
-    .input(z.object({
-      docId: z.string(),
-      // Ignored: the bytes decide what the file is. Kept so older callers still validate.
-      contentType: z.string().max(200).optional(),
-      fileName: z.string().max(255).optional(),
-      dataBase64: z.string().max(MAX_PDF_BASE64_CHARS)
-    }))
-    .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.dataBase64, input.fileName)),
-
   uploadImage: procedure
     .meta({ description: "Uploads an image to a doc and returns its key and the markdown to put in the content (then doc.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })
     .input(z.object({
@@ -76,19 +61,5 @@ export const docRouter = router({
       contentType: z.enum(DOC_IMAGE_TYPES).optional(),
       dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.dataBase64)),
-
-  getReadUrl: procedure
-    .meta({ description: 'The app URL of a doc\'s attached PDF.' })
-    .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => getDocReadUrl(ctx.reg, input.id)),
-
-  // Web app only (hidden from the CLI and MCP in cli/api.ts).
-  convertPdf: procedure
-    .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => convertDocPdf(ctx.reg, ctx.pdfConverter, ctx.notebook.id, input.id)),
-
-  pdfConversion: procedure
-    .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => getPdfConversion(ctx.pdfConverter, ctx.notebook.id, input.id))
+    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.dataBase64))
 });

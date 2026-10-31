@@ -23,9 +23,7 @@
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
-  import { sourceFileLabel } from '$lib/link/source';
   import { convertFileLinkAndWait, newestFileLink, uploadFileLink } from '$lib/link/file-links';
-  import { fileUrl } from '$shared/utils/files';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
@@ -42,7 +40,6 @@
     readonly id: string;
     readonly title: string;
     readonly content: string;
-    readonly sourceUrl?: string | null;
     /** Set on a sync doc: what Claude pulls from its sources. */
     readonly prompt?: string | null;
     readonly sortOrder: number;
@@ -106,6 +103,8 @@
     readonly relations?: readonly RelationGroup[];
     /** External links; the sidebar lists them, with their source tool and last sync, and adds one by hand. */
     readonly links?: readonly LinkItem[];
+    /** After a file is uploaded from the sidebar's Links, with its link's id (the wiki page writes itself from it while empty). */
+    readonly onFileLinkUploaded?: (linkId: string) => void;
     /** Links between the list and the entity in the breadcrumb, such as a wiki page's parents. */
     readonly breadcrumbTrail?: readonly BreadcrumbLink[];
     /** Markdown, shown in an outlined box above the docs list. */
@@ -136,6 +135,7 @@
     reports = [],
     relations = [],
     links = [],
+    onFileLinkUploaded,
     description = null,
     descriptionLabel = undefined,
     docsFolded = false,
@@ -326,7 +326,7 @@
     newDocTitleDraft = title;
   };
 
-  // ----- PDF conversion (the local Claude Code CLI, run by the server) -----
+  // ----- Writing a doc from a file link (the local Claude Code CLI, run by the server) -----
   interface PdfJob {
     readonly docId: string;
     readonly running: boolean;
@@ -355,14 +355,11 @@
       }
     });
 
-  // The newest file uploaded as a link; a doc from before file links may have a PDF attached instead.
+  // The newest file uploaded as a link: what "Convert with Claude" writes the doc from.
   const docFileLink = $derived(newestFileLink(docLinks));
 
   const handleConvertActiveDoc = async () => {
-    if (!activeDoc) return;
-    const docId = activeDoc.id;
-    if (docFileLink) await runFileConversion(docId, docFileLink.id);
-    else await runConversion(docId, () => docHandlers.handleConvertPdf(docId));
+    if (activeDoc && docFileLink) await runFileConversion(activeDoc.id, docFileLink.id);
   };
 
   // Uploading a file to an empty doc writes the doc from it straight away.
@@ -374,8 +371,6 @@
     if (doc.content.trim() === '') void runFileConversion(doc.id, linkId);
   };
 
-  // A PDF attached before file links (doc.attachSource), first in the sources line; new files are links.
-  const docSourceFile = $derived(activeDoc?.sourceUrl ? { label: sourceFileLabel(activeDoc.sourceUrl), href: fileUrl(activeDoc.sourceUrl) } : null);
   const docUploadFile = $derived(archivedAt ? undefined : handleUploadDocFile);
 
   // "+ Add a file" on a new doc: saves it, uploads the file as its link and writes it from that.
@@ -441,7 +436,7 @@
       <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} />
     </div>
     <div class="section">
-      <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} />
+      <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} onFileUploaded={onFileLinkUploaded} />
     </div>
   {/snippet}
 
@@ -514,16 +509,16 @@
       <DocEditor
         title={activeDoc.title}
         content={activeDoc.content}
-        hasSourcePdf={!!activeDoc.sourceUrl || !!docFileLink}
+        hasSourceFile={!!docFileLink}
         converting={pdfJob?.docId === activeDoc.id && pdfJob.running}
-        pdfNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
+        convertNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}
         onSaveTitle={docHandlers.handleSaveTitle}
-        onConvertPdf={handleConvertActiveDoc}
+        onConvert={handleConvertActiveDoc}
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 || activeDoc.prompt || activeDoc.sourceUrl || !archivedAt ? docSources : undefined}
+        sources={docLinks.length > 0 || activeDoc.prompt || !archivedAt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
@@ -552,11 +547,11 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} file={docSourceFile} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
   {:else if makingSyncDoc === activeDoc?.id}
-    <SyncPrompt prompt="" links={docLinks} file={docSourceFile} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
+    <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
   {:else}
-    <SourceLinks links={docLinks} file={docSourceFile} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
+    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
   {/if}
 {/snippet}
 

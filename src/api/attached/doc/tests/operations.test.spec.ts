@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
-import { addDoc, attachSourcePdf, getDoc, getDocReadUrl, removeDoc, updateDoc, uploadDocImage } from '../operations';
+import { addDoc, getDoc, removeDoc, updateDoc, uploadDocImage } from '../operations';
 import { cleanupPrisma } from '$api/tests/cleanup-prisma';
 
 const storageMock = (overrides: Partial<Registry['storage']> = {}): Registry['storage'] => ({
@@ -40,7 +40,7 @@ describe('getDoc', () => {
       prisma: {
         doc: {
           findUnique: vi.fn().mockResolvedValue({
-            id: 'doc_1', title: 'Plan', content: '# Plan', sourceUrl: null, sortOrder: 1,
+            id: 'doc_1', title: 'Plan', content: '# Plan', sortOrder: 1,
             createdAt: now, updatedAt: now, entityType: 'GROUP', entityId: 'team_1'
           })
         },
@@ -64,118 +64,25 @@ describe('getDoc', () => {
   });
 });
 
-describe('attachSourcePdf', () => {
-  it('stores the PDF and sets sourceUrl without touching content', async () => {
-    const findUnique = vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null });
-    const update = vi.fn().mockResolvedValue({});
-    const putObject = vi.fn().mockResolvedValue(undefined);
-    const reg = createTestRegistry({
-      prisma: { doc: { findUnique, update } } as unknown as Registry['prisma'],
-      storage: storageMock({ putObject }),
-      uuid: () => 'uuid-abc'
-    });
-
-    const dataBase64 = Buffer.from('%PDF-1.7 hello').toString('base64');
-    const result = await attachSourcePdf(reg, 'doc_1', dataBase64);
-
-    expect(result.ok).toBe(true);
-    const [key, body, contentType] = putObject.mock.calls[0]!;
-    expect(key).toBe('docs/doc_1/source-uuid-abc.pdf');
-    expect(contentType).toBe('application/pdf');
-    expect(Buffer.from(body).toString('utf8')).toBe('%PDF-1.7 hello');
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'doc_1' },
-      data: { sourceUrl: 'docs/doc_1/source-uuid-abc.pdf' }
-    });
-  });
-
-  it('deletes the previously attached PDF', async () => {
-    const deleteObject = vi.fn().mockResolvedValue(undefined);
-    const reg = createTestRegistry({
-      prisma: {
-        doc: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: 'docs/doc_1/source-old.pdf' }),
-          update: vi.fn().mockResolvedValue({})
-        }
-      } as unknown as Registry['prisma'],
-      storage: storageMock({ deleteObject })
-    });
-
-    await attachSourcePdf(reg, 'doc_1', Buffer.from('%PDF-1.4').toString('base64'));
-    expect(deleteObject).toHaveBeenCalledWith('docs/doc_1/source-old.pdf');
-  });
-
-  it('returns err when doc is not found', async () => {
-    const reg = createTestRegistry({
-      prisma: { doc: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() } } as unknown as Registry['prisma']
-    });
-
-    const result = await attachSourcePdf(reg, 'doc_missing', 'abc');
-    expect(result.ok).toBe(false);
-  });
-
-  it('refuses a binary file Claude can\'t read, without writing', async () => {
-    const putObject = vi.fn();
-    const reg = createTestRegistry({
-      prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update: vi.fn() } } as unknown as Registry['prisma'],
-      storage: storageMock({ putObject })
-    });
-
-    // A .docx: a zip, binary.
-    const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]).toString('base64');
-    const result = await attachSourcePdf(reg, 'doc_1', docx, 'report.docx');
-    expect(!result.ok && result.error.message).toContain("can't be read");
-    expect(putObject).not.toHaveBeenCalled();
-  });
-
-  it('stores a text file under its own extension, as plain text', async () => {
-    const putObject = vi.fn();
-    const update = vi.fn();
-    const reg = createTestRegistry({
-      prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update } } as unknown as Registry['prisma'],
-      storage: storageMock({ putObject })
-    });
-
-    const csv = Buffer.from('name,amount\nA,1\n').toString('base64');
-    const result = await attachSourcePdf(reg, 'doc_1', csv, 'budget.csv');
-    expect(result.ok && result.value.sourceUrl).toMatch(/^docs\/doc_1\/source-.+\.csv$/);
-    expect(putObject).toHaveBeenCalledWith(expect.stringMatching(/\.csv$/), expect.anything(), 'text/plain; charset=utf-8');
-  });
-});
-
-describe('getDocReadUrl', () => {
-  it('returns a local /files URL for the source PDF', async () => {
-    const reg = createTestRegistry({
-      prisma: {
-        doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: 'docs/doc_1/source-a.pdf' }) }
-      } as unknown as Registry['prisma']
-    });
-
-    const result = await getDocReadUrl(reg, 'doc_1');
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.url).toBe('/files/docs/doc_1/source-a.pdf');
-  });
-});
-
 describe('removeDoc', () => {
-  const docPrisma = (sourceUrl: string | null, attached = {}) => {
+  const docPrisma = (_unused: null, attached = {}) => {
     const del = vi.fn().mockResolvedValue({});
     const prisma = cleanupPrisma(attached);
     return {
       del,
-      prisma: { ...prisma, doc: { ...prisma.doc, findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl }), delete: del } }
+      prisma: { ...prisma, doc: { ...prisma.doc, findUnique: vi.fn().mockResolvedValue({ id: 'doc_1' }), delete: del } }
     };
   };
 
-  it('deletes the doc, its relations and its PDF from storage when sourceUrl is set', async () => {
-    const deleteObject = vi.fn().mockResolvedValue(undefined);
-    const { del, prisma } = docPrisma('docs/doc_1/source.pdf');
-    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock({ deleteObject }) });
+  it('deletes the doc, its relations and its folder (images and file links)', async () => {
+    const deleteFolder = vi.fn().mockResolvedValue(undefined);
+    const { del, prisma } = docPrisma(null);
+    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock({ deleteFolder }) });
 
     const result = await removeDoc(reg, 'doc_1');
 
     expect(result.ok).toBe(true);
-    expect(deleteObject).toHaveBeenCalledWith('docs/doc_1/source.pdf');
+    expect(deleteFolder).toHaveBeenCalledWith('docs/doc_1');
     expect(del).toHaveBeenCalledWith({ where: { id: 'doc_1' } });
     expect(prisma.relation.deleteMany).toHaveBeenCalledWith({ where: { fromType: 'DOC', fromId: { in: ['doc_1'] } } });
     expect(prisma.relation.deleteMany).toHaveBeenCalledWith({ where: { toType: 'DOC', toId: { in: ['doc_1'] } } });
@@ -190,20 +97,11 @@ describe('removeDoc', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it('does not call storage when sourceUrl is null', async () => {
-    const deleteObject = vi.fn();
-    const { prisma } = docPrisma(null);
-    const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'], storage: storageMock({ deleteObject }) });
-
-    await removeDoc(reg, 'doc_1');
-    expect(deleteObject).not.toHaveBeenCalled();
-  });
-
   it('still deletes the doc row when storage deletion fails', async () => {
-    const { del, prisma } = docPrisma('docs/doc_1/source.pdf');
+    const { del, prisma } = docPrisma(null);
     const reg = createTestRegistry({
       prisma: prisma as unknown as Registry['prisma'],
-      storage: storageMock({ deleteObject: vi.fn().mockRejectedValue(new Error('disk full')) })
+      storage: storageMock({ deleteFolder: vi.fn().mockRejectedValue(new Error('disk full')) })
     });
 
     const result = await removeDoc(reg, 'doc_1');
@@ -213,24 +111,7 @@ describe('removeDoc', () => {
 });
 
 describe('updateDoc', () => {
-  it('forwards sourceUrl to prisma when provided', async () => {
-    const update = vi.fn().mockResolvedValue({});
-    const reg = createTestRegistry({
-      prisma: {
-        doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1' }), update }
-      } as unknown as Registry['prisma']
-    });
-
-    const result = await updateDoc(reg, 'doc_1', { sourceUrl: 'docs/doc_1/source.pdf' });
-
-    expect(result.ok).toBe(true);
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'doc_1' },
-      data: { sourceUrl: 'docs/doc_1/source.pdf' }
-    });
-  });
-
-  it('does not touch sourceUrl when omitted, and clears mentions for content without links', async () => {
+  it('saves only what changed, and clears mentions for content without links', async () => {
     const update = vi.fn().mockResolvedValue({});
     const relation = relationMock();
     const reg = createTestRegistry({

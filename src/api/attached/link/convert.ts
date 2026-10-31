@@ -27,6 +27,8 @@ export const convertFileLink = async (
 
   const link = await reg.prisma.link.findUnique({ where: { id: linkId } });
   if (!link) return err(new Error('Link not found'));
+  // Only a doc or a document page has text to write; a person's or project's files are kept as they are.
+  if (link.entityType !== 'DOC' && link.entityType !== 'PAGE') return err(new Error('Only a doc or a wiki page can be written from a file.'));
   const key = fileLinkKey(link.url);
   const folder = entityFileFolder(link.entityType, link.entityId);
   if (!key || !folder || !key.startsWith(`${folder}/`)) return err(new Error('Only a file uploaded to a doc or wiki page can be converted.'));

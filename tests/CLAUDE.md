@@ -28,6 +28,7 @@
   - `goals-wiki`: project owner, goal cascade, check-ins and progress, project links, mentions from content, relation and attachment cleanup on delete
   - `archive-leaks`: an archived entity of each type (and a doc on one) never shows through an active one's reads: lead and reports, members, children, a goal's projects, the Related list, counts, the org map, the home graph
   - `large-notebook`: 1,100 rows of each kind, with a hub of each type linked to all of them; every query procedure with each input it accepts, then deleting the hubs. It caught Prisma's assumed 999-value limit (see `prisma/CLAUDE.md`)
+  - `doc-sources-to-links`: the `doc_sources_to_links` migration's SQL on a doc with an attached PDF: it becomes a file link on the doc (read back with `link.read`) and the column is emptied
   - `page-chat`: the Chat tab's saved conversation per entity, Clear, and cleanup when the entity is deleted
   - `migrate`: fresh, idempotent, edited-migration refusal, search index backfill of existing rows
   - `search`: every trigger present, each kind of text found, stemming, phrases/OR/exclusions, type and `within` filters, re-indexing on update and delete (including cleanup), archived rows hidden, `search.recall` with unlinked mentions and caps

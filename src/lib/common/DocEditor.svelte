@@ -9,7 +9,7 @@
   import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
   import { imageFilesIn, insertImages } from '$lib/doc/pasted-images';
 
-  interface PdfNotice {
+  interface ConvertNotice {
     readonly tone: 'warning' | 'error';
     readonly message: string;
   }
@@ -17,13 +17,14 @@
   interface Props {
     readonly title: string;
     readonly content: string;
-    readonly hasSourcePdf?: boolean;
-    /** The attached PDF is being converted with Claude. */
+    /** A file uploaded as a link that "Convert with Claude" can write the doc from. */
+    readonly hasSourceFile?: boolean;
+    /** The doc is being written from that file with Claude. */
     readonly converting?: boolean;
-    readonly pdfNotice?: PdfNotice | null;
+    readonly convertNotice?: ConvertNotice | null;
     readonly onSave: (content: string) => Promise<void>;
     readonly onSaveTitle?: (title: string) => Promise<void>;
-    readonly onConvertPdf?: () => Promise<void>;
+    readonly onConvert?: () => Promise<void>;
     readonly onUploadImage?: (file: File) => Promise<string>;
     readonly onResolveImages?: (keys: string[]) => Promise<Record<string, string>>;
     readonly onClose?: () => void;
@@ -31,7 +32,7 @@
     readonly sources?: Snippet;
     /**
      * False drops the title row, for an editor under a heading that already names it (a wiki
-     * page's): the close button moves to the end of the tab row. The PDF actions are in that
+     * page's): the close button moves to the end of the tab row. "Convert with Claude" is in that
      * row too, so a caller hiding it passes none.
      */
     readonly showTitle?: boolean;
@@ -44,7 +45,7 @@
     readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
+  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
 
   let editingTitle = $state(autoEditTitle);
   let titleDraft = $state(title);
@@ -234,8 +235,8 @@
     {:else}
       <h2 class:editable={!!onSaveTitle} ondblclick={startEditingTitle} title={onSaveTitle ? 'Double-click to rename' : undefined}>{title}</h2>
     {/if}
-    {#if hasSourcePdf && onConvertPdf && !converting && !content.trim()}
-      <button type="button" class="btn ghost sm" onclick={onConvertPdf}>Convert with Claude</button>
+    {#if hasSourceFile && onConvert && !converting && !content.trim()}
+      <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with Claude</button>
     {/if}
     {#if onClose}
       <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
@@ -244,7 +245,7 @@
   {/if}
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
-  {#if pdfNotice}<p class={pdfNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{pdfNotice.message}</p>{/if}
+  {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
   {#if converting}
     <div class="status" aria-busy="true">Converting the file with Claude… This can take a minute or two.</div>
   {:else if resolving}

@@ -3,6 +3,7 @@ import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
 import { listLinks, findLinks, addLink, markLinkSynced, readLinkFile, removeLink, uploadLinkFile } from './operations';
 import { convertFileLink, getFileLinkConversion } from './convert';
+import { FILE_LINK_HOLDERS } from '$shared/utils/file-links';
 
 // Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file), as for a doc's PDF.
 const MAX_FILE_BASE64_CHARS = 24_000_000;
@@ -40,9 +41,9 @@ export const linkRouter = router({
     .query(({ ctx, input }) => readLinkFile(ctx.reg, input.id)),
 
   upload: procedure
-    .meta({ description: "Uploads a file as a link on a doc or wiki page: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). Send one of text (a text file's contents, as they are) or dataBase64 (the file's bytes as base64; a data: URL is fine)." })
+    .meta({ description: "Uploads a file as a link on a person, group, project, goal, wiki page or doc: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). Send one of text (a text file's contents, as they are) or dataBase64 (the file's bytes as base64; a data: URL is fine)." })
     .input(z.object({
-      entityType: z.enum(['DOC', 'PAGE']),
+      entityType: z.enum(FILE_LINK_HOLDERS),
       entityId: z.string(),
       fileName: z.string().max(255).optional(),
       text: z.string().max(MAX_FILE_BASE64_CHARS).optional(),

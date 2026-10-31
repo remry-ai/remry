@@ -18,6 +18,17 @@ export const linkHref = (url: string): string => {
   return key ? fileUrl(key) : url;
 };
 
-/** The folder an entity keeps its own files in (its images, and files uploaded as links), or null for a type that has none. */
-export const entityFileFolder = (entityType: string, entityId: string): string | null =>
-  entityType === 'DOC' ? `docs/${entityId}` : entityType === 'PAGE' ? `pages/${entityId}` : null;
+// Every entity whose page shows links keeps its files in a folder of its own, deleted with it.
+const FILE_FOLDERS: Readonly<Partial<Record<string, string>>> = {
+  DOC: 'docs', PAGE: 'pages', PERSON: 'people', GROUP: 'groups', PROJECT: 'projects', GOAL: 'goals'
+};
+
+/** The types that can hold a file uploaded as a link: every one whose page shows links. */
+export const FILE_LINK_HOLDERS = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'DOC'] as const;
+export type FileLinkHolder = (typeof FILE_LINK_HOLDERS)[number];
+
+/** The folder an entity keeps its own files in (a doc's or page's images, and files uploaded as links), or null for a type that has none. */
+export const entityFileFolder = (entityType: string, entityId: string): string | null => {
+  const folder = FILE_FOLDERS[entityType];
+  return folder ? `${folder}/${entityId}` : null;
+};

@@ -14,15 +14,14 @@ describe('planEntityCleanup', () => {
       ],
       comment: [{ id: 'c1', entityType: 'NOTE', entityId: 'n2' }],
       todo: [{ id: 't1', entityType: 'COMMENT', entityId: 'c1' }],
-      doc: [{ id: 'd1', entityType: 'TODO', entityId: 't1', sourceUrl: 'docs/d1/source.pdf' }]
+      doc: [{ id: 'd1', entityType: 'TODO', entityId: 't1' }]
     });
     const reg = createTestRegistry({ prisma: prisma as unknown as Registry['prisma'] });
 
     const cleanup = await planEntityCleanup(reg, 'PERSON', 'p1');
 
-    expect(cleanup.files).toEqual(['docs/d1/source.pdf']);
-    // Each deleted doc's own folder (its pasted images and PDF) goes too.
-    expect(cleanup.folders).toEqual(['docs/d1']);
+    // The person's own folder (its file links' files) and each deleted doc's (images, file links) go too.
+    expect(cleanup.folders).toEqual(['people/p1', 'docs/d1']);
     expect(prisma.note.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['n1', 'n2'] } } });
     expect(prisma.comment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['c1'] } } });
     expect(prisma.todo.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['t1'] } } });
@@ -58,11 +57,13 @@ describe('planEntityCleanup', () => {
     expect(prisma.note.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['n2'] } } });
   });
 
-  it('removes a deleted page\'s or doc\'s own folder', async () => {
+  it('removes the deleted entity\'s own folder, for every type that keeps files', async () => {
     const reg = createTestRegistry({ prisma: cleanupPrisma() as unknown as Registry['prisma'] });
     expect((await planEntityCleanup(reg, 'PAGE', 'pg1')).folders).toEqual(['pages/pg1']);
     expect((await planEntityCleanup(reg, 'DOC', 'd9')).folders).toEqual(['docs/d9']);
-    expect((await planEntityCleanup(reg, 'PERSON', 'p1')).folders).toEqual([]);
+    expect((await planEntityCleanup(reg, 'PERSON', 'p1')).folders).toEqual(['people/p1']);
+    expect((await planEntityCleanup(reg, 'PROJECT', 'pr1')).folders).toEqual(['projects/pr1']);
+    expect((await planEntityCleanup(reg, 'NOTE', 'n1')).folders).toEqual([]);
   });
 });
 

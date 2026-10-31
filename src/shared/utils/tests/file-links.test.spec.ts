@@ -13,9 +13,11 @@ describe('file links', () => {
     expect(linkHref('https://linear.app/x')).toBe('https://linear.app/x');
   });
 
-  it('knows the folders docs and pages keep their files in', () => {
+  it('gives every entity whose page shows links a folder of its own', () => {
     expect(entityFileFolder('DOC', 'd1')).toBe('docs/d1');
     expect(entityFileFolder('PAGE', 'p1')).toBe('pages/p1');
-    expect(entityFileFolder('PERSON', 'x')).toBeNull();
+    expect(entityFileFolder('PERSON', 'x')).toBe('people/x');
+    expect(entityFileFolder('PROJECT', 'x')).toBe('projects/x');
+    expect(entityFileFolder('NOTE', 'x')).toBeNull();
   });
 });

@@ -33,8 +33,8 @@ describe('uploadLinkFile', () => {
     const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]).toString('base64');
     const binary = await uploadLinkFile(reg, 'DOC', 'd1', { dataBase64: docx }, 'report.docx');
     expect(!binary.ok && binary.error.message).toContain("can't be read");
-    const person = await uploadLinkFile(reg, 'PERSON', 'p1', { dataBase64: csv }, 'x.csv');
-    expect(!person.ok && person.error.message).toContain('doc or a wiki page');
+    const note = await uploadLinkFile(reg, 'NOTE', 'n1', { dataBase64: csv }, 'x.csv');
+    expect(!note.ok && note.error.message).toContain('Add a link to it here instead');
   });
 });
 

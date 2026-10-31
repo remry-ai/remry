@@ -139,6 +139,7 @@ model Doc {
   entityId   String   @map("entity_id")
   title      String
   content    String   @default("")
+  /// Unused since the doc_sources_to_links migration moved attached PDFs into file links.
   sourceUrl  String?  @map("source_url")
   /// A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc.
   prompt     String?
