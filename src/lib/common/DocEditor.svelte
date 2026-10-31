@@ -32,8 +32,7 @@
     readonly sources?: Snippet;
     /**
      * False drops the title row, for an editor under a heading that already names it (a wiki
-     * page's): the close button moves to the end of the tab row. "Convert with Claude" is in that
-     * row too, so a caller hiding it passes none.
+     * page's). "Convert with Claude" is in that row, so a caller hiding it passes none.
      */
     readonly showTitle?: boolean;
     /** Link to the doc's print page (Export PDF). */
@@ -238,9 +237,6 @@
     {#if hasSourceFile && onConvert && !converting && !content.trim()}
       <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with Claude</button>
     {/if}
-    {#if onClose}
-      <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
-    {/if}
   </div>
   {/if}
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
@@ -258,21 +254,21 @@
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
           <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
+          {#if exportHref && content.trim()}
+            <a class="btn ghost sm export" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
+          {/if}
         </div>
         <div class="doc-actions">
           {#if mode === 'preview'}
             <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
             <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
           {/if}
-          {#if exportHref && content.trim()}
-            <a class="btn ghost sm" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
+          {#if onClose}
+            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
           {/if}
           {#if mode !== 'preview'}
             {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}
             <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving || !isDirty} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
-          {/if}
-          {#if !showTitle && onClose}
-            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
           {/if}
         </div>
       </div>
@@ -341,6 +337,8 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }
+    // Export PDF sits just after the Preview tab, centred on the tabs' text rather than their underline.
+    .export { align-self: center; margin-left: var(--sp-2); }
   }
   .doc-actions {
     display: flex;
