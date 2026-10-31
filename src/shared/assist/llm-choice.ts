@@ -11,8 +11,18 @@ export const choiceStatus = (saved: LlmProviderId | null, locate: Locate): LlmCh
   current: saved
 });
 
+/**
+ * The saved default's CLI. With none saved, the only installed assistant when there's just one
+ * (the caller saves it), else `unchosen`, so the browser asks.
+ */
 export const lookupFrom = (saved: LlmProviderId | null, locate: Locate): LlmLookup => {
-  if (saved === null) return { state: 'unchosen' };
+  if (saved === null) {
+    const installed = LLM_PROVIDERS.flatMap((p) => {
+      const path = locate(p.id);
+      return path === null ? [] : [{ provider: p.id, path }];
+    });
+    return installed.length === 1 && installed[0] ? { state: 'ready', llm: installed[0] } : { state: 'unchosen' };
+  }
   const path = locate(saved);
   return path === null ? { state: 'missing', provider: saved } : { state: 'ready', llm: { provider: saved, path } };
 };
