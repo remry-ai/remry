@@ -46,6 +46,18 @@ describe('convertDocPdf', () => {
     expect(jobs).toHaveLength(0);
   });
 
+  it('refuses a source file Claude can\'t read', async () => {
+    const reg = createTestRegistry({
+      prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ ...docRow, sourceUrl: 'docs/doc_1/file-abc.docx' }) } } as unknown as Registry['prisma']
+    });
+    const { converter, jobs } = fakeConverter();
+
+    const result = await convertDocPdf(reg, converter, 'work', 'doc_1');
+
+    expect(!result.ok && result.error.message).toContain("Claude can't read this kind of file");
+    expect(jobs).toHaveLength(0);
+  });
+
   it('refuses a doc on an archived entity', async () => {
     const reg = createTestRegistry({
       prisma: {

@@ -14,7 +14,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
       'content-type': file.contentType,
       'cache-control': 'no-store',
       // The browser takes the type as given, so a text file is never read as HTML.
-      'x-content-type-options': 'nosniff'
+      'x-content-type-options': 'nosniff',
+      // A file the app doesn't show (a doc's Word or zip source) downloads rather than opening.
+      ...(file.contentType === 'application/octet-stream' && { 'content-disposition': 'attachment' })
     }
   });
 };

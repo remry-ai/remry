@@ -56,7 +56,8 @@ export interface DocHandlers {
   readonly handleSaveTitle: (title: string) => Promise<void>;
   readonly handleRemoveDoc: (id: string) => Promise<void>;
   readonly handleReorderDocs: (docIds: readonly string[]) => Promise<void>;
-  readonly handleUploadPdf: (file: File) => Promise<void>;
+  /** Attaches a source file to the open doc; returns its stored key, or null when nothing was attached. */
+  readonly handleUploadPdf: (file: File) => Promise<string | null>;
   /**
    * Converts the doc's PDF with the local Claude Code CLI and waits for it to
    * finish. Returns a warning when `claude` isn't installed; throws when the
@@ -127,10 +128,11 @@ export const createDocHandlers = (
   handleUploadPdf: async (file: File) => {
     const docId = getActiveDocId();
     const attachSource = docTrpc.attachSource;
-    if (!docId || !attachSource) return;
+    if (!docId || !attachSource) return null;
     const dataBase64 = await fileToBase64(file);
-    await submitOrThrow(() => attachSource.mutate({ docId, fileName: file.name, dataBase64 }));
+    const attached = (await submitOrThrow(() => attachSource.mutate({ docId, fileName: file.name, dataBase64 }))) as { readonly sourceUrl?: string } | undefined;
     await invalidateAll();
+    return attached?.sourceUrl ?? null;
   },
 
   handleConvertPdf: async (docId: string): Promise<string | null> => {

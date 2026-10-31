@@ -114,7 +114,7 @@ describe('attachSourcePdf', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('refuses a binary file Claude can\'t read, without writing', async () => {
+  it('keeps a file Claude can\'t read as file-<uuid>.<ext>, to download', async () => {
     const putObject = vi.fn();
     const reg = createTestRegistry({
       prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update: vi.fn() } } as unknown as Registry['prisma'],
@@ -124,8 +124,8 @@ describe('attachSourcePdf', () => {
     // A .docx: a zip, binary.
     const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]).toString('base64');
     const result = await attachSourcePdf(reg, 'doc_1', docx, 'report.docx');
-    expect(!result.ok && result.error.message).toContain("can't be read");
-    expect(putObject).not.toHaveBeenCalled();
+    expect(result.ok && result.value.sourceUrl).toMatch(/^docs\/doc_1\/file-.+\.docx$/);
+    expect(putObject).toHaveBeenCalledWith(expect.stringMatching(/\/file-.+\.docx$/), expect.anything(), 'application/octet-stream');
   });
 
   it('stores a text file under its own extension, as plain text', async () => {

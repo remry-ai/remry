@@ -8,6 +8,7 @@ import { ensureWritable } from '$api/_archive';
 import { CLAUDE_NOT_FOUND_WARNING } from '$shared/assist/claude-cli';
 import type { ConvertPdfResult, PdfConversionStatus, PdfConverter } from '$shared/types/pdf-conversion';
 import { updateDoc } from './operations';
+import { isReadableSourceKey } from '$shared/utils/files';
 
 export const pdfJobKey = (notebookId: string, docId: string): string => `${notebookId}/${docId}`;
 
@@ -28,6 +29,9 @@ export const convertDocPdf = async (
   const doc = await reg.prisma.doc.findUnique({ where: { id } });
   if (!doc) return err(new Error('Doc not found'));
   if (!doc.sourceUrl) return err(new Error('This doc has no source file attached. Attach one, then convert it.'));
+  if (!isReadableSourceKey(doc.sourceUrl)) {
+    return err(new Error("Claude can't read this kind of file, so it can't be converted. Attach it as a PDF or a text file, or write the doc from it yourself."));
+  }
   const writable = await ensureWritable(reg, doc.entityType, doc.entityId);
   if (!writable.ok) return err(writable.error);
 
