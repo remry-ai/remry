@@ -4,10 +4,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
 import type { PdfConversionJob, PdfConverter } from '$shared/types/pdf-conversion';
-import { addLink, readLinkFile, removeLink, uploadLinkFile, READ_IMAGE_BYTES, READ_TEXT_LIMIT } from '../operations';
-import { convertFileLink, fileJobKey } from '../convert';
+import { addLink, readLinkFile, removeLink, updateLink, uploadLinkFile, READ_IMAGE_BYTES, READ_TEXT_LIMIT } from '../operations';
+import { convertFileLink, fileJobKey, transcribeFileLink } from '../convert';
 import { cleanupPrisma } from '../../../tests/cleanup-prisma';
 import { textSourceFile } from '$api/_uploads';
+import { updatePage } from '$api/page/operations';
+
+// Writing a page is tested with the page; here only what's written, and whether Claude runs.
+vi.mock('$api/page/operations', () => ({ updatePage: vi.fn().mockResolvedValue({ ok: true, value: {} }) }));
 
 const csv = Buffer.from('name,amount\nHosting,120\n').toString('base64');
 
@@ -25,7 +29,8 @@ describe('uploadLinkFile', () => {
 
     expect(result).toEqual({ ok: true, value: { id: 'link_1', url: 'storage://pages/pg1/file-u1.csv' } });
     expect(putObject).toHaveBeenCalledWith('pages/pg1/file-u1.csv', expect.anything(), 'text/plain; charset=utf-8');
-    expect(create).toHaveBeenCalledWith({ data: { entityType: 'PAGE', entityId: 'pg1', url: 'storage://pages/pg1/file-u1.csv', title: 'Budget 2026.csv' } });
+    // A text file's saved text is the file itself, so it's searchable and read without opening the file.
+    expect(create).toHaveBeenCalledWith({ data: { entityType: 'PAGE', entityId: 'pg1', url: 'storage://pages/pg1/file-u1.csv', title: 'Budget 2026.csv', text: 'name,amount\nHosting,120\n' } });
   });
 
   it('refuses a file Claude can\'t read, and an entity with no files folder', async () => {
@@ -137,7 +142,7 @@ describe('readLinkFile', () => {
 
   it('hands over an image or a PDF as an attachment', async () => {
     const png = await readLinkFile(regWith('storage://pages/pg1/file-a.png', { bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' }), 'l1');
-    expect(png).toEqual({ ok: true, value: { title: 'budget.csv', kind: 'image', attachment: { mimeType: 'image/png', dataBase64: 'AQID' } } });
+    expect(png).toEqual({ ok: true, value: { title: 'budget.csv', kind: 'image', attachment: { mimeType: 'image/png', dataBase64: 'AQID' }, textSaved: false } });
     const pdf = await readLinkFile(regWith('storage://pages/pg1/file-a.pdf', { bytes: new Uint8Array([1]), contentType: 'application/pdf' }), 'l1');
     expect(pdf.ok && pdf.value.kind).toBe('pdf');
   });
@@ -149,5 +154,112 @@ describe('readLinkFile', () => {
     expect(!missing.ok && missing.error.message).toContain('missing');
     const big = await readLinkFile(regWith('storage://pages/pg1/file-a.png', { bytes: new Uint8Array(READ_IMAGE_BYTES + 1), contentType: 'image/png' }), 'l1');
     expect(!big.ok && big.error.message).toContain('Ask the user to paste');
+  });
+});
+
+describe('readLinkFile with saved text', () => {
+  const regWith = (url: string, text: string | null) => {
+    const readObject = vi.fn().mockResolvedValue({ bytes: new Uint8Array([1]), contentType: 'application/pdf' });
+    const reg = createTestRegistry({
+      prisma: { link: { findUnique: vi.fn().mockResolvedValue({ id: 'l1', url, title: 'Contract.pdf', entityType: 'PROJECT', entityId: 'pr1', text }) } } as unknown as Registry['prisma'],
+      storage: { ...createTestRegistry().storage, readObject }
+    });
+    return { reg, readObject };
+  };
+
+  it('returns a PDF\'s saved text without opening the file, saying what it stands for', async () => {
+    const { reg, readObject } = regWith('storage://projects/pr1/file-a.pdf', '# Contract\n[Figure: signature]');
+    expect(await readLinkFile(reg, 'l1')).toEqual({ ok: true, value: { title: 'Contract.pdf', kind: 'text', text: '# Contract\n[Figure: signature]', savedTextOf: 'pdf' } });
+    expect(readObject).not.toHaveBeenCalled();
+  });
+
+  it('opens the file itself with original, and says when no text is saved yet', async () => {
+    const saved = regWith('storage://projects/pr1/file-a.pdf', '# Contract');
+    const original = await readLinkFile(saved.reg, 'l1', { original: true });
+    expect(original.ok && original.value.kind === 'pdf' && original.value.textSaved).toBe(true);
+    const unsaved = await readLinkFile(regWith('storage://projects/pr1/file-a.pdf', null).reg, 'l1');
+    expect(unsaved.ok && unsaved.value.kind === 'pdf' && unsaved.value.textSaved).toBe(false);
+  });
+});
+
+describe('updateLink', () => {
+  const regWith = (url: string) => {
+    const update = vi.fn();
+    const reg = createTestRegistry({
+      prisma: {
+        link: { findUnique: vi.fn().mockResolvedValue({ id: 'l1', url, entityType: 'PROJECT', entityId: 'pr1' }), update },
+        project: { findUnique: vi.fn().mockResolvedValue({ id: 'pr1', archivedAt: null }) }
+      } as unknown as Registry['prisma']
+    });
+    return { reg, update };
+  };
+
+  it('saves a file link\'s text, and clears it with null or blank text', async () => {
+    const { reg, update } = regWith('storage://projects/pr1/file-a.pdf');
+    expect((await updateLink(reg, 'l1', { text: '# Contract' })).ok).toBe(true);
+    await updateLink(reg, 'l1', { text: '  ' });
+    await updateLink(reg, 'l1', { title: 'Signed contract.pdf' });
+    expect(update.mock.calls.map(([arg]) => arg.data)).toEqual([{ text: '# Contract' }, { text: null }, { title: 'Signed contract.pdf' }]);
+  });
+
+  it('keeps no text for an outside link', async () => {
+    const { reg, update } = regWith('https://notion.so/acme/Spec-abc');
+    const result = await updateLink(reg, 'l1', { text: 'the spec' });
+    expect(!result.ok && result.error.message).toContain('Only a file uploaded as a link keeps its text');
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('transcribeFileLink and convertFileLink with saved text', () => {
+  const setup = (link: object) => {
+    const jobs: PdfConversionJob[] = [];
+    const converter: PdfConverter = { locate: () => '/usr/local/bin/claude', start: (job) => { jobs.push(job); }, status: vi.fn(() => ({ state: 'running' as const })) };
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const pageUpdate = vi.fn();
+    const reg = createTestRegistry({
+      prisma: {
+        link: { findUnique: vi.fn().mockResolvedValue(link), updateMany },
+        page: { findUnique: vi.fn().mockResolvedValue({ id: 'pg1', bodyType: 'doc', archivedAt: null }), update: pageUpdate },
+        project: { findUnique: vi.fn().mockResolvedValue({ id: 'pr1', archivedAt: null }) }
+      } as unknown as Registry['prisma']
+    });
+    return { reg, converter, jobs, updateMany };
+  };
+
+  it('saves a PDF\'s text on the link from a job keyed by the link', async () => {
+    const { reg, converter, jobs, updateMany } = setup({ id: 'l1', url: 'storage://projects/pr1/file-a.pdf', entityType: 'PROJECT', entityId: 'pr1', text: null });
+    expect(await transcribeFileLink(reg, converter, 'work', 'l1')).toEqual({ ok: true, value: { started: true } });
+    expect(jobs.map((j) => j.key)).toEqual([fileJobKey('work', 'LINK', 'l1')]);
+    await jobs[0]!.onMarkdown('# Contract');
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { text: '# Contract' } });
+  });
+
+  it('says when claude isn\'t installed', async () => {
+    const { reg } = setup({ id: 'l1', url: 'storage://projects/pr1/file-a.pdf', entityType: 'PROJECT', entityId: 'pr1', text: null });
+    const none: PdfConverter = { locate: () => null, start: vi.fn(), status: vi.fn() };
+    const result = await transcribeFileLink(reg, none, 'work', 'l1');
+    expect(result.ok && !result.value.started).toBe(true);
+  });
+
+  it('writes a page from a PDF\'s saved text without running Claude', async () => {
+    const { reg, converter, jobs } = setup({ id: 'l1', url: 'storage://pages/pg1/file-a.pdf', entityType: 'PAGE', entityId: 'pg1', text: '# From the PDF' });
+    expect(await convertFileLink(reg, converter, 'work', 'l1')).toEqual({ ok: true, value: { started: true } });
+    expect(jobs).toEqual([]);
+    expect(updatePage).toHaveBeenLastCalledWith(reg, 'pg1', { content: '# From the PDF' });
+  });
+
+  it('runs Claude for a CSV even with its text saved, and keeps that text as the file', async () => {
+    const { reg, converter, jobs, updateMany } = setup({ id: 'l1', url: 'storage://pages/pg1/file-a.csv', entityType: 'PAGE', entityId: 'pg1', text: 'a,b\n1,2\n' });
+    await convertFileLink(reg, converter, 'work', 'l1');
+    expect(jobs).toHaveLength(1);
+    await jobs[0]!.onMarkdown('| a | b |');
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('saves the text along with the page when converting a PDF with none yet', async () => {
+    const { reg, converter, jobs, updateMany } = setup({ id: 'l1', url: 'storage://pages/pg1/file-a.pdf', entityType: 'PAGE', entityId: 'pg1', text: null });
+    await convertFileLink(reg, converter, 'work', 'l1');
+    await jobs[0]!.onMarkdown('# From the PDF');
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { text: '# From the PDF' } });
   });
 });

@@ -92,7 +92,7 @@ export const recallEntity = async (
       select: { id: true, title: true, description: true, status: true, priority: true, targetDate: true }
     }),
     p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, prompt: true, updatedAt: true } }),
-    p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true } }),
+    p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true } }),
     p.tagAttachment.findMany({ where: attached, select: { tag: { select: { name: true } } } }),
     listRelationsForEntity(reg, entityType, entityId),
     owns
@@ -125,7 +125,7 @@ export const recallEntity = async (
       where: { entityType: 'DOC', entityId: { in: docIds } },
       orderBy: { createdAt: 'asc' },
       take,
-      select: { id: true, url: true, title: true, syncedAt: true, entityId: true }
+      select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true, entityId: true }
     })
     : [];
 

@@ -96,7 +96,7 @@ describe('syncedAt', () => {
   });
 
   it('markSynced sets syncedAt to now', async () => {
-    const update = vi.fn();
+    const update = vi.fn().mockResolvedValue({ sourceEditedAt: null });
     const reg = createTestRegistry({
       now: () => now,
       prisma: {
@@ -105,8 +105,24 @@ describe('syncedAt', () => {
       } as unknown as Registry['prisma']
     });
     const result = await markLinkSynced(reg, 'l1');
-    expect(result.ok && result.value).toEqual({ id: 'l1', syncedAt: now });
-    expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { syncedAt: now } });
+    expect(result.ok && result.value).toEqual({ id: 'l1', syncedAt: now, sourceEditedAt: null });
+    // Without a sourceEditedAt, the one from the last sync stays.
+    expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { syncedAt: now }, select: { sourceEditedAt: true } });
+  });
+
+  it('markSynced records the source\'s own last-edited time when given', async () => {
+    const edited = new Date('2026-10-30T09:15:00Z');
+    const update = vi.fn().mockResolvedValue({ sourceEditedAt: edited });
+    const reg = createTestRegistry({
+      now: () => now,
+      prisma: {
+        group,
+        link: { findUnique: vi.fn().mockResolvedValue({ id: 'l1', entityType: 'GROUP', entityId: 't1' }), update }
+      } as unknown as Registry['prisma']
+    });
+    const result = await markLinkSynced(reg, 'l1', edited);
+    expect(result.ok && result.value).toEqual({ id: 'l1', syncedAt: now, sourceEditedAt: edited });
+    expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { syncedAt: now, sourceEditedAt: edited }, select: { sourceEditedAt: true } });
   });
 
   it('markSynced says how to recover from an unknown link', async () => {

@@ -1,5 +1,6 @@
-// Files uploaded as links, from the browser: uploading one (link.upload) and writing its doc or
-// page from it with the local Claude (link.convert, then link.conversion until it's done).
+// Files uploaded as links, from the browser: uploading one (link.upload), saving its text with the
+// local Claude (link.transcribe), and writing its doc or page from it (link.convert, which saves
+// the text too), each followed by link.conversion until it's done.
 
 import { trpc } from '$shared/trpc/client';
 import { submitOrThrow } from '$lib/ui/submit';
@@ -16,6 +17,22 @@ export const uploadFileLink = async (entityType: FileLinkHolder, entityId: strin
 };
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Saves the file link's text with the local Claude, so Claude reads that instead of the PDF; a
+ * warning when `claude` isn't installed, else null. Throws when it fails.
+ */
+export const transcribeFileLinkAndWait = (linkId: string): Promise<string | null> =>
+  convertAndWait({
+    start: () => submitOrThrow(() => trpc().link.transcribe.mutate({ id: linkId })),
+    status: () => submitOrThrow(() => trpc().link.conversion.query({ entityType: 'LINK', entityId: linkId })),
+    wait
+  });
+
+/** After an upload that writes no page: saves the file's text in the background. It's only a saving, so a failure is left quiet. */
+export const transcribeInBackground = (linkId: string): void => {
+  transcribeFileLinkAndWait(linkId).catch(() => undefined);
+};
 
 /** Writes the link's doc or page from its file; a warning when `claude` isn't installed, else null. Throws when it fails. */
 export const convertFileLinkAndWait = (linkId: string, entityType: 'DOC' | 'PAGE', entityId: string): Promise<string | null> =>

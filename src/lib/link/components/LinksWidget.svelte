@@ -4,13 +4,15 @@
   // than a week ago. Links open in a new tab. The header's "+" opens the add-link form
   // (AddLinkForm, the same one a doc's or page's line uses): an address, or a file uploaded as a
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
+  // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
+  // instead of the file; a file's "Re-read" button writes it again.
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import { ENTITY_TYPES, type EntityType } from '$shared/types/enums';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import { submitOrThrow } from '$lib/ui/submit';
-  import { uploadFileLink } from '$lib/link/file-links';
+  import { errorMessage, submitOrThrow } from '$lib/ui/submit';
+  import { transcribeFileLinkAndWait, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import AddLinkForm from './AddLinkForm.svelte';
   import { timeAgo } from '$lib/home/utils';
   import { isSyncStale, linkLabel, linkSource } from '../source';
@@ -22,6 +24,8 @@
     readonly url: string;
     readonly title: string | null;
     readonly syncedAt: Date | string | null;
+    readonly sourceEditedAt?: Date | string | null;
+    readonly hasText?: boolean;
   }
 
   interface Props {
@@ -29,8 +33,8 @@
     readonly entityId: string;
     readonly links: readonly LinkItem[];
     readonly readOnly?: boolean;
-    /** After a file is uploaded here, with its link's id (a wiki page writes itself from it while empty). */
-    readonly onFileUploaded?: (linkId: string) => void;
+    /** After a file is uploaded here, with its link's id: true when it writes its page from it (an empty wiki page), which saves the file's text too. */
+    readonly onFileUploaded?: (linkId: string) => boolean;
   }
 
   const { entityType, entityId, links, readOnly = false, onFileUploaded }: Props = $props();
@@ -53,12 +57,29 @@
     if (!fileHolder) return;
     const linkId = await uploadFileLink(fileHolder, entityId, file);
     await invalidateAll();
-    onFileUploaded?.(linkId);
+    if (!onFileUploaded?.(linkId)) transcribeInBackground(linkId);
+  };
+
+  // "Re-read": the local Claude writes the file's text again (a PDF or an image; a text file is its own text).
+  let rereading = $state<string | null>(null);
+  let rereadNotice = $state<string | null>(null);
+  const handleReread = async (id: string) => {
+    rereading = id;
+    rereadNotice = null;
+    try {
+      rereadNotice = await transcribeFileLinkAndWait(id);
+    } catch (e: unknown) {
+      rereadNotice = errorMessage(e);
+    } finally {
+      rereading = null;
+      await invalidateAll();
+    }
   };
 
   const rows = $derived(links.map((link) => {
     // A file uploaded as a link (storage://…) opens from the files route, and removing it deletes the file.
     const isFile = fileLinkKey(link.url) !== null;
+    const readable = isFile && /\.(pdf|png|jpe?g|gif|webp)$/i.test(link.url);
     const source = isFile ? null : linkSource(link.url);
     const label = linkLabel(link.title, link.url, source);
     const syncedDate = link.syncedAt ? new Date(link.syncedAt) : null;
@@ -66,14 +87,17 @@
       ...link,
       href: linkHref(link.url),
       isFile,
+      readable,
       source,
       label,
-      tooltip: isFile ? `File: ${link.title ?? ''}` : source ? `${source.name}: ${link.url}` : link.url,
+      tooltip: isFile
+        ? `File: ${link.title ?? ''}${readable ? (link.hasText ? '. Claude has its text' : '. Its text isn\'t saved yet') : ''}`
+        : source ? `${source.name}: ${link.url}` : link.url,
       synced: syncedDate
         ? {
             text: timeAgo(syncedDate),
             stale: isSyncStale(syncedDate),
-            title: `Synced ${syncedDate.toLocaleString()}`
+            title: `Synced ${syncedDate.toLocaleString()}${link.sourceEditedAt ? `, from a version edited ${new Date(link.sourceEditedAt).toLocaleString()}` : ''}`
           }
         : null
     };
@@ -115,6 +139,9 @@
         {/if}
         {#if !readOnly}
           <span class="row-actions">
+            {#if row.readable}
+              <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : 'Re-read with Claude: write its text again'} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
+            {/if}
             <ConfirmButton label="Remove link {row.label}" variant="icon" onConfirm={() => handleRemove(row.id)} />
           </span>
         {/if}
@@ -122,10 +149,12 @@
     {/each}
   </ul>
   {/if}
+  {#if rereadNotice}<p class="meta notice" role="status">{rereadNotice}</p>{/if}
 </div>
 
 <style lang="scss">
   .add-link { margin-bottom: var(--sp-2); }
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
   .stale { color: var(--warning); }
+  .notice { margin-top: var(--sp-2); }
 </style>

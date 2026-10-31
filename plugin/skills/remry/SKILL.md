@@ -198,7 +198,7 @@ The notebook is the user's own layer over the shared tools (Linear, Notion, Jira
    - **Not found:** create it, then `link.add --entityType <type> --entityId <id> --url <url> --title "<Tool>: <key or title>" --synced true`, for example `--title "Linear: ENG-123"`. Every imported entity carries a link to its source.
    - **Found an entity by name, without the link:** it was added by hand. Add the link with `--synced true` once you've updated it.
 3. **Map shared facts onto fields.** Name and status (`project.status` is one of `proposed committed in-progress blocked done abandoned`: map the tool's word onto one, e.g. Linear's "In Progress" → `in-progress`, "Backlog" → `proposed`, "Canceled" → `abandoned`), dates, owner (look the owner up; create a person only if the user wants them tracked), parent project, `DEPENDS_ON` relations between items you're importing (only between items already in the notebook), and goal–project links.
-4. **Mark it synced.** After updating an entity from its source, `link.markSynced --id <link>` records the time on the source link (`syncedAt`, which `link.list` and `link.find` return). When something changed that the user would want to see later, also add a note: "From Linear: now In progress, due 15 Oct, 6 of 9 issues done." Don't copy the item's description or comments in bulk; summarise only what the user needs, and keep the link for the rest.
+4. **Mark it synced.** After updating an entity from its source, `link.markSynced --id <link> --sourceEditedAt <the item's last-edited time>` records the time on the source link (`syncedAt`, which `link.list` and `link.find` return) and the item's own edit time (`sourceEditedAt`), which the next check compares instead of reading the item again. When something changed that the user would want to see later, also add a note: "From Linear: now In progress, due 15 Oct, 6 of 9 issues done." Don't copy the item's description or comments in bulk; summarise only what the user needs, and keep the link for the rest.
 5. **The source owns shared facts; the user owns their view.** On a re-sync, update fields to match the source, then mark the link synced. Never edit or remove the user's own notes, todos, relations or judgements ("I don't believe that date"): they're the reason the notebook exists. When the source disagrees with something the user said, tell them rather than choosing.
 6. **Check before you state it as current.** When you answer from an entity with tracked sources, check them first: see **Tracked docs** below.
 
@@ -210,14 +210,14 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 
 **Tracking one.** "Link this Notion doc to Checkout", "Keep an eye on the PRD for Checkout":
 1. Read the doc with its tool's MCP tools. `link.find --url <url>` first: if it's already linked here, it's already tracked.
-2. `link.add --entityType PROJECT --entityId <id> --url <url> --title "<Tool>: <doc title>" --synced true`.
+2. `link.add --entityType PROJECT --entityId <id> --url <url> --title "<Tool>: <doc title>" --synced true --sourceEditedAt <the doc's last-edited time>`.
 3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
 
 **Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
-1. Get them: `search.recall` returns its `links` with `syncedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a sync doc (below), where a link without one is a source the user added by hand.
-2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed.
-3. **Edited after `syncedAt`:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link>`.
-4. **Not edited since:** `link.markSynced --id <link>`, so the app shows it as checked. Add no note.
+1. Get them: `search.recall` returns its `links` with `syncedAt` and `sourceEditedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a sync doc (below), where a link without one is a source the user added by hand.
+2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed. Compare it with the link's `sourceEditedAt` (the doc's own time at the last sync, so clocks don't matter); a link without one is compared with `syncedAt`.
+3. **Edited since:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link> --sourceEditedAt <its last-edited time>`.
+4. **Not edited since:** `link.markSynced --id <link> --sourceEditedAt <the same time>`, so the app shows it as checked. Don't read the content, and add no note.
 5. **Tool not available, or the doc can't be read:** don't guess. Answer from the notebook and say how old it is ("the PRD was last checked 3 weeks ago").
 
 Then answer, leading with what's new: "Two updates since you last looked: the PRD moved launch to 12 Nov, and the Linear project is now In progress." Keep the summary to what changed; link the doc for the rest. Never copy a doc in bulk, and never change the user's own notes or todos because a doc disagrees: tell them instead.
@@ -262,7 +262,15 @@ The app stores PDFs but can't read them; you do the reading.
 
 1. Read the PDF and convert it to clean markdown, keeping headings, lists and tables.
 2. `remry doc.add --entityType PERSON --entityId <id> --title "<title>"`, then `remry doc.update --id <doc> --content-file /tmp/doc.md`
-3. To keep the original, upload it as a file link on the doc: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry link.upload --entityType DOC --entityId <doc> --fileName "<name>.pdf" --dataBase64-file /tmp/pdf.b64`; from a sandbox, `link_upload` only for a small file (**Files from the chat**). It shows in the doc's line of links, and `link_read` reads it back.
+3. To keep the original, upload it as a file link on the doc: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry link.upload --entityType DOC --entityId <doc> --fileName "<name>.pdf" --dataBase64-file /tmp/pdf.b64`; from a sandbox, `link_upload` only for a small file (**Files from the chat**). It shows in the doc's line of links, and `link_read` reads it back. Save the markdown on it too (`link.update --id <link> --text-file /tmp/doc.md`), so later reads skip the PDF (**Reading a file link**).
+
+## Reading a file link
+
+A file link can carry its **saved text** (`hasText` in `link.list`): the PDF or image written out once as markdown, with a `[Figure: …]` line for each chart, diagram, photo, signature or handwriting it couldn't hold. A text file's saved text is the file itself. The web app saves it with the user's own Claude when a file is uploaded there; from the tools you save it.
+
+- **`link_read --id`** returns the saved text when there is some (`savedTextOf: "pdf"` or `"image"` says what it stands for), else the file. Use it for routine questions: what's in it, summaries, quoting.
+- **Open the original** (`link_read --id --original true`) when the question is about what text can't hold (a chart's values, the layout, a signature, handwriting), when it touches a `[Figure: …]` line, or when the user points you at the file ("look at page 4"). For a focused question ("termination clauses"), read the original with that question and answer it in the chat or a note; the saved text stays as it is.
+- **No saved text yet** (a PDF or image read with `textSaved: false`): once you've read it, save its markdown, all its text in order with `[Figure: …]` lines, with `link_update --id --text`, so the next read is the cheap one. Rewrite it the same way when the saved text turns out poor; `--text null` clears it.
 
 ## Files from the chat
 

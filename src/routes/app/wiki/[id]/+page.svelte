@@ -20,7 +20,7 @@
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import { fileToBase64 } from '$lib/common/use-doc-handlers';
   import { fileUrl } from '$shared/utils/files';
-  import { convertFileLinkAndWait, newestFileLink, uploadFileLink } from '$lib/link/file-links';
+  import { convertFileLinkAndWait, newestFileLink, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import type { EditorImageType } from '$api/_images';
   import type { PageDetail, PageSummary } from '$shared/types/pages';
 
@@ -92,7 +92,9 @@
     const empty = !wikiPage.content.trim();
     const linkId = await uploadFileLink('PAGE', wikiPage.id, file);
     await invalidateAll();
+    // Writing the page saves the file's text too; otherwise save it on its own.
     if (empty) void handleConvert(linkId);
+    else transcribeInBackground(linkId);
   };
   const uploadSource = $derived(!wikiPage.archivedAt && !isSheet ? handleUploadSource : undefined);
 
@@ -197,7 +199,11 @@
   {reports}
   {relations}
   links={data.links}
-  onFileLinkUploaded={(linkId) => { if (!wikiPage.content.trim() && !isSheet) void handleConvert(linkId); }}
+  onFileLinkUploaded={(linkId) => {
+    if (wikiPage.content.trim() || isSheet) return false;
+    void handleConvert(linkId);
+    return true;
+  }}
   renderMeta={editing ? undefined : pageMeta}
 >
   {#snippet renderOverview()}

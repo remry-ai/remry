@@ -1,12 +1,12 @@
-// Converting an attached source file with the local Claude, for a doc or a wiki page: start the
-// job, then poll its status until it's done. Pure apart from the calls it's given.
+// A local Claude job on a file uploaded as a link (writing a doc or wiki page from it, or saving
+// its text): start the job, then poll its status until it's done. Pure apart from the calls it's given.
 
 import type { ConvertPdfResult, PdfConversionStatus } from '$shared/types/pdf-conversion';
 
 export interface ConvertCalls {
-  /** Starts the job (`doc.convertPdf`, `page.convertSource`). */
+  /** Starts the job (`link.convert`, `link.transcribe`). */
   readonly start: () => Promise<ConvertPdfResult>;
-  /** Its status (`doc.pdfConversion`, `page.sourceConversion`). */
+  /** Its status (`link.conversion`). */
   readonly status: () => Promise<PdfConversionStatus>;
   readonly wait: (ms: number) => Promise<void>;
 }

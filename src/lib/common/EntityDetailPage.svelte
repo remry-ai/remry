@@ -23,7 +23,7 @@
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
-  import { convertFileLinkAndWait, newestFileLink, uploadFileLink } from '$lib/link/file-links';
+  import { convertFileLinkAndWait, newestFileLink, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
@@ -103,8 +103,8 @@
     readonly relations?: readonly RelationGroup[];
     /** External links; the sidebar lists them, with their source tool and last sync, and adds one by hand. */
     readonly links?: readonly LinkItem[];
-    /** After a file is uploaded from the sidebar's Links, with its link's id (the wiki page writes itself from it while empty). */
-    readonly onFileLinkUploaded?: (linkId: string) => void;
+    /** After a file is uploaded from the sidebar's Links, with its link's id: true when it writes the page from it (an empty wiki page), which saves the file's text too. */
+    readonly onFileLinkUploaded?: (linkId: string) => boolean;
     /** Links between the list and the entity in the breadcrumb, such as a wiki page's parents. */
     readonly breadcrumbTrail?: readonly BreadcrumbLink[];
     /** Markdown, shown in an outlined box above the docs list. */
@@ -368,7 +368,9 @@
     if (!doc) return;
     const linkId = await uploadFileLink('DOC', doc.id, file);
     await loadDocLinks(doc.id);
+    // Writing the doc saves the file's text too; otherwise save it on its own.
     if (doc.content.trim() === '') void runFileConversion(doc.id, linkId);
+    else transcribeInBackground(linkId);
   };
 
   const docUploadFile = $derived(archivedAt ? undefined : handleUploadDocFile);

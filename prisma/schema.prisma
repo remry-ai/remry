@@ -386,6 +386,12 @@ model Link {
   url        String
   title      String?
   syncedAt   DateTime? @map("synced_at")
+  /// The source's own last-edited time when the entity was last synced from it (Notion's
+  /// last_edited_time, Linear's updatedAt): a newer one at the source means it changed since.
+  sourceEditedAt DateTime? @map("source_edited_at")
+  /// A file link's text, written once (by the app's local Claude, or by Claude) so a read
+  /// needn't open the PDF or image again; the original stays for what text can't hold.
+  text       String?
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([entityType, entityId])

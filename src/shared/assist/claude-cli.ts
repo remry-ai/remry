@@ -30,11 +30,16 @@ export const findClaude = (
   return [...onPath, ...fallbackLocations(env.HOME)].find(isExecutable) ?? null;
 };
 
+/** How Claude says it couldn't read the file, so its apology is never saved as the file's text. */
+export const UNREADABLE_MARKER = 'CANNOT_READ:';
+
 export const pdfPrompt = (fileName: string): string =>
   [
     `Read the file ./${fileName} (a PDF, an image or a text file) and convert it to GitHub-flavoured markdown.`,
     'Keep all of its text, in order. Use headings for its headings, markdown tables for its tables and lists for its lists.',
-    'Reply with only the markdown: no introduction, no commentary and no surrounding code fence.'
+    "Where something can't be written as text (a chart, a diagram, a photo, a signature, handwriting you can't read), put one line in square brackets saying what it is and what it shows, such as [Figure: revenue by quarter, rising from 2.1M to 3.4M], so a reader knows to look at the original.",
+    'Reply with only the markdown: no introduction, no commentary and no surrounding code fence.',
+    `If you can't read the file (it's empty, corrupt or not what its name says), reply with only ${UNREADABLE_MARKER} and the reason in one sentence.`
   ].join(' ');
 
 /** Arguments for `claude`, run with the source file's folder as the working directory. */
@@ -78,6 +83,10 @@ export const parseClaudeOutput = (stdout: string): Result<string> => {
   }
   const markdown = (FENCED.exec(result)?.[1] ?? result).trim();
   if (markdown === '') return err(new Error('Claude returned no markdown for this PDF, so the doc wasn\'t changed.'));
+  if (markdown.startsWith(UNREADABLE_MARKER)) {
+    const reason = markdown.slice(UNREADABLE_MARKER.length).trim();
+    return err(new Error(`Claude couldn't read the file${reason ? `: ${reason}` : '.'} Nothing was changed.`));
+  }
   return ok(markdown);
 };
 

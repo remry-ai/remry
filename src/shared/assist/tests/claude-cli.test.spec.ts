@@ -50,6 +50,11 @@ describe('parseClaudeOutput', () => {
     expect(parseClaudeOutput(reply({ result: '```markdown\n# Title\n```' }))).toEqual({ ok: true, value: '# Title' });
   });
 
+  it("fails, saving nothing, when Claude says it couldn't read the file", () => {
+    const result = parseClaudeOutput(reply({ result: "CANNOT_READ: It's 35 bytes, not a real PDF." }));
+    expect(!result.ok && result.error.message).toBe("Claude couldn't read the file: It's 35 bytes, not a real PDF. Nothing was changed.");
+  });
+
   it("passes on Claude's own error, such as an expired sign-in", () => {
     const result = parseClaudeOutput(reply({ is_error: true, result: 'Failed to authenticate: OAuth session expired' }));
     expect(result.ok).toBe(false);
