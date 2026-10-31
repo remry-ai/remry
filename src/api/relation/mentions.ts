@@ -1,5 +1,5 @@
 // MENTIONS relations, derived from app links in markdown content. Docs, notes,
-// reports and pages call syncMentions whenever their content is saved.
+// and pages call syncMentions whenever their content is saved.
 
 import type { Registry } from '$shared/registry';
 import { RELATABLE_TYPES, type RelatableType } from '$shared/types/enums';

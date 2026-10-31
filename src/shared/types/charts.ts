@@ -1,6 +1,6 @@
-// Chart specs for ```chart blocks in docs and reports, plus the legacy
+// Chart specs for ```chart blocks in docs and pages, plus the legacy
 // survey-shaped [chart:key] tags (results imported from form-engine).
-// Shared by the server (report validation) and the client (rendering).
+// Shared by the server (validation) and the client (rendering).
 
 import { z } from 'zod';
 import { ok, err, type Result } from '$shared/utils';

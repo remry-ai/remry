@@ -9,7 +9,6 @@ export const ENTITY_TYPES = [
   'PAGE',
   'DOC',
   'NOTE',
-  'REPORT',
   'TODO',
   'LINK',
   'TAG',
@@ -66,6 +65,6 @@ export const ARCHIVE_FILTERS = ['exclude', 'only', 'include'] as const;
 export type ArchiveFilter = (typeof ARCHIVE_FILTERS)[number];
 
 /** Entity types a relation can start or end at. */
-export const RELATABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'DOC', 'NOTE', 'REPORT', 'TODO'] as const;
+export const RELATABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'DOC', 'NOTE', 'TODO'] as const;
 
 export type RelatableType = (typeof RELATABLE_TYPES)[number];

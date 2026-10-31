@@ -137,7 +137,7 @@ Linear or Notion items it imports from turning into duplicates.
 `project.dependencies` returns every project `DEPENDS_ON` link and goal–project link in one call,
 with each goal's status and progress: the data behind the projects page's dependency map.
 
-**Backlinks are automatic.** Write a markdown link to an app path in a page, doc, note or report,
+**Backlinks are automatic.** Write a markdown link to an app path in a page, doc or note,
 and saving the content creates a `MENTIONS` relation — the target then shows "Mentioned in".
 
 ```markdown
@@ -206,7 +206,7 @@ number — not `"12%"`, not `null`, and never blank.
 Use **bar** to compare categories, **line** for a trend over time, and **radar** for a profile
 across three to eight dimensions on one scale.
 
-Remry validates chart blocks when it saves a **wiki page** or a report. If a chart is wrong,
+Remry validates chart blocks when it saves a **wiki page**. If a chart is wrong,
 it rejects the whole save and names the line of the opening fence:
 
 | Error | Fix |
@@ -220,9 +220,6 @@ Docs and notes render charts but do not validate them: a malformed block is left
 blocking the save. Check a chart by viewing the doc.
 
 Mermaid diagrams render too, in ```` ```mermaid ```` blocks.
-
-Reports — branded markdown with charts, printable to PDF — are built but turned off while they are
-unfinished. The flag is `features.reports`. Write finished write-ups as docs instead.
 
 ## Importing a PDF
 

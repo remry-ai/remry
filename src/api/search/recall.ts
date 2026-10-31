@@ -16,7 +16,6 @@ import { getProject } from '$api/project/operations';
 import { getGoal } from '$api/goal/operations';
 import { getPage } from '$api/page/operations';
 import { getDoc } from '$api/attached/doc/operations';
-import { getReport } from '$api/attached/report/operations';
 import { phraseQuery } from './fts-query';
 import { archivedIdList, queryIndex, searchableTypes } from './operations';
 
@@ -56,7 +55,6 @@ const loadEntity = async (reg: Pick<Registry, 'prisma'>, entityType: RelatableTy
     case 'GOAL': return getGoal(reg, id);
     case 'PAGE': return getPage(reg, id);
     case 'DOC': return getDoc(reg, id);
-    case 'REPORT': return getReport(reg, id);
     case 'NOTE': {
       const note = await reg.prisma.note.findUnique({ where: { id } });
       return note ? ok(note) : err(new Error(`No note with id ${id}`));

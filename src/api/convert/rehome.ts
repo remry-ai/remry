@@ -52,7 +52,7 @@ export const hasFileLinks = async (reg: Pick<Registry, 'prisma'>, of: Ref): Prom
 };
 
 /**
- * Moves the notes, todos, links, comments, reports, tags and emoji on `from` onto `to`, and
+ * Moves the notes, todos, links, comments, tags and emoji on `from` onto `to`, and
  * both ends of its relations (MENTIONS aside: those follow content, see `relinkMentions`).
  * `to` is new, so nothing it already has can clash. The old entity's page chat is dropped.
  */
@@ -70,7 +70,6 @@ export const rehomeAttachments = async (
     p.note.updateMany({ where, data }),
     p.todo.updateMany({ where, data }),
     p.comment.updateMany({ where, data }),
-    p.report.updateMany({ where, data }),
     p.tagAttachment.updateMany({ where, data }),
     p.emoji.updateMany({ where, data }),
     ...(options.docs ? [p.doc.updateMany({ where, data })] : []),
@@ -99,7 +98,6 @@ const readContent = async (reg: Pick<Registry, 'prisma'>, source: ContentSource)
     }
     case 'DOC': return (await p.doc.findUnique({ where: { id }, select: { content: true } }))?.content ?? null;
     case 'NOTE': return (await p.note.findUnique({ where: { id }, select: { content: true } }))?.content ?? null;
-    case 'REPORT': return (await p.report.findUnique({ where: { id }, select: { content: true } }))?.content ?? null;
     default: return null;
   }
 };
@@ -110,11 +108,10 @@ const writeContent = async (reg: Pick<Registry, 'prisma'>, source: ContentSource
   if (source.entityType === 'PAGE') await p.page.update(args);
   else if (source.entityType === 'DOC') await p.doc.update(args);
   else if (source.entityType === 'NOTE') await p.note.update(args);
-  else if (source.entityType === 'REPORT') await p.report.update(args);
 };
 
 /**
- * Rewrites every page, doc, note and report that links to the old entity (its MENTIONS) to
+ * Rewrites every page, doc and note that links to the old entity (its MENTIONS) to
  * link to `toPath` instead, and re-reads their mentions, so backlinks follow the conversion.
  * Returns how many it changed. It writes past an archived source on purpose: it only keeps
  * a link working.

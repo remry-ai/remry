@@ -24,11 +24,11 @@
   - `health`
   - `notebooks`: isolation of data and files, the `notebook` procedures, resolving the current notebook, `notebookHandle` (`?notebook=`, cookie, fallback), the files route, and moving a pre-notebooks data directory
   - `notebook`: person → group (team) → note → todo → tag
-  - `reports`: branding resolution, chart validation
   - `goals-wiki`: project owner, goal cascade, check-ins and progress, project links, mentions from content, relation and attachment cleanup on delete
   - `archive-leaks`: an archived entity of each type (and a doc on one) never shows through an active one's reads: lead and reports, members, children, a goal's projects, the Related list, counts, the org map, the home graph
   - `large-notebook`: 1,100 rows of each kind, with a hub of each type linked to all of them; every query procedure with each input it accepts, then deleting the hubs. It caught Prisma's assumed 999-value limit (see `prisma/CLAUDE.md`)
   - `link-text`: a file link's saved text (read before the file, `original` opens it, searchable, gone with the link; a text file's from the upload) and `sourceEditedAt` (set on add and `markSynced`, kept by one without it)
+  - `remove-reports`: the `remove_reports` migration's SQL on reports set up the old way: each becomes a doc with its id (a sub-page, on a wiki page), with its notes and relations, searchable, and the table is gone
   - `doc-sources-to-links`: the `doc_sources_to_links` migration's SQL on a doc with an attached PDF: it becomes a file link on the doc (read back with `link.read`) and the column is emptied
   - `convert`: `entity.convert` for each pair: a project tree into pages (attachments, relations, docs with images and prompts, links elsewhere rewritten) and back, notes with replies, and each refusal
   - `page-chat`: the Chat tab's saved conversation per entity, Clear, and cleanup when the entity is deleted

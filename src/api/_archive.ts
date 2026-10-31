@@ -61,8 +61,8 @@ const EXISTS: Readonly<Partial<Record<string, (reg: Pick<Registry, 'prisma'>, id
 };
 
 /**
- * Refuses to attach something (a note, doc, todo, link, tag, comment, emoji or
- * report) to an entity that doesn't exist, or to an archived one. Nothing
+ * Refuses to attach something (a note, doc, todo, link, tag, comment or emoji)
+ * to an entity that doesn't exist, or to an archived one. Nothing
  * polymorphic has a foreign key, so without this an attachment to a wrong id
  * would be stored and never shown.
  */

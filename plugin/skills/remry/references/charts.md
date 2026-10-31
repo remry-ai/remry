@@ -1,6 +1,6 @@
-# Charts in reports and docs
+# Charts in docs and wiki pages
 
-A chart is a fenced code block with the language `chart` containing JSON. It renders in the report editor, in doc and note views, and in the branded print/PDF view, using the report's brand colours.
+A chart is a fenced code block with the language `chart` containing JSON. It renders in the editor, in doc, page and note views, and in exported PDFs, in the branding's colours.
 
 ````markdown
 ```chart
@@ -49,7 +49,7 @@ No other keys are allowed. Colours come from branding: series fade from the bran
 
 ## When a save is rejected
 
-`report.create` and `report.update` refuse content with an invalid chart. The error names the line of the opening fence:
+`page.create` and `page.update` refuse content with an invalid chart (docs and notes save it, and leave a broken chart undrawn). The error names the line of the opening fence:
 
 | Error | Fix |
 |---|---|

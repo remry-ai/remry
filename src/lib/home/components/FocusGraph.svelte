@@ -3,7 +3,7 @@
   // away grouped by how the link reads ("Reports to", "Depends on"), and an
   // outer ring of what each of those links to in turn.
   // Clicking a neighbour moves it to the middle through `?focus=TYPE:id`, so
-  // Back returns to the previous one. Docs, notes, todos and reports can't be
+  // Back returns to the previous one. Docs, notes and todos can't be
   // the middle, so they open instead.
   import { goto } from '$app/navigation';
   import { page } from '$app/state';

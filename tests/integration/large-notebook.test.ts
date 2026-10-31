@@ -85,7 +85,6 @@ const seed = async (): Promise<void> => {
   await db.doc.createMany({ data: range('doc').map((id, i) => ({ id, title: `Big doc ${i}`, content: `Doc ${i}`, sortOrder: i, ...on })) });
   await db.link.createMany({ data: range('link').map((id, i) => ({ id, url: `https://example.com/${i}`, title: `Big link ${i}`, ...on })) });
   await db.comment.createMany({ data: range('comment').map((id, i) => ({ id, content: `Big comment ${i}`, ...on })) });
-  await db.report.createMany({ data: range('report').map((id, i) => ({ id, title: `Big report ${i}`, ...on })) });
   await db.tag.createMany({ data: range('tag').map((id, i) => ({ id, name: `big-tag-${i}` })) });
   await db.tagAttachment.createMany({ data: range('tag').map((tagId) => ({ tagId, ...on })) });
   await db.relation.createMany({

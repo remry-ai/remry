@@ -21,7 +21,6 @@
   const docs = $derived(data.docs);
   const notes = $derived(data.notes);
   const todos = $derived(data.todos);
-  const reports = $derived(data.reports);
   const relations = $derived(data.relations);
 
   const personOptions = $derived(data.allPersons.filter((p: { id: string }) => p.id !== person.id));
@@ -31,7 +30,7 @@
       .filter((g) => !person.groups.some((m) => m.id === g.id))
       .map((g) => ({ id: g.id, name: g.name, group: g.kindName }))
   );
-  const reports_ = $derived(person.extensions.org?.reports ?? []);
+  const directReports = $derived(person.extensions.org?.reports ?? []);
 
   const setField = async (field: PersonFieldDescriptor, value: string | null) => {
     await submitOrThrow(() => trpc().person.update.mutate({ id: person.id, extensions: fieldPatch(field, value) }));
@@ -69,7 +68,6 @@
   {docs}
   {notes}
   {todos}
-  {reports}
   {relations}
   links={data.links}
 >
@@ -117,11 +115,11 @@
     {#if $model.has('org')}
       <section class="section">
         <div class="section-header">
-          <h4>Direct reports <span class="count">{reports_.length}</span></h4>
+          <h4>Direct reports <span class="count">{directReports.length}</span></h4>
         </div>
-        {#if reports_.length > 0}
+        {#if directReports.length > 0}
           <ul class="list">
-            {#each reports_ as r (r.id)}
+            {#each directReports as r (r.id)}
               <EntityRow href="/app/people/{r.id}" label={r.name}>
                 {#if r.title}<span class="meta">{r.title}</span>{/if}
               </EntityRow>

@@ -59,7 +59,7 @@ export interface ConvertedItem {
 export interface ConvertResult extends ConvertedItem {
   /** Everything made, the item first, then its sub-pages, sub-projects or docs. */
   readonly created: readonly ConvertedItem[];
-  /** How many pages, docs, notes and reports had their links to the old item rewritten. */
+  /** How many pages, docs and notes had their links to the old item rewritten. */
   readonly relinked: number;
   readonly warnings: readonly string[];
 }

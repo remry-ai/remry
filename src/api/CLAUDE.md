@@ -20,7 +20,7 @@ Current domains, grouped into folders:
 - `entities/`: `ports.ts`, each type's label and archive state, which `_entity-labels` and `_archive` dispatch to
 - `entity`: `entity.archive` and `entity.delete`, one archive and one delete for every type, dispatching to `setArchived` and each domain's delete. The CLI and MCP offer these instead of the per-type procedures (`APP_ONLY` in `cli/api.ts`), which the app keeps using
 - `convert`: `entity.convert` (on the entity router), turning a project, doc or note into a wiki page and a page into a project, doc or note. See § Converting
-- `attached/` (named so, not `aux`, which Windows reserves as a device name; attach to any entity via `entityType` + `entityId`): `doc`, `note`, `todo`, `link`, `tag`, `comment`, `emoji`, `report`
+- `attached/` (named so, not `aux`, which Windows reserves as a device name; attach to any entity via `entityType` + `entityId`): `doc`, `note`, `todo`, `link`, `tag`, `comment`, `emoji`
 - flat (infra + top-level entities): `project`, `goal`, `page` (wiki pages), `relation`, `branding`, `home`, `search`, `health`, `trpc-meta`
 - `notebook`: lists, creates and renames notebooks and sets the default. It works on the notebook store (`ctx.notebooks`), not on a database. See § Notebooks.
 
@@ -78,15 +78,15 @@ Operations that can fail return `Result<T>`: `ok(value)` or `err(new Error(messa
 
 ## Polymorphic assets
 
-Docs, notes, reports, todos, links, comments, emoji and tag attachments hang off any entity through `entityType` + `entityId`. The exception is docs on a wiki page: `addDoc` refuses a type that fails `acceptsDocs` (`$shared/utils/entity`), and `EntityDetailPage` hides the docs list for it. Prisma returns `entityType` as `string`; cast to `EntityType` when mapping to typed results. `entityPath()` (`$shared/utils/entity`) gives the app route; `resolveEntityLabel()` (`$api/_entity-labels`) gives the display name.
+Docs, notes, todos, links, comments, emoji and tag attachments hang off any entity through `entityType` + `entityId`. The exception is docs on a wiki page: `addDoc` refuses a type that fails `acceptsDocs` (`$shared/utils/entity`), and `EntityDetailPage` hides the docs list for it. Prisma returns `entityType` as `string`; cast to `EntityType` when mapping to typed results. `entityPath()` (`$shared/utils/entity`) gives the app route; `resolveEntityLabel()` (`$api/_entity-labels`) gives the display name.
 
 Goal and project owners (`ownerType` + `ownerId`) and both ends of a relation are polymorphic in the same way, with no foreign key.
 
 ## Deletes
 
-Nothing polymorphic has a foreign key, so a delete cleans up after itself. Every delete (a person, group, project, goal or page, and a report, doc, note, todo, link or comment) calls `planEntityCleanup(reg, type, id)` and runs its `ops` in the same `$transaction` as the delete:
+Nothing polymorphic has a foreign key, so a delete cleans up after itself. Every delete (a person, group, project, goal or page, and a doc, note, todo, link or comment) calls `planEntityCleanup(reg, type, id)` and runs its `ops` in the same `$transaction` as the delete:
 
-- delete the docs, notes, reports, todos, links and comments attached to the entity **at any depth** (a comment on a note, a todo on that comment, replies to a note), found pass by pass until a pass finds nothing new
+- delete the docs, notes, todos, links and comments attached to the entity **at any depth** (a comment on a note, a todo on that comment, replies to a note), found pass by pass until a pass finds nothing new
 - delete the tag attachments, emoji and page chat of the entity and of all of those
 - delete relations at either end of any of them
 - clear goal and project owners that point at the entity
@@ -103,8 +103,8 @@ Goals and pages move their children up to their own parent; `wouldCreateCycle` (
 
 `entity.convert --entityType --id --to` (`convert/operations.ts`, `convertEntity`) turns `PROJECT`, `DOC` or `NOTE` into a `PAGE`, and a `PAGE` into a `PROJECT`, `DOC` or `NOTE`; other pairs are refused with what to use instead. The new item gets the old one's text (a project's facts and brief as a details list, `projectPageContent`; a sheet as a markdown table, `pageMarkdown`; pure parts in `convert/content.ts`), then:
 
-- **What's attached moves** (`rehomeAttachments`, `convert/rehome.ts`, one transaction): notes, todos, links, comments, reports, tags and emoji, and both ends of its relations except `MENTIONS`. The target is new, so nothing clashes. Its page chat is dropped. Files uploaded as links are copied into the new item's folder and their links pointed there (`moveLinks`), since the old folder goes with the old row.
-- **Links to it are rewritten** (`relinkMentions`): every page, doc, note and report with a `MENTIONS` relation to the old item gets its links pointed at the new path (`relinkContent`), then its mentions re-synced, so backlinks follow. It writes past an archived source on purpose.
+- **What's attached moves** (`rehomeAttachments`, `convert/rehome.ts`, one transaction): notes, todos, links, comments, tags and emoji, and both ends of its relations except `MENTIONS`. The target is new, so nothing clashes. Its page chat is dropped. Files uploaded as links are copied into the new item's folder and their links pointed there (`moveLinks`), since the old folder goes with the old row.
+- **Links to it are rewritten** (`relinkMentions`): every page, doc and note with a `MENTIONS` relation to the old item gets its links pointed at the new path (`relinkContent`), then its mentions re-synced, so backlinks follow. It writes past an archived source on purpose.
 - **Trees convert with it:** a project's sub-projects, then its docs, become sub-pages (docs keep their prompt, sources and images, which `createPage` adopts); a page's sub-pages become sub-projects, each page's text a doc on its project (a sync page's links go to that doc, as its sources). Goal links become links in the page's text.
 - **Then the old row is deleted** with `planEntityCleanup`, which by then finds only its own leftovers (its MENTIONS from content now on the new item).
 - It's several writes, not one transaction (pages and docs store files), so every refusal is checked before the first write: archived source, missing parent or holder, names already used by projects (unless `allowDuplicate`), a page with sub-pages going to a doc or note, a page with images or uploaded files going to a note (`hasFileLinks`). `tests/integration/convert.test.ts` covers each pair.
@@ -136,17 +136,17 @@ Relationships between two people are `person_relation` (`person-relation/operati
 - **Leads** are `LEAD_OF` person relations; `org_person` keeps only `title`. The org extension reads leads and reports from them and writes `extensions.org.leadId` through `setExclusiveRelation` (`ORG_PERSON` in `modules/person-extensions.ts`), so the org map and `person.update --extensions` work unchanged.
 - **Me.** `person.is_me` marks the notebook's owner (`person.setMe`, at most one). `person.list` and `person.get` return `toMe`: each relationship between that person and me, labelled from their side ("Child of", "Reports to"; `relationsToPerson`).
 
-- `MENTIONS` relations are derived. `syncMentions` (`relation/mentions.ts`) runs whenever page, doc, note or report content is saved. It reads app links with `extractEntityLinks` (`$shared/utils/mentions`, which skips code blocks and uses `parseEntityPath`), keeps the ones whose entity exists, and replaces that source's `MENTIONS` rows. Nothing matches by title, so a rename needs no rescan.
+- `MENTIONS` relations are derived. `syncMentions` (`relation/mentions.ts`) runs whenever page, doc or note content is saved. It reads app links with `extractEntityLinks` (`$shared/utils/mentions`, which skips code blocks and uses `parseEntityPath`), keeps the ones whose entity exists, and replaces that source's `MENTIONS` rows. Nothing matches by title, so a rename needs no rescan.
 - `relation.add`, `update` and `remove` refuse `MENTIONS`; only the sync writes them.
 - Any new content save must call `syncMentions` after it writes.
 
 ## Search
 
-`search.query` and `search.recall` (`search/`) read one FTS5 table, `search_index`: a row per entity, note, doc, report, todo, comment, link and goal check-in, with `entity_type`, `entity_id`, `parent_type`/`parent_id` (what an attachment hangs off), `title` and `body`. It uses the porter tokenizer with diacritics removed, so "leaving" finds "leave" and "cafe" finds "café".
+`search.query` and `search.recall` (`search/`) read one FTS5 table, `search_index`: a row per entity, note, doc, todo, comment, link and goal check-in, with `entity_type`, `entity_id`, `parent_type`/`parent_id` (what an attachment hangs off), `title` and `body`. It uses the porter tokenizer with diacritics removed, so "leaving" finds "leave" and "cafe" finds "café".
 
 - **Triggers keep it current.** The `add_search_index` migration puts `AFTER INSERT/UPDATE/DELETE` triggers on every indexed table and backfills existing rows. No operation writes to the index, so a new write path needs nothing. `page_chat`, relation notes and tag names aren't indexed.
 - **Raw input never reaches `MATCH`.** `buildFtsQuery` (`search/fts-query.ts`) rebuilds the query from its letters and digits: words ANDed with a prefix match, `"phrases"`, `OR`, `-exclude`. `phraseQuery` quotes a name.
-- **Filters run in SQL:** types (reports only while `features.reports` is on), `within` one entity and its attachments, and hidden ids (archived entities and what's attached to them, from `loadArchivedIds`). Ranking is `bm25` with titles weighted 10×.
+- **Filters run in SQL:** types, `within` one entity and its attachments, and hidden ids (archived entities and what's attached to them, from `loadArchivedIds`). Ranking is `bm25` with titles weighted 10×.
 - `search.recall` gathers one entity for Claude: the type's own `get`, its attachments (capped, with `truncated`; links carry `syncedAt` and `sourceEditedAt`, so Claude sees which sources to check and what to compare, and `docSources` are the links on its docs, each with its `docId`), relations, owned goals and projects, and `unlinkedMentions`, a phrase search for its name that leaves out the entity, what's attached to it, and sources that already link to it (MENTIONS).
 - **Indexing a new table or field** takes a new migration: drop and recreate the affected triggers, then `DELETE FROM search_index WHERE entity_type = '<TYPE>'` and backfill with an `INSERT … SELECT`. Add the table to the trigger list in `tests/integration/search.test.ts`, the type to `SEARCH_TYPES` (`$shared/types/search`), and its path to `hitPath`.
 - Prisma doesn't know about any of this; see `prisma/CLAUDE.md` § Migrations.
@@ -207,11 +207,9 @@ A page is a document or a spreadsheet, with no kinds or fields. Page kinds (`pag
 - **Moving a doc, and images from elsewhere:** `doc.update --entityType --entityId` moves a doc to a person, group, project or goal (`DOC_HOLDERS`; a wiki page takes no docs, but `entity.convert --to PAGE` turns one into a page), last in its list. It keeps its id, so its `docs/<id>/` folder, links (file links among them), notes and prompt go with it. Before, Claude moved a doc by copying its text into a new doc and deleting the old one, and the copy's images were deleted with the old doc's folder. So every save of doc or page text (`updateDoc`, `createPage`, `updatePage`) also runs `adoptForeignImages`: an image the text shows from another doc's or page's folder (`foreignImagesIn`, pure; it also looks in that folder's `removed/`) is copied into this one's folder and the text points at the copy. It also looks in the trash, so the order of a copy and a delete doesn't matter within a day. One gone for good stays as it is.
 - **Branding:** images upload as base64 through `branding.uploadImage`, which returns a storage key. `branding.update` saves the key and deletes any file it replaces.
 
-## Reports
+## Charts
 
-A `Report` is markdown attached to an entity, with an optional `brandingId`. `getReport` resolves branding as: the report's own, else the default profile, else none. The print view is `/app/reports/<id>/print`.
-
-`createReport`, `updateReport`, `createPage` and `updatePage` run `validateChartBlocks` (`$shared/types/charts`) and reject the write if any chart block is invalid. Chart blocks are fenced `chart` code blocks containing JSON:
+`createPage` and `updatePage` run `validateChartBlocks` (`$shared/types/charts`) and reject the write if any chart block is invalid. Chart blocks are fenced `chart` code blocks containing JSON:
 
 ````markdown
 ```chart
@@ -232,7 +230,7 @@ A `Report` is markdown attached to an entity, with an optional `brandingId`. `ge
 - `labels`: 1–100 strings
 - `series`: 1–6 series, each with exactly one number per label, an optional `label` and an optional `color` (`#rrggbb`)
 - Optional: `title`, `min`, `max`. No other keys are allowed.
-- Charts render in brand colours in the editor, in doc/note views and in the print view. A series with a `color` draws its line, bars or area in that colour instead; the others fade from the brand colour.
+- Charts render in brand colours in the editor, in doc, page and note views, and in exported PDFs. A series with a `color` draws its line, bars or area in that colour instead; the others fade from the brand colour.
 - Legacy `[chart:key]` tags (`avg_by_section`, `scores:<section>`, `radar:<section>`) render survey sections and are reserved for results imported from form-engine.
 
 ## Adding a domain

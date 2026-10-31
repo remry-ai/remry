@@ -7,7 +7,6 @@ import { ok, err, type Result } from '$shared/utils';
 import type { EntityType } from '$shared/types/enums';
 import { SEARCH_TYPES, type SearchHit, type SearchResults, type SearchType } from '$shared/types/search';
 import { docPath, entityPath } from '$shared/utils/entity';
-import { features } from '$shared/settings/base/features';
 import { resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds } from '$api/_archive';
 import { summarizeContent } from '$api/home/operations';
@@ -36,7 +35,7 @@ const parentOf = (row: IndexRow): { readonly entityType: EntityType; readonly en
 export const hitPath = (row: IndexRow): string => {
   const type = row.entity_type as SearchType;
   const parent = parentOf(row);
-  if (type === 'REPORT' || !parent) return entityPath(type === 'GOAL_CHECKIN' ? 'GOAL' : (type as EntityType), row.entity_id);
+  if (!parent) return entityPath(type === 'GOAL_CHECKIN' ? 'GOAL' : (type as EntityType), row.entity_id);
   if (type === 'DOC') return docPath(parent.entityType, parent.entityId, row.entity_id);
   const base = entityPath(parent.entityType, parent.entityId);
   return type === 'TODO' ? `${base}?popup=todo&todo=${row.entity_id}` : base;
@@ -46,9 +45,9 @@ export const hitPath = (row: IndexRow): string => {
 export const hitName = (row: IndexRow): string =>
   row.title.trim() || summarizeContent(row.body_start) || '(empty)';
 
-/** Types to search: the ones asked for (all by default), less reports while they're switched off. */
-export const searchableTypes = (asked: readonly SearchType[] | undefined, reports = features.reports): readonly SearchType[] =>
-  (asked && asked.length > 0 ? asked : SEARCH_TYPES).filter((t) => reports || t !== 'REPORT');
+/** Types to search: the ones asked for, all by default. */
+export const searchableTypes = (asked: readonly SearchType[] | undefined): readonly SearchType[] =>
+  asked && asked.length > 0 ? asked : SEARCH_TYPES;
 
 // ----- Queries -----
 

@@ -1,11 +1,11 @@
-// Whether each section of an entity page's left drawer (Related, Links, Reports) is open. A
+// Whether each section of an entity page's left drawer (Related, Links) is open. A
 // per-browser preference, so localStorage is enough; the page renders the default first and the
 // remembered choice once mounted, since the server can't see it.
 
-export type SidebarSection = 'relations' | 'links' | 'reports';
+export type SidebarSection = 'relations' | 'links';
 
 /** Related starts folded: it's often long, and the page names most of it already. */
-export const SECTION_OPEN_BY_DEFAULT: Readonly<Record<SidebarSection, boolean>> = { relations: false, links: true, reports: true };
+export const SECTION_OPEN_BY_DEFAULT: Readonly<Record<SidebarSection, boolean>> = { relations: false, links: true };
 
 const storageKey = (section: SidebarSection): string => `wn-sidebar-${section}`;
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { marked, Renderer } from 'marked';
   import type { Chart } from 'chart.js';
-  import { mountCharts } from '$lib/report/chart-render';
+  import { mountCharts } from '$lib/chart/chart-render';
   import { fileUrl } from '$shared/utils/files';
   import type { ChartBranding } from '$shared/types/branding';
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';

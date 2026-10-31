@@ -80,7 +80,7 @@ src/
 Ask "who imports this?" Only the backend → `src/api/`. Both → `src/shared/`. Only the frontend →
 `src/lib/`.
 
-Conventions, the Registry, `Result`, the report chart spec and the schema rules are in
+Conventions, the Registry, `Result`, the chart spec and the schema rules are in
 [CLAUDE.md](../CLAUDE.md) and the scoped `CLAUDE.md` files under `src/api/`, `src/lib/`,
 `src/routes/`, `prisma/` and `tests/`.
 

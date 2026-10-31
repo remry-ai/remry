@@ -6,7 +6,7 @@
   "author": {
     "name": "jweatherby"
   },
-  "keywords": ["notes", "org-chart", "todos", "reports", "local-first"],
+  "keywords": ["notes", "org-chart", "todos", "docs", "local-first"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }

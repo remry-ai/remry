@@ -5,7 +5,6 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { features } from '$shared/settings/base/features';
 
 const REMRY = resolve('bin/remry');
 const cwd = mkdtempSync(join(tmpdir(), 'remry-cli-'));
@@ -26,8 +25,7 @@ describe('remry CLI', () => {
     const help = remry('help');
     expect(help.code).toBe(0);
     expect(help.stdout).toContain('page.create (mutation)');
-    // report.* stays out of the CLI while reports are switched off.
-    expect(help.stdout.includes('report.create (mutation)')).toBe(features.reports);
+    expect(help.stdout).not.toContain('report.');
     expect(help.stdout).not.toMatch(/\b(auth|org|forms)\./);
 
     const one = remry('help', 'todo.create');

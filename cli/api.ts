@@ -10,7 +10,6 @@ import { listProcedures, type ProcedureMeta } from '$shared/trpc/meta';
 import { resolveCurrentNotebook } from '$shared/notebooks/current.server';
 import { notebookFromEnv } from '$shared/notebooks/resolve';
 import { closeRegistries } from '$shared/registry.server';
-import { features } from '$shared/settings/base/features';
 
 /**
  * Procedures the app uses that the CLI and MCP leave out, so Claude chooses among fewer tools.
@@ -29,9 +28,7 @@ export const APP_ONLY: ReadonlySet<string> = new Set([
   'doc.titles'
 ]);
 
-// report.* stays out while reports are switched off.
-export const procedures: readonly ProcedureMeta[] = listProcedures(appRouter, APP_ONLY)
-  .filter((p) => features.reports || !p.name.startsWith('report.'));
+export const procedures: readonly ProcedureMeta[] = listProcedures(appRouter, APP_ONLY);
 
 export interface InputIssue {
   /** Dotted path of the offending field; empty for the input as a whole. */

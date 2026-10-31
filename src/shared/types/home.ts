@@ -10,7 +10,6 @@ export const UPDATE_KINDS = [
   'PAGE',
   'DOC',
   'NOTE',
-  'REPORT',
   'TODO'
 ] as const;
 
@@ -59,7 +58,7 @@ export interface FocusNode {
   readonly type: RelatableType;
   readonly label: string;
   readonly href: string;
-  /** Whether it can be the middle; a doc, note, todo or report only opens. */
+  /** Whether it can be the middle; a doc, note or todo only opens. */
   readonly focusable: boolean;
 }
 

@@ -198,7 +198,7 @@
           </Field>
           <label class="toggle">
             <input type="checkbox" role="switch" bind:checked={isDefault} />
-            <span>Default profile, used by reports that don't pick a branding</span>
+            <span>Default profile, used by PDF exports that don't pick a branding</span>
           </label>
         </div>
       </section>
@@ -255,7 +255,7 @@
               {/if}
             {/snippet}
           </Field>
-          <Field label="Logo" hint="Horizontal, shown on reports">
+          <Field label="Logo" hint="Horizontal, shown on exported PDFs">
             {#snippet children({ id })}
               <input {id} type="file" accept="image/*" onchange={(e) => handleFileSelect(e, 'logo')} />
               {#if logoPreview}

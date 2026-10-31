@@ -22,7 +22,6 @@ export const ENTITY_DESCRIPTORS: Readonly<Record<EntityType, EntityDescriptor>> 
   PAGE: { type: 'PAGE', singular: 'Page', plural: 'Wiki', segment: 'wiki', slash: 'wiki' },
   DOC: { type: 'DOC', singular: 'Doc', plural: 'Docs' },
   NOTE: { type: 'NOTE', singular: 'Note', plural: 'Notes' },
-  REPORT: { type: 'REPORT', singular: 'Report', plural: 'Reports', segment: 'reports' },
   TODO: { type: 'TODO', singular: 'Todo', plural: 'Todos' },
   LINK: { type: 'LINK', singular: 'Link', plural: 'Links' },
   TAG: { type: 'TAG', singular: 'Tag', plural: 'Tags' },

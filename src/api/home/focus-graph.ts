@@ -18,7 +18,6 @@ import {
 } from '$shared/types/home';
 import { entityTypeLabel } from '$shared/utils/entity';
 import type { NotebookModel } from '$shared/modules/model';
-import { features } from '$shared/settings/base/features';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { loadArchivedIds } from '$api/_archive';
 import { listRelationsForEntity } from '$api/relation/operations';
@@ -240,7 +239,7 @@ const loadLinks = async (
   const isArchived = (node: FocusNode): boolean =>
     isFocusType(node.type) && (archived.get(node.type) ?? []).includes(node.id);
   return ok([...structural, ...relationLinks].filter(
-    ({ node }) => !isArchived(node) && model.shows(node.type) && (features.reports || node.type !== 'REPORT')
+    ({ node }) => !isArchived(node) && model.shows(node.type)
   ));
 };
 

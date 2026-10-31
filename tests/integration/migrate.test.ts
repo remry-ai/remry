@@ -36,7 +36,8 @@ describe('applyMigrations', () => {
     expect(Number(first[3])).toBe(1);
 
     const tables = (await client.execute("SELECT name FROM sqlite_master WHERE type = 'table'")).rows.map((r) => r[0]);
-    expect(tables).toEqual(expect.arrayContaining(['person', 'group', 'group_member', 'org_person', 'personal_person', 'report', 'branding']));
+    expect(tables).toEqual(expect.arrayContaining(['person', 'group', 'group_member', 'org_person', 'personal_person', 'branding']));
+    expect(tables).not.toContain('report');
     client.close();
   });
 

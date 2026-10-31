@@ -24,7 +24,7 @@ const folderOf = (entityType: string, entityId: string): readonly string[] => {
 };
 
 // Rows that are attached to an entity and can have attachments of their own.
-const ATTACHED_TYPES = ['DOC', 'NOTE', 'REPORT', 'TODO', 'LINK', 'COMMENT'] as const;
+const ATTACHED_TYPES = ['DOC', 'NOTE', 'TODO', 'LINK', 'COMMENT'] as const;
 type AttachedType = (typeof ATTACHED_TYPES)[number];
 
 interface Ref {
@@ -66,7 +66,7 @@ const collectAttached = async (
   roots: readonly Ref[]
 ): Promise<{ readonly ids: Readonly<Record<AttachedType, readonly string[]>> }> => {
   const p = reg.prisma;
-  const ids: Record<AttachedType, string[]> = { DOC: [], NOTE: [], REPORT: [], TODO: [], LINK: [], COMMENT: [] };
+  const ids: Record<AttachedType, string[]> = { DOC: [], NOTE: [], TODO: [], LINK: [], COMMENT: [] };
   const seen = new Set(roots.map((r) => `${r.entityType}:${r.entityId}`));
   let frontier: readonly Ref[] = roots;
 
@@ -78,15 +78,14 @@ const collectAttached = async (
       return Promise.all([
         p.doc.findMany({ where, select }),
         p.note.findMany({ where, select }),
-        p.report.findMany({ where, select }),
         p.todo.findMany({ where, select }),
         p.link.findMany({ where, select }),
         p.comment.findMany({ where, select }),
         type === 'NOTE' ? p.note.findMany({ where: { parentId: { in: batch } }, select }) : Promise.resolve([])
       ]);
     }));
-    const [docs, notes, reports, todos, links, comments, replies] = [0, 1, 2, 3, 4, 5, 6].map((i) => found.flatMap((rows) => rows[i]!)) as [
-      { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[]
+    const [docs, notes, todos, links, comments, replies] = [0, 1, 2, 3, 4, 5].map((i) => found.flatMap((rows) => rows[i]!)) as [
+      { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[], { id: string }[]
     ];
 
     const next: Ref[] = [];
@@ -101,7 +100,6 @@ const collectAttached = async (
     };
     add('DOC', docs);
     add('NOTE', [...notes, ...replies]);
-    add('REPORT', reports);
     add('TODO', todos);
     add('LINK', links);
     add('COMMENT', comments);
@@ -134,7 +132,6 @@ export const planEntityCleanup = async (
     ops: [
       ...byId('DOC').map((args) => p.doc.deleteMany(args)),
       ...byId('NOTE').map((args) => p.note.deleteMany(args)),
-      ...byId('REPORT').map((args) => p.report.deleteMany(args)),
       ...byId('TODO').map((args) => p.todo.deleteMany(args)),
       ...byId('LINK').map((args) => p.link.deleteMany(args)),
       ...byId('COMMENT').map((args) => p.comment.deleteMany(args)),

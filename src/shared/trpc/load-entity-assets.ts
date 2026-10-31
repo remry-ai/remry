@@ -16,7 +16,6 @@ type LinkItem = UnwrapResult<QueryResult<Client['link']['list']['query']>> exten
 type TagItem = UnwrapResult<QueryResult<Client['tag']['forEntity']['query']>> extends readonly (infer U)[] ? U : never;
 type EmojiItem = UnwrapResult<QueryResult<Client['emoji']['list']['query']>> extends readonly (infer U)[] ? U : never;
 type TodoItem = QueryResult<Client['todo']['forEntity']['query']> extends readonly (infer U)[] ? U : never;
-type ReportItem = UnwrapResult<QueryResult<Client['report']['forEntity']['query']>> extends readonly (infer U)[] ? U : never;
 type RelationGroupItem = UnwrapResult<QueryResult<Client['relation']['forEntity']['query']>> extends readonly (infer U)[] ? U : never;
 
 export interface EntityAssets {
@@ -27,7 +26,6 @@ export interface EntityAssets {
   readonly tags: readonly TagItem[];
   readonly emojis: readonly EmojiItem[];
   readonly todos: readonly TodoItem[];
-  readonly reports: readonly ReportItem[];
   readonly relations: readonly RelationGroupItem[];
 }
 
@@ -38,7 +36,7 @@ export const loadEntityAssets = async (
 ): Promise<EntityAssets> => {
   const input = { entityType: entityType as 'PROJECT', entityId };
 
-  const [docs, notes, comments, links, tags, emojis, todos, reports, relations] = await Promise.all([
+  const [docs, notes, comments, links, tags, emojis, todos, relations] = await Promise.all([
     client.doc.list.query(input),
     client.note.list.query(input),
     client.comment.list.query(input),
@@ -46,7 +44,6 @@ export const loadEntityAssets = async (
     client.tag.forEntity.query(input),
     client.emoji.list.query(input),
     client.todo.forEntity.query(input),
-    client.report.forEntity.query(input),
     client.relation.forEntity.query(input),
   ]);
 
@@ -58,7 +55,6 @@ export const loadEntityAssets = async (
     tags: tags.ok ? tags.value : [],
     emojis: emojis.ok ? emojis.value : [],
     todos,
-    reports: reports.ok ? reports.value : [],
     relations: relations.ok ? relations.value : [],
   };
 };

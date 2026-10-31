@@ -100,7 +100,7 @@ const main = async (): Promise<number> => {
         console.log(`${notebook.name} (${notebook.id})`);
         for (const s of snapshots) {
           const c = s.manifest.counts;
-          console.log(`  ${s.id}  ${size(s.manifest.bytes).padStart(9)}  people ${c['person'] ?? 0}, projects ${c['project'] ?? 0}, notes ${c['note'] ?? 0}, reports ${c['report'] ?? 0}, files ${s.manifest.files.length}  — ${s.manifest.reason}`);
+          console.log(`  ${s.id}  ${size(s.manifest.bytes).padStart(9)}  people ${c['person'] ?? 0}, projects ${c['project'] ?? 0}, notes ${c['note'] ?? 0}, docs ${c['doc'] ?? 0}, files ${s.manifest.files.length}  — ${s.manifest.reason}`);
         }
         console.log(`  ${snapshots.length} snapshot(s) in ${backupsDir(settings, notebook.id)}\n`);
       }

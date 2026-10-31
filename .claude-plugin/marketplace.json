@@ -14,7 +14,7 @@
       "description": "Lets Claude read and write your local Remry notebooks (work, personal projects): org chart, projects, goals, a wiki, notes, docs and todos. Needs the Remry desktop app (Mac or Windows), or a clone of the repo.",
       "version": "0.16.60",
       "category": "productivity",
-      "keywords": ["notes", "org-chart", "todos", "reports", "local-first"]
+      "keywords": ["notes", "org-chart", "todos", "docs", "local-first"]
     }
   ]
 }

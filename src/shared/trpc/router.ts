@@ -15,7 +15,6 @@ import { personRouter } from '$api/person/routes';
 import { groupRouter } from '$api/group/routes';
 import { groupKindRouter } from '$api/group-kind/routes';
 import { docRouter } from '$api/attached/doc/routes';
-import { reportRouter } from '$api/attached/report/routes';
 import { noteRouter } from '$api/attached/note/routes';
 import { linkRouter } from '$api/attached/link/routes';
 import { tagRouter } from '$api/attached/tag/routes';
@@ -48,7 +47,6 @@ export const appRouter = router({
   group: groupRouter,
   groupKind: groupKindRouter,
   doc: docRouter,
-  report: reportRouter,
   note: noteRouter,
   link: linkRouter,
   tag: tagRouter,

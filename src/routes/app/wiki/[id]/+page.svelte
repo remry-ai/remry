@@ -30,7 +30,6 @@
   const docs = $derived(data.docs);
   const notes = $derived(data.notes);
   const todos = $derived(data.todos);
-  const reports = $derived(data.reports);
   const relations = $derived(data.relations);
   const allPages = $derived(data.allPages as readonly PageSummary[]);
 
@@ -206,7 +205,6 @@
   {docs}
   {notes}
   {todos}
-  {reports}
   {relations}
   links={data.links}
   onFileLinkUploaded={(linkId) => {

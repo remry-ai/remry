@@ -19,7 +19,6 @@
   import NoteEditor from '$lib/common/NoteEditor.svelte';
   import Popup from '$lib/common/Popup.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import ReportsWidget from '$lib/report/components/ReportsWidget.svelte';
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
@@ -34,7 +33,6 @@
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
-  import { features } from '$shared/settings/base/features';
   import { acceptsDocs } from '$shared/utils/entity';
 
   interface DocItem {
@@ -63,11 +61,6 @@
     readonly completedAt: Date | null;
   }
 
-  interface ReportItem {
-    readonly id: string;
-    readonly title: string;
-    readonly updatedAt: Date | string;
-  }
 
   interface LinkItem {
     readonly id: string;
@@ -100,7 +93,6 @@
     readonly docs: readonly DocItem[];
     readonly notes: readonly NoteItem[];
     readonly todos: readonly TodoItem[];
-    readonly reports?: readonly ReportItem[];
     readonly relations?: readonly RelationGroup[];
     /** External links; the sidebar lists them, with their source tool and last sync, and adds one by hand. */
     readonly links?: readonly LinkItem[];
@@ -131,7 +123,6 @@
     docs,
     notes,
     todos,
-    reports = [],
     relations = [],
     links = [],
     onFileLinkUploaded,
@@ -439,11 +430,6 @@
 
 <DetailLayout>
   {#snippet sidebar()}
-    {#if features.reports}
-      <div class="section">
-        <ReportsWidget {entityType} {entityId} {reports} />
-      </div>
-    {/if}
     <div class="section">
       <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} collapsible />
     </div>

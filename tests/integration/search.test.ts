@@ -33,7 +33,7 @@ describe('search index triggers', () => {
     const rows = await reg.prisma.$queryRawUnsafe<{ name: string }[]>(
       "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name GLOB 'search_*' ORDER BY name"
     );
-    const tables = ['comment', 'doc', 'goal', 'goal_check_in', 'group', 'link', 'note', 'org_person', 'page', 'person', 'personal_person', 'project', 'report', 'todo'];
+    const tables = ['comment', 'doc', 'goal', 'goal_check_in', 'group', 'link', 'note', 'org_person', 'page', 'person', 'personal_person', 'project', 'todo'];
     expect(rows.map((r) => r.name)).toEqual(tables.flatMap((t) => ['ad', 'ai', 'au'].map((e) => `search_${t}_${e}`)).sort());
   });
 

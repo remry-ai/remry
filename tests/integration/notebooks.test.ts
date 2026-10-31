@@ -89,10 +89,10 @@ describe('notebooks', () => {
   });
 
   it('switches with ?notebook=, remembers it in a cookie, and falls back to the default', async () => {
-    const link = fakeEvent('http://127.0.0.1:7369/app/reports/r1?notebook=other&popup=x');
+    const link = fakeEvent('http://127.0.0.1:7369/app/wiki/p1?notebook=other&popup=x');
     const redirected = await notebookHandle({ event: link.event as never, resolve: page });
     expect(redirected.status).toBe(303);
-    expect(redirected.headers.get('location')).toBe('/app/reports/r1?popup=x');
+    expect(redirected.headers.get('location')).toBe('/app/wiki/p1?popup=x');
     expect(redirected.headers.get('set-cookie')).toBe(`${NOTEBOOK_COOKIE}=${OTHER_NOTEBOOK}`);
 
     const data = fakeEvent('http://127.0.0.1:7369/app?notebook=other', undefined, true);

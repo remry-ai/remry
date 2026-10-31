@@ -51,13 +51,13 @@ Everything belongs to one user; there are no accounts, orgs or permissions. Ids 
 
 **Page**: `title`, `bodyType` (`doc`, the default, or `sheet`), `parentId?` (the page tree), `content` (markdown for a `doc`; JSON for a `sheet`, below), and `prompt?` (makes it a sync page). Pages have no kinds or fields: keep a record's details as a list at the top of its text, or many records of one shape as rows of a spreadsheet page. Procedures: `page.list` (filter `parentId`), `page.get`, `page.create` (returns `{ id, path }`), `page.update`.
 
-- Chart blocks in page content are validated like reports.
+- Chart blocks in page content are validated on save (see `references/charts.md`).
 - **Spreadsheet pages** (`bodyType: sheet`): `content` is JSON, `{"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]}`. Cells are strings (numbers are accepted and stored as text), up to 100 columns and 2000 rows, and a row may be shorter than the column list. A cell starting with `=` is a formula (`SUM`, `AVERAGE`, `MIN`, `MAX`, `IF`, cell references like `B2` and ranges like `B2:B5`); the app evaluates it. `page.get` also returns `values`: what each cell showed when the page was last saved in the app. Until then a formula you wrote reads as its text there and in search and print, so tell the user to open the page once. `page.update --content` replaces the whole sheet, so `page.get` it first and send it back changed. `bodyType` can change only while the page is empty (a document with no text, or a sheet with no filled cells). A sheet's content makes no mentions.
 - Deleting a page moves its sub-pages up to its parent. A parent that would make a loop is rejected.
 
 ## Relations
 
-A relation links two entities, with a `kind` and an optional `note` (up to 1000 characters). Either end is `PERSON`, `GROUP`, `PROJECT`, `GOAL`, `PAGE`, `DOC`, `NOTE`, `REPORT` or `TODO`. Procedures: `relation.add` (`fromType`, `fromId`, `toType`, `toId`, `kind`, `note`), `relation.update` (`id`, `kind?`, `note?`), `relation.remove`, `relation.forEntity` (`entityType`, `entityId`).
+A relation links two entities, with a `kind` and an optional `note` (up to 1000 characters). Either end is `PERSON`, `GROUP`, `PROJECT`, `GOAL`, `PAGE`, `DOC`, `NOTE` or `TODO`. Procedures: `relation.add` (`fromType`, `fromId`, `toType`, `toId`, `kind`, `note`), `relation.update` (`id`, `kind?`, `note?`), `relation.remove`, `relation.forEntity` (`entityType`, `entityId`).
 
 | Kind | From the `from` side | From the `to` side |
 |---|---|---|
@@ -71,7 +71,7 @@ Those are the only kinds. Relationships between people are person relations (bel
 - For a link that's neither ("uses", "replaces"), use `RELATED` with a `note`.
 - `relation.forEntity` returns both directions, grouped by the label from that entity's side, and each item has the other entity's name and `path`.
 - `project.dependencies` (`--archived`) lists every project-to-project `DEPENDS_ON` link (`fromId` depends on `toId`), every goal–project link, and those goals' status and progress in one call. It feeds the projects page's dependency map (`/app/projects?view=map`).
-- **`MENTIONS` is derived.** When a page, doc, note or report's content is saved, each markdown link to an app path (`/app/wiki/<id>`, relative or on the app's loopback address) becomes a `MENTIONS` relation from that page, doc, note or report to the target. Paths are `/app/people/`, `/app/groups/`, `/app/projects/`, `/app/goals/`, `/app/wiki/` and `/app/reports/`, each followed by the id. Links in code blocks and links to ids that don't exist are ignored. `relation.add`, `update` and `remove` refuse `MENTIONS`.
+- **`MENTIONS` is derived.** When a page's, doc's or note's content is saved, each markdown link to an app path (`/app/wiki/<id>`, relative or on the app's loopback address) becomes a `MENTIONS` relation from that page, doc or note to the target. Paths are `/app/people/`, `/app/groups/`, `/app/projects/`, `/app/goals/` and `/app/wiki/`, each followed by the id. Links in code blocks and links to ids that don't exist are ignored. `relation.add`, `update` and `remove` refuse `MENTIONS`.
 
 ## Person relations
 
@@ -94,9 +94,9 @@ Kinds are the notebook's own: `personRelationKind.list` (with their use), `creat
 
 ## Things attached to any entity
 
-These use `entityType` + `entityId`, where `entityType` is `PERSON`, `GROUP`, `PROJECT`, `GOAL` or `PAGE` (also `DOC`, `NOTE`, `REPORT`, `TODO`, `LINK`, `TAG`, `COMMENT`, `EMOJI`).
+These use `entityType` + `entityId`, where `entityType` is `PERSON`, `GROUP`, `PROJECT`, `GOAL` or `PAGE` (also `DOC`, `NOTE`, `TODO`, `LINK`, `TAG`, `COMMENT`, `EMOJI`).
 
-Deleting a person, group, project, goal, page or report also deletes everything attached to it and its relations, and clears any goal or project owner that pointed at it. Removing a doc, note or todo deletes its relations.
+Deleting a person, group, project, goal or page also deletes everything attached to it and its relations, and clears any goal or project owner that pointed at it. Removing a doc, note or todo deletes its relations.
 
 | Entity | Fields | Procedures |
 |---|---|---|
@@ -111,20 +111,20 @@ Todo `status` is one of `PENDING ACTIVE COMPLETE CANCELLED`. `todo.list` returns
 
 `link.find --url` compares URLs normalized: protocol, `www.`, host case, a trailing slash, the fragment and tracking parameters (`utm_*` and similar) don't matter, but the path's case and other query parameters do. `--contains` matches any part of the URL, ignoring case. Either returns at most 50 links, newest first, leaving out links on deleted entities. Use it to find the entity an imported item (a Linear issue, a Notion page) already lives on. A link with a `syncedAt` is the entity's source: `syncedAt` is when the entity was last brought up to date from it, set to the current time by `link.add --synced true` or `link.markSynced --id <link>`. A plain link (a reference, a dashboard) has none. A link with a `syncedAt` is also a tracked doc: Claude checks it for edits whenever it answers about the entity (the skill's **Tracked docs**), and `search.recall` returns each link's `syncedAt`, plus `docSources`: the links on the entity's docs, each with its `docId`. A doc or wiki page with a `prompt` (`doc.update --prompt`, `page.update --prompt`; null clears it) is a sync doc: kept in sync with its tracked links, the prompt saying what to take from each (the skill's **Sync docs**).
 
-Docs are for longer reference material (a career plan, an imported PDF). They attach to anything except a wiki page: `doc.add` on a `PAGE` fails, because the page's own `content` is the place for that material. Notes are short, dated observations. Reports are switched off for now, so write finished write-ups as docs.
+Docs are for longer reference material (a career plan, an imported PDF). They attach to anything except a wiki page: `doc.add` on a `PAGE` fails, because the page's own `content` is the place for that material. Notes are short, dated observations. Write finished write-ups as docs too.
 
 ## Search
 
 | Procedure | Inputs | Returns |
 |---|---|---|
 | `search.query` | `q` (1–200 chars; words, `"phrase"`, `OR`, `-exclude`), `types?`, `within?` (`{entityType, entityId}`), `includeArchived?`, `limit?` 1–50 | `results`: `entityType`, `entityId`, `name`, `path`, `on` (the entity an attachment hangs off: `entityType`, `entityId`, `name`), `snippet` (matches in `**bold**`), `score` (lower is more relevant) |
-| `search.recall` | `entityType` (`PERSON GROUP PROJECT GOAL PAGE DOC NOTE REPORT TODO`), `entityId`, `limit?` 1–50 (default 10) | `name`, `path`, `archived`, `entity` (what the type's `get` returns), `notes`, `comments`, `todos` (open only), `docs` (`excerpt` of the start), `links`, `tags`, `relations`, `ownedGoals` (with `latestCheckIn`), `ownedProjects`, `unlinkedMentions` (search results naming it without linking it). Each list is `{items, truncated}` |
+| `search.recall` | `entityType` (`PERSON GROUP PROJECT GOAL PAGE DOC NOTE TODO`), `entityId`, `limit?` 1–50 (default 10) | `name`, `path`, `archived`, `entity` (what the type's `get` returns), `notes`, `comments`, `todos` (open only), `docs` (`excerpt` of the start), `links`, `tags`, `relations`, `ownedGoals` (with `latestCheckIn`), `ownedProjects`, `unlinkedMentions` (search results naming it without linking it). Each list is `{items, truncated}` |
 
 Search result types are the entity types plus `GOAL_CHECKIN`, a goal check-in's comment, which opens on its goal. Chats with Claude, relation notes and tag names aren't searched.
 
 ## Branding
 
-**Branding**: `name`, colours (`primaryColor`, `accentColor`, `primaryFontColor`, `accentFontColor`, as `#rrggbb`), an optional logo and icon, and `isDefault`. A report with no `brandingId` uses the default branding. Brandings are managed in the UI; you rarely need to touch them.
+**Branding**: `name`, colours (`primaryColor`, `accentColor`, `primaryFontColor`, `accentFontColor`, as `#rrggbb`), an optional logo and icon, and `isDefault`. A doc's or page's PDF export uses the default branding unless another is picked. Brandings are managed in the UI; you rarely need to touch them.
 
 ## Dates
 
@@ -135,8 +135,8 @@ Pass ISO dates (`2026-10-01` or `2026-10-01T09:00:00Z`). Results come back as IS
 People, groups, projects, goals and pages can be archived: `entity.archive --entityType <TYPE> --id <id>`, and `--archived false` unarchives. Archiving sets `archivedAt`; archiving twice keeps the first date.
 
 - **Hidden:** `person.list`, `group.list`, `project.list`, `goal.list` and `page.list` leave archived entities out. Pass `--archived only` for just the archived ones, or `--archived include` for both. The org map, the home feed, the home focus graph and `todo.list` leave out archived entities and what's attached to them.
-- **Still readable:** `get` returns an archived entity with its `archivedAt`, and its docs, notes, todos, reports and relations stay as they were.
-- **Read-only:** updates, membership changes, check-ins, goal–project links, and adding, editing or removing docs, notes, todos, reports, links, tags, comments and emoji on an archived entity fail, and the error says to unarchive it first. A relation can point *to* an archived entity (a project that supersedes an archived one) but not start from one.
+- **Still readable:** `get` returns an archived entity with its `archivedAt`, and its docs, notes, todos and relations stay as they were.
+- **Read-only:** updates, membership changes, check-ins, goal–project links, and adding, editing or removing docs, notes, todos, links, tags, comments and emoji on an archived entity fail, and the error says to unarchive it first. A relation can point *to* an archived entity (a project that supersedes an archived one) but not start from one.
 - **Delete still works** on an archived entity, and removes everything attached to it, as for any delete.
 
 ## Deleting

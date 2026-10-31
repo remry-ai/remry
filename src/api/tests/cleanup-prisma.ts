@@ -11,7 +11,7 @@ export interface AttachedRow {
   readonly parentId?: string | null;
 }
 
-type Model = 'doc' | 'note' | 'report' | 'todo' | 'link' | 'comment';
+type Model = 'doc' | 'note' | 'todo' | 'link' | 'comment';
 
 // The cleanup asks for one type and a batch of its ids at a time, or for replies to notes.
 interface AttachedWhere {
@@ -34,7 +34,6 @@ const model = (rows: readonly AttachedRow[]) => ({
 export const cleanupPrisma = (rows: Partial<Record<Model, readonly AttachedRow[]>> = {}, extra: Record<string, unknown> = {}) => ({
   doc: model(rows.doc ?? []),
   note: model(rows.note ?? []),
-  report: model(rows.report ?? []),
   todo: model(rows.todo ?? []),
   link: model(rows.link ?? []),
   comment: model(rows.comment ?? []),

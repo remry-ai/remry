@@ -8,7 +8,7 @@ import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import type { Chart } from 'chart.js';
 import type { ChartBranding } from '$shared/types/branding';
 import { parseChartSpec, sectionsToSpec, type AggregatedSection, type ChartSpec } from '$shared/types/charts';
-import { chartMaxWidth, renderChart, renderChartError } from '$lib/report/chart-render';
+import { chartMaxWidth, renderChart, renderChartError } from '$lib/chart/chart-render';
 
 export const chartSectionsCtx = $ctx<readonly AggregatedSection[], 'chartSections'>([], 'chartSections');
 export const chartBrandingCtx = $ctx<ChartBranding | null, 'chartBranding'>(null, 'chartBranding');

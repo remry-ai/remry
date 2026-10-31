@@ -5,7 +5,6 @@
 import { ENTITY_TYPES, type EntityType } from '$shared/types/enums';
 import type { NotebookProfile } from '$shared/types/notebook';
 import { ENTITY_DESCRIPTORS, type EntityDescriptor } from '$shared/entities/descriptors';
-import { features } from '$shared/settings/base/features';
 import { GOALS_MODULE } from './goals';
 import { ORG_MODULE } from './org';
 import { PERSONAL_MODULE } from './personal';
@@ -28,7 +27,6 @@ const CORE_NAV: readonly NavItem[] = [
   { href: '/app/groups', label: 'Groups' },
   { href: '/app/projects', label: 'Projects' },
   { href: '/app/wiki', label: 'Wiki' },
-  ...(features.reports ? [{ href: '/app/reports', label: 'Reports' }] : []),
   { href: '/app/todos', label: 'Todos' }
 ];
 

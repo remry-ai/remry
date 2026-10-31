@@ -12,7 +12,6 @@ export const SEARCH_TYPES = [
   'GOAL',
   'PAGE',
   'DOC',
-  'REPORT',
   'NOTE',
   'COMMENT',
   'TODO',

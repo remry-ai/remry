@@ -27,8 +27,6 @@ model Branding {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  reports Report[]
-
   @@index([isDefault])
   @@map("branding")
 }
@@ -131,7 +129,7 @@ model PersonalPerson {
   @@map("personal_person")
 }
 
-// ----- Assets: Doc, Note, Report (polymorphic via entityType + entityId) -----
+// ----- Assets: Doc, Note (polymorphic via entityType + entityId) -----
 
 model Doc {
   id         String   @id @default(cuid())
@@ -165,23 +163,6 @@ model Note {
 
   @@index([entityType, entityId])
   @@map("note")
-}
-
-model Report {
-  id         String   @id @default(cuid())
-  entityType String   @map("entity_type")
-  entityId   String   @map("entity_id")
-  title      String
-  content    String   @default("")
-  brandingId String?  @map("branding_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  branding Branding? @relation(fields: [brandingId], references: [id], onDelete: SetNull)
-
-  @@index([entityType, entityId])
-  @@index([brandingId])
-  @@map("report")
 }
 
 // ----- Projects -----

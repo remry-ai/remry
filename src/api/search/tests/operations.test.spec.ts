@@ -27,10 +27,6 @@ describe('hitPath', () => {
     expect(hitPath(row({ entity_type: 'NOTE', entity_id: 'n1', ...on }))).toBe('/app/people/p1');
     expect(hitPath(row({ entity_type: 'GOAL_CHECKIN', entity_id: 'c1', parent_type: 'GOAL', parent_id: 'g1' }))).toBe('/app/goals/g1');
   });
-
-  it('opens a report on its own page', () => {
-    expect(hitPath(row({ entity_type: 'REPORT', entity_id: 'r1', parent_type: 'TEAM', parent_id: 't1' }))).toBe('/app/reports/r1');
-  });
 });
 
 describe('hitName', () => {
@@ -41,10 +37,9 @@ describe('hitName', () => {
 });
 
 describe('searchableTypes', () => {
-  it('searches every type but reports while they are off', () => {
-    expect(searchableTypes(undefined, false)).not.toContain('REPORT');
-    expect(searchableTypes(undefined, true)).toContain('REPORT');
-    expect(searchableTypes(['NOTE', 'REPORT'], false)).toEqual(['NOTE']);
+  it('searches the types asked for, else every type', () => {
+    expect(searchableTypes(undefined)).toContain('GOAL_CHECKIN');
+    expect(searchableTypes(['NOTE'])).toEqual(['NOTE']);
   });
 });
 

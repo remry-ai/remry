@@ -73,7 +73,6 @@ export const LABEL_PORTS: Readonly<Partial<Record<EntityType, (reg: Reg, id: str
   GOAL: async (reg, id) => (await ARCHIVABLE_PORTS.GOAL.state(reg, id))?.name ?? null,
   PAGE: async (reg, id) => (await ARCHIVABLE_PORTS.PAGE.state(reg, id))?.name ?? null,
   DOC: async (reg, id) => (await reg.prisma.doc.findUnique({ where: { id }, select: { title: true } }))?.title ?? null,
-  REPORT: async (reg, id) => (await reg.prisma.report.findUnique({ where: { id }, select: { title: true } }))?.title ?? null,
   TODO: async (reg, id) => (await reg.prisma.todo.findUnique({ where: { id }, select: { title: true } }))?.title ?? null,
   NOTE: async (reg, id) => {
     const note = await reg.prisma.note.findUnique({ where: { id }, select: { content: true } });
@@ -96,7 +95,6 @@ export const LABEL_BATCH_PORTS: Readonly<Partial<Record<EntityType, BatchLabel>>
   GOAL: async (reg, ids) => byId(await reg.prisma.goal.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
   PAGE: async (reg, ids) => byId(await reg.prisma.page.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
   DOC: async (reg, ids) => byId(await reg.prisma.doc.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
-  REPORT: async (reg, ids) => byId(await reg.prisma.report.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
   TODO: async (reg, ids) => byId(await reg.prisma.todo.findMany({ where: inIds(ids), select: { id: true, title: true } }), (r) => r.title),
   NOTE: async (reg, ids) => byId(await reg.prisma.note.findMany({ where: inIds(ids), select: { id: true, content: true } }), (r) => firstLine(r.content))
 };

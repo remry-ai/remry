@@ -6,7 +6,7 @@ const chart = (json: string): string => ['```chart', json, '```'].join('\n');
 describe('extractChartBlocks', () => {
   it('finds every chart block with its line number and skips other fences', () => {
     const md = [
-      '# Report',                                   // 1
+      '# Summary',                                  // 1
       '',                                           // 2
       chart('{"type":"bar","labels":["a"],"series":[{"values":[1]}]}'), // 3-5
       '',                                           // 6

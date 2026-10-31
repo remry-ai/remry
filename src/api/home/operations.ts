@@ -4,7 +4,6 @@ import type { EntityType, TodoRecurrence, TodoStatus } from '$shared/types/enums
 import type { HomeTodoPage, HomeTodoSort, RecentUpdate, UpdateKind } from '$shared/types/home';
 import { docPath, entityPath } from '$shared/utils/entity';
 import { ENTITY_DESCRIPTORS } from '$shared/entities/descriptors';
-import { features } from '$shared/settings/base/features';
 import { resolveEntityLabels } from '$api/_entity-labels';
 import { loadArchivedIds, notAttachedToArchived } from '$api/_archive';
 import type { TodoSummary } from '$api/attached/todo/operations';
@@ -56,7 +55,6 @@ const updateHref = (u: RawUpdate): string => {
     case 'PROJECT':
     case 'GOAL':
     case 'PAGE':
-    case 'REPORT':
       return entityPath(u.kind, u.id);
     case 'TODO':
       return u.parent
@@ -133,14 +131,13 @@ export const listRecentUpdates = async (
 
   // People and notes about people are left out: the feed is for everything else.
   const titled = { ...active, select: { id: true, title: true, createdAt: true, updatedAt: true } };
-  const [groups, projects, goals, pages, docs, notes, reports, todos] = await Promise.all([
+  const [groups, projects, goals, pages, docs, notes, todos] = await Promise.all([
     p.group.findMany(active),
     p.project.findMany(active),
     p.goal.findMany(titled),
     p.page.findMany(titled),
     p.doc.findMany({ ...recent, where: attached, select: { id: true, title: true, entityType: true, entityId: true, createdAt: true, updatedAt: true } }),
     p.note.findMany({ ...recent, where: { entityType: { not: 'PERSON' }, ...attached } }),
-    p.report.findMany({ ...recent, where: attached, select: { id: true, title: true, entityType: true, entityId: true, createdAt: true, updatedAt: true } }),
     p.todo.findMany({ ...recent, where: attached })
   ]);
 
@@ -162,7 +159,6 @@ export const listRecentUpdates = async (
       pages.map((x) => ({ ...base(x), kind: 'PAGE' as const, title: x.title, parent: null })),
       docs.map((x) => ({ ...base(x), kind: 'DOC' as const, title: x.title, parent: parentOf(x) })),
       notes.map((x) => ({ ...base(x), kind: 'NOTE' as const, title: summarizeContent(x.content), content: noteExcerpt(x.content), parent: parentOf(x) })),
-      features.reports ? reports.map((x) => ({ ...base(x), kind: 'REPORT' as const, title: x.title, parent: parentOf(x) })) : [],
       todos.map((x) => ({ ...base(x), kind: 'TODO' as const, title: x.title, parent: parentOf(x) }))
     ],
     limit

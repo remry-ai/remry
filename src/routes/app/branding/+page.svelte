@@ -36,7 +36,7 @@
 <svelte:head><title>Branding</title></svelte:head>
 
 <div class="page">
-  <PageHeader title="Branding" description="Logos and colours applied to reports and their printed PDFs.">
+  <PageHeader title="Branding" description="Logos and colours for the app and for docs and pages exported to PDF.">
     {#if !locked}
       <button type="button" class="btn primary" onclick={() => { showCreate = !showCreate; }}>
         {showCreate ? 'Cancel' : 'New profile'}

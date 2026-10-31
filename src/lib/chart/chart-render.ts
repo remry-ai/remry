@@ -1,5 +1,5 @@
-// The one chart renderer. Used by the Milkdown editor plugin, MarkdownReport
-// (branded print view) and MarkdownRenderer (doc/note views).
+// The one chart renderer. Used by the Milkdown editor plugin, MarkdownRenderer (doc, page and
+// note views), the goal progress chart and doc PDF export.
 
 import {
   Chart,

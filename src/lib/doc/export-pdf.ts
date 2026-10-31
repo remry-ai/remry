@@ -7,7 +7,7 @@ import type { TDocumentDefinitions, TFontContainer } from 'pdfmake/interfaces';
 import { fileUrl } from '$shared/utils/files';
 import { parseChartSpec } from '$shared/types/charts';
 import type { ChartBranding } from '$shared/types/branding';
-import { renderChart } from '$lib/report/chart-render';
+import { renderChart } from '$lib/chart/chart-render';
 import { buildPdfDocument, type PdfBranding } from './pdf-document';
 import { collectPdfAssets, type PdfAssets, type PdfImage } from './pdf-markdown';
 import { pdfFileName } from './pdf-pages';

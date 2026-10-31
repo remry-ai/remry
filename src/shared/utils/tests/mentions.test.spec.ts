@@ -4,14 +4,14 @@ import { extractEntityLinks } from '../mentions';
 
 describe('parseEntityPath', () => {
   it('round-trips every entity type that has a page', () => {
-    for (const entityType of ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'REPORT'] as const) {
+    for (const entityType of ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE'] as const) {
       expect(parseEntityPath(entityPath(entityType, 'abc_123'))).toEqual({ entityType, entityId: 'abc_123' });
     }
   });
 
   it('accepts loopback origins, query strings and sub-paths', () => {
     expect(parseEntityPath('http://127.0.0.1:7369/app/wiki/p1?popup=edit-page')).toEqual({ entityType: 'PAGE', entityId: 'p1' });
-    expect(parseEntityPath('http://localhost:7369/app/reports/r1/print')).toEqual({ entityType: 'REPORT', entityId: 'r1' });
+    expect(parseEntityPath('http://localhost:7369/app/wiki/p1/print')).toEqual({ entityType: 'PAGE', entityId: 'p1' });
   });
 
   it('ignores other hosts and routes that are not entities', () => {

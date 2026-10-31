@@ -1,7 +1,7 @@
 <script lang="ts">
   // Check-in values over time, with the target as a flat line and, when the goal
   // has a period, the pace: where it should be on each check-in date.
-  import { renderChart } from '$lib/report/chart-render';
+  import { renderChart } from '$lib/chart/chart-render';
   import { paceValue, progressAxis } from '$lib/goal/utils';
   import type { ChartSeries, ChartSpec } from '$shared/types/charts';
   import type { GoalCheckInItem } from '$shared/types/goals';
