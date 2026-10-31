@@ -186,7 +186,7 @@ A page is a document or a spreadsheet, with no kinds or fields. Page kinds (`pag
 
 `reg.storage` stores bytes under the notebook's `files/<key>` (`~/Library/Application Support/Remry/Notebooks/<id>/files`). Keys don't include the notebook, and the files route reads from the request's notebook. Keys look like `docs/<docId>/source-<uuid>.pdf` or `branding/<id>/logo-<uuid>.png`. The storage client rejects keys that resolve outside the files root. Hand clients a URL with `fileUrl(key)` (`$shared/utils/files`), which is served by `src/routes/files/[...key]/+server.ts`.
 
-- **Docs:** `attachSourcePdf` stores the PDF and sets `sourceUrl`; it never converts. From the CLI or MCP, Claude reads the PDF and calls `doc.update`.
+- **Docs:** `attachSourcePdf` (`doc.attachSource`) stores a doc's source file and sets `sourceUrl`; it never converts. A source is anything Claude can read (`decodeSourceFile` in `_uploads.ts`): a PDF or an image, known by its bytes, or any UTF-8 text under its own extension (`fileName`), stored as `docs/<id>/source-<uuid>.<ext>`. Word, Excel and other binaries are refused with what to do. Text is always served as `text/plain` with `nosniff`, so an HTML or SVG source can't run in the app. From the CLI or MCP, Claude reads the file and calls `doc.update`.
 - **Converting a PDF in the web app** (`attached/doc/convert.ts`):
   - `doc.convertPdf` starts by looking for `claude` (`findClaude` in `$shared/assist/claude-cli`: PATH, then where installers put it). Without it, the result is `{ started: false, warning }`.
   - Otherwise it starts a background job (`$shared/assist/pdf-converter.server`) that runs `claude -p` in the PDF's folder with only the Read tool, and saves the markdown through `updateDoc`. The UI polls `doc.pdfConversion`.

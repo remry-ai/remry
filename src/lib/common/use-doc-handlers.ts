@@ -57,7 +57,6 @@ export interface DocHandlers {
   readonly handleRemoveDoc: (id: string) => Promise<void>;
   readonly handleReorderDocs: (docIds: readonly string[]) => Promise<void>;
   readonly handleUploadPdf: (file: File) => Promise<void>;
-  readonly handleOpenSourcePdf: () => Promise<void>;
   /**
    * Converts the doc's PDF with the local Claude Code CLI and waits for it to
    * finish. Returns a warning when `claude` isn't installed; throws when the
@@ -130,15 +129,8 @@ export const createDocHandlers = (
     const attachSource = docTrpc.attachSource;
     if (!docId || !attachSource) return;
     const dataBase64 = await fileToBase64(file);
-    await submitOrThrow(() => attachSource.mutate({ docId, contentType: 'application/pdf', dataBase64 }));
+    await submitOrThrow(() => attachSource.mutate({ docId, fileName: file.name, dataBase64 }));
     await invalidateAll();
-  },
-
-  handleOpenSourcePdf: async () => {
-    const docId = getActiveDocId();
-    if (!docId || !docTrpc.getReadUrl) return;
-    const result = await docTrpc.getReadUrl.query({ id: docId });
-    if (result.ok) window.open(result.value.url, '_blank');
   },
 
   handleConvertPdf: async (docId: string): Promise<string | null> => {
@@ -151,7 +143,7 @@ export const createDocHandlers = (
       const status = await submitOrThrow(() => pdfConversion.query({ id: docId }));
       if (status.state === 'running') continue;
       await invalidateAll();
-      if (status.state === 'failed') throw new Error(status.message ?? "Claude couldn't convert the PDF.");
+      if (status.state === 'failed') throw new Error(status.message ?? "Claude couldn't convert the file.");
       return null;
     }
   },

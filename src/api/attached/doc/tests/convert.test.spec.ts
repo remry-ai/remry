@@ -42,7 +42,7 @@ describe('convertDocPdf', () => {
     const result = await convertDocPdf(reg, converter, 'work', 'doc_1');
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('no PDF attached');
+    if (!result.ok) expect(result.error.message).toContain('no source file attached');
     expect(jobs).toHaveLength(0);
   });
 

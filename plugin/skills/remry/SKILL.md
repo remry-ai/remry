@@ -285,7 +285,7 @@ The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is
    from PIL import Image
    im = Image.open(src); im.thumbnail((1400, 1400)); im.convert("RGB").save("/tmp/up.webp", "WEBP", quality=70)
    ```
-   A PDF can't be shrunk the same way: attach it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "Attach PDF" on the doc in the app adds it.
+   A PDF can't be shrunk the same way: attach it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "+ Add link" under the doc's title in the app, then "or upload a file", adds it.
 3. `base64 -w0 <file>` (or Python's `base64.b64encode`) and pass the whole output as `dataBase64`, unchanged and in one piece.
 4. Say what you reduced or left out ("added at 1400px; the original is larger", "the PDF's text is in the doc; attach the original in the app").
 

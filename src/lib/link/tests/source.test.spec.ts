@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSyncStale, linkLabel, linkSource } from '../source';
+import { isSyncStale, linkLabel, linkSource, sourceFileLabel } from '../source';
 
 describe('linkSource', () => {
   it('recognises the tools people import from', () => {
@@ -44,5 +44,15 @@ describe('isSyncStale', () => {
   it('is stale after a week', () => {
     expect(isSyncStale('2026-09-24T12:00:00Z', now)).toBe(false);
     expect(isSyncStale(new Date('2026-09-23T11:00:00Z'), now)).toBe(true);
+  });
+});
+
+describe('sourceFileLabel', () => {
+  it('names a source file by its type', () => {
+    expect(sourceFileLabel('docs/d1/source-abc.pdf')).toBe('PDF');
+    expect(sourceFileLabel('docs/d1/source-abc.csv')).toBe('CSV');
+    expect(sourceFileLabel('docs/d1/source-abc.md')).toBe('Markdown');
+    expect(sourceFileLabel('docs/d1/source-abc.jpg')).toBe('JPEG');
+    expect(sourceFileLabel('docs/d1/source-abc')).toBe('File');
   });
 });

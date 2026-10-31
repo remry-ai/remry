@@ -19,7 +19,7 @@ const convert = async (job: PdfConversionJob): Promise<PdfConversionStatus> => {
     return {
       state: 'failed',
       message: code === null
-        ? 'Claude took longer than 10 minutes to convert the PDF, so the doc wasn\'t changed.'
+        ? 'Claude took longer than 10 minutes to convert the file, so the doc wasn\'t changed.'
         : `Claude exited without a reply${detail ? `: ${detail}` : ''}.`
     };
   }

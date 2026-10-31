@@ -142,7 +142,7 @@ describe('createDocHandlers.handleUploadPdf', () => {
     expect(attachSource).toHaveBeenCalledTimes(1);
     const arg = attachSource.mock.calls[0]![0];
     expect(arg.docId).toBe('doc_1');
-    expect(arg.contentType).toBe('application/pdf');
+    expect(arg.fileName).toBe('x.pdf');
     expect(Buffer.from(arg.dataBase64, 'base64')).toEqual(Buffer.from(bytes));
     expect(invalidateAll).toHaveBeenCalledTimes(1);
   });

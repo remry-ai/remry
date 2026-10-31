@@ -12,7 +12,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
   return new Response(new Uint8Array(file.bytes), {
     headers: {
       'content-type': file.contentType,
-      'cache-control': 'no-store'
+      'cache-control': 'no-store',
+      // The browser takes the type as given, so a text file is never read as HTML.
+      'x-content-type-options': 'nosniff'
     }
   });
 };

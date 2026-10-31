@@ -23,8 +23,6 @@
     readonly pdfNotice?: PdfNotice | null;
     readonly onSave: (content: string) => Promise<void>;
     readonly onSaveTitle?: (title: string) => Promise<void>;
-    readonly onUploadPdf?: (file: File) => Promise<void>;
-    readonly onOpenSourcePdf?: () => Promise<void>;
     readonly onConvertPdf?: () => Promise<void>;
     readonly onUploadImage?: (file: File) => Promise<string>;
     readonly onResolveImages?: (keys: string[]) => Promise<Record<string, string>>;
@@ -46,7 +44,7 @@
     readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
+  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
 
   let editingTitle = $state(autoEditTitle);
   let titleDraft = $state(title);
@@ -108,7 +106,6 @@
   // Read once: the tab it opens on.
   let mode = $state<'write' | 'editor' | 'preview'>(untrack(() => startIn ?? (content.trim() ? 'preview' : 'editor')));
   let saving = $state(false);
-  let uploading = $state(false);
   let error = $state('');
 
   const messageOf = (e: unknown): string => (e instanceof Error ? e.message : 'Could not save.');
@@ -131,22 +128,6 @@
       resolving = false;
     }
   });
-
-  const handlePdfUpload = async (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file || !onUploadPdf) return;
-    uploading = true;
-    error = '';
-    try {
-      await onUploadPdf(file);
-    } catch (e: unknown) {
-      error = messageOf(e);
-    } finally {
-      uploading = false;
-      input.value = '';
-    }
-  };
 
   // Against what was last saved, not the `content` prop: a wiki page saves without reloading, so its prop never changes.
   const isDirty = $derived(draft !== saved);
@@ -253,17 +234,8 @@
     {:else}
       <h2 class:editable={!!onSaveTitle} ondblclick={startEditingTitle} title={onSaveTitle ? 'Double-click to rename' : undefined}>{title}</h2>
     {/if}
-    {#if hasSourcePdf && onOpenSourcePdf}
-      <button type="button" class="badge source-badge" onclick={onOpenSourcePdf}>PDF source</button>
-    {/if}
     {#if hasSourcePdf && onConvertPdf && !converting && !content.trim()}
       <button type="button" class="btn ghost sm" onclick={onConvertPdf}>Convert with Claude</button>
-    {/if}
-    {#if onUploadPdf && !hasSourcePdf}
-      <label class="btn ghost sm">
-        Attach PDF
-        <input type="file" accept=".pdf,application/pdf" onchange={handlePdfUpload} hidden />
-      </label>
     {/if}
     {#if onClose}
       <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
@@ -273,10 +245,8 @@
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   {#if pdfNotice}<p class={pdfNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{pdfNotice.message}</p>{/if}
-  {#if uploading}
-    <div class="status" aria-busy="true">Attaching PDF…</div>
-  {:else if converting}
-    <div class="status" aria-busy="true">Converting PDF with Claude… This can take a minute or two.</div>
+  {#if converting}
+    <div class="status" aria-busy="true">Converting the file with Claude… This can take a minute or two.</div>
   {:else if resolving}
     <div class="status" aria-busy="true">Loading…</div>
   {:else}
@@ -349,7 +319,6 @@
   }
   // Tucked under the title: the card's gap is too loose for a line that belongs to it.
   .doc-sources { margin-top: calc(-1 * var(--sp-1)); }
-  .source-badge { cursor: pointer; &:hover { color: var(--accent); } }
   .doc-editor {
     display: flex;
     flex-direction: column;

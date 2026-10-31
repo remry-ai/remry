@@ -114,17 +114,32 @@ describe('attachSourcePdf', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('refuses a file that is not a PDF, without writing', async () => {
+  it('refuses a binary file Claude can\'t read, without writing', async () => {
     const putObject = vi.fn();
     const reg = createTestRegistry({
       prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update: vi.fn() } } as unknown as Registry['prisma'],
       storage: storageMock({ putObject })
     });
 
-    const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
-    const result = await attachSourcePdf(reg, 'doc_1', png);
-    expect(!result.ok && result.error.message).toContain("isn't a PDF");
+    // A .docx: a zip, binary.
+    const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]).toString('base64');
+    const result = await attachSourcePdf(reg, 'doc_1', docx, 'report.docx');
+    expect(!result.ok && result.error.message).toContain("can't be read");
     expect(putObject).not.toHaveBeenCalled();
+  });
+
+  it('stores a text file under its own extension, as plain text', async () => {
+    const putObject = vi.fn();
+    const update = vi.fn();
+    const reg = createTestRegistry({
+      prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'doc_1', sourceUrl: null }), update } } as unknown as Registry['prisma'],
+      storage: storageMock({ putObject })
+    });
+
+    const csv = Buffer.from('name,amount\nA,1\n').toString('base64');
+    const result = await attachSourcePdf(reg, 'doc_1', csv, 'budget.csv');
+    expect(result.ok && result.value.sourceUrl).toMatch(/^docs\/doc_1\/source-.+\.csv$/);
+    expect(putObject).toHaveBeenCalledWith(expect.stringMatching(/\.csv$/), expect.anything(), 'text/plain; charset=utf-8');
   });
 });
 

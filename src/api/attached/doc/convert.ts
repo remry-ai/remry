@@ -27,12 +27,12 @@ export const convertDocPdf = async (
 
   const doc = await reg.prisma.doc.findUnique({ where: { id } });
   if (!doc) return err(new Error('Doc not found'));
-  if (!doc.sourceUrl) return err(new Error('This doc has no PDF attached. Attach one, then convert it.'));
+  if (!doc.sourceUrl) return err(new Error('This doc has no source file attached. Attach one, then convert it.'));
   const writable = await ensureWritable(reg, doc.entityType, doc.entityId);
   if (!writable.ok) return err(writable.error);
 
   const pdfPath = reg.storage.pathFor(doc.sourceUrl);
-  if (!pdfPath) return err(new Error("The doc's PDF isn't in this notebook's files folder."));
+  if (!pdfPath) return err(new Error("The doc's source file isn't in this notebook's files folder."));
 
   converter.start({
     key: pdfJobKey(notebookId, id),

@@ -23,6 +23,8 @@
   import RelationsWidget from '$lib/relation/components/RelationsWidget.svelte';
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
+  import { sourceFileLabel } from '$lib/link/source';
+  import { fileUrl } from '$shared/utils/files';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
@@ -352,8 +354,10 @@
     if (doc && doc.content.trim() === '') void runPdfConversion(doc.id);
   };
 
-  // A sync doc's text comes from its linked sources, so it offers no Attach PDF.
-  const activeDocUploadPdf = $derived(activeDoc?.prompt ? undefined : handleUploadPdfToDoc);
+  // The open doc's source file, first in its sources line, named by its type ("PDF", "CSV");
+  // Add link's "or upload a file" attaches one.
+  const docSourceFile = $derived(activeDoc?.sourceUrl ? { label: sourceFileLabel(activeDoc.sourceUrl), href: fileUrl(activeDoc.sourceUrl) } : null);
+  const docUploadFile = $derived(archivedAt || activeDoc?.sourceUrl ? undefined : handleUploadPdfToDoc);
 
   const handleCreateDocFromPdf = async (file: File) => {
     const id = await ensureDraftDoc();
@@ -494,13 +498,11 @@
         pdfNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}
         onSaveTitle={docHandlers.handleSaveTitle}
-        onUploadPdf={activeDocUploadPdf}
-        onOpenSourcePdf={docHandlers.handleOpenSourcePdf}
         onConvertPdf={handleConvertActiveDoc}
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 || activeDoc.prompt || !archivedAt ? docSources : undefined}
+        sources={docLinks.length > 0 || activeDoc.prompt || activeDoc.sourceUrl || !archivedAt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
       />
@@ -511,8 +513,8 @@
         content=""
         onSave={handleCreateDoc}
         onSaveTitle={handleDraftDocTitle}
-        onUploadPdf={handleCreateDocFromPdf}
         onUploadImage={handleUploadDraftImage}
+        sources={newDocSources}
         onClose={closeNewDoc}
         autoEditTitle
       />
@@ -529,12 +531,17 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} file={docSourceFile} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
   {:else if makingSyncDoc === activeDoc?.id}
-    <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onCancel={() => { makingSyncDoc = null; }} />
+    <SyncPrompt prompt="" links={docLinks} file={docSourceFile} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
   {:else}
-    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
+    <SourceLinks links={docLinks} file={docSourceFile} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
   {/if}
+{/snippet}
+
+<!-- A doc not saved yet can't take links, but a source file makes it, and Claude converts it. -->
+{#snippet newDocSources()}
+  <SourceLinks links={[]} onUploadFile={handleCreateDocFromPdf} />
 {/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>

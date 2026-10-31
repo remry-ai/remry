@@ -77,3 +77,12 @@ export const isSyncStale = (syncedAt: Date | string, now: Date = new Date()): bo
   const at = typeof syncedAt === 'string' ? new Date(syncedAt) : syncedAt;
   return now.getTime() - at.getTime() > SYNC_STALE_DAYS * 24 * 60 * 60 * 1000;
 };
+
+const FILE_LABELS: Readonly<Record<string, string>> = { md: 'Markdown', markdown: 'Markdown', txt: 'Text', jpg: 'JPEG', jpeg: 'JPEG', htm: 'HTML', yml: 'YAML' };
+
+/** What to call a doc's source file in its sources line, from its stored key: "PDF", "CSV", "Markdown". */
+export const sourceFileLabel = (key: string): string => {
+  const extension = /\.([a-z0-9]+)$/i.exec(key)?.[1]?.toLowerCase();
+  if (!extension) return 'File';
+  return FILE_LABELS[extension] ?? extension.toUpperCase();
+};

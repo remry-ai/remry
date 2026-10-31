@@ -5,7 +5,7 @@ import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderD
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
 import { convertDocPdf, getPdfConversion } from './convert';
 
-// Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of PDF).
+// Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file).
 const MAX_PDF_BASE64_CHARS = 24_000_000;
 
 export const docRouter = router({
@@ -58,14 +58,15 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => reorderDocs(ctx.reg, input.entityType, input.entityId, input.docIds)),
 
   attachSource: procedure
-    .meta({ description: "Attaches the original PDF to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine)." })
+    .meta({ description: "Attaches the original file (a PDF, an image or a text file such as Markdown or CSV) to a doc whose markdown you wrote from it. dataBase64 is the file's bytes as base64 (a data: URL is fine); fileName keeps a text file's extension." })
     .input(z.object({
       docId: z.string(),
-      // Optional: the bytes must be a PDF. The app sends it.
-      contentType: z.literal('application/pdf').optional(),
+      // Ignored: the bytes decide what the file is. Kept so older callers still validate.
+      contentType: z.string().max(200).optional(),
+      fileName: z.string().max(255).optional(),
       dataBase64: z.string().max(MAX_PDF_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.dataBase64)),
+    .mutation(({ ctx, input }) => attachSourcePdf(ctx.reg, input.docId, input.dataBase64, input.fileName)),
 
   uploadImage: procedure
     .meta({ description: "Uploads an image to a doc and returns its key and the markdown to put in the content (then doc.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })

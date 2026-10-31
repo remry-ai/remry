@@ -2,7 +2,9 @@
   // A doc's sources on one wrapping line, under its title: each tool's mark, the
   // link, and a small "synced" time (in the warning colour after a week; "not
   // synced yet" for one added by hand, which Claude reads on its next refresh).
-  // With onAdd, an "Add link" button at the end opens a small inline form.
+  // With onAdd, an "Add link" button at the end opens a small inline form; with onUploadFile,
+  // that form also takes a file Claude can read (a doc's source: a PDF, an image or a text
+  // file), shown first in the line once attached.
   import { timeAgo } from '$lib/home/utils';
   import { submit } from '$lib/ui/submit';
   import { isSyncStale, linkLabel, linkSource } from '../source';
@@ -15,16 +17,27 @@
     readonly syncedAt: Date | string | null;
   }
 
+  /** A file the entity holds as a source (a doc's PDF, image or text file), at `href` (the files route). */
+  interface SourceFile {
+    readonly label: string;
+    readonly href: string;
+  }
+
   interface Props {
     readonly links: readonly LinkItem[];
-    /** Adds a link; without it there's no Add link button. */
+    /** Adds a link; without it (and without onUploadFile) there's no Add link button. */
     readonly onAdd?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
+    /** Uploads a source file from the add form ("or upload a file"); with no onAdd, the button reads "Add a file". */
+    readonly onUploadFile?: (file: File) => Promise<unknown>;
+    /** The source file already attached, first in the line. */
+    readonly file?: SourceFile | null;
     /** Offers to make the doc a sync doc (a link after Add link), with this label. */
     readonly onMakeSync?: () => void;
     readonly makeSyncLabel?: string;
   }
 
-  const { links, onAdd, onMakeSync, makeSyncLabel = 'Make sync doc' }: Props = $props();
+  const { links, onAdd, onUploadFile, file = null, onMakeSync, makeSyncLabel = 'Make sync doc' }: Props = $props();
+  const canAdd = $derived(!!onAdd || !!onUploadFile);
 
   const items = $derived(links.map((link) => {
     const source = linkSource(link.url);
@@ -53,6 +66,20 @@
 
   const open = () => { url = ''; title = ''; error = ''; adding = true; };
 
+  let uploading = $state(false);
+  const upload = async (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const chosen = input.files?.[0];
+    if (!chosen || !onUploadFile) return;
+    uploading = true;
+    error = '';
+    const outcome = await submit(() => onUploadFile(chosen));
+    uploading = false;
+    input.value = '';
+    if (!outcome.ok) { error = outcome.error; return; }
+    adding = false;
+  };
+
   const add = async () => {
     if (!onAdd || !url.trim()) return;
     saving = true;
@@ -65,6 +92,14 @@
 
 <div class="sources">
   <ul class="source-links" aria-label="Sources">
+    {#if file}
+      <li>
+        <svg class="file-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 1.5h5.5L13 5v9.5H4z" /><path d="M9.5 1.5V5H13" />
+        </svg>
+        <a href={file.href} target="_blank" rel="noopener noreferrer" title="Open the file">{file.label}</a>
+      </li>
+    {/if}
     {#each items as item (item.id)}
       <li>
         <SourceIcon source={item.source} small />
@@ -76,8 +111,8 @@
         {/if}
       </li>
     {/each}
-    {#if onAdd && !adding}
-      <li><button type="button" class="btn link muted" onclick={open}>+ Add link</button></li>
+    {#if canAdd && !adding}
+      <li><button type="button" class="btn link muted" onclick={open}>{onAdd ? '+ Add link' : '+ Add a file'}</button></li>
     {/if}
     {#if onMakeSync && !adding}
       <li><button type="button" class="btn link muted" onclick={onMakeSync} title="Claude keeps it in step with its sources, following a prompt you write">{makeSyncLabel}</button></li>
@@ -86,10 +121,19 @@
 
   {#if adding}
     <form class="toolbar add-form" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void add(); }}>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input type="url" class="sm url" bind:value={url} placeholder="https://…" aria-label="Link address" required autofocus />
-      <input type="text" class="sm" bind:value={title} placeholder="Title (optional)" aria-label="Link title" maxlength="200" />
-      <button type="submit" class="btn sm" disabled={saving || !url.trim()} aria-busy={saving}>{saving ? 'Adding…' : 'Add'}</button>
+      {#if onAdd}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input type="url" class="sm url" bind:value={url} placeholder="https://…" aria-label="Link address" required autofocus />
+        <input type="text" class="sm" bind:value={title} placeholder="Title (optional)" aria-label="Link title" maxlength="200" />
+        <button type="submit" class="btn sm" disabled={saving || uploading || !url.trim()} aria-busy={saving}>{saving ? 'Adding…' : 'Add'}</button>
+      {/if}
+      {#if onUploadFile}
+        <label class="btn ghost sm" aria-busy={uploading}>
+          {uploading ? 'Uploading…' : onAdd ? 'or upload a file' : 'Choose a file'}
+          <!-- Any file: the server takes a PDF, an image or any text, and says what to do with anything else. -->
+          <input type="file" onchange={upload} disabled={uploading} hidden />
+        </label>
+      {/if}
       <button type="button" class="btn ghost sm" onclick={() => { adding = false; }}>Cancel</button>
     </form>
     {#if error}<p class="form-error">{error}</p>{/if}
@@ -125,6 +169,7 @@
     &:hover { color: var(--accent); }
   }
   .synced { color: var(--text-3); white-space: nowrap; }
+  .file-icon { flex: none; }
   .stale { color: var(--warning); }
   // One row: the address takes the room, the title less; they wrap on a narrow pane.
   .add-form {

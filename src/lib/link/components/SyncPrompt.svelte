@@ -22,6 +22,10 @@
     readonly onSave?: (prompt: string | null) => Promise<unknown>;
     /** Adds a source (SourceLinks' Add link). */
     readonly onAddLink?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
+    /** Uploads a source file (a PDF, an image or a text file), from the same form (SourceLinks' onUploadFile). */
+    readonly onUploadFile?: (file: File) => Promise<unknown>;
+    /** The source file already attached, shown first among the sources. */
+    readonly file?: { readonly label: string; readonly href: string } | null;
     /** Making a doc a sync doc: opens on the prompt box, and Cancel calls `onCancel`. */
     readonly creating?: boolean;
     readonly onCancel?: () => void;
@@ -29,7 +33,7 @@
     readonly empty?: boolean;
   }
 
-  const { prompt, links, onSave, onAddLink, creating = false, onCancel, empty = false }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, file = null, creating = false, onCancel, empty = false }: Props = $props();
 
   // svelte-ignore state_referenced_locally
   let editing = $state(creating);
@@ -87,7 +91,7 @@
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
   {/if}
 
-  {#if links.length > 0 || onAddLink}<SourceLinks {links} onAdd={onAddLink} />{/if}
+  {#if links.length > 0 || file || onAddLink || onUploadFile}<SourceLinks {links} {file} onAdd={onAddLink} {onUploadFile} />{/if}
 </section>
 
 <style lang="scss">

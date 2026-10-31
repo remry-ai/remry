@@ -35,7 +35,9 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
-  '.webp': 'image/webp'
+  '.webp': 'image/webp',
+  // A doc's text source files. Always plain text, so an HTML or SVG file can't run in the app.
+  ...Object.fromEntries(['.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.html', '.htm', '.xml', '.svg', '.yaml', '.yml', '.log', '.rtf'].map((ext) => [ext, 'text/plain; charset=utf-8']))
 };
 
 /** Absolute path for `key` inside `root`, or null if it would escape `root`. */

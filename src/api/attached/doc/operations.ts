@@ -8,7 +8,7 @@ import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { EDITOR_IMAGE_TYPES, adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
-import { decodeUpload } from '$api/_uploads';
+import { decodeSourceFile } from '$api/_uploads';
 
 // ----- Types -----
 
@@ -231,28 +231,29 @@ export const reorderDocs = async (
  * or MCP, Claude reads the PDF and calls `doc.update`; the web app can run the
  * local Claude Code CLI through `doc.convertPdf` (convert.ts).
  */
-/** Attaches a doc's source PDF, checked by its bytes (`decodeUpload`), replacing any before it. */
+/** Attaches a doc's source file: a PDF, an image or a text file (`decodeSourceFile`), replacing any before it. */
 export const attachSourcePdf = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
   docId: string,
-  dataBase64: string
+  dataBase64: string,
+  fileName?: string
 ): Promise<Result<{ readonly sourceUrl: string }>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id: docId } });
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
-  const pdf = decodeUpload(dataBase64, ['application/pdf'], 'a PDF');
-  if (!pdf.ok) return err(pdf.error);
+  const file = decodeSourceFile(dataBase64, fileName);
+  if (!file.ok) return err(file.error);
 
-  const key = `docs/${docId}/source-${reg.uuid()}.pdf`;
-  await reg.storage.putObject(key, pdf.value.bytes, pdf.value.contentType);
+  const key = `docs/${docId}/source-${reg.uuid()}.${file.value.extension}`;
+  await reg.storage.putObject(key, file.value.bytes, file.value.contentType);
   await reg.prisma.doc.update({ where: { id: docId }, data: { sourceUrl: key } });
 
   if (existing.sourceUrl) {
     try {
       await reg.storage.deleteObject(existing.sourceUrl);
     } catch (error) {
-      reg.logger.warn({ docId, sourceUrl: existing.sourceUrl, error }, 'failed to delete previous PDF');
+      reg.logger.warn({ docId, sourceUrl: existing.sourceUrl, error }, 'failed to delete the previous source file');
     }
   }
 

@@ -32,12 +32,12 @@ export const findClaude = (
 
 export const pdfPrompt = (fileName: string): string =>
   [
-    `Read the PDF file ./${fileName} and convert it to GitHub-flavoured markdown.`,
+    `Read the file ./${fileName} (a PDF, an image or a text file) and convert it to GitHub-flavoured markdown.`,
     'Keep all of its text, in order. Use headings for its headings, markdown tables for its tables and lists for its lists.',
     'Reply with only the markdown: no introduction, no commentary and no surrounding code fence.'
   ].join(' ');
 
-/** Arguments for `claude`, run with the PDF's folder as the working directory. */
+/** Arguments for `claude`, run with the source file's folder as the working directory. */
 export const buildClaudeArgs = (fileName: string): readonly string[] => [
   '-p',
   pdfPrompt(fileName),
@@ -74,7 +74,7 @@ export const parseClaudeOutput = (stdout: string): Result<string> => {
   const result = typeof parsed.result === 'string' ? parsed.result.trim() : '';
   if (parsed.is_error === true || parsed.subtype !== 'success') {
     const reason = result || String(parsed.subtype ?? 'unknown error');
-    return err(new Error(`Claude couldn't convert the PDF: ${reason}`));
+    return err(new Error(`Claude couldn't convert the file: ${reason}`));
   }
   const markdown = (FENCED.exec(result)?.[1] ?? result).trim();
   if (markdown === '') return err(new Error('Claude returned no markdown for this PDF, so the doc wasn\'t changed.'));

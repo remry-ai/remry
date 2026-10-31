@@ -53,7 +53,7 @@ describe('parseClaudeOutput', () => {
   it("passes on Claude's own error, such as an expired sign-in", () => {
     const result = parseClaudeOutput(reply({ is_error: true, result: 'Failed to authenticate: OAuth session expired' }));
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toBe("Claude couldn't convert the PDF: Failed to authenticate: OAuth session expired");
+    if (!result.ok) expect(result.error.message).toBe("Claude couldn't convert the file: Failed to authenticate: OAuth session expired");
   });
 
   it('rejects output that is not JSON, or has no markdown', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodeUpload, sniffFileType } from '../_uploads';
+import { decodeSourceFile, decodeUpload, safeExtension, sniffFileType } from '../_uploads';
 import { decodeImage } from '../_images';
 
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
@@ -40,5 +40,43 @@ describe('decodeUpload', () => {
     const imageAsPdf = decodeUpload(PNG.toString('base64'), ['application/pdf'], 'a PDF');
     expect(!imageAsPdf.ok && imageAsPdf.error.message).toContain("isn't a PDF");
     expect(decodeImage('  ').ok).toBe(false);
+  });
+});
+
+describe('decodeSourceFile', () => {
+  const b64 = (text: string | Uint8Array) => Buffer.from(text).toString('base64');
+
+  it('takes a PDF and an image by their bytes, whatever the name says', () => {
+    const pdf = decodeSourceFile(b64('%PDF-1.7 rest'), 'notes.txt');
+    expect(pdf.ok && [pdf.value.extension, pdf.value.contentType]).toEqual(['pdf', 'application/pdf']);
+    const png = decodeSourceFile(b64(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1])), 'x.csv');
+    expect(png.ok && png.value.extension).toBe('png');
+  });
+
+  it('takes any UTF-8 text under its own extension, served as plain text', () => {
+    const csv = decodeSourceFile(b64('name,amount\nCafé,3\n'), 'Budget 2026.CSV');
+    expect(csv.ok && [csv.value.extension, csv.value.contentType]).toEqual(['csv', 'text/plain; charset=utf-8']);
+    const html = decodeSourceFile(b64('<script>alert(1)</script>'), 'page.html');
+    expect(html.ok && html.value.contentType).toBe('text/plain; charset=utf-8');
+    const unnamed = decodeSourceFile(b64('just text'));
+    expect(unnamed.ok && unnamed.value.extension).toBe('txt');
+    // Text named .pdf isn't stored as a PDF.
+    const fake = decodeSourceFile(b64('not a pdf'), 'fake.pdf');
+    expect(fake.ok && fake.value.extension).toBe('txt');
+  });
+
+  it('refuses a binary file Claude can\'t read, saying what to do', () => {
+    // A .docx is a zip: "PK", then binary with NUL bytes.
+    const docx = decodeSourceFile(b64(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00])), 'report.docx');
+    expect(!docx.ok && docx.error.message).toContain('Save a Word, Excel or other file as PDF or text first');
+  });
+});
+
+describe('safeExtension', () => {
+  it('keeps letters and digits only', () => {
+    expect(safeExtension('a.b/../x.Md')).toBe('md');
+    expect(safeExtension('no-extension')).toBeNull();
+    expect(safeExtension('evil.p h p')).toBeNull();
+    expect(safeExtension(undefined)).toBeNull();
   });
 });
