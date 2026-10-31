@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROTOCOL_VERSIONS, handleMessage, leaveOutEmpty, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, toolFromProcedure, type McpContext } from '../mcp-protocol';
+import { PROTOCOL_VERSIONS, handleMessage, leaveOutEmpty, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, toolFromProcedure, withAttachment, type McpContext } from '../mcp-protocol';
 
 const personCreate = toolFromProcedure({
   name: 'person.create',
@@ -145,5 +145,23 @@ describe('leaveOutEmpty', () => {
     expect((leaveOutEmpty({ at }) as { at: Date }).at).toBe(at);
     expect(leaveOutEmpty([])).toEqual([]);
     expect(leaveOutEmpty(null)).toBe(null);
+  });
+});
+
+describe('withAttachment', () => {
+  it('turns an image attachment into an image part after the rest as text', () => {
+    expect(withAttachment({ title: 'shot.png', kind: 'image', attachment: { mimeType: 'image/png', dataBase64: 'AQID' } })).toEqual({
+      content: [{ type: 'text', text: '{"title":"shot.png","kind":"image"}' }, { type: 'image', data: 'AQID', mimeType: 'image/png' }]
+    });
+  });
+
+  it('turns a PDF into an embedded resource', () => {
+    const result = withAttachment({ title: 'PRD v2.pdf', kind: 'pdf', attachment: { mimeType: 'application/pdf', dataBase64: 'JVBE' } });
+    expect(result?.content[1]).toEqual({ type: 'resource', resource: { uri: 'remry:file/PRD%20v2.pdf', mimeType: 'application/pdf', blob: 'JVBE' } });
+  });
+
+  it('leaves any other value to the text result', () => {
+    expect(withAttachment({ title: 'a.csv', kind: 'text', text: 'a,b' })).toBeNull();
+    expect(resultFromOutcome({ kind: 'result', failed: false, result: { ok: true, value: { kind: 'image', attachment: { mimeType: 'image/png', dataBase64: 'AQID' } } } }).content[1]).toEqual({ type: 'image', data: 'AQID', mimeType: 'image/png' });
   });
 });

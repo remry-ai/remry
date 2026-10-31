@@ -108,6 +108,22 @@ describe('remry mcp', () => {
     expect(recall.name).toBe('2024 Mika Tanaka');
   });
 
+  it('uploads a file as a link and reads it back: text as text, an image as an image part', async () => {
+    const page = JSON.parse((await callTool('page_create', { title: 'Read test page' })).text) as { id: string };
+    const csv = Buffer.from('name,amount\nHosting,120\n').toString('base64');
+    const uploaded = JSON.parse((await callTool('link_upload', { entityType: 'PAGE', entityId: page.id, fileName: 'budget.csv', dataBase64: csv })).text) as { id: string; url: string };
+    expect(uploaded.url).toMatch(/^storage:\/\/pages\/.+\/file-.+\.csv$/);
+    expect(JSON.parse((await callTool('link_read', { id: uploaded.id })).text)).toEqual({ title: 'budget.csv', kind: 'text', text: 'name,amount\nHosting,120\n' });
+
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
+    const image = JSON.parse((await callTool('link_upload', { entityType: 'PAGE', entityId: page.id, fileName: 'shot.png', dataBase64: png })).text) as { id: string };
+    const read = (await request('tools/call', { name: 'link_read', arguments: { id: image.id } })).result as { content: Array<Record<string, unknown>> };
+    expect(read.content[1]).toEqual({ type: 'image', mimeType: 'image/png', data: png });
+
+    const outside = await callTool('link_read', { id: 'missing' });
+    expect(outside.isError).toBe(true);
+  });
+
   it('returns invalid input and failed operations as tool errors', async () => {
     const missing = await callTool('person_create', { email: 'mika@example.com' });
     expect(missing.isError).toBe(true);

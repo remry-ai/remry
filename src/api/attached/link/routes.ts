@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
-import { listLinks, findLinks, addLink, markLinkSynced, removeLink, uploadLinkFile } from './operations';
+import { listLinks, findLinks, addLink, markLinkSynced, readLinkFile, removeLink, uploadLinkFile } from './operations';
 import { convertFileLink, getFileLinkConversion } from './convert';
 
 // Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file), as for a doc's PDF.
@@ -33,6 +33,11 @@ export const linkRouter = router({
       synced: z.boolean().optional()
     }))
     .mutation(({ ctx, input }) => addLink(ctx.reg, input.entityType, input.entityId, input)),
+
+  read: procedure
+    .meta({ description: "Reads a file uploaded as a link (a url starting storage://): a text file's text, or an image or PDF to look at. Not for an outside link: read that with its own tool." })
+    .input(z.object({ id: z.string() }))
+    .query(({ ctx, input }) => readLinkFile(ctx.reg, input.id)),
 
   upload: procedure
     .meta({ description: "Uploads a file as a link on a doc or wiki page: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). dataBase64 is the file's bytes as base64 (a data: URL is fine)." })

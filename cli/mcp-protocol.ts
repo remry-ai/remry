@@ -21,8 +21,14 @@ export interface McpTool {
   readonly annotations: ToolAnnotations;
 }
 
+/** A tool result's parts: JSON as text, plus an image or a PDF (as an embedded resource) when a read hands one over. */
+export type ToolContent =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'image'; readonly data: string; readonly mimeType: string }
+  | { readonly type: 'resource'; readonly resource: { readonly uri: string; readonly mimeType: string; readonly blob: string } };
+
 export interface ToolResult {
-  readonly content: readonly { readonly type: 'text'; readonly text: string }[];
+  readonly content: readonly ToolContent[];
   readonly isError?: boolean;
 }
 
@@ -141,7 +147,26 @@ export const resultFromOutcome = (outcome: CallOutcome): ToolResult => {
     const message = isRecord(result) && isRecord(result['error']) ? result['error']['message'] : undefined;
     return textResult(typeof message === 'string' ? message : result, true);
   }
-  return textResult(leaveOutEmpty(isRecord(result) && result['ok'] === true && 'value' in result ? result['value'] : result));
+  const value = leaveOutEmpty(isRecord(result) && result['ok'] === true && 'value' in result ? result['value'] : result);
+  return withAttachment(value) ?? textResult(value);
+};
+
+/**
+ * A value carrying an `attachment` (`link.read` of an image or a PDF) as a text part with the
+ * rest, then the file as an image part, or a PDF as an embedded resource, which Claude reads,
+ * instead of base64 in the JSON. Null for any other value.
+ */
+export const withAttachment = (value: unknown): ToolResult | null => {
+  if (!isRecord(value) || !isRecord(value['attachment'])) return null;
+  const { attachment, ...rest } = value;
+  const mimeType = attachment['mimeType'];
+  const data = attachment['dataBase64'];
+  if (typeof mimeType !== 'string' || typeof data !== 'string') return null;
+  const title = typeof rest['title'] === 'string' ? rest['title'] : 'file';
+  const file: ToolContent = mimeType.startsWith('image/')
+    ? { type: 'image', data, mimeType }
+    : { type: 'resource', resource: { uri: `remry:file/${encodeURIComponent(title)}`, mimeType, blob: data } };
+  return { content: [{ type: 'text', text: JSON.stringify(rest) }, file] };
 };
 
 const reply = (id: string | number, result: unknown): JsonRpcResponse => ({ jsonrpc: '2.0', id, result });

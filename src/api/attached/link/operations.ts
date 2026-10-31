@@ -195,3 +195,57 @@ export const removeLink = async (
   }
   return ok({ deleted: true as const });
 };
+
+/** How much of a text file a read returns; past this it's cut and marked `truncated`. */
+export const READ_TEXT_LIMIT = 200_000;
+/** The largest image and PDF a read hands over (Claude reads images up to 5 MB). */
+export const READ_IMAGE_BYTES = 5 * 1024 * 1024;
+export const READ_PDF_BYTES = 20 * 1024 * 1024;
+
+/** A file a read hands over as it is, for a client that shows it (the MCP server makes an image or document block). */
+export interface ReadAttachment {
+  readonly mimeType: string;
+  readonly dataBase64: string;
+}
+
+export type LinkFileRead =
+  | { readonly title: string | null; readonly kind: 'text'; readonly text: string; readonly truncated?: true }
+  | { readonly title: string | null; readonly kind: 'image' | 'pdf'; readonly attachment: ReadAttachment };
+
+const megabytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+/**
+ * Reads a file uploaded as a link, for Claude: a text file's text (cut at `READ_TEXT_LIMIT`), or
+ * an image or PDF as an attachment. Only a file in the link's doc or page folder; an outside link
+ * is refused, saying to read it with its own tool.
+ */
+export const readLinkFile = async (
+  reg: Pick<Registry, 'prisma' | 'storage'>,
+  id: string
+): Promise<Result<LinkFileRead>> => {
+  const link = await reg.prisma.link.findUnique({ where: { id } });
+  if (!link) return err(new Error('Link not found. Find it with link.list --entityType --entityId.'));
+  const key = fileLinkKey(link.url);
+  const folder = entityFileFolder(link.entityType, link.entityId);
+  if (!key || !folder || !key.startsWith(`${folder}/`)) {
+    return err(new Error(`That link points outside the notebook (${link.url}). Read it with the tool for that site.`));
+  }
+  const file = await reg.storage.readObject(key);
+  if (!file) return err(new Error("The link's file is missing from this notebook's files folder. Ask the user to upload it again."));
+
+  const title = link.title;
+  const tooBig = (limit: number) => err(new Error(`That file is ${megabytes(file.bytes.length)}, more than the ${megabytes(limit)} a read hands over. Ask the user to paste what you need from it.`));
+  if (file.contentType === 'application/pdf') {
+    if (file.bytes.length > READ_PDF_BYTES) return tooBig(READ_PDF_BYTES);
+    return ok({ title, kind: 'pdf', attachment: { mimeType: file.contentType, dataBase64: Buffer.from(file.bytes).toString('base64') } });
+  }
+  if (file.contentType.startsWith('image/')) {
+    if (file.bytes.length > READ_IMAGE_BYTES) return tooBig(READ_IMAGE_BYTES);
+    return ok({ title, kind: 'image', attachment: { mimeType: file.contentType, dataBase64: Buffer.from(file.bytes).toString('base64') } });
+  }
+  const text = new TextDecoder('utf-8').decode(file.bytes);
+  return ok(text.length > READ_TEXT_LIMIT
+    ? { title, kind: 'text', text: text.slice(0, READ_TEXT_LIMIT), truncated: true as const }
+    : { title, kind: 'text', text });
+};
+
