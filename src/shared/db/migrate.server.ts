@@ -95,8 +95,7 @@ export const planRenames = (
  */
 export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
   '20261017120000_project_parent_index',
-  '20261020120000_synthesis_prompt',
-  '20261031120000_page_source_url'
+  '20261020120000_synthesis_prompt'
 ]);
 
 /**

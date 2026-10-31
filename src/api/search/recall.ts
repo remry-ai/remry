@@ -48,7 +48,7 @@ export const mentioningIds = (relations: readonly RelationGroup[]): readonly str
 // ----- Queries -----
 
 /** What the type's own `get` returns, or the row for types without one. */
-const loadEntity = async (reg: Pick<Registry, 'prisma'>, entityType: RelatableType, id: string): Promise<Result<unknown>> => {
+const loadEntity = async (reg: Pick<Registry, 'prisma' | 'storage'>, entityType: RelatableType, id: string): Promise<Result<unknown>> => {
   switch (entityType) {
     case 'PERSON': return getPerson(reg, id);
     case 'GROUP': return getGroup(reg, id);
@@ -69,7 +69,7 @@ const loadEntity = async (reg: Pick<Registry, 'prisma'>, entityType: RelatableTy
 };
 
 export const recallEntity = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'storage'>,
   entityType: RelatableType,
   entityId: string,
   limit: number = RECALL_LIMITS.defaultItems

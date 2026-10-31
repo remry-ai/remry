@@ -283,8 +283,6 @@ model Page {
   content    String   @default("")
   /// A sync page's prompt: what to pull from its linked sources. Null for an ordinary page.
   prompt     String?
-  /// A source file Claude can write the page from (a PDF, an image or text), as on a doc.
-  sourceUrl  String?  @map("source_url")
   sortOrder  Int      @default(0) @map("sort_order")
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime @default(now()) @map("created_at")
