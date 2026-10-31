@@ -9,7 +9,7 @@ import { ok, err, type Result } from '$shared/utils';
 import type { EntityType } from '$shared/types/enums';
 import { ensureWritable } from '$api/_archive';
 import { resolveEntityLabels } from '$api/_entity-labels';
-import { SYNC_CLAUDE_NOT_FOUND, parseSyncReply, syncPrompt, type SyncSource } from '$shared/assist/sync-cli';
+import { parseSyncReply, syncPrompt, type SyncSource } from '$shared/assist/sync-cli';
 import type { ConvertPdfResult } from '$shared/types/pdf-conversion';
 import type { SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
@@ -17,6 +17,9 @@ import { entityTypeLabel } from '$shared/utils/entity';
 import { updateDoc } from '$api/attached/doc/operations';
 import { updatePage } from '$api/page/operations';
 import { markLinkSynced } from '$api/attached/link/operations';
+import { readyLlm } from './llm';
+
+export const SYNC_RETRY = 'choose Sync now again, or ask Claude in a chat to sync it.';
 
 type SyncReg = Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>;
 export type SyncTarget = 'DOC' | 'PAGE';
@@ -62,8 +65,8 @@ export const startSyncNow = async (
   const links = await reg.prisma.link.findMany({ where: { entityType, entityId: id }, orderBy: { createdAt: 'asc' } });
   if (links.length === 0) return err(new Error('Add a source first: a link or a file, with "+ Add link".'));
 
-  const claudePath = runner?.locate() ?? null;
-  if (!runner || !claudePath) return ok({ started: false, warning: SYNC_CLAUDE_NOT_FOUND });
+  const llm = await readyLlm(runner, SYNC_RETRY);
+  if (!llm.ready) return ok(llm.reply);
 
   const folder = entityFileFolder(entityType, id);
   const sources: SyncSource[] = links.map((l) => {
@@ -80,9 +83,10 @@ export const startSyncNow = async (
   });
   const titleOf = new Map(links.map((l) => [l.id, l.title ?? l.url]));
 
-  const started = runner.start({
+  const started = llm.runner.start({
     key: syncJobKey(notebookId, entityType, id),
-    claudePath,
+    llm: llm.llm,
+    urls: sources.flatMap((s) => (s.url ? [s.url] : [])),
     cwd: folder ? reg.storage.pathFor(folder) : null,
     prompt: syncPrompt({ kind: entityType === 'DOC' ? 'doc' : 'wiki page', ...target.value, sources }),
     onReply: async (reply) => {

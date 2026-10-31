@@ -4,6 +4,7 @@
 
 import { trpc } from '$shared/trpc/client';
 import { submitOrThrow } from '$lib/ui/submit';
+import { startWithLlm } from '$lib/assist/ask-llm';
 import { fileToBase64 } from '$lib/common/use-doc-handlers';
 import { convertAndWait } from '$lib/doc/convert-source';
 import { fileLinkKey, type FileLinkHolder } from '$shared/utils/file-links';
@@ -24,7 +25,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
  */
 export const transcribeFileLinkAndWait = (linkId: string): Promise<string | null> =>
   convertAndWait({
-    start: () => submitOrThrow(() => trpc().link.transcribe.mutate({ id: linkId })),
+    start: () => startWithLlm(() => submitOrThrow(() => trpc().link.transcribe.mutate({ id: linkId }))),
     status: () => submitOrThrow(() => trpc().link.conversion.query({ entityType: 'LINK', entityId: linkId })),
     wait
   });
@@ -37,7 +38,7 @@ export const transcribeInBackground = (linkId: string): void => {
 /** Writes the link's doc or page from its file; a warning when `claude` isn't installed, else null. Throws when it fails. */
 export const convertFileLinkAndWait = (linkId: string, entityType: 'DOC' | 'PAGE', entityId: string): Promise<string | null> =>
   convertAndWait({
-    start: () => submitOrThrow(() => trpc().link.convert.mutate({ id: linkId })),
+    start: () => startWithLlm(() => submitOrThrow(() => trpc().link.convert.mutate({ id: linkId }))),
     status: () => submitOrThrow(() => trpc().link.conversion.query({ entityType, entityId })),
     wait
   });

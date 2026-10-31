@@ -1,5 +1,5 @@
-// Sends a page chat message and waits for Claude's reply, which the server
-// produces in the background with the local Claude Code CLI (see
+// Sends a page chat message and waits for the assistant's reply, which the server
+// produces in the background with the local assistant's CLI (see
 // src/api/assist/chat.ts). The server saves the conversation per entity, so a
 // reload picks it up again with `chat.get`, and `waitForReply` resumes a reply
 // still being written.
@@ -60,13 +60,20 @@ export const waitForReply = async (
   }
 };
 
-/** Resolves with Claude's reply, or a warning when `claude` isn't installed; throws with a message on failure. */
+type StartWrapper = <T extends SendChatResult>(start: () => Promise<T>) => Promise<T>;
+
+/**
+ * Resolves with the assistant's reply, or a warning when nothing was sent (none picked, or not
+ * installed); throws with a message on failure. `startWith` wraps the send (the app's
+ * `startWithLlm`, which asks which assistant to use first).
+ */
 export const askAboutPage = async (
   chat: ChatTrpc,
   request: ChatRequest,
-  options: PollOptions = {}
+  options: PollOptions & { readonly startWith?: StartWrapper } = {}
 ): Promise<ChatReply> => {
-  const started = await submitOrThrow(() => chat.send.mutate(request));
+  const startWith: StartWrapper = options.startWith ?? ((start) => start());
+  const started = await startWith(() => submitOrThrow(() => chat.send.mutate(request)));
   if (!started.started) return { kind: 'warning', message: started.warning };
   return { kind: 'reply', content: await waitForReply(chat, started.chatId, options) };
 };

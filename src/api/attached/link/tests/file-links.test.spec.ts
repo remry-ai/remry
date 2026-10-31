@@ -9,6 +9,7 @@ import { convertFileLink, fileJobKey, transcribeFileLink } from '../convert';
 import { cleanupPrisma } from '../../../tests/cleanup-prisma';
 import { textSourceFile } from '$api/_uploads';
 import { updatePage } from '$api/page/operations';
+import { fakeLookup } from '$api/assist/tests/fake-llm';
 
 // Writing a page is tested with the page; here only what's written, and whether Claude runs.
 vi.mock('$api/page/operations', () => ({ updatePage: vi.fn().mockResolvedValue({ ok: true, value: {} }) }));
@@ -102,7 +103,7 @@ describe('removeLink', () => {
 describe('convertFileLink', () => {
   const fakeConverter = () => {
     const jobs: PdfConversionJob[] = [];
-    const converter: PdfConverter = { locate: () => '/usr/local/bin/claude', start: (job) => { jobs.push(job); }, status: vi.fn(() => ({ state: 'running' as const })) };
+    const converter: PdfConverter = { locate: fakeLookup('/usr/local/bin/claude'), start: (job) => { jobs.push(job); }, status: vi.fn(() => ({ state: 'running' as const })) };
     return { converter, jobs };
   };
   const regWith = (link: object, page: object = { bodyType: 'doc', archivedAt: null }) => createTestRegistry({
@@ -213,7 +214,7 @@ describe('updateLink', () => {
 describe('transcribeFileLink and convertFileLink with saved text', () => {
   const setup = (link: object) => {
     const jobs: PdfConversionJob[] = [];
-    const converter: PdfConverter = { locate: () => '/usr/local/bin/claude', start: (job) => { jobs.push(job); }, status: vi.fn(() => ({ state: 'running' as const })) };
+    const converter: PdfConverter = { locate: fakeLookup('/usr/local/bin/claude'), start: (job) => { jobs.push(job); }, status: vi.fn(() => ({ state: 'running' as const })) };
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const pageUpdate = vi.fn();
     const reg = createTestRegistry({
@@ -236,7 +237,7 @@ describe('transcribeFileLink and convertFileLink with saved text', () => {
 
   it('says when claude isn\'t installed', async () => {
     const { reg } = setup({ id: 'l1', url: 'storage://projects/pr1/file-a.pdf', entityType: 'PROJECT', entityId: 'pr1', text: null });
-    const none: PdfConverter = { locate: () => null, start: vi.fn(), status: vi.fn() };
+    const none: PdfConverter = { locate: fakeLookup(null), start: vi.fn(), status: vi.fn() };
     const result = await transcribeFileLink(reg, none, 'work', 'l1');
     expect(result.ok && !result.value.started).toBe(true);
   });

@@ -10,9 +10,9 @@ import { archivedIdList, queryIndex, searchableTypes } from '$api/search/operati
 import type { Registry } from '$shared/registry';
 import type { PageChat, SendChatResult } from '$shared/types/page-chat';
 import { chatJobKey } from './chat';
+import { readyLlm } from './llm';
 
-export const ASK_NOT_FOUND_WARNING =
-  "Couldn't find the Claude Code CLI (`claude`). Install it and sign in, then ask again.";
+export const ASK_RETRY = 'ask again.';
 
 // Words too common to find anything with.
 const STOP_WORDS = new Set([
@@ -36,8 +36,8 @@ export const askNotebook = async (
   notebookId: string,
   question: string
 ): Promise<Result<SendChatResult>> => {
-  const claudePath = pageChat?.locate() ?? null;
-  if (!pageChat || !claudePath) return ok({ started: false, warning: ASK_NOT_FOUND_WARNING });
+  const llm = await readyLlm(pageChat, ASK_RETRY);
+  if (!llm.ready) return ok(llm.reply);
 
   const words = askSearchQuery(question);
   const match = words ? buildFtsQuery(words) : null;
@@ -52,9 +52,9 @@ export const askNotebook = async (
     : [];
 
   const chatId = `ask-${reg.uuid()}`;
-  const started = pageChat.start({
+  const started = llm.runner.start({
     key: chatJobKey(notebookId, chatId),
-    claudePath,
+    llm: llm.llm,
     prompt: askPrompt(question, hits.map((h) => ({ name: h.name, path: h.path, on: h.on?.name ?? null, snippet: h.snippet }))),
     saveReply: async () => { /* an answer isn't kept */ }
   });

@@ -23,7 +23,7 @@ import { emojiRouter } from '$api/attached/emoji/routes';
 import { trpcMetaRouter } from '$api/trpc-meta/routes';
 import { homeRouter } from '$api/home/routes';
 import { notebookRouter } from '$api/notebook/routes';
-import { chatRouter, syncRouter } from '$api/assist/routes';
+import { chatRouter, llmRouter, syncRouter } from '$api/assist/routes';
 import { searchRouter } from '$api/search/routes';
 import { licenseRouter } from '$api/license/routes';
 import { entityRouter } from '$api/entity/routes';
@@ -54,6 +54,7 @@ export const appRouter = router({
   emoji: emojiRouter,
   chat: chatRouter,
   sync: syncRouter,
+  llm: llmRouter,
   trpcMeta: trpcMetaRouter
 });
 

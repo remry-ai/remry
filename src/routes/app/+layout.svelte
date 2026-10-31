@@ -3,6 +3,7 @@
   import QuickFinder from "$lib/common/QuickFinder.svelte";
   import CreateTodoPopup from "$lib/todo/components/CreateTodoPopup.svelte";
   import NewNotebookPopup from "$lib/notebook/components/NewNotebookPopup.svelte";
+  import LlmChoicePopup from "$lib/assist/components/LlmChoicePopup.svelte";
   import { layoutConfig } from "$lib/stores/layout";
 
   import type { Snippet } from "svelte";
@@ -23,6 +24,7 @@
   <QuickFinder />
   <CreateTodoPopup />
   <NewNotebookPopup />
+  <LlmChoicePopup />
 
   <AppShell
     showInfoPanel={!$layoutConfig.hideInfoPanel}

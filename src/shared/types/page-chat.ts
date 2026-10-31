@@ -1,7 +1,8 @@
-// Chatting about the page the user is looking at, with the local Claude Code CLI.
+// Chatting about the page the user is looking at, with the local AI assistant CLI (Claude Code, Copilot…).
 // Only the web app's tRPC context carries a PageChat; the CLI and MCP don't.
 
 import type { Result } from '$shared/utils/result';
+import type { LlmLookup, LocatedLlm } from './llm';
 
 export type ChatRole = 'user' | 'assistant';
 
@@ -21,7 +22,8 @@ export interface PageChatStatus {
 export interface PageChatJob {
   /** `<notebookId>/<chatId>`: one reply at a time per chat. */
   readonly key: string;
-  readonly claudePath: string;
+  /** The default assistant's CLI. */
+  readonly llm: LocatedLlm;
   /** The whole prompt: page contents and the conversation so far. */
   readonly prompt: string;
   /** Stores the reply. It runs before the job reads as done, so a reload after that finds it. */
@@ -29,8 +31,8 @@ export interface PageChatJob {
 }
 
 export interface PageChat {
-  /** Looks for the `claude` executable on every call; null when it isn't installed. */
-  readonly locate: () => string | null;
+  /** The default assistant's CLI, looked up on every call (see llm-choice.server.ts). */
+  readonly locate: () => Promise<LlmLookup>;
   /** Starts the job, or returns an error if one is already running for `key`. */
   readonly start: (job: PageChatJob) => Result<void>;
   /** Whether a reply is being written for `key`; unlike `status`, this doesn't use up a finished status. */
@@ -49,4 +51,5 @@ export interface StoredPageChat {
 
 export type SendChatResult =
   | { readonly started: true; readonly chatId: string }
-  | { readonly started: false; readonly warning: string };
+  /** Nothing ran: the warning to show; `needsChoice` when no default assistant is picked yet. */
+  | { readonly started: false; readonly warning: string; readonly needsChoice?: true };

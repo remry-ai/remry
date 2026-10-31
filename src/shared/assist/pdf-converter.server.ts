@@ -1,16 +1,18 @@
-// Runs the local Claude Code CLI to convert a doc's PDF, one background job per
-// doc. The web app's tRPC context is the only thing that holds this (see
+// Runs the default assistant's CLI to convert a file to markdown, one background job per doc,
+// page or link. The web app's tRPC context is the only thing that holds this (see
 // context.server.ts); jobs live in memory, since there is one local process.
 
 import { basename, dirname } from 'node:path';
-import { buildClaudeArgs, parseClaudeOutput } from './claude-cli';
-import { lastStderrLine, locateClaude, runClaude } from './claude-process.server';
+import { lastStderrLine, runLlm } from './claude-process.server';
+import { lookupLlm } from './llm-choice.server';
+import { llmProvider } from './providers/registry';
 import type { PdfConversionJob, PdfConversionStatus, PdfConverter } from '$shared/types/pdf-conversion';
 
 const TIMEOUT_MS = 10 * 60 * 1000;
 
 const convert = async (job: PdfConversionJob): Promise<PdfConversionStatus> => {
-  const { code, stdout, stderr } = await runClaude(job.claudePath, buildClaudeArgs(basename(job.pdfPath)), {
+  const provider = llmProvider(job.llm.provider);
+  const { code, stdout, stderr } = await runLlm(job.llm, { kind: 'convert', fileName: basename(job.pdfPath) }, {
     cwd: dirname(job.pdfPath),
     timeoutMs: TIMEOUT_MS
   });
@@ -19,11 +21,11 @@ const convert = async (job: PdfConversionJob): Promise<PdfConversionStatus> => {
     return {
       state: 'failed',
       message: code === null
-        ? 'Claude took longer than 10 minutes to convert the file, so the doc wasn\'t changed.'
-        : `Claude exited without a reply${detail ? `: ${detail}` : ''}.`
+        ? `${provider.name} took longer than 10 minutes to convert the file, so the doc wasn't changed.`
+        : `${provider.name} exited without a reply${detail ? `: ${detail}` : ''}.`
     };
   }
-  const markdown = parseClaudeOutput(stdout);
+  const markdown = provider.parse(stdout, 'convert');
   if (!markdown.ok) return { state: 'failed', message: markdown.error.message };
   const saved = await job.onMarkdown(markdown.value);
   return saved.ok ? { state: 'idle' } : { state: 'failed', message: saved.error.message };
@@ -33,7 +35,7 @@ export const createPdfConverter = (): PdfConverter => {
   const jobs = new Map<string, PdfConversionStatus>();
 
   return {
-    locate: locateClaude,
+    locate: lookupLlm,
 
     start: (job) => {
       if (jobs.get(job.key)?.state === 'running') return;
@@ -41,7 +43,7 @@ export const createPdfConverter = (): PdfConverter => {
       convert(job)
         .catch((error: unknown): PdfConversionStatus => ({
           state: 'failed',
-          message: `Couldn't run Claude: ${error instanceof Error ? error.message : String(error)}`
+          message: `Couldn't run ${llmProvider(job.llm.provider).name}: ${error instanceof Error ? error.message : String(error)}`
         }))
         .then((status) => {
           if (status.state === 'idle') jobs.delete(job.key);

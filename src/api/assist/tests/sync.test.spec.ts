@@ -5,6 +5,7 @@ import type { SyncNowJob, SyncRunner } from '$shared/types/sync-now';
 import { startSyncNow, syncJobKey } from '../sync';
 import { updatePage } from '$api/page/operations';
 import { markLinkSynced } from '$api/attached/link/operations';
+import { fakeLookup } from './fake-llm';
 
 // Saving the page and marking links synced are tested with them; here, what a sync does with them.
 vi.mock('$api/page/operations', () => ({ updatePage: vi.fn().mockResolvedValue({ ok: true, value: { id: 'pg1' } }) }));
@@ -18,7 +19,7 @@ const links = [
 
 const setup = (overrides: { page?: object | null; links?: object[] } = {}) => {
   const jobs: SyncNowJob[] = [];
-  const runner: SyncRunner = { locate: () => '/usr/local/bin/claude', start: (job) => { jobs.push(job); return { ok: true, value: undefined }; }, status: vi.fn() };
+  const runner: SyncRunner = { locate: fakeLookup('/usr/local/bin/claude'), start: (job) => { jobs.push(job); return { ok: true, value: undefined }; }, status: vi.fn() };
   const reg = createTestRegistry({
     prisma: {
       page: { findUnique: vi.fn().mockResolvedValue(overrides.page === undefined ? { id: 'pg1', ...page } : overrides.page) },
@@ -56,7 +57,7 @@ describe('startSyncNow', () => {
     const none = await startSyncNow(empty.reg, empty.runner, 'work', 'PAGE', 'pg1');
     expect(!none.ok && none.error.message).toContain('Add a source first');
     const noClaude = setup();
-    const warned = await startSyncNow(noClaude.reg, { ...noClaude.runner, locate: () => null }, 'work', 'PAGE', 'pg1');
+    const warned = await startSyncNow(noClaude.reg, { ...noClaude.runner, locate: fakeLookup(null) }, 'work', 'PAGE', 'pg1');
     expect(warned.ok && !warned.value.started).toBe(true);
   });
 });

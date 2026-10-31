@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assistantName } from '$lib/stores/assistant';
   import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
   import ProBadge from '$lib/ui/ProBadge.svelte';
@@ -262,14 +263,14 @@
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
             {:else if fileLink && !converting && !wikiPage.archivedAt && !isSheet}
-              <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with Claude</button>
+              <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
           </span>
         </div>
         {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
         {#if converting}
-          <p class="text-sm muted" aria-busy="true">Converting the file with Claude… This can take a minute or two.</p>
+          <p class="text-sm muted" aria-busy="true">Converting the file with {$assistantName}… This can take a minute or two.</p>
         {:else if wikiPage.content.trim()}
           <MarkdownRenderer content={wikiPage.content} />
         {:else}

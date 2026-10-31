@@ -1,6 +1,7 @@
 // <data dir>/settings.json: settings for the whole computer rather than one notebook.
 //   defaultNotebook   the notebook the CLI and MCP use when none is named
 //   licenseKey        the Remry Pro license key (src/shared/license/store.server.ts)
+//   llmProvider       the AI assistant the web app runs (src/shared/assist/llm-choice.server.ts)
 // Each writer changes only its own keys and keeps the rest.
 // Relative imports only — prisma.config.ts and scripts load settings outside SvelteKit.
 

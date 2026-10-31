@@ -3,12 +3,16 @@ import { ok, err } from '$shared/utils/result';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
 import type { PageChat, PageChatJob } from '$shared/types/page-chat';
-import { CHAT_NOT_FOUND_WARNING, getChat, getChatStatus, parseMessages, saveChatReply, sendChat } from '../chat';
+import { CHAT_RETRY, getChat, getChatStatus, parseMessages, saveChatReply, sendChat } from '../chat';
+import { fakeLookup, unchosenLookup } from './fake-llm';
+import { LLM_CHOICE_NEEDED } from '$shared/types/llm';
+import { notFoundWarning } from '$shared/assist/providers/provider';
+import { claudeProvider } from '$shared/assist/providers/claude';
 
 const fakeChat = (claudePath: string | null = '/opt/homebrew/bin/claude', busy = false) => {
   const jobs: PageChatJob[] = [];
   const pageChat: PageChat = {
-    locate: () => claudePath,
+    locate: fakeLookup(claudePath),
     start: (job) => {
       if (busy) return err(new Error('Claude is still replying in this chat.'));
       jobs.push(job);
@@ -50,7 +54,7 @@ const stored = (messages: readonly { role: string; content: string }[]): Row => 
 
 describe('sendChat', () => {
   it('warns, and stores nothing, when claude is not installed or there is no chat (the CLI and MCP context)', async () => {
-    const expected = { ok: true, value: { started: false, warning: CHAT_NOT_FOUND_WARNING } };
+    const expected = { ok: true, value: { started: false, warning: notFoundWarning(claudeProvider, CHAT_RETRY) } };
     const { reg, stored: rows } = fakeRegistry();
     expect(await sendChat(reg, fakeChat(null).pageChat, 'work', input)).toEqual(expected);
     expect(await sendChat(reg, undefined, 'work', input)).toEqual(expected);
@@ -120,5 +124,16 @@ describe('getChatStatus', () => {
     expect(getChatStatus(pageChat, 'work', 'chat-1')).toEqual({ ok: true, value: { state: 'done', reply: 'Hi' } });
     expect(pageChat.status).toHaveBeenCalledWith('work/chat-1');
     expect(getChatStatus(undefined, 'work', 'chat-1')).toEqual({ ok: true, value: { state: 'idle' } });
+  });
+});
+
+describe('sendChat before an assistant is picked', () => {
+  it('asks the browser to choose one, and stores nothing', async () => {
+    const { reg, stored: rows } = fakeRegistry();
+    const { pageChat, jobs } = fakeChat();
+    const result = await sendChat(reg, { ...pageChat, locate: unchosenLookup }, 'work', input);
+    expect(result).toEqual({ ok: true, value: { started: false, warning: LLM_CHOICE_NEEDED, needsChoice: true } });
+    expect(rows()).toBeNull();
+    expect(jobs).toEqual([]);
   });
 });
