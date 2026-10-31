@@ -1,6 +1,7 @@
 import { invalidateAll } from '$app/navigation';
 import { submitOrThrow } from '$lib/ui/submit';
 import { fileUrl } from '$shared/utils/files';
+import { convertAndWait } from '$lib/doc/convert-source';
 
 // Handlers throw the API's error message; DocEditor, DocsManager's
 // ConfirmButton and EntityDetailPage's create flow catch and show it.
@@ -136,16 +137,16 @@ export const createDocHandlers = (
   handleConvertPdf: async (docId: string): Promise<string | null> => {
     const { convertPdf, pdfConversion } = docTrpc;
     if (!convertPdf || !pdfConversion) return null;
-    const started = await submitOrThrow(() => convertPdf.mutate({ id: docId }));
-    if (!started.started) return started.warning;
-    for (;;) {
-      await wait(pollMs);
-      const status = await submitOrThrow(() => pdfConversion.query({ id: docId }));
-      if (status.state === 'running') continue;
-      await invalidateAll();
-      if (status.state === 'failed') throw new Error(status.message ?? "Claude couldn't convert the file.");
-      return null;
-    }
+    return convertAndWait({
+      start: () => submitOrThrow(() => convertPdf.mutate({ id: docId })),
+      // The page reloads once the job ends, so the doc shows the text (or stays as it was).
+      status: async () => {
+        const status = await submitOrThrow(() => pdfConversion.query({ id: docId }));
+        if (status.state !== 'running') await invalidateAll();
+        return status;
+      },
+      wait
+    }, pollMs);
   },
 
   handleUploadImage: async (file: File): Promise<string> => {

@@ -10,6 +10,7 @@ import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
 import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
+import { decodeSourceFile } from '$api/_uploads';
 
 // ----- Pure helpers -----
 
@@ -116,6 +117,7 @@ export const getPage = async (
     ...toSummary(row),
     content: row.content,
     prompt: row.prompt,
+    sourceUrl: row.sourceUrl,
     parent: row.parent,
     children: row.children.map((child) => ({
       id: child.id,
@@ -256,3 +258,36 @@ export const uploadPageImage = async (
   if (!writable.ok) return err(writable.error);
   return storeEditorImage(reg, `pages/${pageId}`, dataBase64);
 };
+
+/**
+ * Attaches a page's source file, as `doc.attachSource` does for a doc: any file Claude can read
+ * (`decodeSourceFile`: a PDF, an image or text), under `pages/<id>/`, replacing any before it.
+ * The page's folder goes when the page does (`planEntityCleanup`).
+ */
+export const attachPageSource = async (
+  reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
+  pageId: string,
+  dataBase64: string,
+  fileName?: string
+): Promise<Result<{ readonly sourceUrl: string }>> => {
+  const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { sourceUrl: true } });
+  if (!existing) return err(new Error(`Page ${pageId} not found`));
+  const writable = await ensureWritable(reg, 'PAGE', pageId);
+  if (!writable.ok) return err(writable.error);
+  const file = decodeSourceFile(dataBase64, fileName);
+  if (!file.ok) return err(file.error);
+
+  const key = `pages/${pageId}/source-${reg.uuid()}.${file.value.extension}`;
+  await reg.storage.putObject(key, file.value.bytes, file.value.contentType);
+  await reg.prisma.page.update({ where: { id: pageId }, data: { sourceUrl: key } });
+
+  if (existing.sourceUrl) {
+    try {
+      await reg.storage.deleteObject(existing.sourceUrl);
+    } catch (error) {
+      reg.logger.warn({ pageId, sourceUrl: existing.sourceUrl, error }, 'failed to delete the previous source file');
+    }
+  }
+  return ok({ sourceUrl: key });
+};
+

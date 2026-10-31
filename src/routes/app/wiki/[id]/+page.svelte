@@ -15,11 +15,13 @@
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
-  import { submit, submitOrThrow } from '$lib/ui/submit';
+  import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import { fileToBase64 } from '$lib/common/use-doc-handlers';
   import { fileUrl } from '$shared/utils/files';
+  import { sourceFileLabel } from '$lib/link/source';
+  import { convertAndWait } from '$lib/doc/convert-source';
   import type { EditorImageType } from '$api/_images';
   import type { PageDetail, PageSummary } from '$shared/types/pages';
 
@@ -62,6 +64,44 @@
     await submitOrThrow(() => trpc().link.add.mutate({ entityType: 'PAGE', entityId: wikiPage.id, ...link }));
     await invalidateAll();
   };
+
+  // The page's source file, as on a doc: first in its links line, added from Add link's
+  // "or upload a file" (a document page without one), and converted with the local Claude.
+  const sourceFile = $derived(wikiPage.sourceUrl ? { label: sourceFileLabel(wikiPage.sourceUrl), href: fileUrl(wikiPage.sourceUrl) } : null);
+
+  let converting = $state(false);
+  let convertNotice = $state<{ readonly tone: 'warning' | 'error'; readonly message: string } | null>(null);
+  $effect(() => { void wikiPage.id; convertNotice = null; });
+
+  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  const handleConvert = async () => {
+    const id = wikiPage.id;
+    converting = true;
+    convertNotice = null;
+    try {
+      const warning = await convertAndWait({
+        start: () => submitOrThrow(() => trpc().page.convertSource.mutate({ id })),
+        status: () => submitOrThrow(() => trpc().page.sourceConversion.query({ id })),
+        wait
+      });
+      if (warning) convertNotice = { tone: 'warning', message: warning };
+    } catch (e: unknown) {
+      convertNotice = { tone: 'error', message: errorMessage(e) };
+    } finally {
+      converting = false;
+      await invalidateAll();
+    }
+  };
+
+  // Attaching a file to an empty page converts it straight away, as on a doc.
+  const handleUploadSource = async (file: File): Promise<void> => {
+    const empty = !wikiPage.content.trim();
+    const dataBase64 = await fileToBase64(file);
+    await submitOrThrow(() => trpc().page.attachSource.mutate({ pageId: wikiPage.id, fileName: file.name, dataBase64 }));
+    await invalidateAll();
+    if (empty) void handleConvert();
+  };
+  const uploadSource = $derived(!wikiPage.archivedAt && !wikiPage.sourceUrl && !isSheet ? handleUploadSource : undefined);
 
   const handleSavePrompt = async (prompt: string | null) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
@@ -168,12 +208,12 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} file={sourceFile} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} />
     {:else if makingSync}
-      <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onCancel={() => { makingSync = false; }} />
-    {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}
+      <SyncPrompt prompt="" links={sourceLinks} file={sourceFile} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
+    {:else if sourceLinks.length > 0 || sourceFile || !wikiPage.archivedAt}
       <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
-      <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
+      <SourceLinks links={sourceLinks} file={sourceFile} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
     {/if}
     {#if isSheet}
       <section class="section">
@@ -200,6 +240,10 @@
         exportHref={wikiPrintUrl(wikiPage.id)}
         startIn="editor"
         showTitle={false}
+        hasSourcePdf={!!wikiPage.sourceUrl}
+        {converting}
+        pdfNotice={convertNotice}
+        onConvertPdf={wikiPage.archivedAt ? undefined : handleConvert}
       />
       </section>
     {:else}
@@ -209,11 +253,16 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+            {:else if wikiPage.sourceUrl && !converting && !wikiPage.archivedAt}
+              <button type="button" class="btn ghost sm" onclick={handleConvert}>Convert with Claude</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
           </span>
         </div>
-        {#if wikiPage.content.trim()}
+        {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
+        {#if converting}
+          <p class="text-sm muted" aria-busy="true">Converting the file with Claude… This can take a minute or two.</p>
+        {:else if wikiPage.content.trim()}
           <MarkdownRenderer content={wikiPage.content} />
         {:else}
           <EmptyState message="This page is empty.">

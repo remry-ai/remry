@@ -27,6 +27,8 @@ export interface PageDetail extends PageSummary {
   readonly content: string;
   /** A sync page's prompt: what to pull from its linked sources. Null for an ordinary page. */
   readonly prompt: string | null;
+  /** Its source file's storage key (a PDF, an image or a text file), as on a doc; null without one. */
+  readonly sourceUrl: string | null;
   readonly parent: { readonly id: string; readonly title: string } | null;
   readonly children: readonly PageLink[];
   readonly createdAt: Date;
