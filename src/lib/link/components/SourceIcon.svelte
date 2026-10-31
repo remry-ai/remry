@@ -1,13 +1,17 @@
 <script lang="ts">
-  // 16px icon for a link: the tool's letter mark when linkSource knows the
-  // address, otherwise a chain. Decorative; the row names the tool in its title.
+  // 16px icon for a link: a page for a file uploaded as a link, the tool's letter mark when
+  // linkSource knows the address, otherwise a chain. Decorative; the row names it in its title.
   import type { LinkSource } from '../source';
 
   // small: 12px, for a line of small text (a doc's sources).
-  const { source, small = false }: { readonly source: LinkSource | null; readonly small?: boolean } = $props();
+  const { source, small = false, file = false }: { readonly source: LinkSource | null; readonly small?: boolean; readonly file?: boolean } = $props();
 </script>
 
-{#if source}
+{#if file}
+  <svg width={small ? 12 : 14} height={small ? 12 : 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 1.5h5.5L13 5v9.5H4z" /><path d="M9.5 1.5V5H13" />
+  </svg>
+{:else if source}
   <span class="mark" class:wide={source.mark.length > 1} class:small aria-hidden="true">{source.mark}</span>
 {:else}
   <svg width={small ? 11 : 14} height={small ? 11 : 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

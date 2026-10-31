@@ -92,62 +92,6 @@ describe('createDocHandlers.handleRemoveDoc', () => {
   });
 });
 
-describe('createDocHandlers.handleUploadPdf', () => {
-  beforeEach(() => {
-    invalidateAll.mockClear();
-  });
-
-  it('is a no-op when there is no active doc id', async () => {
-    const attachSource = vi.fn();
-    const handlers = createDocHandlers(
-      {
-        add: { mutate: vi.fn() },
-        update: { mutate: vi.fn() },
-        remove: { mutate: vi.fn() },
-        reorder: { mutate: vi.fn() },
-        attachSource: { mutate: attachSource },
-      },
-      'PROJECT',
-      'proj_1',
-      () => null,
-      vi.fn(),
-    );
-
-    const file = new File([new Uint8Array([1, 2, 3])], 'x.pdf', { type: 'application/pdf' });
-    await handlers.handleUploadPdf(file);
-
-    expect(attachSource).not.toHaveBeenCalled();
-  });
-
-  it('reads file bytes and calls attachSource with base64', async () => {
-    const attachSource = vi.fn().mockResolvedValue({ ok: true, value: { ok: true } });
-    const handlers = createDocHandlers(
-      {
-        add: { mutate: vi.fn() },
-        update: { mutate: vi.fn() },
-        remove: { mutate: vi.fn() },
-        reorder: { mutate: vi.fn() },
-        attachSource: { mutate: attachSource },
-      },
-      'PROJECT',
-      'proj_1',
-      () => 'doc_1',
-      vi.fn(),
-    );
-
-    const bytes = new Uint8Array([1, 2, 3, 250]);
-    const file = new File([bytes], 'x.pdf', { type: 'application/pdf' });
-    await handlers.handleUploadPdf(file);
-
-    expect(attachSource).toHaveBeenCalledTimes(1);
-    const arg = attachSource.mock.calls[0]![0];
-    expect(arg.docId).toBe('doc_1');
-    expect(arg.fileName).toBe('x.pdf');
-    expect(Buffer.from(arg.dataBase64, 'base64')).toEqual(Buffer.from(bytes));
-    expect(invalidateAll).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('createDocHandlers.handleConvertPdf', () => {
   beforeEach(() => {
     invalidateAll.mockClear();

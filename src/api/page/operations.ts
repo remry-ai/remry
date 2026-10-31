@@ -10,7 +10,6 @@ import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
 import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
-import { decodeSourceFile } from '$api/_uploads';
 
 // ----- Pure helpers -----
 
@@ -101,7 +100,7 @@ export const listPages = async (
 };
 
 export const getPage = async (
-  reg: Pick<Registry, 'prisma' | 'storage'>,
+  reg: Pick<Registry, 'prisma'>,
   id: string
 ): Promise<Result<PageDetail>> => {
   const row = await reg.prisma.page.findUnique({
@@ -117,7 +116,6 @@ export const getPage = async (
     ...toSummary(row),
     content: row.content,
     prompt: row.prompt,
-    sourceUrl: await pageSourceKey(reg, id),
     parent: row.parent,
     children: row.children.map((child) => ({
       id: child.id,
@@ -257,48 +255,4 @@ export const uploadPageImage = async (
   const writable = await ensureWritable(reg, 'PAGE', pageId);
   if (!writable.ok) return err(writable.error);
   return storeEditorImage(reg, `pages/${pageId}`, dataBase64);
-};
-
-const SOURCE_PREFIX = 'source-';
-
-/**
- * The page's source file, found in its folder like its images (`pages/<id>/source-<uuid>.<ext>`;
- * nothing in the database), or null. The newest, should there ever be more than one.
- */
-export const pageSourceKey = async (reg: Pick<Registry, 'storage'>, pageId: string): Promise<string | null> => {
-  const files = (await reg.storage.listFolder(`pages/${pageId}`)).filter((f) => f.name.startsWith(SOURCE_PREFIX));
-  const newest = [...files].sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())[0];
-  return newest ? `pages/${pageId}/${newest.name}` : null;
-};
-
-/**
- * Attaches a page's source file, as `doc.attachSource` does for a doc: any file Claude can read
- * (`decodeSourceFile`: a PDF, an image or text), stored in the page's folder beside its images,
- * replacing any before it. The folder goes when the page does (`planEntityCleanup`).
- */
-export const attachPageSource = async (
-  reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger'>,
-  pageId: string,
-  dataBase64: string,
-  fileName?: string
-): Promise<Result<{ readonly sourceUrl: string }>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true } });
-  if (!existing) return err(new Error(`Page ${pageId} not found`));
-  const writable = await ensureWritable(reg, 'PAGE', pageId);
-  if (!writable.ok) return err(writable.error);
-  const file = decodeSourceFile(dataBase64, fileName);
-  if (!file.ok) return err(file.error);
-
-  const previous = await pageSourceKey(reg, pageId);
-  const key = `pages/${pageId}/${SOURCE_PREFIX}${reg.uuid()}.${file.value.extension}`;
-  await reg.storage.putObject(key, file.value.bytes, file.value.contentType);
-
-  if (previous) {
-    try {
-      await reg.storage.deleteObject(previous);
-    } catch (error) {
-      reg.logger.warn({ pageId, sourceUrl: previous, error }, 'failed to delete the previous source file');
-    }
-  }
-  return ok({ sourceUrl: key });
 };

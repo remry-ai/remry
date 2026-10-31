@@ -19,7 +19,7 @@ import { features } from '$shared/settings/base/features';
 export const APP_ONLY: ReadonlySet<string> = new Set([
   'trpcMeta.list',
   // These run the Claude Code CLI for the web app; from the CLI or MCP, Claude reads the PDF (or the page) itself.
-  'doc.convertPdf', 'doc.pdfConversion', 'page.convertSource', 'page.sourceConversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask',
+  'doc.convertPdf', 'doc.pdfConversion', 'link.convert', 'link.conversion', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask',
   // entity.archive and entity.delete do these for every type.
   ...['person', 'group', 'project', 'goal', 'page'].flatMap((type) => [`${type}.archive`, `${type}.unarchive`, `${type}.delete`]),
   'todo.delete', 'doc.remove', 'note.remove', 'link.remove',

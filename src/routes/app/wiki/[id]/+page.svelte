@@ -20,8 +20,7 @@
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import { fileToBase64 } from '$lib/common/use-doc-handlers';
   import { fileUrl } from '$shared/utils/files';
-  import { sourceFileLabel } from '$lib/link/source';
-  import { convertAndWait } from '$lib/doc/convert-source';
+  import { convertFileLinkAndWait, newestFileLink, uploadFileLink } from '$lib/link/file-links';
   import type { EditorImageType } from '$api/_images';
   import type { PageDetail, PageSummary } from '$shared/types/pages';
 
@@ -65,25 +64,20 @@
     await invalidateAll();
   };
 
-  // The page's source file, as on a doc: first in its links line, added from Add link's
-  // "or upload a file" (a document page without one), and converted with the local Claude.
-  const sourceFile = $derived(wikiPage.sourceUrl ? { label: sourceFileLabel(wikiPage.sourceUrl), href: fileUrl(wikiPage.sourceUrl) } : null);
+  // Files uploaded from Add link's "or upload a file" are links like any other, pointing at the
+  // file in the page's folder; the newest one is what "Convert with Claude" writes the page from.
+  const fileLink = $derived(newestFileLink(sourceLinks));
 
   let converting = $state(false);
   let convertNotice = $state<{ readonly tone: 'warning' | 'error'; readonly message: string } | null>(null);
   $effect(() => { void wikiPage.id; convertNotice = null; });
 
-  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-  const handleConvert = async () => {
-    const id = wikiPage.id;
+  const handleConvert = async (linkId: string | undefined = fileLink?.id) => {
+    if (!linkId) return;
     converting = true;
     convertNotice = null;
     try {
-      const warning = await convertAndWait({
-        start: () => submitOrThrow(() => trpc().page.convertSource.mutate({ id })),
-        status: () => submitOrThrow(() => trpc().page.sourceConversion.query({ id })),
-        wait
-      });
+      const warning = await convertFileLinkAndWait(linkId, 'PAGE', wikiPage.id);
       if (warning) convertNotice = { tone: 'warning', message: warning };
     } catch (e: unknown) {
       convertNotice = { tone: 'error', message: errorMessage(e) };
@@ -93,15 +87,14 @@
     }
   };
 
-  // Attaching a file to an empty page converts it straight away, as on a doc.
+  // Uploading a file to an empty page writes the page from it straight away, as on a doc.
   const handleUploadSource = async (file: File): Promise<void> => {
     const empty = !wikiPage.content.trim();
-    const dataBase64 = await fileToBase64(file);
-    await submitOrThrow(() => trpc().page.attachSource.mutate({ pageId: wikiPage.id, fileName: file.name, dataBase64 }));
+    const linkId = await uploadFileLink('PAGE', wikiPage.id, file);
     await invalidateAll();
-    if (empty) void handleConvert();
+    if (empty) void handleConvert(linkId);
   };
-  const uploadSource = $derived(!wikiPage.archivedAt && !wikiPage.sourceUrl && !isSheet ? handleUploadSource : undefined);
+  const uploadSource = $derived(!wikiPage.archivedAt && !isSheet ? handleUploadSource : undefined);
 
   const handleSavePrompt = async (prompt: string | null) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
@@ -208,12 +201,12 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} file={sourceFile} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} />
     {:else if makingSync}
-      <SyncPrompt prompt="" links={sourceLinks} file={sourceFile} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
-    {:else if sourceLinks.length > 0 || sourceFile || !wikiPage.archivedAt}
+      <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
+    {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}
       <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
-      <SourceLinks links={sourceLinks} file={sourceFile} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
+      <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
     {/if}
     {#if isSheet}
       <section class="section">
@@ -240,10 +233,10 @@
         exportHref={wikiPrintUrl(wikiPage.id)}
         startIn="editor"
         showTitle={false}
-        hasSourcePdf={!!wikiPage.sourceUrl}
+        hasSourcePdf={!!fileLink}
         {converting}
         pdfNotice={convertNotice}
-        onConvertPdf={wikiPage.archivedAt ? undefined : handleConvert}
+        onConvertPdf={wikiPage.archivedAt ? undefined : () => handleConvert()}
       />
       </section>
     {:else}
@@ -253,8 +246,8 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
-            {:else if wikiPage.sourceUrl && !converting && !wikiPage.archivedAt}
-              <button type="button" class="btn ghost sm" onclick={handleConvert}>Convert with Claude</button>
+            {:else if fileLink && !converting && !wikiPage.archivedAt && !isSheet}
+              <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with Claude</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
           </span>

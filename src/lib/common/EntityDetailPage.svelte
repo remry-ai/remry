@@ -24,6 +24,7 @@
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { sourceFileLabel } from '$lib/link/source';
+  import { convertFileLinkAndWait, newestFileLink, uploadFileLink } from '$lib/link/file-links';
   import { fileUrl } from '$shared/utils/files';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
@@ -333,38 +334,58 @@
   }
   let pdfJob = $state<PdfJob | null>(null);
 
-  const runPdfConversion = async (docId: string): Promise<void> => {
+  // Runs a conversion for the doc, showing its progress and any warning or error on the doc.
+  const runConversion = async (docId: string, convert: () => Promise<string | null>): Promise<void> => {
     pdfJob = { docId, running: true, notice: null };
     try {
-      const warning = await docHandlers.handleConvertPdf(docId);
+      const warning = await convert();
       pdfJob = warning ? { docId, running: false, notice: { tone: 'warning', message: warning } } : null;
     } catch (e: unknown) {
       pdfJob = { docId, running: false, notice: { tone: 'error', message: errorMessage(e) } };
     }
   };
 
+  // Writes the doc from a file uploaded as a link, then reloads it.
+  const runFileConversion = (docId: string, linkId: string): Promise<void> =>
+    runConversion(docId, async () => {
+      try {
+        return await convertFileLinkAndWait(linkId, 'DOC', docId);
+      } finally {
+        await invalidateAll();
+      }
+    });
+
+  // The newest file uploaded as a link; a doc from before file links may have a PDF attached instead.
+  const docFileLink = $derived(newestFileLink(docLinks));
+
   const handleConvertActiveDoc = async () => {
-    if (activeDoc) await runPdfConversion(activeDoc.id);
+    if (!activeDoc) return;
+    const docId = activeDoc.id;
+    if (docFileLink) await runFileConversion(docId, docFileLink.id);
+    else await runConversion(docId, () => docHandlers.handleConvertPdf(docId));
   };
 
-  // Attaching a PDF to an empty doc converts it straight away.
-  const handleUploadPdfToDoc = async (file: File) => {
+  // Uploading a file to an empty doc writes the doc from it straight away.
+  const handleUploadDocFile = async (file: File) => {
     const doc = activeDoc;
-    await docHandlers.handleUploadPdf(file);
-    if (doc && doc.content.trim() === '') void runPdfConversion(doc.id);
+    if (!doc) return;
+    const linkId = await uploadFileLink('DOC', doc.id, file);
+    await loadDocLinks(doc.id);
+    if (doc.content.trim() === '') void runFileConversion(doc.id, linkId);
   };
 
-  // The open doc's source file, first in its sources line, named by its type ("PDF", "CSV");
-  // Add link's "or upload a file" attaches one.
+  // A PDF attached before file links (doc.attachSource), first in the sources line; new files are links.
   const docSourceFile = $derived(activeDoc?.sourceUrl ? { label: sourceFileLabel(activeDoc.sourceUrl), href: fileUrl(activeDoc.sourceUrl) } : null);
-  const docUploadFile = $derived(archivedAt || activeDoc?.sourceUrl ? undefined : handleUploadPdfToDoc);
+  const docUploadFile = $derived(archivedAt ? undefined : handleUploadDocFile);
 
-  const handleCreateDocFromPdf = async (file: File) => {
+  // "+ Add a file" on a new doc: saves it, uploads the file as its link and writes it from that.
+  const handleCreateDocFromFile = async (file: File) => {
     const id = await ensureDraftDoc();
     draftDocId = null;
     await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, '');
-    await docHandlers.handleUploadPdf(file);
-    if (activeDocId) void runPdfConversion(activeDocId);
+    const linkId = await uploadFileLink('DOC', id, file);
+    await loadDocLinks(id);
+    void runFileConversion(id, linkId);
   };
 
   // ----- Edit popup -----
@@ -493,7 +514,7 @@
       <DocEditor
         title={activeDoc.title}
         content={activeDoc.content}
-        hasSourcePdf={!!activeDoc.sourceUrl}
+        hasSourcePdf={!!activeDoc.sourceUrl || !!docFileLink}
         converting={pdfJob?.docId === activeDoc.id && pdfJob.running}
         pdfNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}
@@ -541,7 +562,7 @@
 
 <!-- A doc not saved yet can't take links, but a source file makes it, and Claude converts it. -->
 {#snippet newDocSources()}
-  <SourceLinks links={[]} onUploadFile={handleCreateDocFromPdf} />
+  <SourceLinks links={[]} onUploadFile={handleCreateDocFromFile} />
 {/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>

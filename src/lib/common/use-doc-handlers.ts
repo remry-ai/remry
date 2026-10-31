@@ -12,7 +12,6 @@ interface DocTrpc {
   update: { mutate: (input: any) => Promise<any> };
   remove: { mutate: (input: any) => Promise<any> };
   reorder: { mutate: (input: any) => Promise<any> };
-  attachSource?: { mutate: (input: any) => Promise<any> };
   uploadImage?: { mutate: (input: any) => Promise<any> };
   getReadUrl?: { query: (input: any) => Promise<any> };
   convertPdf?: { mutate: (input: any) => Promise<any> };
@@ -57,7 +56,6 @@ export interface DocHandlers {
   readonly handleSaveTitle: (title: string) => Promise<void>;
   readonly handleRemoveDoc: (id: string) => Promise<void>;
   readonly handleReorderDocs: (docIds: readonly string[]) => Promise<void>;
-  readonly handleUploadPdf: (file: File) => Promise<void>;
   /**
    * Converts the doc's PDF with the local Claude Code CLI and waits for it to
    * finish. Returns a warning when `claude` isn't installed; throws when the
@@ -122,15 +120,6 @@ export const createDocHandlers = (
 
   handleReorderDocs: async (docIds: readonly string[]) => {
     await submitOrThrow(() => docTrpc.reorder.mutate({ entityType, entityId, docIds: [...docIds] }));
-    await invalidateAll();
-  },
-
-  handleUploadPdf: async (file: File) => {
-    const docId = getActiveDocId();
-    const attachSource = docTrpc.attachSource;
-    if (!docId || !attachSource) return;
-    const dataBase64 = await fileToBase64(file);
-    await submitOrThrow(() => attachSource.mutate({ docId, fileName: file.name, dataBase64 }));
     await invalidateAll();
   },
 

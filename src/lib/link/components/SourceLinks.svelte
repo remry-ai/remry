@@ -8,6 +8,7 @@
   import { timeAgo } from '$lib/home/utils';
   import { submit } from '$lib/ui/submit';
   import { isSyncStale, linkLabel, linkSource } from '../source';
+  import { fileLinkKey, linkHref } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
 
   interface LinkItem {
@@ -40,14 +41,17 @@
   const canAdd = $derived(!!onAdd || !!onUploadFile);
 
   const items = $derived(links.map((link) => {
-    const source = linkSource(link.url);
+    // A file uploaded as a link points into the notebook (storage://…) and opens from the files route.
+    const isFile = fileLinkKey(link.url) !== null;
+    const source = isFile ? null : linkSource(link.url);
     const synced = link.syncedAt ? new Date(link.syncedAt) : null;
     return {
       id: link.id,
-      url: link.url,
+      url: linkHref(link.url),
+      isFile,
       source,
       label: linkLabel(link.title, link.url, source),
-      tooltip: source ? `${source.name}: ${link.url}` : link.url,
+      tooltip: isFile ? `File: ${link.title ?? ''}` : source ? `${source.name}: ${link.url}` : link.url,
       synced: synced
         ? {
             text: timeAgo(synced),
@@ -94,17 +98,17 @@
   <ul class="source-links" aria-label="Sources">
     {#if file}
       <li>
-        <svg class="file-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 1.5h5.5L13 5v9.5H4z" /><path d="M9.5 1.5V5H13" />
-        </svg>
+        <SourceIcon source={null} file small />
         <a href={file.href} target="_blank" rel="noopener noreferrer" title="Open the file">{file.label}</a>
       </li>
     {/if}
     {#each items as item (item.id)}
       <li>
-        <SourceIcon source={item.source} small />
+        <SourceIcon source={item.source} file={item.isFile} small />
         <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.tooltip}>{item.label}</a>
-        {#if item.synced}
+        {#if item.isFile}
+          <!-- An uploaded file is read as it is; there's nothing to sync. -->
+        {:else if item.synced}
           <span class="synced" class:stale={item.synced.stale} title={item.synced.title}>{item.synced.text}</span>
         {:else}
           <span class="synced" title="Added by hand: Claude reads it on its next refresh">not synced yet</span>
@@ -169,7 +173,6 @@
     &:hover { color: var(--accent); }
   }
   .synced { color: var(--text-3); white-space: nowrap; }
-  .file-icon { flex: none; }
   .stale { color: var(--warning); }
   // One row: the address takes the room, the title less; they wrap on a narrow pane.
   .add-form {

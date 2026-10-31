@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
-import { listLinks, findLinks, addLink, markLinkSynced, removeLink } from './operations';
+import { listLinks, findLinks, addLink, markLinkSynced, removeLink, uploadLinkFile } from './operations';
+import { convertFileLink, getFileLinkConversion } from './convert';
+
+// Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file), as for a doc's PDF.
+const MAX_FILE_BASE64_CHARS = 24_000_000;
 
 const entityTypeEnum = z.enum(ENTITY_TYPES);
 
@@ -29,6 +33,24 @@ export const linkRouter = router({
       synced: z.boolean().optional()
     }))
     .mutation(({ ctx, input }) => addLink(ctx.reg, input.entityType, input.entityId, input)),
+
+  upload: procedure
+    .meta({ description: "Uploads a file as a link on a doc or wiki page: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). dataBase64 is the file's bytes as base64 (a data: URL is fine)." })
+    .input(z.object({
+      entityType: z.enum(['DOC', 'PAGE']),
+      entityId: z.string(),
+      fileName: z.string().max(255).optional(),
+      dataBase64: z.string().max(MAX_FILE_BASE64_CHARS)
+    }))
+    .mutation(({ ctx, input }) => uploadLinkFile(ctx.reg, input.entityType, input.entityId, input.dataBase64, input.fileName)),
+
+  convert: procedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ ctx, input }) => convertFileLink(ctx.reg, ctx.pdfConverter, ctx.notebook.id, input.id)),
+
+  conversion: procedure
+    .input(z.object({ entityType: z.enum(['DOC', 'PAGE']), entityId: z.string() }))
+    .query(({ ctx, input }) => getFileLinkConversion(ctx.pdfConverter, ctx.notebook.id, input.entityType, input.entityId)),
 
   markSynced: procedure
     .meta({ description: 'Records that an entity was updated from its linked source now.' })

@@ -11,6 +11,7 @@
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import { timeAgo } from '$lib/home/utils';
   import { isSyncStale, linkLabel, linkSource } from '../source';
+  import { fileLinkKey, linkHref } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
 
   interface LinkItem {
@@ -58,14 +59,18 @@
   };
 
   const rows = $derived(links.map((link) => {
-    const source = linkSource(link.url);
+    // A file uploaded as a link (storage://…) opens from the files route, and removing it deletes the file.
+    const isFile = fileLinkKey(link.url) !== null;
+    const source = isFile ? null : linkSource(link.url);
     const label = linkLabel(link.title, link.url, source);
     const syncedDate = link.syncedAt ? new Date(link.syncedAt) : null;
     return {
       ...link,
+      href: linkHref(link.url),
+      isFile,
       source,
       label,
-      tooltip: source ? `${source.name}: ${link.url}` : link.url,
+      tooltip: isFile ? `File: ${link.title ?? ''}` : source ? `${source.name}: ${link.url}` : link.url,
       synced: syncedDate
         ? {
             text: timeAgo(syncedDate),
@@ -107,8 +112,8 @@
   <ul class="list">
     {#each rows as row (row.id)}
       <li class="list-row">
-        <SourceIcon source={row.source} />
-        <a class="grow wrap" href={row.url} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
+        <SourceIcon source={row.source} file={row.isFile} />
+        <a class="grow wrap" href={row.href} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
         {#if row.synced}
           <span class="meta synced" class:stale={row.synced.stale} title={row.synced.stale ? `${row.synced.title}. More than a week ago: ask Claude to re-sync it.` : row.synced.title}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Synced">
