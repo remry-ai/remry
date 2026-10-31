@@ -31,6 +31,12 @@
     readonly onClose?: () => void;
     /** Under the title: the doc's tracked sources, when it has any. */
     readonly sources?: Snippet;
+    /**
+     * False drops the title row, for an editor under a heading that already names it (a wiki
+     * page's): the close button moves to the end of the tab row. The PDF actions are in that
+     * row too, so a caller hiding it passes none.
+     */
+    readonly showTitle?: boolean;
     /** Link to the doc's print page (Export PDF). */
     readonly exportHref?: string;
     /** Colours charts in the preview like the exported PDF (the default branding). */
@@ -40,7 +46,7 @@
     readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn }: Props = $props();
+  const { title, content, hasSourcePdf, converting = false, pdfNotice = null, onSave, onSaveTitle, onUploadPdf, onOpenSourcePdf, onConvertPdf, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
 
   let editingTitle = $state(autoEditTitle);
   let titleDraft = $state(title);
@@ -232,6 +238,7 @@
 
 
 <section class="card doc-card">
+  {#if showTitle}
   <div class="doc-header">
     {#if editingTitle}
       <input
@@ -262,6 +269,7 @@
       <button type="button" class="btn icon" onclick={onClose} aria-label="Close">&times;</button>
     {/if}
   </div>
+  {/if}
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   {#if pdfNotice}<p class={pdfNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{pdfNotice.message}</p>{/if}
@@ -291,6 +299,9 @@
           {#if mode !== 'preview'}
             {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}
             <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving || !isDirty} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          {/if}
+          {#if !showTitle && onClose}
+            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
           {/if}
         </div>
       </div>

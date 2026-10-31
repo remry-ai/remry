@@ -352,6 +352,9 @@
     if (doc && doc.content.trim() === '') void runPdfConversion(doc.id);
   };
 
+  // A sync doc's text comes from its linked sources, so it offers no Attach PDF.
+  const activeDocUploadPdf = $derived(activeDoc?.prompt ? undefined : handleUploadPdfToDoc);
+
   const handleCreateDocFromPdf = async (file: File) => {
     const id = await ensureDraftDoc();
     draftDocId = null;
@@ -491,7 +494,7 @@
         pdfNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}
         onSaveTitle={docHandlers.handleSaveTitle}
-        onUploadPdf={handleUploadPdfToDoc}
+        onUploadPdf={activeDocUploadPdf}
         onOpenSourcePdf={docHandlers.handleOpenSourcePdf}
         onConvertPdf={handleConvertActiveDoc}
         onUploadImage={docHandlers.handleUploadImage}

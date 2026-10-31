@@ -83,10 +83,6 @@
   const handleResolveImages = async (keys: string[]): Promise<Record<string, string>> =>
     Object.fromEntries(keys.map((key) => [key, fileUrl(key)]));
 
-  const handleSaveTitle = async (title: string) => {
-    await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, title }));
-  };
-
   const handleCloseEditor = async () => {
     editing = false;
     await invalidateAll();
@@ -198,12 +194,12 @@
         title={wikiPage.title}
         content={wikiPage.content}
         onSave={handleSaveContent}
-        onSaveTitle={handleSaveTitle}
         onUploadImage={handleUploadImage}
         onResolveImages={handleResolveImages}
         onClose={handleCloseEditor}
         exportHref={wikiPrintUrl(wikiPage.id)}
         startIn="editor"
+        showTitle={false}
       />
       </section>
     {:else}
