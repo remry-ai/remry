@@ -7,6 +7,7 @@ import type { PdfConversionJob, PdfConverter } from '$shared/types/pdf-conversio
 import { addLink, readLinkFile, removeLink, uploadLinkFile, READ_IMAGE_BYTES, READ_TEXT_LIMIT } from '../operations';
 import { convertFileLink, fileJobKey } from '../convert';
 import { cleanupPrisma } from '../../../tests/cleanup-prisma';
+import { textSourceFile } from '$api/_uploads';
 
 const csv = Buffer.from('name,amount\nHosting,120\n').toString('base64');
 
@@ -20,7 +21,7 @@ describe('uploadLinkFile', () => {
       uuid: () => 'u1'
     });
 
-    const result = await uploadLinkFile(reg, 'PAGE', 'pg1', csv, 'Budget 2026.csv');
+    const result = await uploadLinkFile(reg, 'PAGE', 'pg1', { dataBase64: csv }, 'Budget 2026.csv');
 
     expect(result).toEqual({ ok: true, value: { id: 'link_1', url: 'storage://pages/pg1/file-u1.csv' } });
     expect(putObject).toHaveBeenCalledWith('pages/pg1/file-u1.csv', expect.anything(), 'text/plain; charset=utf-8');
@@ -30,10 +31,36 @@ describe('uploadLinkFile', () => {
   it('refuses a file Claude can\'t read, and an entity with no files folder', async () => {
     const reg = createTestRegistry({ prisma: { doc: { findUnique: vi.fn().mockResolvedValue({ id: 'd1', title: 'Spec' }) }, link: { create: vi.fn() } } as unknown as Registry['prisma'] });
     const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]).toString('base64');
-    const binary = await uploadLinkFile(reg, 'DOC', 'd1', docx, 'report.docx');
+    const binary = await uploadLinkFile(reg, 'DOC', 'd1', { dataBase64: docx }, 'report.docx');
     expect(!binary.ok && binary.error.message).toContain("can't be read");
-    const person = await uploadLinkFile(reg, 'PERSON', 'p1', csv, 'x.csv');
+    const person = await uploadLinkFile(reg, 'PERSON', 'p1', { dataBase64: csv }, 'x.csv');
     expect(!person.ok && person.error.message).toContain('doc or a wiki page');
+  });
+});
+
+describe('uploadLinkFile with text', () => {
+  it('stores text sent as text, as UTF-8 under its extension, served as plain text', async () => {
+    const putObject = vi.fn();
+    const reg = createTestRegistry({
+      prisma: { page: { findUnique: vi.fn().mockResolvedValue({ id: 'pg1', title: 'Budget', archivedAt: null }) }, link: { create: vi.fn().mockResolvedValue({ id: 'link_2' }) } } as unknown as Registry['prisma'],
+      storage: { ...createTestRegistry().storage, putObject },
+      uuid: () => 'u2'
+    });
+
+    const result = await uploadLinkFile(reg, 'PAGE', 'pg1', { text: '# Café notes\n' }, 'notes.md');
+
+    expect(result).toEqual({ ok: true, value: { id: 'link_2', url: 'storage://pages/pg1/file-u2.md' } });
+    const [, bytes, type] = putObject.mock.calls[0]!;
+    expect([Buffer.from(bytes as Uint8Array).toString('utf8'), type]).toEqual(['# Café notes\n', 'text/plain; charset=utf-8']);
+  });
+});
+
+describe('textSourceFile', () => {
+  it('refuses empty text and text with NUL characters, and never stores text as a PDF', () => {
+    expect(textSourceFile('', 'a.md').ok).toBe(false);
+    expect(textSourceFile('a\u0000b', 'a.bin').ok).toBe(false);
+    const named = textSourceFile('%PDF-1.7 not really', 'fake.pdf');
+    expect(named.ok && [named.value.extension, named.value.contentType]).toEqual(['txt', 'text/plain; charset=utf-8']);
   });
 });
 

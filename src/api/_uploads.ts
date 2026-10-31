@@ -107,3 +107,14 @@ export const decodeSourceFile = (dataBase64: string, fileName?: string): Result<
   return err(new Error("That file can't be read: a source must be a PDF, an image (PNG, JPEG, GIF or WebP) or a text file (Markdown, CSV, JSON, HTML…). Save a Word, Excel or other file as PDF or text first."));
 };
 
+/**
+ * A text file sent as its text (no base64, a third smaller, so a sandbox can send a bigger one):
+ * stored as UTF-8 under the file name's extension (`txt` without one), served as plain text.
+ */
+export const textSourceFile = (text: string, fileName?: string): Result<SourceFile> => {
+  if (!text) return err(new Error('The file is empty. Send its text.'));
+  if (text.includes('\u0000')) return err(new Error("That text has NUL characters, so it isn't a text file. Send the file's bytes as dataBase64 instead."));
+  const extension = safeExtension(fileName) ?? 'txt';
+  return ok({ bytes: Buffer.from(text, 'utf8'), extension: extension === 'pdf' ? 'txt' : extension, contentType: 'text/plain; charset=utf-8' });
+};
+

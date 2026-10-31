@@ -262,36 +262,37 @@ The app stores PDFs but can't read them; you do the reading.
 
 1. Read the PDF and convert it to clean markdown, keeping headings, lists and tables.
 2. `remry doc.add --entityType PERSON --entityId <id> --title "<title>"`, then `remry doc.update --id <doc> --content-file /tmp/doc.md`
-3. To keep the original attached: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry doc.attachSource --docId <doc> --dataBase64-file /tmp/pdf.b64`; from a sandbox, `doc_attachSource` only for a small file (**Files from the chat**).
+3. To keep the original, upload it as a file link on the doc: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry link.upload --entityType DOC --entityId <doc> --fileName "<name>.pdf" --dataBase64-file /tmp/pdf.b64`; from a sandbox, `link_upload` only for a small file (**Files from the chat**). It shows in the doc's line of links, and `link_read` reads it back.
 
 ## Files from the chat
 
-When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores two kinds of file, images and a doc's source PDF; everything else goes in as text you write.
+When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores files two ways: images shown in a doc's or page's text, and a file kept as a link on a doc or wiki page (`link_upload`: any file you can read, so a PDF, an image or any text file such as Markdown or CSV; it shows in the line of links with its name, and `link_read` reads it back). What it says goes in as text you write; keep the file as well when it's a source (a sync doc's, or one the user will want to open) or the user asks.
 
 | The file | What to do |
 |---|---|
 | An image (PNG, JPEG, GIF, WebP; a screenshot, photo, whiteboard) | `doc_uploadImage --docId` or `page_uploadImage --pageId`. It returns `markdown` (`![](storage://<key>)`): put it where the image belongs, with a short alt text (`![Q3 roadmap whiteboard](storage://…)`), and save the text in the same turn (`doc_update --content`, `page_update --content`). An uploaded image the text doesn't show is tidied away on the next save. Text that shows another doc's or page's images (`storage://docs/<id>/…`) gets its own copies when saved, so deleting the other one later can't lose them |
-| A PDF | Read it and write its markdown into a doc (**Importing a PDF**). Attaching the original (`doc_attachSource --docId`) is optional, and from a sandbox only when it's small (below) |
-| Markdown, text, a Word doc, a web page | Read it and write it as a doc's or page's content, as markdown |
+| A PDF | Read it and write its markdown into a doc (**Importing a PDF**). Keeping the original as a file link (`link_upload --entityType DOC`) is optional, and from a sandbox only when it's small (below) |
+| Markdown, text, CSV, JSON, code | Read it and write it as a doc's or page's content, as markdown. To keep the original too, `link_upload` with `text` (its contents as they are, no base64) |
+| A Word or Excel file, a web page | Read it and write it as a doc's or page's content, as markdown. The original can't be stored (only files you can read are); say so, and offer to keep it as a PDF or text file instead |
 | A spreadsheet or CSV | A markdown table in a doc or page; or, when each row is a record (expenses, contacts), a spreadsheet page with a row each (**Records and spreadsheets**). Ask which when it isn't clear |
 | Anything else (audio, video, an archive) | The app can't store it. Say so, and offer to note what it is and link to where it lives |
 
-The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is fine). The bytes decide the type, and anything else is refused with what to do. An error saying it isn't valid base64, or isn't an image or a PDF, means the text was cut or altered: encode it again.
+The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is fine), and `link_upload` takes a text file's contents as `text` instead (no base64, so a third smaller). The bytes decide the type, and anything else is refused with what to do. An error saying it isn't valid base64, or isn't an image or a PDF, means the text was cut or altered: encode it again.
 
-**In Cowork (or any sandbox), the base64 goes through the tool call as text you write**, so the file has to be small: every character costs time and output.
+**In Cowork (or any sandbox), the file goes through the tool call as text you write**, so it has to be small: every character costs time and output. A text file goes as `text`, its contents unchanged, up to about 200 KB; an image or a PDF goes as base64, up to 150 KB.
 1. Find the file. One the user attached is a file in your sandbox (look in the uploads folder). An image pasted into the message may exist only as a picture you can see; then ask them to attach it as a file.
 2. Shrink an image there, keeping it legible: longest side 1400px (1000px for a photo), saved as WebP at quality 70, or JPEG at quality 75 if WebP isn't available. Aim for 50 KB or less and stop at 150 KB: step the size and quality down until it fits. For example, with Python and Pillow:
    ```python
    from PIL import Image
    im = Image.open(src); im.thumbnail((1400, 1400)); im.convert("RGB").save("/tmp/up.webp", "WEBP", quality=70)
    ```
-   A PDF can't be shrunk the same way: attach it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "+ Add link" under the doc's title in the app, then "or upload a file", adds it.
-3. `base64 -w0 <file>` (or Python's `base64.b64encode`) and pass the whole output as `dataBase64`, unchanged and in one piece.
+   A PDF can't be shrunk the same way: keep it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "+ Add link" under the doc's title in the app, then "or upload a file", adds it. The same goes for a text file over about 200 KB.
+3. For an image or a PDF, `base64 -w0 <file>` (or Python's `base64.b64encode`) and pass the whole output as `dataBase64`, unchanged and in one piece. For a text file, pass its contents as `text`, with `fileName` (it keeps the extension: `notes.md`, `budget.csv`).
 4. Say what you reduced or left out ("added at 1400px; the original is larger", "the PDF's text is in the doc; attach the original in the app").
 
-**In Claude Code on the user's Mac**, use the CLI, which reads the file itself, so size doesn't matter: `base64 -i shot.png > /tmp/shot.b64`, then `remry doc.uploadImage --docId <doc> --dataBase64-file /tmp/shot.b64` (`page.uploadImage --pageId`, or `doc.attachSource` for a PDF).
+**In Claude Code on the user's Mac**, use the CLI, which reads the file itself, so size doesn't matter (up to 18 MB): `base64 -i shot.png > /tmp/shot.b64`, then `remry doc.uploadImage --docId <doc> --dataBase64-file /tmp/shot.b64` (`page.uploadImage --pageId`). To keep a file as a link: `remry link.upload --entityType DOC --entityId <doc> --fileName budget.csv --text-file budget.csv` for a text file, or `--dataBase64-file` with its base64 for a PDF or an image.
 
-**In Claude desktop Chat**, with no sandbox, you can read a file but can't send its bytes: write its text into the notebook as usual, and say that an image or the original PDF can be dragged in or attached in the app.
+**In Claude desktop Chat**, with no sandbox, you can read a file but can't send its bytes: write its text into the notebook as usual (a short text file can still go as a file link, `link_upload` with `text`), and say that an image or the original PDF can be dragged in, or uploaded from "+ Add link", in the app.
 
 ## Remry Pro
 

@@ -6,7 +6,7 @@ import { resolveEntityLabels } from '$api/_entity-labels';
 import type { EntityType } from '$shared/types/enums';
 import { entityPath } from '$shared/utils/entity';
 import { linkSearchKey, normalizeLinkUrl } from './url';
-import { decodeSourceFile } from '$api/_uploads';
+import { decodeSourceFile, textSourceFile } from '$api/_uploads';
 import { entityFileFolder, fileLinkKey, fileLinkUrl } from '$shared/utils/file-links';
 
 // ----- Types -----
@@ -128,24 +128,28 @@ const titleFor = (fileName: string | undefined): string | undefined => {
   return name.length <= 200 ? name : `…${name.slice(-199)}`;
 };
 
+/** A file's contents: its bytes as base64, or a text file's text (no base64, a third smaller). */
+export type UploadContent = { readonly dataBase64: string } | { readonly text: string };
+
 /**
  * Uploads a file as a link on a doc or wiki page: the file goes in the entity's own folder
  * (`docs/<id>/` or `pages/<id>/`, beside its images, so it goes when the entity does) and the
  * link points at it, `storage://<key>`, titled with the file's name. Any file Claude can read
- * (`decodeSourceFile`: a PDF, an image or text); anything else is refused, saying what to do.
+ * (`decodeSourceFile`: a PDF, an image or text, or `textSourceFile` for text sent as text);
+ * anything else is refused, saying what to do.
  */
 export const uploadLinkFile = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'now'>,
   entityType: EntityType,
   entityId: string,
-  dataBase64: string,
+  content: UploadContent,
   fileName?: string
 ): Promise<Result<{ readonly id: string; readonly url: string }>> => {
   const folder = entityFileFolder(entityType, entityId);
   if (!folder) return err(new Error('A file can be uploaded to a doc or a wiki page. Add a link to it here instead.'));
   const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
-  const file = decodeSourceFile(dataBase64, fileName);
+  const file = 'text' in content ? textSourceFile(content.text, fileName) : decodeSourceFile(content.dataBase64, fileName);
   if (!file.ok) return err(file.error);
 
   const key = `${folder}/file-${reg.uuid()}.${file.value.extension}`;

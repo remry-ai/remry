@@ -40,14 +40,22 @@ export const linkRouter = router({
     .query(({ ctx, input }) => readLinkFile(ctx.reg, input.id)),
 
   upload: procedure
-    .meta({ description: "Uploads a file as a link on a doc or wiki page: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). dataBase64 is the file's bytes as base64 (a data: URL is fine)." })
+    .meta({ description: "Uploads a file as a link on a doc or wiki page: stored in its folder, the link points at it (storage://…) and is titled with fileName. Any file you can read (a PDF, an image, Markdown, CSV…). Send one of text (a text file's contents, as they are) or dataBase64 (the file's bytes as base64; a data: URL is fine)." })
     .input(z.object({
       entityType: z.enum(['DOC', 'PAGE']),
       entityId: z.string(),
       fileName: z.string().max(255).optional(),
-      dataBase64: z.string().max(MAX_FILE_BASE64_CHARS)
+      text: z.string().max(MAX_FILE_BASE64_CHARS).optional(),
+      dataBase64: z.string().max(MAX_FILE_BASE64_CHARS).optional()
+    }).refine((input) => (input.text === undefined) !== (input.dataBase64 === undefined), {
+      message: 'Send one of text (a text file\'s contents) or dataBase64 (any file\'s bytes as base64), not both.',
+      path: ['dataBase64']
     }))
-    .mutation(({ ctx, input }) => uploadLinkFile(ctx.reg, input.entityType, input.entityId, input.dataBase64, input.fileName)),
+    .mutation(({ ctx, input }) => uploadLinkFile(
+      ctx.reg, input.entityType, input.entityId,
+      input.text !== undefined ? { text: input.text } : { dataBase64: input.dataBase64 ?? '' },
+      input.fileName
+    )),
 
   convert: procedure
     .input(z.object({ id: z.string() }))

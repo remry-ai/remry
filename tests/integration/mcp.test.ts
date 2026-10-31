@@ -115,6 +115,12 @@ describe('remry mcp', () => {
     expect(uploaded.url).toMatch(/^storage:\/\/pages\/.+\/file-.+\.csv$/);
     expect(JSON.parse((await callTool('link_read', { id: uploaded.id })).text)).toEqual({ title: 'budget.csv', kind: 'text', text: 'name,amount\nHosting,120\n' });
 
+    // A text file can go as its text, with no base64.
+    const notes = JSON.parse((await callTool('link_upload', { entityType: 'PAGE', entityId: page.id, fileName: 'notes.md', text: '# Notes\n' })).text) as { id: string; url: string };
+    expect(notes.url).toMatch(/\.md$/);
+    expect((JSON.parse((await callTool('link_read', { id: notes.id })).text) as { text: string }).text).toBe('# Notes\n');
+    expect((await callTool('link_upload', { entityType: 'PAGE', entityId: page.id, text: 'a', dataBase64: 'YQ==' })).isError).toBe(true);
+
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
     const image = JSON.parse((await callTool('link_upload', { entityType: 'PAGE', entityId: page.id, fileName: 'shot.png', dataBase64: png })).text) as { id: string };
     const read = (await request('tools/call', { name: 'link_read', arguments: { id: image.id } })).result as { content: Array<Record<string, unknown>> };
