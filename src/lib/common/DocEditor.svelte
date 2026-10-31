@@ -263,12 +263,12 @@
             <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
             <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
           {/if}
-          {#if onClose}
-            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
-          {/if}
           {#if mode !== 'preview'}
             {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}
             <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving || !isDirty} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          {/if}
+          {#if onClose}
+            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
           {/if}
         </div>
       </div>
