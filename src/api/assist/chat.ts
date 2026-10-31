@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { ok, err, type Result } from '$shared/utils/result';
 import { CHAT_LIMITS, chatPrompt } from '$shared/assist/claude-cli';
 import { resolveEntityLabel } from '$api/_entity-labels';
+import { readyLlm } from './llm';
 import type { Registry } from '$shared/registry';
 import type { EntityType } from '$shared/types/enums';
 import type {
@@ -18,8 +19,7 @@ import type {
   StoredPageChat
 } from '$shared/types/page-chat';
 
-export const CHAT_NOT_FOUND_WARNING =
-  "Couldn't find the Claude Code CLI (`claude`). Install it and sign in, then send your message again.";
+export const CHAT_RETRY = 'send your message again.';
 
 export const chatJobKey = (notebookId: string, chatId: string): string => `${notebookId}/${chatId}`;
 
@@ -89,15 +89,15 @@ export const sendChat = async (
   notebookId: string,
   input: SendChatInput
 ): Promise<Result<SendChatResult>> => {
-  const claudePath = pageChat?.locate() ?? null;
-  if (!pageChat || !claudePath) return ok({ started: false, warning: CHAT_NOT_FOUND_WARNING });
+  const llm = await readyLlm(pageChat, CHAT_RETRY);
+  if (!llm.ready) return ok(llm.reply);
   if ((await resolveEntityLabel(reg, input.entityType, input.entityId)) === null) {
     return err(new Error(`No ${input.entityType.toLowerCase()} with id ${input.entityId}.`));
   }
 
   const existing = await reg.prisma.pageChat.findUnique({ where: entityKey(input) });
-  if (existing && pageChat.running(chatJobKey(notebookId, existing.id))) {
-    return err(new Error('Claude is still replying in this chat.'));
+  if (existing && llm.runner.running(chatJobKey(notebookId, existing.id))) {
+    return err(new Error('Still replying in this chat.'));
   }
   const messages: readonly ChatMessage[] = [
     ...(existing ? parseMessages(existing.messages) : []),
@@ -108,9 +108,9 @@ export const sendChat = async (
     ? await reg.prisma.pageChat.update({ where: { id: existing.id }, data: { messages: json } })
     : await reg.prisma.pageChat.create({ data: { entityType: input.entityType, entityId: input.entityId, messages: json } });
 
-  const started = pageChat.start({
+  const started = llm.runner.start({
     key: chatJobKey(notebookId, row.id),
-    claudePath,
+    llm: llm.llm,
     // The prompt carries the most recent messages only; the whole conversation stays stored.
     prompt: chatPrompt({ ...input, messages: messages.slice(-CHAT_LIMITS.messages) }),
     saveReply: (reply) => saveChatReply(reg, row.id, reply)

@@ -3,32 +3,13 @@
 // and the process. The app never calls a model API itself.
 
 import { ok, err, type Result } from '$shared/utils/result';
+import { findExecutable, type CliLookupEnv } from './find-cli';
 
-export const CLAUDE_NOT_FOUND_WARNING =
-  "Couldn't find the Claude Code CLI (`claude`). Install it and sign in, then choose Convert with Claude again. The PDF is attached.";
+export type ClaudeLookupEnv = CliLookupEnv;
 
-export interface ClaudeLookupEnv {
-  readonly PATH?: string;
-  readonly HOME?: string;
-}
-
-/** Where installers put `claude`, for apps started with a minimal PATH. */
-const fallbackLocations = (home: string | undefined): readonly string[] => [
-  ...(home ? [`${home}/.claude/local/claude`, `${home}/.local/bin/claude`] : []),
-  '/opt/homebrew/bin/claude',
-  '/usr/local/bin/claude'
-];
-
-export const findClaude = (
-  env: ClaudeLookupEnv,
-  isExecutable: (path: string) => boolean
-): string | null => {
-  const onPath = (env.PATH ?? '')
-    .split(':')
-    .filter((dir) => dir !== '')
-    .map((dir) => `${dir.replace(/\/+$/, '')}/claude`);
-  return [...onPath, ...fallbackLocations(env.HOME)].find(isExecutable) ?? null;
-};
+/** `claude` on PATH, else where its installers put it (macOS and Linux). */
+export const findClaude = (env: ClaudeLookupEnv, isExecutable: (path: string) => boolean): string | null =>
+  findExecutable('claude', env, 'posix', isExecutable);
 
 /** How Claude says it couldn't read the file, so its apology is never saved as the file's text. */
 export const UNREADABLE_MARKER = 'CANNOT_READ:';
@@ -60,7 +41,8 @@ export const buildClaudeArgs = (fileName: string): readonly string[] => [
   ''
 ];
 
-const FENCED = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/;
+/** A whole reply wrapped in one markdown code fence, which models add despite being asked not to. */
+export const FENCED = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;

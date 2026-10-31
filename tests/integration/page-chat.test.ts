@@ -13,7 +13,7 @@ import { TEST_NOTEBOOK } from './test-notebooks';
 const replyingChat = (reply: string): { readonly pageChat: PageChat; readonly done: Promise<void>[] } => {
   const done: Promise<void>[] = [];
   const pageChat: PageChat = {
-    locate: () => '/usr/local/bin/claude',
+    locate: async () => ({ state: 'ready', llm: { provider: 'claude', path: '/usr/local/bin/claude' } }),
     start: (job: PageChatJob) => {
       done.push(job.saveReply(reply));
       return ok(undefined);

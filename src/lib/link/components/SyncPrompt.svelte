@@ -4,6 +4,7 @@
   // the sources. The prompt is editable here; clearing it makes an ordinary doc.
   // `creating` opens it on an empty prompt, for "Make sync doc"; Cancel leaves it as it was.
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
+  import { assistantName } from '$lib/stores/assistant';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
   import { errorMessage, submit } from '$lib/ui/submit';
@@ -82,7 +83,7 @@
     <span class="badge accent">Sync</span>
     <span class="text-xs text-2">
       {#if creating}Say what Claude should take from each source; add the sources below.
-      {:else if syncing}Claude is reading the sources and rewriting this…
+      {:else if syncing}{$assistantName} is reading the sources and rewriting this…
       {:else if empty}Nothing written yet: choose Sync now, or ask Claude to write it from its sources.
       {:else}Claude rewrites this from its sources, following the prompt.{/if}
     </span>

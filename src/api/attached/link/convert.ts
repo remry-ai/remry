@@ -7,7 +7,9 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { ensureWritable } from '$api/_archive';
-import { CLAUDE_NOT_FOUND_WARNING } from '$shared/assist/claude-cli';
+import { readyLlm } from '$api/assist/llm';
+
+export const CONVERT_RETRY = 'choose Convert again. The file is attached.';
 import type { ConvertPdfResult, PdfConversionStatus, PdfConverter } from '$shared/types/pdf-conversion';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
 import { updateDoc } from '$api/attached/doc/operations';
@@ -64,13 +66,13 @@ export const transcribeFileLink = async (
     await saveText(reg, linkId, new TextDecoder('utf-8').decode(file.bytes));
     return ok({ started: true });
   }
-  const claudePath = converter?.locate() ?? null;
-  if (!converter || !claudePath) return ok({ started: false, warning: CLAUDE_NOT_FOUND_WARNING });
+  const llm = await readyLlm(converter, CONVERT_RETRY);
+  if (!llm.ready) return ok(llm.reply);
   const path = reg.storage.pathFor(link.value.key);
   if (!path) return err(new Error("The file isn't in this notebook's files folder."));
-  converter.start({
+  llm.runner.start({
     key: fileJobKey(notebookId, 'LINK', linkId),
-    claudePath,
+    llm: llm.llm,
     pdfPath: path,
     onMarkdown: (markdown) => saveText(reg, linkId, markdown)
   });
@@ -111,13 +113,13 @@ export const convertFileLink = async (
     return written.ok ? ok({ started: true }) : err(written.error);
   }
 
-  const claudePath = converter?.locate() ?? null;
-  if (!converter || !claudePath) return ok({ started: false, warning: CLAUDE_NOT_FOUND_WARNING });
+  const llm = await readyLlm(converter, CONVERT_RETRY);
+  if (!llm.ready) return ok(llm.reply);
   const path = reg.storage.pathFor(link.key);
   if (!path) return err(new Error("The file isn't in this notebook's files folder."));
-  converter.start({
+  llm.runner.start({
     key: fileJobKey(notebookId, entityType, entityId),
-    claudePath,
+    llm: llm.llm,
     pdfPath: path,
     onMarkdown: async (markdown) => {
       if (!textFile) await saveText(reg, linkId, markdown);

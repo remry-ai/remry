@@ -33,9 +33,9 @@ describe('createPageChat', () => {
     const chat = createPageChat();
     const saveReply = vi.fn(noSave);
 
-    expect(chat.start({ key: 'work/c1', claudePath, prompt: 'the prompt', saveReply }).ok).toBe(true);
+    expect(chat.start({ key: 'work/c1', llm: { provider: 'claude', path: claudePath }, prompt: 'the prompt', saveReply }).ok).toBe(true);
     expect(chat.running('work/c1')).toBe(true);
-    expect(chat.start({ key: 'work/c1', claudePath, prompt: 'again', saveReply }).ok).toBe(false);
+    expect(chat.start({ key: 'work/c1', llm: { provider: 'claude', path: claudePath }, prompt: 'again', saveReply }).ok).toBe(false);
 
     expect(await settle(chat, 'work/c1')).toEqual({ state: 'done', reply: 'Hello **there**' });
     expect(saveReply).toHaveBeenCalledWith('Hello **there**');
@@ -50,7 +50,7 @@ describe('createPageChat', () => {
 
     const saveReply = vi.fn(noSave);
 
-    chat.start({ key: 'work/c2', claudePath, prompt: 'p', saveReply });
+    chat.start({ key: 'work/c2', llm: { provider: 'claude', path: claudePath }, prompt: 'p', saveReply });
     const status = await settle(chat, 'work/c2');
 
     expect(status.state).toBe('failed');
@@ -65,7 +65,7 @@ describe('createPageChat', () => {
     chmodSync(claudePath, 0o755);
     const chat = createPageChat();
 
-    chat.start({ key: 'work/c3', claudePath, prompt: 'p', saveReply: noSave });
+    chat.start({ key: 'work/c3', llm: { provider: 'claude', path: claudePath }, prompt: 'p', saveReply: noSave });
     expect(await settle(chat, 'work/c3')).toEqual({ state: 'failed', message: 'Claude exited without a reply: not signed in.' });
   });
 
@@ -73,7 +73,7 @@ describe('createPageChat', () => {
     const claudePath = fakeClaude('unsaved', JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'Hi' }));
     const chat = createPageChat();
 
-    chat.start({ key: 'work/c4', claudePath, prompt: 'p', saveReply: () => Promise.reject(new Error('database is locked')) });
+    chat.start({ key: 'work/c4', llm: { provider: 'claude', path: claudePath }, prompt: 'p', saveReply: () => Promise.reject(new Error('database is locked')) });
     expect(await settle(chat, 'work/c4')).toEqual({
       state: 'failed',
       message: "Claude replied, but the reply couldn't be saved: database is locked"

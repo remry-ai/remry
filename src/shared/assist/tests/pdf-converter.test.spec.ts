@@ -35,7 +35,7 @@ describe('createPdfConverter', () => {
     const onMarkdown = vi.fn().mockResolvedValue(ok({ id: 'doc_1' }));
     const converter = createPdfConverter();
 
-    converter.start({ key: 'work/doc_1', claudePath, pdfPath, onMarkdown });
+    converter.start({ key: 'work/doc_1', llm: { provider: 'claude', path: claudePath }, pdfPath, onMarkdown });
     expect(converter.status('work/doc_1')).toEqual({ state: 'running' });
 
     expect(await settle(converter, 'work/doc_1')).toEqual({ state: 'idle' });
@@ -47,7 +47,7 @@ describe('createPdfConverter', () => {
     const onMarkdown = vi.fn();
     const converter = createPdfConverter();
 
-    converter.start({ key: 'work/doc_2', claudePath, pdfPath, onMarkdown });
+    converter.start({ key: 'work/doc_2', llm: { provider: 'claude', path: claudePath }, pdfPath, onMarkdown });
     const status = await settle(converter, 'work/doc_2');
 
     expect(status.state).toBe('failed');
@@ -60,14 +60,14 @@ describe('createPdfConverter', () => {
     const claudePath = fakeClaude('ok2', JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: '# Hi' }));
     const converter = createPdfConverter();
 
-    converter.start({ key: 'work/doc_3', claudePath, pdfPath, onMarkdown: async () => err(new Error('Doc not found')) });
+    converter.start({ key: 'work/doc_3', llm: { provider: 'claude', path: claudePath }, pdfPath, onMarkdown: async () => err(new Error('Doc not found')) });
 
     expect(await settle(converter, 'work/doc_3')).toEqual({ state: 'failed', message: 'Doc not found' });
   });
 
   it('fails when the executable cannot run', async () => {
     const converter = createPdfConverter();
-    converter.start({ key: 'work/doc_4', claudePath: join(dir, 'missing'), pdfPath, onMarkdown: vi.fn() });
+    converter.start({ key: 'work/doc_4', llm: { provider: 'claude', path: join(dir, 'missing') }, pdfPath, onMarkdown: vi.fn() });
 
     const status = await settle(converter, 'work/doc_4');
     expect(status.state).toBe('failed');

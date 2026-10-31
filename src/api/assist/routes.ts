@@ -6,6 +6,9 @@ import { ASK_LIMITS, CHAT_LIMITS } from '$shared/assist/claude-cli';
 import { askNotebook } from './ask';
 import { sendChat, getChatStatus, getChat, clearChat } from './chat';
 import { getSyncStatus, startSyncNow } from './sync';
+import { llmChoiceStatus, saveLlm } from '$shared/assist/llm-choice.server';
+import { LLM_PROVIDER_IDS } from '$shared/types/llm';
+import { ok } from '$shared/utils/result';
 
 const entity = {
   entityType: z.enum(ENTITY_TYPES),
@@ -54,4 +57,16 @@ export const syncRouter = router({
   status: procedure
     .input(z.object(syncTarget))
     .query(({ ctx, input }) => getSyncStatus(ctx.syncRunner, ctx.notebook.id, input.entityType, input.id))
+});
+
+// The default assistant the web app runs, for the whole computer (settings.json). Web app only.
+export const llmRouter = router({
+  available: procedure
+    .meta({ description: 'The AI assistants the web app can run, whether each is installed, and the default.' })
+    .query(async () => ok(await llmChoiceStatus())),
+
+  setDefault: procedure
+    .meta({ description: 'Sets the AI assistant the web app runs.' })
+    .input(z.object({ provider: z.enum(LLM_PROVIDER_IDS) }))
+    .mutation(({ input }) => saveLlm(input.provider))
 });

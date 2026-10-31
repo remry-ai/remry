@@ -6,6 +6,7 @@
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
+  import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
   import { ENTITY_TYPES, type EntityType } from '$shared/types/enums';
@@ -153,7 +154,7 @@
         {#if !readOnly}
           <span class="row-actions">
             {#if row.readable}
-              <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : 'Re-read with Claude: write its text again'} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
+              <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : `Re-read with ${$assistantName}: write its text again`} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
             {/if}
             <ConfirmButton label="Remove link {row.label}" variant="icon" onConfirm={() => handleRemove(row.id)} />
           </span>

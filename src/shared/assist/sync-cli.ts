@@ -4,9 +4,6 @@
 
 import { ok, err, type Result } from '$shared/utils/result';
 
-export const SYNC_CLAUDE_NOT_FOUND =
-  "Couldn't find the Claude Code CLI (`claude`). Install it and sign in, then choose Sync now again, or ask Claude in a chat to sync it.";
-
 /** Text of one source given inline (a file link's saved text); longer is cut. */
 export const SYNC_INLINE_LIMIT = 100_000;
 

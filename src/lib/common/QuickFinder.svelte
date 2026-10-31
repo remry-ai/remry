@@ -7,6 +7,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { trpc } from '$shared/trpc/client';
+  import { startWithLlm } from '$lib/assist/ask-llm';
   import { loadEntityOptions, type EntityOption } from '$shared/trpc/load-entity-options';
   import { RELATABLE_TYPES } from '$shared/types/enums';
   import { isProActive, type LicenseStatus } from '$shared/types/license';
@@ -204,7 +205,7 @@
     const controller = new AbortController();
     polling = controller;
     try {
-      const started = await submitOrThrow(() => trpc().chat.ask.mutate({ question }));
+      const started = await startWithLlm(() => submitOrThrow(() => trpc().chat.ask.mutate({ question })));
       if (!started.started) {
         answer = { query: q, state: 'failed', text: started.warning };
         return;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { assistantName } from '$lib/stores/assistant';
   import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
@@ -235,7 +236,7 @@
       <h2 class:editable={!!onSaveTitle} ondblclick={startEditingTitle} title={onSaveTitle ? 'Double-click to rename' : undefined}>{title}</h2>
     {/if}
     {#if hasSourceFile && onConvert && !converting && !content.trim()}
-      <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with Claude</button>
+      <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}</button>
     {/if}
   </div>
   {/if}
@@ -243,7 +244,7 @@
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
   {#if converting}
-    <div class="status" aria-busy="true">Converting the file with Claude… This can take a minute or two.</div>
+    <div class="status" aria-busy="true">Converting the file with {$assistantName}… This can take a minute or two.</div>
   {:else if resolving}
     <div class="status" aria-busy="true">Loading…</div>
   {:else}

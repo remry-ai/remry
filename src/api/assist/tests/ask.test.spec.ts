@@ -3,12 +3,15 @@ import { ok } from '$shared/utils/result';
 import { createTestRegistry } from '$shared/registry.test';
 import type { Registry } from '$shared/registry';
 import type { PageChat, PageChatJob } from '$shared/types/page-chat';
-import { ASK_NOT_FOUND_WARNING, askNotebook, askSearchQuery } from '../ask';
+import { ASK_RETRY, askNotebook, askSearchQuery } from '../ask';
+import { fakeLookup } from './fake-llm';
+import { notFoundWarning } from '$shared/assist/providers/provider';
+import { claudeProvider } from '$shared/assist/providers/claude';
 
 const fakeChat = (claudePath: string | null = '/opt/homebrew/bin/claude') => {
   const jobs: PageChatJob[] = [];
   const pageChat: PageChat = {
-    locate: () => claudePath,
+    locate: fakeLookup(claudePath),
     start: (job) => {
       jobs.push(job);
       return ok(undefined);
@@ -42,7 +45,7 @@ describe('askNotebook', () => {
   it('warns, and starts nothing, without claude', async () => {
     const { pageChat, jobs } = fakeChat(null);
     const reg = createTestRegistry();
-    expect(await askNotebook(reg, pageChat, 'work', 'who owns billing?')).toEqual(ok({ started: false, warning: ASK_NOT_FOUND_WARNING }));
+    expect(await askNotebook(reg, pageChat, 'work', 'who owns billing?')).toEqual(ok({ started: false, warning: notFoundWarning(claudeProvider, ASK_RETRY) }));
     expect(jobs).toEqual([]);
   });
 

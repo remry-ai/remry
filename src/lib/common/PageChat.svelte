@@ -7,6 +7,8 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { errorMessage, submitOrThrow } from '$lib/ui/submit';
   import { askAboutPage, waitForReply } from '$lib/common/use-page-chat';
+  import { startWithLlm } from '$lib/assist/ask-llm';
+  import { assistantName } from '$lib/stores/assistant';
 
   interface Props {
     readonly page: RightPanelPage;
@@ -78,7 +80,7 @@
       const reply = await askAboutPage(
         trpc().chat,
         { ...entity(), entityName: page.entityName, pageText: page.getPageText(), content },
-        { signal: closed.signal }
+        { signal: closed.signal, startWith: startWithLlm }
       );
       if (reply.kind === 'reply') await showReply(reply.content);
       else {
@@ -127,7 +129,7 @@
       </div>
     {/each}
     {#if waiting}
-      <p class="thinking" aria-busy="true">Claude is thinking…</p>
+      <p class="thinking" aria-busy="true">{$assistantName} is thinking…</p>
     {/if}
     {#if notice}
       <p class={notice.tone === 'error' ? 'inline-error' : 'chat-warning'}>{notice.message}</p>
