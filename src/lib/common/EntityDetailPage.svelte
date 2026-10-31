@@ -112,8 +112,6 @@
     readonly description?: string | null;
     /** A small heading on that box (a project's "Brief"). */
     readonly descriptionLabel?: string;
-    /** Start the docs list folded, so a page with an overview of its own leads with that. */
-    readonly docsFolded?: boolean;
     /** Set for archivable entities. An archived entity shows a banner and no edit button. */
     readonly archivedAt?: Date | string | null;
     readonly renderOverview: Snippet<[OverviewCtx]>;
@@ -139,7 +137,6 @@
     onFileLinkUploaded,
     description = null,
     descriptionLabel = undefined,
-    docsFolded = false,
     breadcrumbTrail = [],
     archivedAt = undefined,
     renderOverview,
@@ -509,7 +506,6 @@
         <DocsManager
           {docs}
           {activeDocId}
-          startExpanded={!docsFolded}
           onSelect={openDoc}
           onStartAdd={openNewDoc}
           onRemove={docHandlers.handleRemoveDoc}

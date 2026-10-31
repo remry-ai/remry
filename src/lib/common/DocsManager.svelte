@@ -19,8 +19,6 @@
     readonly onStartAdd: () => void;
     readonly onRemove: (id: string) => Promise<void>;
     readonly onReorder: (docIds: readonly string[]) => Promise<void>;
-    /** Open on arrival (the default); a project's page starts it folded. */
-    readonly startExpanded?: boolean;
   }
 
   const {
@@ -30,15 +28,14 @@
     onStartAdd,
     onRemove,
     onReorder,
-    startExpanded = true,
   }: Props = $props();
 
   // Open on arrival, so the page shows what it holds, unless the URL already
-  // has a doc open or the page asked for it folded. It closes itself when a doc takes the centre pane, and
+  // has a doc open. It closes itself when a doc takes the centre pane, and
   // reopens on a click.
   // Read once: where it starts.
   // svelte-ignore state_referenced_locally
-  let expanded = $state(activeDocId === null && startExpanded);
+  let expanded = $state(activeDocId === null);
 
   const toggle = () => { expanded = !expanded; };
 

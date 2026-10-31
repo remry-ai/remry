@@ -3,7 +3,7 @@
 // procedures stay for the app, and are left out of the CLI and MCP (cli/api.ts).
 
 import { z } from 'zod';
-import { ARCHIVABLE_TYPES } from '$shared/types/enums';
+import { ARCHIVABLE_TYPES, ENTITY_TYPES, OWNER_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
 import type { Registry } from '$shared/registry';
 import { notInModelMessage } from '$shared/modules/model';
@@ -18,6 +18,7 @@ import { deleteTodo } from '$api/attached/todo/operations';
 import { removeDoc } from '$api/attached/doc/operations';
 import { removeNote } from '$api/attached/note/operations';
 import { removeLink } from '$api/attached/link/operations';
+import { CONVERT_FROM, CONVERT_TO, convertEntity } from '$api/convert/operations';
 
 export const DELETABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'TODO', 'DOC', 'NOTE', 'LINK'] as const;
 export type DeletableType = (typeof DELETABLE_TYPES)[number];
@@ -52,6 +53,25 @@ export const entityRouter = router({
       if (owner) return err(new Error(notInModelMessage(ctx.model, owner, input.entityType)));
       return setArchived(ctx.reg, input.entityType, input.id, input.archived);
     }),
+
+  // Turns one kind of item into another, keeping what's attached to it (src/api/convert/).
+  convert: procedure
+    .meta({ description: 'Turns a project, doc or note into a wiki page (to PAGE), or a page into a project, doc or note, moving its notes, todos, links, tags, relations, sub-projects or sub-pages and docs with it, and pointing links to it at the new item. The old one is deleted.' })
+    .input(z.object({
+      entityType: z.enum(CONVERT_FROM),
+      id: z.string(),
+      to: z.enum(CONVERT_TO),
+      parentId: z.string().optional().describe('The page (to PAGE) or project (to PROJECT) to put it under'),
+      onType: z.enum(ENTITY_TYPES).optional().describe('To DOC or NOTE: the entity it goes on'),
+      onId: z.string().optional(),
+      title: z.string().min(1).max(200).optional().describe("A note's page title (default: its first line)"),
+      description: z.string().optional().describe("To PROJECT: the new project's brief (the page's text becomes a doc)"),
+      status: z.string().optional().describe('To PROJECT'),
+      ownerType: z.enum(OWNER_TYPES).optional().describe('To PROJECT, with ownerId'),
+      ownerId: z.string().optional(),
+      allowDuplicate: z.boolean().optional().describe('To PROJECT: create it even though a project has its name')
+    }))
+    .mutation(({ ctx, input }) => convertEntity(ctx.reg, input)),
 
   // Deletes for good, with everything attached to it (its notes, docs, todos, links,
   // tags and relations). Prefer archive for anything that may matter later.

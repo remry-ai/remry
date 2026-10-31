@@ -1,6 +1,6 @@
 ---
 name: remry
-description: Read and write the user's local Remry notebooks (separate ones for work, home life and personal projects) — their people and groups (teams, departments, families, friend groups — a group's kind is defined per notebook), reporting lines, friends and family and how they're related, projects and who owns them, goals with targets and check-ins, a wiki of pages and spreadsheets (policies, software, expenses, recipes, places, home things, tax records), relations between any of these, notes, docs (with charts), recurring todos and tags. Use whenever the user talks about the people or teams they work with, friends, family, birthdays, who is whose partner, sibling or parent, bills, subscriptions, recurring expenses, taxes, recipes, places to visit, things around the house, personal projects, 1:1s, who reports to whom, org changes ("X moved to team Y", "Z is now X's manager"), projects, goals, OKRs, targets or progress ("we're at 80%", "that goal is at risk"), policies, products, the software or vendors they use, decisions, wiki pages, links between things ("link X to Y", "X depends on Y", "team X uses Y"), follow-ups or reminders about their work, asks you to "remember", "note", "log" or "track" something about their org, wants a report or write-up about a person, team, project or goal, wants a PDF imported into their notes, or wants projects, issues, pages or people from Linear, Notion, Jira, GitHub or another tool brought into their notes.
+description: Read and write the user's local Remry notebooks (separate ones for work, home life and personal projects) — their people and groups (teams, departments, families, friend groups — a group's kind is defined per notebook), reporting lines, friends and family and how they're related, projects and who owns them, goals with targets and check-ins, a wiki of pages and spreadsheets (policies, software, expenses, recipes, places, home things, tax records), relations between any of these, notes, docs (with charts), recurring todos and tags. Use whenever the user talks about the people or teams they work with, friends, family, birthdays, who is whose partner, sibling or parent, bills, subscriptions, recurring expenses, taxes, recipes, places to visit, things around the house, personal projects, 1:1s, who reports to whom, org changes ("X moved to team Y", "Z is now X's manager"), projects, goals, OKRs, targets or progress ("we're at 80%", "that goal is at risk"), policies, products, the software or vendors they use, decisions, wiki pages, links between things ("link X to Y", "X depends on Y", "team X uses Y"), follow-ups or reminders about their work, meetings and calendar events (prep, "brief me before my meetings", "what's my next meeting about"), asks you to "remember", "note", "log" or "track" something about their org, wants a report or write-up about a person, team, project or goal, wants a PDF imported into their notes, or wants projects, issues, pages or people from Linear, Notion, Jira, GitHub or another tool brought into their notes.
 ---
 
 # Remry
@@ -91,6 +91,19 @@ Whenever you list todos in chat (what's due, a person's open todos, the result o
 - The user ticks todos done, moves dates and changes priorities, then presses **Save changes**. That sends you a message listing each change by todo id. Make each one with `todo_update` (`status`, `targetDate`, `priority`; `null` clears the date), without listing the todos again first. Then reply with the links, as for any write. Completing a recurring todo returns `nextId`: say when the next one is due.
 - For one or two todos, or without a widget tool (Claude Code in a terminal, say), list them in markdown with their links instead.
 
+## Meeting briefs
+
+With a calendar connected to Claude, brief the user just before a meeting: the big takeaways on who they're meeting, not a dump of the notebook.
+
+**Setting it up** ("brief me 5 minutes before each meeting"): this needs the calendar's tools and a scheduled task on the user's computer (the Remry tools don't run in the cloud). If either is missing, say so and offer on-demand briefs. Otherwise create one weekday-morning task (check there isn't one already) that reads today's events, skips all-day, declined and solo ones, and sets a one-time reminder 5 minutes before each to write its brief.
+
+**Writing a brief:** re-read the event (skip it if cancelled), match attendees to people by `email` from `person.list` (then by name) and the title to a group or project, and gather with `search.recall` (without Pro: `person.get`, `note.list`, `todo.forEntity`). Write nothing.
+
+- **A group meeting:** per team or person, one line on what's going on with them: changes, decisions, blockers, anything at risk. Leave out anyone with nothing new.
+- **A 1:1:** a review of your interactions with that person over the last 2 months (older is out), as **at most 5 talking points**, then their **outstanding todos** with links.
+
+Keep it to what fits on a phone screen. If the notebook has nothing on the meeting, say so in one line.
+
 ## Recipes
 
 These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `person_create` with `{"name": "Dana Park"}`.
@@ -111,14 +124,16 @@ These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `per
 | "Note that Dana wants to lead the migration" | `note.add --entityType PERSON --entityId <dana> --content "..."` |
 | "Remind me to book a 1:1 with Dana" | `todo.create --title "Book 1:1 with Dana" --entityType PERSON --entityId <dana>` (optional `--priority 0-3`, `--targetDate 2026-10-01`) |
 | "That's done" | `todo.update --id <todo> --status COMPLETE` |
-| "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --status in-progress` (optional `--parentId`, `--startDate`, `--daysLikely`) |
+| "Brief me 5 minutes before each meeting" | See **Meeting briefs** |
+| "What's my next meeting about?" / "Prep me for my 2pm" | Write a brief. See **Meeting briefs** |
+| "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --description "<why and what, 3–5 lines>" --status in-progress --endDate 2026-12-18` (ask for the end date if the user didn't say; optional `--parentId`, `--startDate`, `--daysLikely`), then its sync doc, "Q4 migration brief". See **Where things go on a project** |
 | "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
 | "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
 | "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
 | "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | Read each, `doc.add` a "Checkout brief" on the project, link each source to the doc with `--synced true`, then `doc.update --prompt "<what to take from each>" --content-file <the write-up, with ## Discrepancies>` and mark each synced. See **Sync docs** |
 | "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
 | "Move the Checkout brief to the Payments project" | `doc_update --id <doc> --entityType PROJECT --entityId <payments>`. The doc keeps its id, images, sources, prompt, notes and PDF. Never move a doc by copying it into a new doc and deleting the old one |
-| "Turn this doc into a wiki page" | `page_create --title "<title>" --content <the doc's content>` (its images are copied to the page), check the page, then confirm and delete the doc |
+| "Turn this doc into a wiki page" / "Move the Q4 migration into the wiki" / "Make this page a project" | `entity.convert`. See **Moving between projects and the wiki** |
 | "Put this screenshot in the Checkout brief" (an image in the chat) | Shrink it, `doc_uploadImage --docId <brief> --dataBase64 <base64>`, put the returned `markdown` where it belongs and `doc_update` the content. See **Files from the chat** |
 | "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
 | "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
@@ -170,14 +185,37 @@ Wiki pages have no kinds or fields: a page is a document or a spreadsheet. Pick 
 
 ## Where things go on a project
 
-A project page shows four kinds of text. Give each one its own job, so the user finds things in one place:
+**A project ends; a wiki page doesn't.** A project is work that finishes, so it has an end date (`--endDate`; ask for one when the user hasn't given it, and note a rough one as rough). Something ongoing with no end (a policy, a runbook, a vendor, a recipe, how a team works) is a wiki page. When a project has no end in sight, or a page has become a piece of work with a deadline, offer to convert it (**Moving between projects and the wiki**).
 
-- **Description (the Brief):** what the project is and why, in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates to it. If it's grown past a few lines, move the detail into a doc and shorten the brief.
-- **Notes (the log):** status updates, decisions, what someone said, what changed. One note per event, dated by when it's added. "We slipped a week", "Dana approved the budget", "the vendor said no" are notes.
-- **Docs (reference):** things to read or look up: specs, plans, briefs written from sources (sync docs), imported PDFs, write-ups. Not for updates.
+A project page pairs two things, with notes alongside. Give each its own job, so the user finds things in one place:
+
+- **Description (the Brief): why, and what's being done,** in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates or details to it.
+- **The project's sync doc: the details.** Scope, plan, timeline, decisions, open questions, and anything from its sources. One per project, titled "<Project> brief", with a prompt saying what it covers and the sources it draws on linked (see **Sync docs**). When the details live in the user's head rather than a tool, it still gets a prompt saying what it holds, and sources are linked as they turn up. Facts and decisions go here, not in notes.
+- **Split it when it gets too large.** When the doc runs past a few screens, or one part (pricing, the rollout, an API design) has grown enough to be read on its own, propose moving that part into its own sync doc on the project, with its own prompt and the sources it draws on. Leave a two-line summary and a link to it in the main doc, and narrow the main doc's prompt to match. Ask before splitting.
+- **Notes: commentary and feedback.** What the user and others think about the work: reactions, concerns, praise, feedback from a review, what someone said about it, the user's own read ("I don't believe that date"). One note per remark, dated by when it's added. A note doesn't hold the plan or the facts; if one does, the fact belongs in the doc and the note keeps the reaction.
+- **Other docs:** reference that isn't the project's own details: an imported PDF, a write-up for someone else.
 - **Sub-projects:** only when a piece has its own owner, its own dates or its own status worth tracking. Smaller steps are todos on the project.
 
-The same goes for groups and goals: a short description, notes for what happens, docs for reference.
+The same goes for groups and goals: a short description, the details in docs, notes for commentary.
+
+## Moving between projects and the wiki
+
+`entity.convert` turns one kind of item into another and deletes the old one. Everything attached comes along (notes, todos, links, tags, comments, relations), links to the old item in other pages, docs and notes are rewritten to the new one (`relinked` counts them), and the result lists everything it made.
+
+| From → to | What happens | Add |
+|---|---|---|
+| Project → page | A page with the project's facts at the top (status, owner, dates, estimate, goals, as links) then its brief. Sub-projects become sub-pages, then each doc becomes a sub-page. Goal links and the owner live on as links in the text | `--parentId <page>` to put it under a page |
+| Doc → page | The doc's text and images; a sync doc stays a sync page with its sources. The page is related to where the doc was | `--parentId <page>` |
+| Note → page | The note's text; its replies become notes on the page. Related to where the note was | `--title` (default: its first line), `--parentId <page>` |
+| Page → project | Sub-pages become sub-projects. Each page's text becomes a doc of the same name on its project (a sheet becomes a table) | `--description` (a 3–5 line brief you write from the page), `--status`, `--ownerType --ownerId`, `--parentId <project>` |
+| Page → doc | The page's text and images, as a doc | `--onType --onId` (a person, group, project or goal) |
+| Page → note | The title in bold, then the text; the page's notes become replies | `--onType --onId` |
+
+- **Confirm first, and snapshot** (`backup_snapshot`): the old item is deleted, and a project tree is many writes. Say what it'll make: "Q4 migration becomes a wiki page under Engineering, with its 2 sub-projects and 3 docs as sub-pages."
+- **It refuses, with what to do,** when: a page with sub-pages is going to a doc or note (convert it to a project, or move the sub-pages), a page with images or uploaded files is going to a note (make it a doc), or a page tree's titles are already project names (`--allowDuplicate true` only if they're different projects).
+- **Archived items** must be unarchived first.
+- **Moving a doc** to another person, group, project or goal isn't a conversion: `doc.update --entityType --entityId`.
+- Reply with the link to the new item and what came along, and pass on any `warnings`.
 
 ## Write-ups
 
