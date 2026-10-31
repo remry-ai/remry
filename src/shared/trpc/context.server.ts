@@ -2,12 +2,13 @@
 // notebook store for the `notebook` procedures, and the Pro license check. Routes forward `ctx.reg` (or a
 // slice of it) into operations.
 //
-// Only the web app's context has `pdfConverter` and `pageChat`, which run the
+// Only the web app's context has `pdfConverter`, `pageChat` and `syncRunner`, which run the
 // local Claude Code CLI. It isn't on the Registry, and the CLI and MCP server go without it.
 
 import type { RequestEvent } from '@sveltejs/kit';
 import { getPdfConverter } from '$shared/assist/pdf-converter.server';
 import { getPageChat } from '$shared/assist/page-chat.server';
+import { getSyncRunner } from '$shared/assist/sync-runner.server';
 import { getReadyRegistry } from '$shared/db/bootstrap.server';
 import { currentLicense } from '$shared/license/store.server';
 import { getNotebookStore } from '$shared/notebooks/current.server';
@@ -18,6 +19,7 @@ import type { NotebookInfo } from '$shared/types/notebook';
 import { notebookModel, type NotebookModel } from '$shared/modules/model';
 import type { PdfConverter } from '$shared/types/pdf-conversion';
 import type { PageChat } from '$shared/types/page-chat';
+import type { SyncRunner } from '$shared/types/sync-now';
 
 export interface Context {
   readonly reg: Registry;
@@ -29,6 +31,7 @@ export interface Context {
   readonly license: () => Promise<LicenseStatus>;
   readonly pdfConverter?: PdfConverter;
   readonly pageChat?: PageChat;
+  readonly syncRunner?: SyncRunner;
 }
 
 /** Used by the HTTP handler and by in-process callers (the CLI and MCP server). */
@@ -44,5 +47,6 @@ export const createNotebookContext = async (notebook: NotebookInfo): Promise<Con
 export const createContext = async (opts: { readonly event: RequestEvent }): Promise<Context> => ({
   ...(await createNotebookContext(opts.event.locals.notebook)),
   pdfConverter: getPdfConverter(),
-  pageChat: getPageChat()
+  pageChat: getPageChat(),
+  syncRunner: getSyncRunner()
 });

@@ -3,9 +3,11 @@
   // (what Claude pulls from each source when it refreshes the text below) and
   // the sources. The prompt is editable here; clearing it makes an ordinary doc.
   // `creating` opens it on an empty prompt, for "Make sync doc"; Cancel leaves it as it was.
+  // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
-  import { submit } from '$lib/ui/submit';
+  import { errorMessage, submit } from '$lib/ui/submit';
+  import type { SyncNowOutcome } from '../sync-now';
   import SourceLinks from './SourceLinks.svelte';
 
   interface LinkItem {
@@ -27,17 +29,34 @@
     /** Making a doc a sync doc: opens on the prompt box, and Cancel calls `onCancel`. */
     readonly creating?: boolean;
     readonly onCancel?: () => void;
-    /** Nothing written yet: say that Claude writes it. The app never does. */
+    /** Nothing written yet: say that Claude writes it. */
     readonly empty?: boolean;
+    /** Rewrites the text from the sources now, with the local Claude (`syncNowAndWait`); resolves once it's saved. */
+    readonly onSyncNow?: () => Promise<SyncNowOutcome | null>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow }: Props = $props();
 
   // svelte-ignore state_referenced_locally
   let editing = $state(creating);
   let draft = $state('');
   let saving = $state(false);
   let error = $state('');
+
+  let syncing = $state(false);
+  let syncNotice = $state<{ readonly tone: 'warning' | 'error' | 'done'; readonly message: string } | null>(null);
+  const syncNow = async () => {
+    if (!onSyncNow) return;
+    syncing = true;
+    syncNotice = null;
+    try {
+      syncNotice = await onSyncNow();
+    } catch (e: unknown) {
+      syncNotice = { tone: 'error', message: errorMessage(e) };
+    } finally {
+      syncing = false;
+    }
+  };
 
   const startEditing = () => { draft = prompt; error = ''; editing = true; };
 
@@ -63,11 +82,15 @@
     <span class="badge accent">Sync</span>
     <span class="text-xs text-2">
       {#if creating}Say what Claude should take from each source; add the sources below.
-      {:else if empty}Nothing written yet: ask Claude to write it from its sources.
+      {:else if syncing}Claude is reading the sources and rewriting this…
+      {:else if empty}Nothing written yet: choose Sync now, or ask Claude to write it from its sources.
       {:else}Claude rewrites this from its sources, following the prompt.{/if}
     </span>
+    {#if onSyncNow && !editing && !creating}
+      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}</button>
+    {/if}
     {#if onSave && !editing}
-      <button type="button" class="btn icon sm ml-auto" aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
+      <button type="button" class="btn icon sm" class:ml-auto={!onSyncNow} aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
     {/if}
   </div>
 
@@ -87,6 +110,10 @@
     </form>
   {:else}
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
+  {/if}
+
+  {#if syncNotice}
+    <p class="text-xs" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
   {/if}
 
   {#if links.length > 0 || onAddLink || onUploadFile}<SourceLinks {links} onAdd={onAddLink} {onUploadFile} />{/if}
@@ -113,4 +140,5 @@
   .label {
     font-weight: 600;
   }
+  .warning { color: var(--warning); margin: 0; }
 </style>

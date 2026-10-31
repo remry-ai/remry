@@ -14,6 +14,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
+  import { syncNowAndWait } from '$lib/link/sync-now';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
@@ -96,6 +97,15 @@
     if (empty) void handleConvert(linkId);
     else transcribeInBackground(linkId);
   };
+  // "Sync now": the local Claude rewrites the page from its sources.
+  const handleSyncNow = async () => {
+    try {
+      return await syncNowAndWait('PAGE', wikiPage.id);
+    } finally {
+      await invalidateAll();
+    }
+  };
+
   const uploadSource = $derived(!wikiPage.archivedAt && !isSheet ? handleUploadSource : undefined);
 
   const handleSavePrompt = async (prompt: string | null) => {
@@ -208,7 +218,7 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} />
     {:else if makingSync}
       <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
     {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}

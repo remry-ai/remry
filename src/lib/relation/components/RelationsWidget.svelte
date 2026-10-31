@@ -22,6 +22,9 @@
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import AddRelation from './AddRelation.svelte';
   import RelationEditForm from './RelationEditForm.svelte';
+  import { onMount } from 'svelte';
+  import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
+  import { SECTION_OPEN_BY_DEFAULT, storedSectionOpen, storeSectionOpen } from '$lib/stores/sidebar-sections';
 
   interface Props {
     readonly entityType: string;
@@ -34,9 +37,11 @@
     readonly inPopup?: boolean;
     /** This entity's name, for the edit form's sentence ("Jim is partner of Marie"). */
     readonly selfLabel?: string;
+    /** In the left drawer: folds from its heading, starting folded (sidebar-sections.ts). */
+    readonly collapsible?: boolean;
   }
 
-  const { entityType, entityId, groups: allGroups, readOnly = false, onChange, inPopup = false, selfLabel }: Props = $props();
+  const { entityType, entityId, groups: allGroups, readOnly = false, onChange, inPopup = false, selfLabel, collapsible = false }: Props = $props();
   const selfName = $derived.by(() => {
     const end = relationEnd(entityType, entityId);
     return selfLabel ?? (end ? `This ${entityTypeLabel(end.entityType).toLowerCase()}` : 'This');
@@ -56,6 +61,12 @@
   const count = $derived(groups.reduce((n, group) => n + group.items.length, 0));
 
   let adding = $state(false);
+
+  // Remembered per browser; adding opens it. Outside the drawer it's always open.
+  let open = $state(SECTION_OPEN_BY_DEFAULT.relations);
+  onMount(() => { open = storedSectionOpen('relations'); });
+  const setOpen = (value: boolean) => { open = value; storeSectionOpen('relations', value); };
+  const expanded = $derived(!collapsible || open);
   let editingInPlace = $state<string | null>(null);
 
   const editable = (item: RelationItem): boolean => !readOnly && item.kind !== 'MENTIONS' && !item.goalProject;
@@ -96,18 +107,27 @@
 
 <div class="relations-widget">
   <div class="section-header">
-    <h4>Related <span class="count">{count}</span></h4>
+    <h4>
+      {#if collapsible}
+        <DisclosureButton {expanded} label="Related" onToggle={() => setOpen(!open)}>
+          Related <span class="count">{count}</span>
+        </DisclosureButton>
+      {:else}
+        Related <span class="count">{count}</span>
+      {/if}
+    </h4>
     {#if self}
       <button
         type="button"
         class="btn icon sm"
-        onclick={() => (adding = !adding)}
+        onclick={() => { adding = !adding; if (adding && collapsible) setOpen(true); }}
         title="Add link"
         aria-label="Add link"
         aria-expanded={adding}
       >+</button>
     {/if}
   </div>
+  {#if expanded}
   {#if self && adding}
     <AddRelation {self} {onChange} onDone={() => (adding = false)} />
   {/if}
@@ -146,6 +166,7 @@
         {/each}
       </ul>
     {/each}
+  {/if}
   {/if}
 </div>
 

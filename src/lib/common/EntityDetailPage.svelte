@@ -25,6 +25,7 @@
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { convertFileLinkAndWait, newestFileLink, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
+  import { syncNowAndWait } from '$lib/link/sync-now';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage, rightPanelTodos } from '$lib/stores/right-panel';
@@ -375,6 +376,18 @@
 
   const docUploadFile = $derived(archivedAt ? undefined : handleUploadDocFile);
 
+  // "Sync now": the local Claude rewrites the open sync doc from its sources; then reload its text and sources.
+  const handleSyncDoc = async () => {
+    const doc = activeDoc;
+    if (!doc) return null;
+    try {
+      return await syncNowAndWait('DOC', doc.id);
+    } finally {
+      await invalidateAll();
+      await loadDocLinks(doc.id);
+    }
+  };
+
   // "+ Add a file" on a new doc: saves it, uploads the file as its link and writes it from that.
   const handleCreateDocFromFile = async (file: File) => {
     const id = await ensureDraftDoc();
@@ -435,7 +448,7 @@
       </div>
     {/if}
     <div class="section">
-      <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} />
+      <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} collapsible />
     </div>
     <div class="section">
       <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} onFileUploaded={onFileLinkUploaded} />
@@ -549,7 +562,7 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onSyncNow={archivedAt ? undefined : handleSyncDoc} />
   {:else if makingSyncDoc === activeDoc?.id}
     <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
   {:else}

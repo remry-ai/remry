@@ -18,6 +18,9 @@
   import { isSyncStale, linkLabel, linkSource } from '../source';
   import { FILE_LINK_HOLDERS, fileLinkKey, linkHref, type FileLinkHolder } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
+  import { onMount } from 'svelte';
+  import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
+  import { SECTION_OPEN_BY_DEFAULT, storedSectionOpen, storeSectionOpen } from '$lib/stores/sidebar-sections';
 
   interface LinkItem {
     readonly id: string;
@@ -46,6 +49,11 @@
   const fileHolder = $derived((FILE_LINK_HOLDERS as readonly string[]).includes(entityType) ? (entityType as FileLinkHolder) : null);
 
   let adding = $state(false);
+
+  // Folds from its heading; remembered per browser (sidebar-sections.ts). Adding opens it.
+  let expanded = $state(SECTION_OPEN_BY_DEFAULT.links);
+  onMount(() => { expanded = storedSectionOpen('links'); });
+  const setExpanded = (open: boolean) => { expanded = open; storeSectionOpen('links', open); };
 
   const handleAdd = async (link: { readonly url: string; readonly title?: string }): Promise<void> => {
     if (!linkType) return;
@@ -111,11 +119,16 @@
 
 <div class="links-widget">
   <div class="section-header">
-    <h4>Links <span class="count">{links.length}</span></h4>
+    <h4>
+      <DisclosureButton {expanded} label="Links" onToggle={() => setExpanded(!expanded)}>
+        Links <span class="count">{links.length}</span>
+      </DisclosureButton>
+    </h4>
     {#if !readOnly && linkType}
-      <button type="button" class="btn icon sm" onclick={() => { adding = !adding; }} title="Add link" aria-label="Add link" aria-expanded={adding}>+</button>
+      <button type="button" class="btn icon sm" onclick={() => { adding = !adding; if (adding) setExpanded(true); }} title="Add link" aria-label="Add link" aria-expanded={adding}>+</button>
     {/if}
   </div>
+  {#if expanded}
   {#if adding}
     <div class="add-link">
       <AddLinkForm onAdd={handleAdd} onUploadFile={fileHolder ? handleUpload : undefined} onDone={() => { adding = false; }} stacked />
@@ -150,6 +163,7 @@
   </ul>
   {/if}
   {#if rereadNotice}<p class="meta notice" role="status">{rereadNotice}</p>{/if}
+  {/if}
 </div>
 
 <style lang="scss">
