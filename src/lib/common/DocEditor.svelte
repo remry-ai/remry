@@ -256,7 +256,7 @@
           <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
           {#if exportHref && content.trim()}
-            <a class="btn ghost sm export" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
+            <a class="tab divided" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
           {/if}
         </div>
         <div class="doc-actions">
@@ -338,8 +338,6 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }
-    // Export PDF sits just after the Preview tab, centred on the tabs' text rather than their underline.
-    .export { align-self: center; margin-left: var(--sp-2); }
   }
   .doc-actions {
     display: flex;
