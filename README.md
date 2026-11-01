@@ -166,12 +166,13 @@ the internet. On the computer running Remry:
 
 1. Share the app on your tailnet: `tailscale serve --bg 7369` (the desktop app's port). It prints an
    address like `https://my-mac.tail1234.ts.net`.
-2. Tell Remry that name: `remry remoteAccess.set --hostname my-mac.tail1234.ts.net`, or ask Claude to.
+2. Tell Remry that name: in the app, open the notebook menu → **Other devices** and paste it. Or ask
+   Claude to, or run `remry remoteAccess.set --hostname my-mac.tail1234.ts.net`.
 3. Open `https://my-mac.tail1234.ts.net/app` on any device signed in to your tailnet.
 
 Remry answers only that name, never public Funnel traffic. Every device on your tailnet can open
-it, so use Tailscale's access rules if others share it. `remry remoteAccess.set --hostname null`
-turns it off, and `tailscale serve reset` stops the sharing. Your computer has to be awake.
+it, so use Tailscale's access rules if others share it. To turn it off, use **Turn off** on the Other
+devices page (or `remry remoteAccess.set --hostname null`); `tailscale serve reset` stops the sharing. Your computer has to be awake.
 
 ## Backups
 

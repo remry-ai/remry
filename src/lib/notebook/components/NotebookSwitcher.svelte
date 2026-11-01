@@ -28,6 +28,7 @@
     { label: 'Manage notebooks', href: '/app/notebooks' },
     { label: 'Branding', href: '/app/branding', divided: true },
     { label: 'AI assistant…', divided: true, onSelect: () => { openPopup(LLM_POPUP); } },
+    { label: 'Other devices', href: '/app/other-devices' },
     { label: 'License', href: '/app/license' }
   ]);
 </script>
