@@ -3,12 +3,14 @@
 
 import { tailnetAccess } from '$shared/remote/store.server';
 import { isLoopbackHostname } from '$shared/remote/tailnet';
+import { startAtLoginStatus } from '$shared/startup/login-agent.server';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
   const remote = !isLoopbackHostname(url.hostname);
   return {
     access: await tailnetAccess(),
+    startAtLogin: startAtLoginStatus(),
     remote,
     port: remote ? null : url.port || '80'
   };

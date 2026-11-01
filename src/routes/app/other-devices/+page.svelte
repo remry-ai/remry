@@ -31,6 +31,18 @@
     await invalidateAll();
   };
 
+  let loginBusy = $state(false);
+  let loginError = $state('');
+
+  const setLogin = async (enabled: boolean) => {
+    loginBusy = true;
+    loginError = '';
+    const outcome = await submit(() => trpc().remoteAccess.set.mutate({ startAtLogin: enabled }));
+    loginBusy = false;
+    if (!outcome.ok) loginError = outcome.error;
+    await invalidateAll();
+  };
+
   const turnOff = async () => {
     await submitOrThrow(() => trpc().remoteAccess.set.mutate({ hostname: null }));
     // From another device, this page is now out of reach.
@@ -82,6 +94,20 @@
       <p class="text-2">To stop sharing on your tailnet too, run <code>tailscale serve reset</code>.</p>
     </form>
   {/if}
+
+  <section class="card">
+    <h4>Start at login</h4>
+    {#if data.startAtLogin.supported}
+      <label class="toggle">
+        <input type="checkbox" role="switch" checked={data.startAtLogin.enabled} disabled={loginBusy} onchange={(e) => setLogin(e.currentTarget.checked)} />
+        <span>Start Remry when you log in to this Mac</span>
+      </label>
+      <p class="text-2">Remry runs in the background with no window, so your other devices can open it after a restart. Tailscale needs to open at login too (its Settings → Launch at login), and the Mac has to stay awake.</p>
+      {#if loginError}<p class="form-error">{loginError}</p>{/if}
+    {:else}
+      <p class="text-2">{data.startAtLogin.reason}</p>
+    {/if}
+  </section>
 </div>
 
 <style lang="scss">
@@ -91,5 +117,6 @@
   .actions { margin-top: var(--sp-2); }
   .steps { margin: 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-1); }
   .steps code { white-space: nowrap; }
-  input { width: 100%; }
+  input[type='text'] { width: 100%; }
+  .toggle { display: flex; align-items: center; gap: var(--sp-2); }
 </style>

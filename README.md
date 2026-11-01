@@ -174,6 +174,9 @@ Remry answers only that name, never public Funnel traffic. Every device on your 
 it, so use Tailscale's access rules if others share it. To turn it off, use **Turn off** on the Other
 devices page (or `remry remoteAccess.set --hostname null`); `tailscale serve reset` stops the sharing. Your computer has to be awake.
 
+To keep it working after a restart, turn on **Start at login** on the same page (macOS): Remry
+then starts in the background when you log in, with no window. Tailscale needs to open at login too.
+
 ## Backups
 
 Remry copies each notebook every hour when something changed, and restoring saves your current
