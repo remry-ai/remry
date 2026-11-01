@@ -123,7 +123,7 @@
       {@render children()}
     </main>
     <footer class="site-footer">
-      By <a href="https://jweatherby.dev" target="_blank" rel="noopener">jweatherby.dev</a>
+      By <a href="https://jweatherby.dev" target="_blank" rel="noopener">JW.dev</a>
     </footer>
   </div>
 </div>
@@ -292,7 +292,7 @@
   }
 
   .site-footer {
-    padding: var(--sp-3) var(--sp-5);
+    padding: var(--sp-1) var(--sp-5);
     text-align: center;
     font-size: var(--fs-sm);
     color: var(--text-3);
