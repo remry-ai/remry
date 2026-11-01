@@ -9,19 +9,25 @@ import { resolveCurrentNotebook } from '$shared/notebooks/current.server';
 import { notebookHandle } from '$shared/notebooks/handle.server';
 import { trpcHandle } from '$shared/trpc/handler';
 import { LOCAL_HEADER, TRPC_BASE_PATH } from '$shared/trpc/config';
-
-const LOOPBACK_HOSTNAMES: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]']);
+import { allowRequest, isRemoteRequest } from '$shared/remote/tailnet';
+import { readTailnetHost } from '$shared/remote/store.server';
 
 /**
  * There is no auth, so the network boundary is the security boundary:
- * - reject any request whose hostname isn't loopback (defeats DNS rebinding)
+ * - reject any request whose hostname isn't loopback (defeats DNS rebinding), unless it's the
+ *   tailnet name the user turned on (`remoteAccess.set`, served by `tailscale serve`), and
+ *   never one that came in through Tailscale Funnel ($shared/remote/tailnet.ts)
  * - require LOCAL_HEADER on the API (defeats cross-site request forgery)
  */
 const localOnlyGuard: Handle = async ({ event, resolve }) => {
-  if (!LOOPBACK_HOSTNAMES.has(event.url.hostname)) {
-    return new Response('Forbidden', { status: 403 });
-  }
-  if (event.url.pathname.startsWith(TRPC_BASE_PATH) && event.request.headers.get(LOCAL_HEADER) !== '1') {
+  const request = {
+    hostname: event.url.hostname,
+    pathname: event.url.pathname,
+    header: (name: string) => event.request.headers.get(name)
+  };
+  // The setting is read only for a request off loopback, so turning it off takes effect at once.
+  const tailnetHost = isRemoteRequest(request) ? await readTailnetHost() : null;
+  if (!allowRequest(request, tailnetHost, { basePath: TRPC_BASE_PATH, localHeader: LOCAL_HEADER })) {
     return new Response('Forbidden', { status: 403 });
   }
   return resolve(event);

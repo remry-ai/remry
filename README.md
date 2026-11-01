@@ -158,6 +158,21 @@ and links back to them.
 More: [docs/CLI.md](docs/CLI.md) covers the `remry` command and the tools Claude uses;
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) covers running from a clone and how releases work.
 
+## Opening it from another device
+
+Remry only answers on your computer. To open it from your phone or another laptop, use
+[Tailscale](https://tailscale.com): your devices reach each other privately, with nothing opened to
+the internet. On the computer running Remry:
+
+1. Share the app on your tailnet: `tailscale serve --bg 7369` (the desktop app's port). It prints an
+   address like `https://my-mac.tail1234.ts.net`.
+2. Tell Remry that name: `remry remoteAccess.set --hostname my-mac.tail1234.ts.net`, or ask Claude to.
+3. Open `https://my-mac.tail1234.ts.net/app` on any device signed in to your tailnet.
+
+Remry answers only that name, never public Funnel traffic. Every device on your tailnet can open
+it, so use Tailscale's access rules if others share it. `remry remoteAccess.set --hostname null`
+turns it off, and `tailscale serve reset` stops the sharing. Your computer has to be awake.
+
 ## Backups
 
 Remry copies each notebook every hour when something changed, and restoring saves your current

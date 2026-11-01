@@ -344,6 +344,8 @@ The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is
 
 A yearly license unlocks three things: full-text search (`search.*`), branding (creating or changing brandings, and the app wearing them), and PDF export of docs and wiki pages. Everything else is free. Without a license, those procedures return an error that says so, and the app shows a Pro notice; nothing stored is lost, and it all comes back with the license. The license belongs to the computer, so it covers every notebook. Never look for, edit or work around the license file.
 
+**Opening the app from another device.** If the user wants Remry on their phone or another computer, it goes through their Tailscale tailnet: they run `tailscale serve --bg 7369` on the computer running Remry, which prints an `https://<machine>.<tailnet>.ts.net` address, and you set that name with `remoteAccess.set --hostname <name>` (`null` turns it off; `remoteAccess.status` shows it). Then `https://<name>/app` opens on their devices. Nothing else opens it to the network: never suggest Funnel, port forwarding or another hostname.
+
 ## Backups
 
 Snapshots are kept on this computer in the `Backups` folder, per notebook. Every notebook that changed is snapshotted hourly while the Remry tools or the app are running, and on macOS also by the LaunchAgent if the user ran `remry backup install`.

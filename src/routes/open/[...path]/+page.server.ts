@@ -7,6 +7,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import { openInAppRoute, openTarget, withNotebook } from '$shared/desktop/handoff';
 import { handOff } from '$shared/desktop/handoff.server';
+import { isLoopbackHostname } from '$shared/remote/tailnet';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
@@ -14,6 +15,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   const target = openTarget(url.pathname.slice(1), url.search);
   if (!target) error(404, 'Not a Remry page');
   // The notebook handle has already moved ?notebook= into this browser's cookie.
-  if (!(await handOff(withNotebook(target, locals.notebook.id)))) redirect(303, target);
+  // From another device (tailnet access), the desktop app's window is on the wrong screen.
+  if (!isLoopbackHostname(url.hostname) || !(await handOff(withNotebook(target, locals.notebook.id)))) redirect(303, target);
   return { target };
 };

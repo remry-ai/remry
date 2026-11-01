@@ -6,7 +6,10 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 5173,
-    strictPort: true
+    strictPort: true,
+    // For tailnet access through `tailscale serve`; hooks.server.ts still lets in only the name
+    // set with remoteAccess.set.
+    allowedHosts: ['.ts.net']
   },
   css: {
     preprocessorOptions: {

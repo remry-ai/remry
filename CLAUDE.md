@@ -27,7 +27,7 @@ Scoped docs:
 - **Data never leaves this Mac.** No cloud sync and no git for data; backups are local snapshots.
 - **The network boundary is the security boundary** (`src/hooks.server.ts`). Keep all three parts:
   - the server binds to `127.0.0.1`
-  - requests whose hostname isn't loopback get 403 (blocks DNS rebinding)
+  - requests whose hostname isn't loopback get 403 (blocks DNS rebinding), with one opt-in exception: the tailnet name set with `remoteAccess.set --hostname <machine>.<tailnet>.ts.net` (`tailnetHost` in `settings.json`), for another device on the user's tailnet through `tailscale serve`, which proxies to loopback keeping the Host. Only a full `*.ts.net` name, never a request Tailscale marks as Funnel (from the internet), and the API header still applies (`allowRequest` in `src/shared/remote/tailnet.ts`, pure). The `open=app` hand-off to the desktop window happens only on loopback, and the app's stop endpoint stays loopback only. Don't widen it to other hostnames, LAN addresses or `0.0.0.0`
   - `/api/trpc` requires the `x-remry: 1` header (blocks cross-site requests)
 - **A Content Security Policy** (`kit.csp` in `svelte.config.js`) runs scripts only from the app's own files. Markdown is rendered with raw HTML passed through, and content often comes from outside (Linear, Notion, PDFs, the web), so this is what stops a `<script>`, an `onerror=` or a `javascript:` link in a note from running with full API access. An inline script needs `nonce="%sveltekit.nonce%"` (as in `src/app.html`); don't add `unsafe-inline` or `unsafe-eval` to `script-src`.
 
@@ -185,7 +185,7 @@ Three features need a yearly license: **full-text search** (`search.query`, `sea
 ## Local state (like a native app)
 
 - **Where it lives:** `~/Library/Application Support/Remry/` on macOS, `%LOCALAPPDATA%\Remry\` on Windows (local, not roaming), `$XDG_DATA_HOME/remry` on Linux (`dataDirFor` in `src/shared/settings/server/app-dirs.ts`, pure):
-  - `settings.json` — `defaultNotebook`, the notebook the CLI and MCP use when none is named, and `licenseKey`, the Pro license
+  - `settings.json` — `defaultNotebook`, the notebook the CLI and MCP use when none is named, `licenseKey`, the Pro license, and `tailnetHost`, the tailnet name other devices may open the app on (off when missing)
   - `Notebooks/<id>/notebook.json` — the notebook's name and profile
   - `Notebooks/<id>/working-notes.db` — SQLite, WAL mode, so the app, CLI and backups can use it at the same time
   - `Notebooks/<id>/files/` — files uploaded as links (`docs/<id>/`, `pages/<id>/`, `projects/<id>/`…), editor images and branding images
