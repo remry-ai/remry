@@ -32,6 +32,7 @@
   - `doc-sources-to-links`: the `doc_sources_to_links` migration's SQL on a doc with an attached PDF: it becomes a file link on the doc (read back with `link.read`) and the column is emptied
   - `convert`: `entity.convert` for each pair: a project tree into pages (attachments, relations, docs with images and prompts, links elsewhere rewritten) and back, notes with replies, and each refusal
   - `page-chat`: the Chat tab's saved conversation per entity, Clear, and cleanup when the entity is deleted
+  - `page-loads`: every `/app` page's server load (found with `import.meta.glob`, so new pages are covered), in a work and a home notebook, with its tRPC calls answered by the real router; none may throw. A load asking for a procedure the notebook's modules don't include (`goal.list` on a home notebook's project page) made the page a 500 before 0.16.65
   - `migrate`: fresh, idempotent, edited-migration refusal, search index backfill of existing rows
   - `search`: every trigger present, each kind of text found, stemming, phrases/OR/exclusions, type and `within` filters, re-indexing on update and delete (including cleanup), archived rows hidden, `search.recall` with unlinked mentions and caps
   - `backup`: change detection, hard links, restore round trip, snapshots kept per notebook, refusal while the app runs
