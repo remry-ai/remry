@@ -123,7 +123,7 @@
       {@render children()}
     </main>
     <footer class="site-footer">
-      By <a href="https://jweatherby.dev" target="_blank" rel="noopener">JW.dev</a>
+      Made in Toronto, Canada · By <a href="https://jweatherby.dev" target="_blank" rel="noopener">JW.dev</a>
     </footer>
   </div>
 </div>
