@@ -339,11 +339,13 @@
     border-bottom: 1px solid var(--border);
     .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }
   }
+  // Spaced off the tabs, which scroll under it on a phone, so the buttons aren't crowded.
   .doc-actions {
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--sp-3);
+    padding-left: var(--sp-3);
     padding-bottom: var(--sp-1);
   }
   .doc-textarea {
