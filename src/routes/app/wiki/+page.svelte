@@ -120,6 +120,11 @@
     align-items: center;
     gap: var(--sp-1);
     padding-left: calc(var(--depth) * var(--sp-5));
+    // A phone's column is narrow: a smaller step and no └ mark, so deep titles keep their room.
+    @include mobile {
+      padding-left: calc(var(--depth) * var(--sp-3));
+      .tree-indent { display: none; }
+    }
   }
   .disclosure-spacer {
     flex-shrink: 0;

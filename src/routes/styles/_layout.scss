@@ -81,6 +81,8 @@
   .meta { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; }
   .row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--ease); }
   &:hover .row-actions, &:focus-within .row-actions, .row-actions:has(.inline-error) { opacity: 1; }
+  // A touch screen can't hover, so the actions (peek, edit, remove) are always shown there.
+  @media (hover: none) { .row-actions { opacity: 1; } }
   &.active { @include row-fill(var(--accent-soft)); }
 }
 .list.divided .list-row {

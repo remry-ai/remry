@@ -224,6 +224,8 @@ table {
   tbody tr {
     .row-actions { display: inline-flex; align-items: center; gap: 2px; opacity: 0; transition: opacity var(--ease); }
     &:hover .row-actions, &:focus-within .row-actions { opacity: 1; }
+    // No hover on a touch screen: always shown there.
+    @media (hover: none) { .row-actions { opacity: 1; } }
     &.active td { background: var(--accent-soft); }
   }
   td a { color: var(--text); font-weight: 500; }
