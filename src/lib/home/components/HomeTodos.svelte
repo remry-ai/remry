@@ -43,7 +43,7 @@
   <header class="section-header">
     <h2>Todos <span class="count">{total}</span></h2>
     <div class="header-actions">
-      <ParamToggle param="todoSort" options={SORT_OPTIONS} defaultValue="status" ariaLabel="Sort todos" />
+      <div class="sort"><ParamToggle param="todoSort" options={SORT_OPTIONS} defaultValue="status" ariaLabel="Sort todos" /></div>
       <a href="/app/todos" class="text-sm">All todos →</a>
     </div>
   </header>
@@ -76,7 +76,9 @@
 
 <style lang="scss">
   h2 { font-size: var(--fs-base); }
-  .header-actions { display: flex; align-items: center; gap: var(--sp-3); }
+  // The sort toggle sits centred between the title and "All todos".
+  .header-actions { flex: 1; display: flex; align-items: center; gap: var(--sp-3); }
+  .sort { flex: 1; display: flex; justify-content: center; }
   .todo-row {
     align-items: flex-start;
     padding: var(--sp-2) 0;
