@@ -162,20 +162,19 @@ More: [docs/CLI.md](docs/CLI.md) covers the `remry` command and the tools Claude
 
 Remry only answers on your computer. To open it from your phone or another laptop, use
 [Tailscale](https://tailscale.com): your devices reach each other privately, with nothing opened to
-the internet. On the computer running Remry:
+the internet.
 
-1. Share the app on your tailnet: `tailscale serve --bg 7369` (the desktop app's port). It prints an
-   address like `https://my-mac.tail1234.ts.net`.
-2. Tell Remry that name: in the app, open the notebook menu → **Other devices** and paste it. Or ask
-   Claude to, or run `remry remoteAccess.set --hostname my-mac.tail1234.ts.net`.
-3. Open `https://my-mac.tail1234.ts.net/app` on any device signed in to your tailnet.
+1. Install Tailscale on your computer and your phone, signed in to the same account.
+2. In Remry, open the notebook menu → **Other devices** and choose **Turn on**. Remry checks that
+   Tailscale is connected and has HTTPS certificates turned on (and says what to fix if not), shares
+   itself on your tailnet with `tailscale serve`, and shows the address, like
+   `https://my-mac.tail1234.ts.net/app`. Claude can do the same with `remoteAccess.set --tailscale true`.
+3. Open that address on your phone.
 
 Remry answers only that name, never public Funnel traffic. Every device on your tailnet can open
-it, so use Tailscale's access rules if others share it. To turn it off, use **Turn off** on the Other
-devices page (or `remry remoteAccess.set --hostname null`); `tailscale serve reset` stops the sharing. Your computer has to be awake.
-
-To keep it working after a restart, turn on **Start at login** on the same page (macOS): Remry
-then starts in the background when you log in, with no window. Tailscale needs to open at login too.
+it, so use Tailscale's access rules if others share it. **Turn off** on the same page stops it.
+Your computer has to be awake; turn on **Start at login** there (macOS) so Remry starts in the
+background when you log in, with no window. Tailscale needs to open at login too.
 
 ## Backups
 
