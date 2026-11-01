@@ -130,6 +130,13 @@
       display: block;
       height: auto;
     }
+    // The window scrolls here, not the column. A scroll box (`overflow: auto`, or `hidden`)
+    // would trap the sticky header and the doc and editor toolbars, which then scroll away;
+    // `clip` still cuts off wide content without making one.
+    .col-center {
+      overflow-y: visible;
+      overflow-x: clip;
+    }
     .col-left {
       position: fixed;
       top: 0;

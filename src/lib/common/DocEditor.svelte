@@ -251,7 +251,7 @@
     <div class="doc-editor">
       <!-- The view tabs, with the doc's actions at the right end; stays in view above the editor's own toolbar. -->
       <div class="doc-bar">
-        <div class="tabs">
+        <div class="tabs scroll">
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
           <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
@@ -340,6 +340,7 @@
     .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }
   }
   .doc-actions {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: var(--sp-2);

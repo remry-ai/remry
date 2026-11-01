@@ -146,6 +146,15 @@
   display: flex;
   gap: var(--sp-1);
   border-bottom: 1px solid var(--border);
+  // A row that shares its line with other controls (a doc's Save and ×): it gives way and
+  // scrolls sideways when the line is too narrow (a phone), so those stay on screen.
+  &.scroll {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+    .tab { flex-shrink: 0; white-space: nowrap; margin-bottom: 0; }
+  }
 }
 .tab {
   display: inline-flex;
