@@ -20,7 +20,9 @@
 
   // The steps Turn on needs, in order; the first one not done is where the user is.
   const steps = $derived.by(() => {
-    const state = tailscale?.state ?? 'missing';
+    const found = tailscale?.state ?? 'missing';
+    // Installed but unreadable stands where not running does: the next step isn't known yet.
+    const state = found === 'unreadable' ? 'not-running' : found;
     const order = ['missing', 'not-running', 'signed-out', 'disconnected', 'no-https', 'ready'];
     const reached = order.indexOf(state);
     return [
@@ -131,6 +133,9 @@
       {:else if tailscale?.state === 'not-running'}
         <p>Open the Tailscale app, then check again.</p>
         {#if tailscale.detail}<p class="text-2 mono">{tailscale.detail}</p>{/if}
+      {:else if tailscale?.state === 'unreadable'}
+        <p>Remry found Tailscale but couldn't read its status. Check that the Tailscale app is open and signed in, then check again. If this keeps happening, install the command-line tool from Tailscale's Settings (CLI integration).</p>
+        <p class="text-2 mono">{tailscale.cli}: {tailscale.detail}</p>
       {:else if tailscale?.state === 'signed-out'}
         <p>Sign in to Tailscale from its menu bar icon, then check again.</p>
       {:else if tailscale?.state === 'disconnected'}

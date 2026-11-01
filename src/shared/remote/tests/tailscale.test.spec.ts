@@ -61,6 +61,17 @@ describe('checkTailscale', () => {
   });
 });
 
+describe('unreadable output', () => {
+  it('reads a status past warning lines around it', () => {
+    expect(check(`Warning: client version "1.90" != tailscaled server version "1.88"\n${status()}\n`).state).toBe('ready');
+  });
+
+  it('says what came back when it is not a status', () => {
+    expect(check('')).toEqual({ state: 'unreadable', cli: '/usr/local/bin/tailscale', detail: 'it printed nothing' });
+    expect(check('The Tailscale app is starting')).toMatchObject({ state: 'unreadable', detail: 'it printed "The Tailscale app is starting"' });
+  });
+});
+
 describe('linkIn', () => {
   it('finds the page Tailscale says turns a feature on', () => {
     expect(linkIn('Serve is not enabled on your tailnet.\n\n         https://login.tailscale.com/f/serve?node=abc\n')).toBe('https://login.tailscale.com/f/serve?node=abc');

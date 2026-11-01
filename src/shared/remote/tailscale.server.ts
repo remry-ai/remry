@@ -20,9 +20,11 @@ const isExecutable = (path: string): boolean => {
   }
 };
 
+/** A `tailscale` command first (Homebrew, or the one the Mac app installs), then the app's own binary. */
 export const locateTailscale = (): string | null =>
+  findExecutable('tailscale', { PATH: process.env.PATH ?? process.env.Path, HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA, USERPROFILE: process.env.USERPROFILE }, process.platform === 'win32' ? 'win32' : 'posix', isExecutable) ??
   tailscaleCandidates(process.platform).find(isExecutable) ??
-  findExecutable('tailscale', { PATH: process.env.PATH ?? process.env.Path, HOME: process.env.HOME, LOCALAPPDATA: process.env.LOCALAPPDATA, USERPROFILE: process.env.USERPROFILE }, process.platform === 'win32' ? 'win32' : 'posix', isExecutable);
+  null;
 
 interface Run {
   readonly code: number | null;
@@ -32,7 +34,9 @@ interface Run {
 
 const run = (cli: string, args: readonly string[]): Promise<Run> =>
   new Promise((done) => {
-    const child = spawn(cli, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // The Mac app's binary acts as the CLI only in a terminal unless TAILSCALE_BE_CLI is set;
+    // run from the app server, it otherwise starts as the app and prints no status.
+    const child = spawn(cli, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, TAILSCALE_BE_CLI: '1' } });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
@@ -52,7 +56,7 @@ export const readTailscale = async (port: number): Promise<TailscaleCheck> => {
   const status = await run(cli, ['status', '--json']);
   const first = checkTailscale({
     cli,
-    status: status.code === 0 ? { ok: true, stdout: status.stdout } : { ok: false, detail: lastLine(status.stderr) || lastLine(status.stdout) },
+    status: status.code === 0 ? { ok: true, stdout: status.stdout, stderr: status.stderr } : { ok: false, detail: lastLine(status.stderr) || lastLine(status.stdout) },
     port
   });
   if (first.state !== 'ready') return first;
@@ -64,6 +68,7 @@ export const readTailscale = async (port: number): Promise<TailscaleCheck> => {
 const notReady = (check: TailscaleCheck): string => {
   switch (check.state) {
     case 'missing': return `Tailscale isn't installed on this computer. Install it from ${TAILSCALE_DOWNLOAD}, sign in, then try again.`;
+    case 'unreadable': return `Remry ran ${check.cli} but couldn't read its answer${check.detail ? `: ${check.detail}` : '.'}`;
     case 'not-running': return `Tailscale is installed but isn't running. Open the Tailscale app, then try again.${check.detail ? ` (${check.detail})` : ''}`;
     case 'signed-out': return 'Tailscale is signed out. Sign in from its menu bar icon, then try again.';
     case 'disconnected': return 'Tailscale is disconnected. Connect it from its menu bar icon, then try again.';

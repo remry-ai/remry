@@ -18,6 +18,8 @@ export type TailscaleCheck =
   | { readonly state: 'missing' }
   /** Installed, but the CLI couldn't reach Tailscale: the app isn't open. */
   | { readonly state: 'not-running'; readonly detail: string }
+  /** The CLI answered, but not with a status: what it printed, and which binary it was. */
+  | { readonly state: 'unreadable'; readonly cli: string; readonly detail: string }
   | { readonly state: 'signed-out' }
   | { readonly state: 'disconnected' }
   | { readonly state: 'no-https'; readonly hostname: string }
@@ -34,12 +36,22 @@ export type TailscaleCheck =
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+/** The JSON object in a command's output, past any warning lines printed around it. */
 const parseJson = (text: string): unknown => {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end < start) return null;
   try {
-    return JSON.parse(text);
+    return JSON.parse(text.slice(start, end + 1));
   } catch {
     return null;
   }
+};
+
+/** The start of what a command printed, for an error message. */
+export const outputExcerpt = (text: string): string => {
+  const flat = text.trim().replace(/\s+/g, ' ');
+  return flat.length > 160 ? `${flat.slice(0, 160)}…` : flat;
 };
 
 export interface TailscaleStatus {
@@ -94,7 +106,7 @@ export interface CheckInputs {
   /** Where the tailscale CLI is, or null when it isn't installed. */
   readonly cli: string | null;
   /** `tailscale status --json`: its output, or why it failed. */
-  readonly status: { readonly ok: true; readonly stdout: string } | { readonly ok: false; readonly detail: string };
+  readonly status: { readonly ok: true; readonly stdout: string; readonly stderr?: string } | { readonly ok: false; readonly detail: string };
   /** `tailscale serve status --json`, asked only once the status is ready. */
   readonly serve?: string;
   readonly port: number;
@@ -105,7 +117,10 @@ export const checkTailscale = (i: CheckInputs): TailscaleCheck => {
   if (!i.cli) return { state: 'missing' };
   if (!i.status.ok) return { state: 'not-running', detail: i.status.detail };
   const status = parseStatus(i.status.stdout);
-  if (!status) return { state: 'not-running', detail: 'Tailscale gave an answer Remry could not read.' };
+  if (!status) {
+    const printed = outputExcerpt(i.status.stdout) || outputExcerpt(i.status.stderr ?? '');
+    return { state: 'unreadable', cli: i.cli, detail: printed ? `it printed "${printed}"` : 'it printed nothing' };
+  }
   if (status.backendState === 'NeedsLogin' || status.backendState === 'NeedsMachineAuth' || status.backendState === 'NoState') return { state: 'signed-out' };
   if (status.backendState !== 'Running' || !status.hostname) return { state: 'disconnected' };
   if (!status.certDomains.includes(status.hostname)) return { state: 'no-https', hostname: status.hostname };
