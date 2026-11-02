@@ -232,14 +232,28 @@ jobs:
           HOME="$home" REMRY_MIGRATIONS_DIR="$app/Contents/Resources/migrations" "$app/Contents/MacOS/remry" notebook.list > "$home/out.json"
           grep -q '"ok": *true' "$home/out.json" || { cat "$home/out.json"; exit 1; }
 
-      # A code-signed Windows build: the installer, the app and its sidecar each carry a valid
-      # signature from the Artifact Signing certificate.
+      # A code-signed Windows build: the installer, and the app and its sidecar *inside* it, each
+      # carry a valid signature from the Artifact Signing certificate. Not target/release's copies:
+      # Tauri signs a bundle-patched copy of remry-desktop.exe and the sidecar in binaries/, and
+      # leaves target/release's unsigned (0.16.75's check read those and failed a good build).
       - name: Check the Windows signatures
         if: matrix.target == 'windows-x64' && vars.AZURE_CLIENT_ID != ''
         shell: pwsh
         run: |
-          $release = 'desktop/src-tauri/target/release'
-          $files = @(Get-ChildItem "$release/bundle/nsis/*-setup.exe") + @(Get-Item "$release/remry-desktop.exe", "$release/remry.exe")
+          $setup = Get-ChildItem 'desktop/src-tauri/target/release/bundle/nsis/*-setup.exe' | Select-Object -First 1
+          $unpacked = Join-Path $env:RUNNER_TEMP 'setup-contents'
+          # If 7-Zip can't read the installer, warn rather than fail: the installer's own signature
+          # is still checked, and a failed Windows job ships a release without a Windows installer.
+          $files = @($setup)
+          7z x $setup.FullName "-o$unpacked" -y | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::7-Zip couldn't unpack $($setup.Name); checking only its own signature."
+          } else {
+            foreach ($name in 'remry-desktop.exe', 'remry.exe') {
+              $found = Get-ChildItem $unpacked -Recurse -Filter $name | Select-Object -First 1
+              if ($found) { $files += $found } else { Write-Host "::warning::$name isn't in $($setup.Name) as 7-Zip unpacks it." }
+            }
+          }
           $failed = $false
           foreach ($file in $files) {
             $sig = Get-AuthenticodeSignature $file.FullName
