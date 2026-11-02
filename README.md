@@ -210,9 +210,7 @@ menu (the chevron beside the notebook name) and paste the key, or ask Claude to.
 Remry is made by one person, [jweatherby.dev](https://jweatherby.dev). The code is public, and it
 changes often.
 
-The desktop app runs on Apple silicon Macs and Windows (x64). Both are code-signed; Windows may
-still ask before opening the installer the first time while the signature is new; see
-[docs/INSTALL.md](docs/INSTALL.md).
+The desktop app runs on Apple silicon Macs and Windows (x64), and both are code-signed.
 
 ## License
 
