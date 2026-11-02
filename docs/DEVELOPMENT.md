@@ -139,8 +139,9 @@ since the last release without a new version.
   as the `TAURI_SIGNING_PRIVATE_KEY` secret from the file it prints, with `gh secret set`. Builds then make signed updates, and the release publishes `latest.json`, which installed
   apps check when they open. Without the secret, installed apps keep their version.
 - **Signing:** the macOS app is signed with a Developer ID and notarized, with the `APPLE_*` secrets
-  below; without them (a fork, say) it's signed ad hoc and macOS warns on first open. Windows isn't
-  code-signed, so SmartScreen warns (see INSTALL.md).
+  below; without them (a fork, say) it's signed ad hoc and macOS warns on first open. The Windows
+  app is signed with Azure Artifact Signing, with the `AZURE_*` variables below; without them it
+  isn't code-signed, and SmartScreen warns (see INSTALL.md).
 
 ### Signing the macOS app
 
@@ -168,6 +169,39 @@ You need an Apple Developer Program membership. Then, once:
 
 The next build signs with the identity, notarizes and staples the app, and checks it passes
 Gatekeeper. Run `desktop.yml` by hand from the Actions tab to try it before a release.
+
+### Signing the Windows app
+
+Azure Artifact Signing signs the Windows build. It's open to individual developers in the US and
+Canada, and organizations there and in the EU and UK. Nothing secret is stored: the job signs in to
+Azure with GitHub's OIDC token. Once, in the Azure portal:
+
+1. **Account.** Create an Artifact Signing account (the Basic plan is plenty), and give yourself
+   the **Artifact Signing Identity Verifier** role on it (Access control (IAM)).
+2. **Identity.** Identity validations → **Individuals** → New identity → **Public**, then finish
+   the ID check from the email. The name on it, as on your ID, is the publisher Windows shows.
+3. **Certificate profile.** Certificate profiles → Create → **Public Trust**, from that identity.
+4. **App registration.** In Microsoft Entra ID → App registrations, register an app. Under
+   Certificates & secrets → Federated credentials, add one for **GitHub Actions deploying Azure
+   resources**: this repository, entity type **Branch**, `main` (releases and hand-run builds both
+   run from `main`).
+5. **Signer role.** On the Artifact Signing account, give the app the **Artifact Signing
+   Certificate Profile Signer** role.
+6. **Variables** (not secrets; none of these is a credential):
+
+   ```bash
+   gh variable set AZURE_CLIENT_ID --body "<app's Application (client) ID>"
+   gh variable set AZURE_TENANT_ID --body "<Directory (tenant) ID>"
+   gh variable set AZURE_SUBSCRIPTION_ID --body "<subscription holding the account>"
+   gh variable set AZURE_SIGNING_ENDPOINT --body "https://eus.codesigning.azure.net/"   # the account's region
+   gh variable set AZURE_SIGNING_ACCOUNT --body "<account name>"
+   gh variable set AZURE_SIGNING_PROFILE --body "<certificate profile name>"
+   ```
+
+The next build signs `remry-desktop.exe`, the `remry` sidecar and the installer as Tauri builds
+them (its `signCommand`: SignTool with the Artifact Signing library), before it signs the update,
+then checks every signature is valid. A new publisher can still meet a SmartScreen prompt until the
+certificate builds up reputation with downloads.
 - **Publish:** force-pushes `plugin/` to the root of the `dist` branch — Cowork's sync needs
   `.claude-plugin/plugin.json` at the root — tags that commit `dist-v<version>`, then creates
   GitHub release `v<version>` with the installers, the signed updates, `latest.json` and the

@@ -17,8 +17,8 @@ Download the latest version:
 Older versions are on the [releases page](https://github.com/remry-ai/remry/releases).
 
 The Mac app is signed and notarized by Apple, so it opens like any other app. The Windows installer
-isn't code-signed yet, so the first time you run it, SmartScreen says it protected your PC: choose
-**More info → Run anyway**.
+is code-signed by James Weatherby. While that signature is new to Windows, SmartScreen may still say
+it protected your PC the first time you run it: choose **More info → Run anyway**.
 
 Open the app once. It sets Remry up in your data folder, starts it, and shows your notebook.
 

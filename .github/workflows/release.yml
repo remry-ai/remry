@@ -59,6 +59,11 @@ jobs:
     needs: plan
     if: needs.plan.outputs.release == 'true'
     uses: ./.github/workflows/desktop.yml
+    # A called workflow can't have more than its caller grants: id-token for the Windows build's
+    # Azure sign-in (code signing).
+    permissions:
+      contents: read
+      id-token: write
     with:
       ref: ${{ github.event.workflow_run.head_sha || github.sha }}
     secrets: inherit
