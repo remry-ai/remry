@@ -4,9 +4,14 @@
 # hand from the Actions tab to try a build without publishing.
 # macOS: with the APPLE_* secrets set (docs/DEVELOPMENT.md, "Signing the macOS app"), the app is
 # signed with the Developer ID certificate and notarized; without them it's signed ad hoc, and
-# macOS asks before opening a downloaded copy. Windows isn't code-signed, so SmartScreen warns.
+# macOS asks before opening a downloaded copy.
+# Windows: with the AZURE_* repository variables set (docs/DEVELOPMENT.md, "Signing the Windows
+# app"), the job signs in to Azure with GitHub's OIDC token (no secret) and Tauri signs the app,
+# its sidecar and the installer with Azure Artifact Signing as it builds them; without them it
+# isn't code-signed, and SmartScreen warns.
 # With the TAURI_SIGNING_PRIVATE_KEY secret set (bun run desktop:updater-key), each build also
-# makes a signed update for the app's updater.
+# makes a signed update for the app's updater. Code signing happens inside the build, before
+# the update is signed, so the update's signature covers the code-signed installer.
 name: Desktop
 
 on:
@@ -20,9 +25,13 @@ on:
 
 permissions:
   contents: read
+  # The OIDC token azure/login trades for an Azure session to sign the Windows build.
+  id-token: write
 
 env:
   BUN_VERSION: 1.3.13
+  # The Artifact Signing client library SignTool loads to sign the Windows build (NuGet).
+  ARTIFACT_SIGNING_CLIENT_VERSION: 1.0.128
 
 jobs:
   build:
@@ -77,6 +86,66 @@ jobs:
         working-directory: desktop/src-tauri
         run: cargo test
 
+      # Windows code signing, only where the AZURE_* variables are set: an Azure session from
+      # GitHub's OIDC token (the app registration trusts this repo's main branch), then SignTool
+      # and the Artifact Signing library, which the build step hands to Tauri as its signCommand.
+      - name: Sign in to Azure for code signing
+        if: matrix.target == 'windows-x64' && vars.AZURE_CLIENT_ID != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Windows code signing
+        if: matrix.target == 'windows-x64' && vars.AZURE_CLIENT_ID != ''
+        env:
+          SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+        run: |
+          if [ -z "$SIGNING_ENDPOINT" ] || [ -z "$SIGNING_ACCOUNT" ] || [ -z "$SIGNING_PROFILE" ]; then
+            echo "AZURE_CLIENT_ID is set, but AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT or AZURE_SIGNING_PROFILE isn't."; exit 1
+          fi
+          dir="$RUNNER_TEMP/code-signing"
+          mkdir -p "$dir"
+          # SignTool from the latest SDK build tools: the library needs one newer than the runner's
+          # older SDKs (10.0.20348's isn't supported).
+          nuget install Microsoft.Windows.SDK.BuildTools -x -OutputDirectory "$dir" > /dev/null
+          nuget install Microsoft.ArtifactSigning.Client -Version "$ARTIFACT_SIGNING_CLIENT_VERSION" -x -OutputDirectory "$dir" > /dev/null
+          signtool=$(find "$dir/Microsoft.Windows.SDK.BuildTools" -path '*/x64/signtool.exe' | head -n 1)
+          dlib=$(find "$dir/Microsoft.ArtifactSigning.Client" -path '*/x64/Azure.CodeSigning.Dlib.dll' | head -n 1)
+          if [ -z "$signtool" ] || [ -z "$dlib" ]; then
+            echo "Couldn't find the x64 signtool.exe or Azure.CodeSigning.Dlib.dll in the NuGet packages."; find "$dir" -name '*.exe' -o -name '*.dll' | head -n 40; exit 1
+          fi
+          # Only the Azure CLI session from azure/login, so the library doesn't try (and wait on)
+          # the other credential types first.
+          cat > "$dir/metadata.json" <<EOF
+          {
+            "Endpoint": "$SIGNING_ENDPOINT",
+            "CodeSigningAccountName": "$SIGNING_ACCOUNT",
+            "CertificateProfileName": "$SIGNING_PROFILE",
+            "CorrelationId": "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}",
+            "ExcludeCredentials": [
+              "EnvironmentCredential",
+              "ManagedIdentityCredential",
+              "WorkloadIdentityCredential",
+              "SharedTokenCacheCredential",
+              "VisualStudioCredential",
+              "VisualStudioCodeCredential",
+              "AzurePowerShellCredential",
+              "AzureDeveloperCliCredential",
+              "InteractiveBrowserCredential"
+            ]
+          }
+          EOF
+          {
+            echo "WINDOWS_SIGNTOOL=$(cygpath -w "$signtool")"
+            echo "WINDOWS_SIGNING_DLIB=$(cygpath -w "$dlib")"
+            echo "WINDOWS_SIGNING_METADATA=$(cygpath -w "$dir/metadata.json")"
+          } >> "$GITHUB_ENV"
+          echo "Signing the Windows app with Artifact Signing ($SIGNING_ACCOUNT/$SIGNING_PROFILE)."
+
       - name: Build the desktop app
         env:
           # The key has no password (scripts/desktop-updater-key.ts).
@@ -114,7 +183,25 @@ jobs:
           elif [ "${{ matrix.target }}" = darwin-arm64 ]; then
             echo "No APPLE_CERTIFICATE secret: signing the macOS app ad hoc, without notarizing it."
           fi
-          bun run desktop:build --bundles ${{ matrix.bundles }} --config "{\"bundle\":$bundle}"
+          # Tauri runs the signCommand on each file it signs (the app, the remry sidecar, the
+          # installer and its uninstaller), with %1 for the file, before it signs the update.
+          if [ "${{ matrix.target }}" = windows-x64 ] && [ -n "$WINDOWS_SIGNTOOL" ]; then
+            bundle=$(BUNDLE="$bundle" bun -e '
+              const b = JSON.parse(process.env.BUNDLE);
+              b.windows = { signCommand: { cmd: process.env.WINDOWS_SIGNTOOL, args: [
+                "sign", "/v", "/fd", "SHA256", "/tr", "http://timestamp.acs.microsoft.com", "/td", "SHA256",
+                "/dlib", process.env.WINDOWS_SIGNING_DLIB, "/dmdf", process.env.WINDOWS_SIGNING_METADATA, "%1",
+              ] } };
+              console.log(JSON.stringify(b));
+            ')
+          elif [ "${{ matrix.target }}" = windows-x64 ]; then
+            echo "No AZURE_CLIENT_ID variable: building the Windows app without code signing."
+          fi
+          # From a file: on Windows, Git Bash rewrites arguments that look like POSIX paths, which
+          # SignTool's /switches and the backslashed paths in the config would be mistaken for.
+          config="$RUNNER_TEMP/tauri-build.json"
+          printf '{"bundle":%s}\n' "$bundle" > "$config"
+          bun run desktop:build --bundles ${{ matrix.bundles }} --config "$config"
 
       # 0.16.2 shipped a shell named like its sidecar, so the bundle held one of them and macOS
       # refused the broken signature. Check both are there and the signature holds.
@@ -144,6 +231,22 @@ jobs:
           home=$(mktemp -d)
           HOME="$home" REMRY_MIGRATIONS_DIR="$app/Contents/Resources/migrations" "$app/Contents/MacOS/remry" notebook.list > "$home/out.json"
           grep -q '"ok": *true' "$home/out.json" || { cat "$home/out.json"; exit 1; }
+
+      # A code-signed Windows build: the installer, the app and its sidecar each carry a valid
+      # signature from the Artifact Signing certificate.
+      - name: Check the Windows signatures
+        if: matrix.target == 'windows-x64' && vars.AZURE_CLIENT_ID != ''
+        shell: pwsh
+        run: |
+          $release = 'desktop/src-tauri/target/release'
+          $files = @(Get-ChildItem "$release/bundle/nsis/*-setup.exe") + @(Get-Item "$release/remry-desktop.exe", "$release/remry.exe")
+          $failed = $false
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Host "$($file.Name): $($sig.Status) ($($sig.SignerCertificate.Subject))"
+            if ($sig.Status -ne 'Valid') { $failed = $true }
+          }
+          if ($failed) { Write-Error 'A Windows file is not validly signed.'; exit 1 }
 
       # Names with the version, which latest.json points at, and a copy of each installer
       # without it, so the README links to releases/latest/download/<name> stay valid.
