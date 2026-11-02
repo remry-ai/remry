@@ -210,7 +210,9 @@ menu (the chevron beside the notebook name) and paste the key, or ask Claude to.
 Remry is made by one person, [jweatherby.dev](https://jweatherby.dev). The code is public, and it
 changes often.
 
-The desktop app runs on Apple silicon Macs and Windows (x64), and both are code-signed.
+The desktop app runs on Apple silicon Macs and Windows (x64), and both are code-signed. To open
+your notebook from your phone or another computer, turn on Tailscale sharing; see
+[Opening it from another device](#opening-it-from-another-device).
 
 ## License
 
