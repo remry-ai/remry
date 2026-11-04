@@ -210,6 +210,33 @@
     if (!error) await goto(exportHref);
   };
 
+  // The bar shows the title on a row above the tabs once it sticks, so a long doc scrolled
+  // down still says which one it is. The row is pulled up over what's above the bar (hidden,
+  // so nothing jumps when it shows); the bar is stuck once it has moved down from there.
+  let sentinelEl = $state<HTMLDivElement>();
+  let stickyEl = $state<HTMLDivElement>();
+  let titleRowEl = $state<HTMLDivElement>();
+  let stuck = $state(false);
+  $effect(() => {
+    if (!showTitle || !sentinelEl || !stickyEl || !titleRowEl) return;
+    const sentinel = sentinelEl, sticky = stickyEl, row = titleRowEl;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      stuck = sticky.getBoundingClientRect().top > sentinel.getBoundingClientRect().top - row.offsetHeight + 1;
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    measure();
+    // Capture: the page scrolls in the window or in a layout column, depending on its width.
+    window.addEventListener('scroll', schedule, { capture: true, passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', schedule, { capture: true });
+      window.removeEventListener('resize', schedule);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  });
+
   const setMode = async (next: typeof mode) => {
     const leaving = mode === 'write' || mode === 'editor';
     const entering = next === 'preview';
@@ -248,8 +275,13 @@
   {:else if resolving}
     <div class="status" aria-busy="true">Loading…</div>
   {:else}
-    <div class="doc-editor">
-      <!-- The view tabs, with the doc's actions at the right end; stays in view above the editor's own toolbar. -->
+    <div class="doc-editor" class:with-title={showTitle}>
+      <div class="doc-sentinel" bind:this={sentinelEl}></div>
+      <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
+      <div class="doc-sticky" class:stuck bind:this={stickyEl}>
+      {#if showTitle}
+        <div class="doc-sticky-title" bind:this={titleRowEl} aria-hidden={!stuck}><span class="truncate">{title}</span></div>
+      {/if}
       <div class="doc-bar">
         <div class="tabs scroll">
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
@@ -272,6 +304,7 @@
             <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
           {/if}
         </div>
+      </div>
       </div>
       {#if mode === 'write'}
         <textarea class="doc-textarea mono" bind:value={draft} onpaste={handleTextareaPaste} rows={20} placeholder="Write in markdown..."></textarea>
@@ -324,17 +357,40 @@
     // The page's sticky offset, captured here so the editor's toolbar can stick just below the bar.
     --doc-sticky: var(--sticky-top, 0px);
     --doc-bar-h: calc(var(--control-h) + var(--sp-2));
-    :global(.md-editor-container) { --sticky-top: calc(var(--doc-sticky) + var(--doc-bar-h)); }
+    --doc-title-h: 0px;
+    &.with-title { --doc-title-h: var(--control-h); }
+    :global(.md-editor-container) { --sticky-top: calc(var(--doc-sticky) + var(--doc-title-h) + var(--doc-bar-h)); }
   }
-  // Stays in view while a long doc scrolls, above the editor's sticky toolbar.
-  .doc-bar {
+  .doc-sentinel { height: 0; }
+  // Stays in view while a long doc scrolls, above the editor's sticky toolbar. The title row
+  // overlaps what's above it until the bar sticks, so it lets clicks through while hidden.
+  .doc-sticky {
     position: sticky;
     top: var(--doc-sticky);
     z-index: calc(var(--z-sticky) + 1);
+    margin-top: calc(-1 * var(--doc-title-h));
+    margin-bottom: var(--sp-2);
+    pointer-events: none;
+    > * { pointer-events: auto; }
+  }
+  .doc-sticky-title {
+    display: flex;
+    align-items: center;
+    height: var(--doc-title-h);
+    min-width: 0;
+    font-weight: 600;
+    background: var(--surface);
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .stuck .doc-sticky-title {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .doc-bar {
     display: flex;
     align-items: flex-end;
     height: var(--doc-bar-h);
-    margin-bottom: var(--sp-2);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }

@@ -48,7 +48,10 @@
     ancestorsOf(allPages, wikiPage.id, (p) => p.parentId).map((p) => ({ label: p.title, href: `/app/wiki/${p.id}` })),
   );
 
-  let editing = $state(false);
+  // Held as the page being edited, so moving to another page opens it in preview (the route reuses this component).
+  let editingId = $state<string | null>(null);
+  const editing = $derived(editingId === wikiPage.id);
+  const startEditing = () => { editingId = wikiPage.id; };
   const isSheet = $derived(wikiPage.bodyType === 'sheet');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
@@ -129,7 +132,7 @@
     Object.fromEntries(keys.map((key) => [key, fileUrl(key)]));
 
   const handleCloseEditor = async () => {
-    editing = false;
+    editingId = null;
     await invalidateAll();
   };
 
@@ -265,7 +268,7 @@
             {:else if fileLink && !converting && !wikiPage.archivedAt && !isSheet}
               <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}</button>
             {/if}
-            <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={() => { editing = true; }}><PencilIcon /></button>
+            <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={startEditing}><PencilIcon /></button>
           </span>
         </div>
         {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
@@ -275,7 +278,7 @@
           <MarkdownRenderer content={wikiPage.content} />
         {:else}
           <EmptyState message="This page is empty.">
-            <button type="button" class="btn sm" onclick={() => { editing = true; }}>Write it</button>
+            <button type="button" class="btn sm" onclick={startEditing}>Write it</button>
             <button type="button" class="btn ghost sm" onclick={handleMakeSheet}>Make it a spreadsheet</button>
           </EmptyState>
           {#if sheetError}<p class="form-error">{sheetError}</p>{/if}
