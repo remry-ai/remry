@@ -20,8 +20,9 @@ export const nowrapColumns = (rows: readonly (readonly string[])[]): readonly bo
 
 /** Marks the cells of each table's short columns with `.nowrap` (styled in `_base.scss`). */
 export const fitTableColumns = (container: HTMLElement): void => {
-  for (const table of container.querySelectorAll('table')) {
-    const rows = [...table.rows].map((row) => [...row.cells]);
+  // A table with saved widths keeps them (`table-widths.ts`).
+  for (const table of container.querySelectorAll('table:not(.fixed-cols)')) {
+    const rows = [...(table as HTMLTableElement).rows].map((row) => [...row.cells]);
     const keep = nowrapColumns(rows.map((cells) => cells.map((cell) => cell.textContent ?? '')));
     for (const cells of rows) cells.forEach((cell, col) => cell.classList.toggle('nowrap', keep[col] ?? false));
   }

@@ -7,6 +7,7 @@ import { Lexer, type Token, type Tokens } from 'marked';
 import type { Content, ContentImage, ContentText, TableCell } from 'pdfmake/interfaces';
 import { normalizePageBreaks, separateBreakLines } from './pdf-pages';
 import { nowrapColumns } from './table-columns';
+import { attachTableWidths, type SizedTable } from './table-widths';
 
 /** An image ready for the PDF: a PNG or JPEG data URL and its size in CSS pixels. */
 export interface PdfImage {
@@ -67,7 +68,9 @@ const isChart = (token: Tokens.Code): boolean => token.lang?.trim() === 'chart';
 const isDiagram = (token: Tokens.Code): boolean => token.lang?.trim() === 'mermaid' || MERMAID_START.test(token.text.trim());
 
 /** The markdown the PDF is laid out from: page breaks and `<br>` lines as the screen reads them. */
-const lex = (markdown: string): Token[] => new Lexer({ gfm: true }).lex(normalizePageBreaks(separateBreakLines(markdown)));
+/** The width comments come out here, their tables taking the widths (`table-widths.ts`). */
+const lex = (markdown: string): Token[] =>
+  attachTableWidths(new Lexer({ gfm: true }).lex(normalizePageBreaks(separateBreakLines(markdown))));
 
 /** What the PDF needs drawn: each image's address, each chart's text and each diagram's source. */
 export const collectPdfAssets = (markdown: string): { readonly images: readonly string[]; readonly charts: readonly string[]; readonly diagrams: readonly string[] } => {
@@ -326,8 +329,11 @@ const cellText = (cell: Tokens.TableCell): string => cell.text;
 
 const table = (token: Tokens.Table, ctx: Context): Content => {
   const { colors, branded } = ctx.options;
-  const keep = nowrapColumns([token.header.map(cellText), ...token.rows.map((row) => row.map(cellText))]);
-  const widths = keep.map((short) => (short ? 'auto' : '*'));
+  // Saved widths, as on screen; otherwise short columns fit their text and long ones share the rest.
+  const saved = (token as SizedTable).colWidths;
+  const widths = saved
+    ? saved.map((w) => `${w}%`)
+    : nowrapColumns([token.header.map(cellText), ...token.rows.map((row) => row.map(cellText))]).map((short) => (short ? 'auto' : '*'));
   const cell = (c: Tokens.TableCell, header: boolean): TableCell => {
     const runs = inlines(c.tokens, header ? { bold: true } : {}, colors).flatMap((part) => (part.kind === 'text' ? [part.run] : []));
     return {

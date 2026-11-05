@@ -275,6 +275,14 @@ table {
 // In written content a header wraps like its column (the app's own tables keep headers on one
 // line, above). A short column beside a long-text one keeps to one line (`fitTableColumns`,
 // lib/doc/table-columns.ts).
+// A table whose column widths were set by dragging in the editor (lib/doc/table-widths.ts):
+// full width, each column its saved share.
+:is(.md-rendered, .milkdown .editor) table.fixed-cols {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  col { width: var(--col-w); }
+}
 .md-rendered th { white-space: normal; }
 .md-rendered :is(th, td).nowrap { white-space: nowrap; }
 

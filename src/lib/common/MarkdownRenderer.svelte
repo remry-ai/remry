@@ -9,6 +9,7 @@
   import { lostImageNote } from '$lib/doc/lost-images';
   import { fitTableColumns } from '$lib/doc/table-columns';
   import { separateBreakLines } from '$lib/doc/pdf-pages';
+  import { attachTableWidths, type SizedTable } from '$lib/doc/table-widths';
 
   const escapeAttr = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -26,7 +27,20 @@
 
   // A wide table scrolls sideways inside its own box instead of running past the doc's edge.
   const tableHtml = renderer.table.bind(renderer);
-  renderer.table = (token) => `<div class="table-wrap">${tableHtml(token)}</div>`;
+  // A table with saved column widths (`lib/doc/table-widths.ts`) gets them as a colgroup, and
+  // keeps them: fixed layout, full width.
+  renderer.table = (token) => {
+    const widths = (token as SizedTable).colWidths;
+    const html = tableHtml(token);
+    const sized = widths
+      ? html.replace(/^<table>/, `<table class="fixed-cols"><colgroup>${widths.map((w) => `<col style="--col-w: ${w}%">`).join('')}</colgroup>`)
+      : html;
+    return `<div class="table-wrap">${sized}</div>`;
+  };
+
+  // Lexed first, so the width comments come out (never shown) and their tables take the widths.
+  const render = (markdown: string): string =>
+    marked.parser(attachTableWidths(marked.lexer(markdown)), { renderer });
 
   interface Props {
     readonly content: string;
@@ -159,10 +173,10 @@
   <!-- The user's own markdown, in a local app. -->
   {#if content}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html marked.parse(separateBreakLines(content), { renderer })}
+    {@html render(separateBreakLines(content))}
   {:else}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html marked.parse(placeholder, { renderer })}
+    {@html render(placeholder)}
   {/if}
 </div>
 

@@ -143,6 +143,14 @@ describe('buildPdfDocument', () => {
     ]);
   });
 
+  it("sizes a table's columns from its width comment, which prints nothing", () => {
+    const md = '<!-- table-cols: 30, 20, 50 -->\n\n| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |';
+    const blocks = convert(md) as Record<string, unknown>[];
+    expect(blocks).toHaveLength(1);
+    expect((blocks[0]!.table as { widths: unknown }).widths).toEqual(['30%', '20%', '50%']);
+    expect(json(md)).not.toContain('table-cols');
+  });
+
   it('keeps a heading off the bottom of a page', () => {
     const doc = buildPdfDocument({ ...base, branding: null, letterhead: false, showTitle: true });
     const breakBefore = doc.pageBreakBefore as (node: unknown, queries: unknown) => boolean;

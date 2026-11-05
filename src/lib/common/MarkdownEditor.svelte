@@ -12,7 +12,8 @@
     turnIntoTextCommand,
     linkSchema,
   } from '@milkdown/preset-commonmark';
-  import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+  import { toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+  import { gfmWithTableWidths, tableResizePlugin, tableWidthsRemark, tableWidthsView } from '$lib/shared/components/milkdown-table-widths';
   import { commonmarkKeepingBreaks, configureLineBreaks, lineBreaksPlugin } from '$lib/shared/components/milkdown-line-breaks';
   import { unescapePageBreaks } from '$lib/shared/components/line-breaks';
   import { listener, listenerCtx } from '@milkdown/plugin-listener';
@@ -120,7 +121,10 @@
       })
       .use(commonmarkKeepingBreaks)
       .use(lineBreaksPlugin)
-      .use(gfm)
+      .use(gfmWithTableWidths)
+      .use(tableWidthsRemark)
+      .use(tableWidthsView)
+      .use(tableResizePlugin)
       .use(listener)
       .use(history)
       .use(exitCodeBlockPlugin);
@@ -295,6 +299,11 @@
       overflow-x: auto;
       margin-bottom: var(--sp-4);
     }
+    // Saved column widths (lib/doc/table-widths.ts): full width and fixed, not a scroller.
+    :global(.editor table.fixed-cols) { display: table; }
+    // A column border under the pointer can be dragged; its column's edge shows the line it moves.
+    :global(.editor.col-resizing) { cursor: col-resize; }
+    :global(.editor .col-resize-edge) { box-shadow: inset -2px 0 0 var(--accent); }
 
     :global(ul), :global(ol) {
       padding-left: var(--sp-5);
