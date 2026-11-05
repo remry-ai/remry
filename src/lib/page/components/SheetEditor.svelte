@@ -163,7 +163,9 @@
   // The grid wears the app's tokens (jspreadsheet.themes.css reads these).
   .sheet-grid {
     max-width: 100%;
-    font-size: var(--fs-sm);
+    // Cells are written content: its font and size (--font-text, --fs-text).
+    font-family: var(--font-text);
+    font-size: var(--fs-text);
 
     :global(.jss_container) {
       --border_color: var(--border);

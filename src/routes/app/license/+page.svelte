@@ -90,7 +90,7 @@
   <form class="card add" onsubmit={(e) => { e.preventDefault(); activate(); }}>
     <Field label={active ? 'Renewed license key' : 'License key'} hint="Paste the key you were sent. It starts with WN1. and is checked on this computer; nothing is sent anywhere.">
       {#snippet children({ id })}
-        <textarea {id} rows="3" bind:value={key} spellcheck="false" autocomplete="off" class="mono" placeholder="WN1.…"></textarea>
+        <textarea {id} rows="3" bind:value={key} spellcheck="false" autocomplete="off" placeholder="WN1.…"></textarea>
       {/snippet}
     </Field>
     {#if error}<p class="form-error">{error}</p>{/if}

@@ -98,7 +98,7 @@
   gap: var(--sp-1);
   min-width: 0;
   > label { margin: 0; }
-  .hint, .error { font-family: var(--font-form); font-size: var(--fs-form); }
+  .hint, .error { font-family: var(--font-text); font-size: var(--fs-text); }
   .hint { color: var(--text-3); }
   .error { color: var(--danger); }
   &.has-error :is(input, select, textarea) { border-color: var(--danger); }

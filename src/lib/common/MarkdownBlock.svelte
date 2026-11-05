@@ -48,7 +48,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="md-preview"
+    class="md-preview md-rendered"
     class:clickable={!isReadonly}
     class:empty={!value}
     onclick={startEdit}
@@ -63,9 +63,8 @@
 {/if}
 
 <style lang="scss">
+  // Font and size are written content's (.md-rendered, styles/_base.scss).
   .md-preview {
-    font-size: var(--fs-md);
-    line-height: 1.6;
 
     &.clickable {
       cursor: pointer;
@@ -86,11 +85,7 @@
     font-style: italic;
   }
 
-  .md-editor textarea {
-    width: 100%;
-    font-family: var(--font-mono);
-    font-size: var(--fs-sm);
-  }
+  .md-editor textarea { width: 100%; }
 
   .md-actions {
     display: flex;

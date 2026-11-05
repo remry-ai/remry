@@ -47,7 +47,7 @@
   {#if !initial}
     <Field label="Id" hint="Used in links and by Claude (--notebook), and can't be changed. {NOTEBOOK_ID_RULE}.">
       {#snippet children({ id: fieldId })}
-        <input id={fieldId} type="text" class="mono" bind:value={id} maxlength="40" placeholder={suggestedId || 'side-project'} autocomplete="off" spellcheck="false" />
+        <input id={fieldId} type="text" bind:value={id} maxlength="40" placeholder={suggestedId || 'side-project'} autocomplete="off" spellcheck="false" />
       {/snippet}
     </Field>
   {/if}

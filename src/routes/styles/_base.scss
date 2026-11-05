@@ -36,8 +36,8 @@ a {
 // app's own headings, whose h4 is an eyebrow. The PDF export follows the same rules (`HEADINGS`
 // in lib/doc/pdf-markdown.ts): change both together.
 .md-rendered, .milkdown .editor {
-  font-family: var(--font-form);
-  font-size: var(--fs-form);
+  font-family: var(--font-text);
+  font-size: var(--fs-text);
   line-height: 1.7;
   :is(h1, h2, h3, h4, h5, h6) {
     margin: 1.4em 0 0.5em;
@@ -51,8 +51,8 @@ a {
   h2 { font-size: var(--fs-h2); font-weight: 400; }
   h3 { font-size: var(--fs-h3); font-weight: 400; }
   h4 { font-size: var(--fs-lg); font-weight: 400; color: var(--text-2); }
-  h5 { font-size: var(--fs-form); font-weight: 400; color: var(--text-2); }
-  h6 { font-size: var(--fs-form); font-weight: 400; font-style: italic; color: var(--text-3); }
+  h5 { font-size: var(--fs-text); font-weight: 400; color: var(--text-2); }
+  h6 { font-size: var(--fs-text); font-weight: 400; font-style: italic; color: var(--text-3); }
   // Tables keep the app's size (their header row stays the small uppercase one).
   table { font-size: var(--fs-md); line-height: 1.5; }
 }
@@ -156,19 +156,19 @@ a, [role="button"], [role="link"], summary { cursor: pointer; }
 
 // --- Form controls ---
 
-// Forms read as one thing: labels, fields, hints and form editors share --font-form at --fs-form.
+// Forms read as one thing: labels, fields and hints share --font-text at --fs-text, like written content.
 label {
   display: block;
-  font-family: var(--font-form);
-  font-size: var(--fs-form);
+  font-family: var(--font-text);
+  font-size: var(--fs-text);
   font-weight: 500;
   color: var(--text-2);
 }
 
 input, select, textarea {
   font: inherit;
-  font-family: var(--font-form);
-  font-size: var(--fs-form);
+  font-family: var(--font-text);
+  font-size: var(--fs-text);
   width: 100%;
   height: var(--control-h);
   padding: 0 10px;

@@ -82,7 +82,7 @@
           {/if}
         </header>
         <div
-          class="note-body"
+          class="note-body md-rendered"
           class:clamped={!expandedNotes.has(note.id)}
           data-note-body={note.id}
           style="--max-height: {maxHeight}px"
@@ -130,13 +130,10 @@
     @media (hover: none) { opacity: 1; }
   }
   .note-body {
-    font-size: var(--fs-md);
-    line-height: 1.5;
-    color: var(--text);
+    // Font, size and headings are written content's (.md-rendered, styles/_base.scss); only its spacing is compact.
     :global(p) { margin: 0 0 var(--sp-2); }
     :global(p:last-child) { margin-bottom: 0; }
     :global(ul), :global(ol) { padding-left: var(--sp-4); margin: 0 0 var(--sp-2); }
-    :global(h1), :global(h2), :global(h3) { font-size: var(--fs-base); margin: var(--sp-2) 0 var(--sp-1); }
     &.clamped {
       max-height: var(--max-height, 250px);
       overflow: hidden;

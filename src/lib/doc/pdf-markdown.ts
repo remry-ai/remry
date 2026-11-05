@@ -55,6 +55,7 @@ const MUTED = '#666666';
 // text is 9.75pt. pdfmake's lineHeight multiplies the font's own line height, Source Serif 4's
 // 1.371em, so 1.24 is the screen's 1.7em, and 0.95 its headings' 1.3em.
 export const PDF_FONT = 'SourceSerif4';
+// --fs-text (13px) in points: change it with that token.
 export const PDF_BODY_SIZE = 9.75;
 export const PDF_LINE_HEIGHT = 1.24;
 const HEADING_LINE_HEIGHT = 0.95;

@@ -308,7 +308,7 @@
       </div>
       </div>
       {#if mode === 'write'}
-        <textarea class="doc-textarea mono" bind:value={draft} onpaste={handleTextareaPaste} rows={20} placeholder="Write in markdown..."></textarea>
+        <textarea class="doc-textarea" bind:value={draft} onpaste={handleTextareaPaste} rows={20} placeholder="Write in markdown..."></textarea>
       {:else if mode === 'editor'}
         {#key `${resolvedContent}|${editorKey}`}
           <MarkdownEditor value={draft} onChange={(md) => (draft = md)} {pendingImages} />
@@ -343,7 +343,7 @@
       &.editable { cursor: text; }
     }
   }
-  // A field like any other (--font-form); only its width is its own.
+  // A field like any other (--font-text); only its width is its own.
   .title-input { flex: 1; }
   // Tucked under the title: the card's gap is too loose for a line that belongs to it.
   .doc-sources { margin-top: calc(-1 * var(--sp-1)); }
@@ -402,10 +402,8 @@
     padding-left: var(--sp-3);
     padding-bottom: var(--sp-1);
   }
-  // Markdown source: monospace, at the form size.
   .doc-textarea {
     width: 100%;
-    font-size: var(--fs-form);
     min-height: 300px;
   }
   .unsaved { color: var(--text-3); white-space: nowrap; }

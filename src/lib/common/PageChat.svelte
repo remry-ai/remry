@@ -170,8 +170,10 @@
     gap: var(--sp-3);
     padding: var(--sp-3) var(--sp-4);
   }
+  // What you typed reads like what Claude wrote back (.md-rendered): written content's font and size.
   .message {
-    font-size: var(--fs-md);
+    font-family: var(--font-text);
+    font-size: var(--fs-text);
     &.user {
       align-self: flex-end;
       max-width: 90%;

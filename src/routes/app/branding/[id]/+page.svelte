@@ -210,7 +210,7 @@
             {#snippet children({ id })}
               <div class="color-row">
                 <input type="color" bind:value={primaryColor} aria-label="Primary color" />
-                <input {id} type="text" class="mono" bind:value={primaryColor} />
+                <input {id} type="text" bind:value={primaryColor} />
               </div>
             {/snippet}
           </Field>
@@ -218,7 +218,7 @@
             {#snippet children({ id })}
               <div class="color-row">
                 <input type="color" bind:value={primaryFontColor} aria-label="Primary font color" />
-                <input {id} type="text" class="mono" bind:value={primaryFontColor} />
+                <input {id} type="text" bind:value={primaryFontColor} />
               </div>
             {/snippet}
           </Field>
@@ -226,7 +226,7 @@
             {#snippet children({ id })}
               <div class="color-row">
                 <input type="color" bind:value={accentColor} aria-label="Accent color" />
-                <input {id} type="text" class="mono" bind:value={accentColor} />
+                <input {id} type="text" bind:value={accentColor} />
               </div>
             {/snippet}
           </Field>
@@ -234,7 +234,7 @@
             {#snippet children({ id })}
               <div class="color-row">
                 <input type="color" bind:value={accentFontColor} aria-label="Accent font color" />
-                <input {id} type="text" class="mono" bind:value={accentFontColor} />
+                <input {id} type="text" bind:value={accentFontColor} />
               </div>
             {/snippet}
           </Field>
@@ -312,7 +312,7 @@
     display: flex;
     gap: var(--sp-2);
     align-items: center;
-    input[type='text'] { flex: 1; font-size: var(--fs-sm); }
+    input[type='text'] { flex: 1; }
   }
   .image-preview {
     display: flex;

@@ -168,7 +168,7 @@
           <p class="text-2">If you share Remry with <code>{serveCommand}</code> yourself, paste the address it prints.</p>
           <Field label="This computer's tailnet address" hint="Like https://my-mac.tail1234.ts.net. Remry answers only this name, never Tailscale Funnel's public traffic.">
             {#snippet children({ id })}
-              <input {id} type="text" bind:value={address} spellcheck="false" autocomplete="off" class="mono" placeholder="https://my-mac.tail1234.ts.net" />
+              <input {id} type="text" bind:value={address} spellcheck="false" autocomplete="off" placeholder="https://my-mac.tail1234.ts.net" />
             {/snippet}
           </Field>
           {#if error}<p class="form-error">{error}</p>{/if}
