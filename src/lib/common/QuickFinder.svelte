@@ -579,7 +579,6 @@
       height: 36px;
       border: none;
       box-shadow: none;
-      font-size: var(--fs-base);
       padding: 0;
       background: transparent;
       &:focus { box-shadow: none; }

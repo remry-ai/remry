@@ -57,6 +57,11 @@ a {
   table { font-size: var(--fs-md); line-height: 1.5; }
 }
 
+// In a form (a todo's or project's description, a note) the editor is a field like the rest;
+// a doc's or wiki page's editor shows the text at the size it's read at.
+.milkdown .editor { font-size: var(--fs-form); }
+.doc-editor .milkdown .editor { font-size: var(--fs-base); }
+
 // Links in written content (docs, notes, descriptions, Claude's answers) stand out from the
 // text: the link colour, always underlined. Names in lists and tables keep the plain style.
 .md-rendered a {
@@ -156,16 +161,19 @@ a, [role="button"], [role="link"], summary { cursor: pointer; }
 
 // --- Form controls ---
 
+// Forms read as one thing: labels, fields, hints and form editors share --font-form at --fs-form.
 label {
   display: block;
-  font-size: var(--fs-sm);
+  font-family: var(--font-form);
+  font-size: var(--fs-form);
   font-weight: 500;
   color: var(--text-2);
 }
 
 input, select, textarea {
   font: inherit;
-  font-size: var(--fs-md);
+  font-family: var(--font-form);
+  font-size: var(--fs-form);
   width: 100%;
   height: var(--control-h);
   padding: 0 10px;
@@ -211,13 +219,11 @@ input[type="color"] {
 input[type="file"] {
   height: auto;
   padding: 5px 10px;
-  font-size: var(--fs-sm);
 }
 
 // Small variant for inline rows.
 .sm:is(input, select, textarea), input.sm, select.sm {
   height: var(--control-h-sm);
-  font-size: var(--fs-sm);
   padding: 0 8px;
 }
 // Room for the caret: the padding above would otherwise run the text under it.
