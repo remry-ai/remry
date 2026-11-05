@@ -5,6 +5,8 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { APP_FONT } from '../app-font';
+import { lineHeightEm } from '../../../../scripts/font-metrics';
 
 const SRC = join(__dirname, '..', '..', '..');
 
@@ -18,6 +20,8 @@ const svelteFiles = (dir: string): readonly string[] => filesEnding(dir, '.svelt
 const OTHER_FONT_FAMILY = /font-family\s*:(?!\s*var\(--font-text\)\s*[;}\n])[^;}\n]+/g;
 /** The font shorthand, which could name another family (only `font: inherit` is allowed). */
 const FONT_SHORTHAND = /(?<![-\w])font\s*:(?!\s*inherit\s*[;}\n])[^;}\n]+/g;
+/** A definition of the font tokens, or an import of a font package: only app-font.ts has them. */
+const FONT_SETTING = /--(?:font-text|fs-text|lh-text)\s*:|@fontsource|@expo-google-fonts/g;
 /** The old second and third fonts, and the class that used one. */
 const OTHER_FONT_TOKEN = /--font-(?:sans|mono)\b|class="[^"]*\bmono\b/g;
 
@@ -66,5 +70,20 @@ describe('text font', () => {
 
   it('no component sets a field’s own font or size', () => {
     expect(offenders(FIELD_FONT_RULE, styleBlock), 'Fields take --font-text at --fs-text from styles/_base.scss; drop the font rule').toEqual([]);
+  });
+
+  it('the font is set in one place, lib/ui/app-font.ts', () => {
+    const elsewhere = filesEnding(SRC, '.svelte', '.scss', '.ts')
+      .filter((file) => !file.endsWith(join('ui', 'app-font.ts')) && !file.includes(`${join('ui', 'tests')}`))
+      .flatMap((file) => {
+        const text = readFileSync(file, 'utf8');
+        return [...text.matchAll(FONT_SETTING)].map((m) => `${relative(SRC, file)}:${lineOf(text, m.index ?? 0)} ${m[0]}`);
+      });
+    expect(elsewhere, 'Change the font, its size or line spacing in src/lib/ui/app-font.ts').toEqual([]);
+  });
+
+  it("app-font.ts's PDF line height matches its font file (bun run font:metrics)", () => {
+    const regular = readFileSync(join(SRC, '..', APP_FONT.pdf.files.normal));
+    expect(APP_FONT.pdf.lineHeightEm).toBeCloseTo(lineHeightEm(regular), 3);
   });
 });

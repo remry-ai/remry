@@ -1,7 +1,7 @@
 // Builds a doc's PDF in the browser with pdfmake, from its markdown: real text, laid out and
 // paged by pdfmake (`pdf-document.ts`, `pdf-markdown.ts`). This file draws what the PDF shows
 // as pictures (images, charts, mermaid diagrams, the logo) and saves the file. pdfmake and its
-// fonts (Source Serif 4, as on screen, served with the app's own files) load only when the user
+// font (the app's one font, lib/ui/app-font.ts, served with the app's own files) load only when the user
 // exports. Nothing leaves the page.
 
 import type { TDocumentDefinitions, TFontContainer } from 'pdfmake/interfaces';
@@ -13,10 +13,7 @@ import { fontsReady, textFontFamily } from '$lib/ui/text-font';
 import { buildPdfDocument, type PdfBranding } from './pdf-document';
 import { collectPdfAssets, PDF_FONT, type PdfAssets, type PdfImage } from './pdf-markdown';
 import { pdfFileName } from './pdf-pages';
-import serifRegular from '@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf?url';
-import serifBold from '@expo-google-fonts/source-serif-4/700Bold/SourceSerif4_700Bold.ttf?url';
-import serifItalic from '@expo-google-fonts/source-serif-4/400Regular_Italic/SourceSerif4_400Regular_Italic.ttf?url';
-import serifBoldItalic from '@expo-google-fonts/source-serif-4/700Bold_Italic/SourceSerif4_700Bold_Italic.ttf?url';
+import { APP_FONT } from '$lib/ui/app-font';
 
 export interface PdfExportInput {
   readonly title: string;
@@ -191,40 +188,29 @@ const toBase64 = (buffer: ArrayBuffer): string => {
   return btoa(binary);
 };
 
-// Static TTFs: pdfmake can't pick a weight from the variable font the screen uses.
-const SERIF_FILES = {
-  'SourceSerif4-Regular.ttf': serifRegular,
-  'SourceSerif4-Bold.ttf': serifBold,
-  'SourceSerif4-Italic.ttf': serifItalic,
-  'SourceSerif4-BoldItalic.ttf': serifBoldItalic
-} as const;
-
-const loadSerif = async (): Promise<TFontContainer> => {
+// The app's font (lib/ui/app-font.ts) as static files: pdfmake can't pick a weight from the
+// variable font the screen uses.
+const loadAppFont = async (): Promise<TFontContainer> => {
+  const styles = Object.entries(APP_FONT.pdf.files);
   const files = await Promise.all(
-    Object.entries(SERIF_FILES).map(async ([name, url]): Promise<[string, string]> => {
+    styles.map(async ([style, url]): Promise<[string, string]> => {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`Could not load the PDF font (${name})`);
-      return [name, toBase64(await response.arrayBuffer())];
+      if (!response.ok) throw new Error(`Could not load the PDF font (${style})`);
+      return [`${PDF_FONT}-${style}.ttf`, toBase64(await response.arrayBuffer())];
     })
   );
+  const fileFor = (style: string): string => `${PDF_FONT}-${style}.ttf`;
   return {
     vfs: Object.fromEntries(files),
-    fonts: {
-      [PDF_FONT]: {
-        normal: 'SourceSerif4-Regular.ttf',
-        bold: 'SourceSerif4-Bold.ttf',
-        italics: 'SourceSerif4-Italic.ttf',
-        bolditalics: 'SourceSerif4-BoldItalic.ttf'
-      }
-    }
+    fonts: { [PDF_FONT]: { normal: fileFor('normal'), bold: fileFor('bold'), italics: fileFor('italics'), bolditalics: fileFor('bolditalics') } }
   };
 };
 
 /** Saves the doc as `<title>.pdf`. */
 export const downloadPdf = async (input: PdfExportInput): Promise<void> => {
-  const [pdfMakeModule, serif] = await Promise.all([import('pdfmake/build/pdfmake'), loadSerif()]);
+  const [pdfMakeModule, appFont] = await Promise.all([import('pdfmake/build/pdfmake'), loadAppFont()]);
   const pdfMake = defaultOf<PdfMake>(pdfMakeModule);
-  pdfMake.addFontContainer(serif);
+  pdfMake.addFontContainer(appFont);
 
   // Charts and diagrams draw their labels in the app's font, so it must have loaded.
   await fontsReady();

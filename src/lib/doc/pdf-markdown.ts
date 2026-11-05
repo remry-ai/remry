@@ -8,6 +8,7 @@ import type { Content, ContentImage, ContentText, TableCell } from 'pdfmake/inte
 import { normalizePageBreaks, separateBreakLines } from './pdf-pages';
 import { nowrapColumns } from './table-columns';
 import { attachTableWidths, type SizedTable } from './table-widths';
+import { APP_FONT } from '$lib/ui/app-font';
 
 /** An image ready for the PDF: a PNG or JPEG data URL and its size in CSS pixels. */
 export interface PdfImage {
@@ -51,14 +52,13 @@ const PAGE_BREAK = /^<!--\s*page-?break\s*-->$/i;
 const PX_TO_PT = 0.75;
 const MUTED = '#666666';
 
-// The screen's written content (styles/_base.scss), in points: a pixel is 0.75pt, so 14px body
-// text is 9.75pt. pdfmake's lineHeight multiplies the font's own line height, Source Serif 4's
-// 1.371em, so 1.24 is the screen's 1.7em, and 0.95 its headings' 1.3em.
-export const PDF_FONT = 'SourceSerif4';
-// --fs-text (13px) in points: change it with that token.
-export const PDF_BODY_SIZE = 9.75;
-export const PDF_LINE_HEIGHT = 1.24;
-const HEADING_LINE_HEIGHT = 0.95;
+// The screen's written content in points, from the app's font (lib/ui/app-font.ts): a pixel is
+// 0.75pt. pdfmake's lineHeight multiplies the font's own line height, so the screen's spacing
+// (and its headings' 1.3) is divided by that.
+export const PDF_FONT = 'AppFont';
+export const PDF_BODY_SIZE = APP_FONT.textSizePx * PX_TO_PT;
+export const PDF_LINE_HEIGHT = APP_FONT.lineHeight / APP_FONT.pdf.lineHeightEm;
+const HEADING_LINE_HEIGHT = 1.3 / APP_FONT.pdf.lineHeightEm;
 // --text-2 and --text-3.
 const TEXT_2 = '#52525b';
 const TEXT_3 = '#a1a1aa';

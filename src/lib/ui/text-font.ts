@@ -1,7 +1,9 @@
-// The app's one font (--font-text, styles/_tokens.scss), for what draws its own text: chart.js
+// The app's one font (--font-text, from lib/ui/app-font.ts), for what draws its own text: chart.js
 // canvases and mermaid diagrams, which don't inherit CSS fonts.
 
-const FALLBACK = "'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif";
+import { APP_FONT } from './app-font';
+
+const FALLBACK = APP_FONT.family;
 
 /** The font stack --font-text resolves to on this page. */
 export const textFontFamily = (): string => {

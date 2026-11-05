@@ -1,7 +1,6 @@
 <script lang="ts">
-  import "@fontsource-variable/source-serif-4/opsz.css";
-  import "@fontsource-variable/source-serif-4/opsz-italic.css";
   import "./styles.scss";
+  import { appFontCss } from "$lib/ui/app-font";
   import { navigating } from "$app/stores";
   import FindBar from "$lib/common/FindBar.svelte";
 
@@ -32,7 +31,11 @@
   });
 </script>
 
-<svelte:head></svelte:head>
+<!-- The app's one font and text size (lib/ui/app-font.ts), as tokens on every page. -->
+<svelte:head>
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -- our own constant, not user content -->
+  {@html `<style>${appFontCss()}</style>`}
+</svelte:head>
 
 {@render children()}
 

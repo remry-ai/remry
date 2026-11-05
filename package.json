@@ -33,7 +33,8 @@
     "desktop:build": "cd desktop && tauri build",
     "desktop:updater-key": "bun scripts/desktop-updater-key.ts",
     "icons": "bun scripts/icons/render.ts",
-    "remry": "bun cli/main.ts"
+    "remry": "bun cli/main.ts",
+    "font:metrics": "bun scripts/font-metrics.ts"
   },
   "dependencies": {
     "@expo-google-fonts/source-serif-4": "0.4.2",
