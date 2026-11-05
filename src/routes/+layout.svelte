@@ -1,6 +1,6 @@
 <script lang="ts">
-  import "@fontsource-variable/merriweather/wght.css";
-  import "@fontsource-variable/merriweather/wght-italic.css";
+  import "@fontsource-variable/source-serif-4/opsz.css";
+  import "@fontsource-variable/source-serif-4/opsz-italic.css";
   import "./styles.scss";
   import { navigating } from "$app/stores";
   import FindBar from "$lib/common/FindBar.svelte";

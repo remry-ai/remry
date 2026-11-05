@@ -56,8 +56,9 @@
 
   // --- Type ---
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  // Written content (docs, wiki pages, notes): Merriweather, bundled (@fontsource-variable/merriweather, loaded in the root layout).
-  --font-serif: 'Merriweather Variable', Merriweather, Georgia, serif;
+  // Written content (docs, wiki pages, notes): Source Serif 4, bundled (@fontsource-variable/source-serif-4,
+  // loaded in the root layout, with its optical sizes: headings get the display cut by themselves).
+  --font-serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --fs-xs: 11px;
   --fs-sm: 12px;

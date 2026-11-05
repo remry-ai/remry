@@ -52,12 +52,12 @@ const PX_TO_PT = 0.75;
 const MUTED = '#666666';
 
 // The screen's written content (styles/_base.scss), in points: a pixel is 0.75pt, so 14px body
-// text is 10.5pt. pdfmake's lineHeight multiplies the font's own line height, Merriweather's
-// 1.257em, so 1.4 is the screen's 1.75em, and 1.05 its headings' 1.3em.
-export const PDF_FONT = 'Merriweather';
+// text is 10.5pt. pdfmake's lineHeight multiplies the font's own line height, Source Serif 4's
+// 1.371em, so 1.24 is the screen's 1.7em, and 0.95 its headings' 1.3em.
+export const PDF_FONT = 'SourceSerif4';
 export const PDF_BODY_SIZE = 10.5;
-export const PDF_LINE_HEIGHT = 1.4;
-const HEADING_LINE_HEIGHT = 1.05;
+export const PDF_LINE_HEIGHT = 1.24;
+const HEADING_LINE_HEIGHT = 0.95;
 // --text-2 and --text-3.
 const TEXT_2 = '#52525b';
 const TEXT_3 = '#a1a1aa';

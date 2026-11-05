@@ -30,7 +30,7 @@ a {
 // a table's columns keep their width and a wide table still scrolls inside its wrapper.
 .md-rendered, .milkdown .editor, .pre-line { overflow-wrap: break-word; }
 
-// Written content (rendered markdown and the editor): Merriweather at the body size, with room
+// Written content (rendered markdown and the editor): Source Serif 4 at the body size, with room
 // between lines, and headings set apart by size and weight as in Google Docs: a bold h1, a large
 // regular h2, a regular h3, then smaller grey ones. Weights only step down with each level. Not the
 // app's own headings, whose h4 is an eyebrow. The PDF export follows the same rules (`HEADINGS`
@@ -38,7 +38,7 @@ a {
 .md-rendered, .milkdown .editor {
   font-family: var(--font-serif);
   font-size: var(--fs-base);
-  line-height: 1.75;
+  line-height: 1.7;
   :is(h1, h2, h3, h4, h5, h6) {
     margin: 1.4em 0 0.5em;
     line-height: 1.3;

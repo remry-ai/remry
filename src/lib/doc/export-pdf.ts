@@ -1,7 +1,7 @@
 // Builds a doc's PDF in the browser with pdfmake, from its markdown: real text, laid out and
 // paged by pdfmake (`pdf-document.ts`, `pdf-markdown.ts`). This file draws what the PDF shows
 // as pictures (images, charts, mermaid diagrams, the logo) and saves the file. pdfmake and its
-// fonts (Merriweather, as on screen, served with the app's own files) load only when the user
+// fonts (Source Serif 4, as on screen, served with the app's own files) load only when the user
 // exports. Nothing leaves the page.
 
 import type { TDocumentDefinitions, TFontContainer } from 'pdfmake/interfaces';
@@ -12,10 +12,10 @@ import { renderChart } from '$lib/chart/chart-render';
 import { buildPdfDocument, type PdfBranding } from './pdf-document';
 import { collectPdfAssets, PDF_FONT, type PdfAssets, type PdfImage } from './pdf-markdown';
 import { pdfFileName } from './pdf-pages';
-import merriweatherRegular from '@expo-google-fonts/merriweather/400Regular/Merriweather_400Regular.ttf?url';
-import merriweatherBold from '@expo-google-fonts/merriweather/700Bold/Merriweather_700Bold.ttf?url';
-import merriweatherItalic from '@expo-google-fonts/merriweather/400Regular_Italic/Merriweather_400Regular_Italic.ttf?url';
-import merriweatherBoldItalic from '@expo-google-fonts/merriweather/700Bold_Italic/Merriweather_700Bold_Italic.ttf?url';
+import serifRegular from '@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf?url';
+import serifBold from '@expo-google-fonts/source-serif-4/700Bold/SourceSerif4_700Bold.ttf?url';
+import serifItalic from '@expo-google-fonts/source-serif-4/400Regular_Italic/SourceSerif4_400Regular_Italic.ttf?url';
+import serifBoldItalic from '@expo-google-fonts/source-serif-4/700Bold_Italic/SourceSerif4_700Bold_Italic.ttf?url';
 
 export interface PdfExportInput {
   readonly title: string;
@@ -191,16 +191,16 @@ const toBase64 = (buffer: ArrayBuffer): string => {
 };
 
 // Static TTFs: pdfmake can't pick a weight from the variable font the screen uses.
-const MERRIWEATHER_FILES = {
-  'Merriweather-Regular.ttf': merriweatherRegular,
-  'Merriweather-Bold.ttf': merriweatherBold,
-  'Merriweather-Italic.ttf': merriweatherItalic,
-  'Merriweather-BoldItalic.ttf': merriweatherBoldItalic
+const SERIF_FILES = {
+  'SourceSerif4-Regular.ttf': serifRegular,
+  'SourceSerif4-Bold.ttf': serifBold,
+  'SourceSerif4-Italic.ttf': serifItalic,
+  'SourceSerif4-BoldItalic.ttf': serifBoldItalic
 } as const;
 
-const loadMerriweather = async (): Promise<TFontContainer> => {
+const loadSerif = async (): Promise<TFontContainer> => {
   const files = await Promise.all(
-    Object.entries(MERRIWEATHER_FILES).map(async ([name, url]): Promise<[string, string]> => {
+    Object.entries(SERIF_FILES).map(async ([name, url]): Promise<[string, string]> => {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Could not load the PDF font (${name})`);
       return [name, toBase64(await response.arrayBuffer())];
@@ -210,10 +210,10 @@ const loadMerriweather = async (): Promise<TFontContainer> => {
     vfs: Object.fromEntries(files),
     fonts: {
       [PDF_FONT]: {
-        normal: 'Merriweather-Regular.ttf',
-        bold: 'Merriweather-Bold.ttf',
-        italics: 'Merriweather-Italic.ttf',
-        bolditalics: 'Merriweather-BoldItalic.ttf'
+        normal: 'SourceSerif4-Regular.ttf',
+        bold: 'SourceSerif4-Bold.ttf',
+        italics: 'SourceSerif4-Italic.ttf',
+        bolditalics: 'SourceSerif4-BoldItalic.ttf'
       }
     }
   };
@@ -221,13 +221,13 @@ const loadMerriweather = async (): Promise<TFontContainer> => {
 
 /** Saves the doc as `<title>.pdf`. */
 export const downloadPdf = async (input: PdfExportInput): Promise<void> => {
-  const [pdfMakeModule, merriweather, courierModule] = await Promise.all([
+  const [pdfMakeModule, serif, courierModule] = await Promise.all([
     import('pdfmake/build/pdfmake'),
-    loadMerriweather(),
+    loadSerif(),
     import('pdfmake/build/standard-fonts/Courier')
   ]);
   const pdfMake = defaultOf<PdfMake>(pdfMakeModule);
-  pdfMake.addFontContainer(merriweather);
+  pdfMake.addFontContainer(serif);
   pdfMake.addFontContainer(defaultOf<TFontContainer>(courierModule));
 
   const needed = collectPdfAssets(input.markdown);
