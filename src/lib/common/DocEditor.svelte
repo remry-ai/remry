@@ -249,6 +249,7 @@
 <section class="card doc-card">
   {#if showTitle}
   <div class="doc-header">
+    <span class="badge selected">Doc</span>
     {#if editingTitle}
       <input
         class="title-input"
@@ -280,7 +281,7 @@
       <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
       <div class="doc-sticky" class:stuck bind:this={stickyEl}>
       {#if showTitle}
-        <div class="doc-sticky-title" bind:this={titleRowEl} aria-hidden={!stuck}><span class="truncate">{title}</span></div>
+        <div class="doc-sticky-title" bind:this={titleRowEl} aria-hidden={!stuck}><span class="badge selected">Doc</span><span class="truncate">{title}</span></div>
       {/if}
       <div class="doc-bar">
         <div class="tabs scroll">
@@ -376,6 +377,7 @@
   .doc-sticky-title {
     display: flex;
     align-items: center;
+    gap: var(--sp-2);
     height: var(--doc-title-h);
     min-width: 0;
     font-weight: 600;

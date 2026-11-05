@@ -110,6 +110,8 @@
   &.warning { color: var(--warning); background: var(--warning-soft); border-color: transparent; }
   &.danger { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
   &.muted { color: var(--text-3); background: transparent; }
+  // Filled in the selected colour (the branding's accent colour when branded): a doc's "Doc" tag.
+  &.selected { color: var(--selected-text); background: var(--selected); border-color: transparent; }
   // Categorical tones, for statuses that need more colours than the status set (a project's proposed and done).
   &.viz-1 { color: var(--viz-1); background: color-mix(in srgb, var(--viz-1) 12%, transparent); border-color: transparent; }
   &.viz-2 { color: var(--viz-2); background: color-mix(in srgb, var(--viz-2) 12%, transparent); border-color: transparent; }
