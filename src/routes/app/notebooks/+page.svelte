@@ -49,7 +49,7 @@
         <div class="list-row">
           <span class="grow notebook-title">
             <span class="truncate">{notebook.name}</span>
-            <span class="meta mono">{notebook.id}</span>
+            <span class="meta">{notebook.id}</span>
             {#if notebook.isCurrent}<span class="badge accent">Open</span>{/if}
             {#if notebook.isDefault}<span class="badge muted">Claude's default</span>{/if}
           </span>

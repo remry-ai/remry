@@ -12,21 +12,6 @@ $breakpoint-md: 768px;
 $breakpoint-lg: 992px;
 $breakpoint-xl: 1200px;
 
-// --- Type ---
-$font-stack-sans:
-  system-ui,
-  -apple-system,
-  BlinkMacSystemFont,
-  'Segoe UI',
-  sans-serif;
-$font-stack-mono:
-  ui-monospace,
-  SFMono-Regular,
-  Menlo,
-  Monaco,
-  Consolas,
-  monospace;
-
 // --- Mixins ---
 @mixin mobile {
   @media (max-width: #{$breakpoint-sm - 1px}) {

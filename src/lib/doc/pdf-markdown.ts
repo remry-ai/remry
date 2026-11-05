@@ -137,7 +137,7 @@ const run = (text: string, style: RunStyle, colors: PdfColors): ContentText => (
   ...(style.bold && { bold: true }),
   ...(style.italics && { italics: true }),
   ...(style.strike && { decoration: 'lineThrough' as const }),
-  ...(style.code && { font: 'Courier', fontSize: 9, background: CODE_FILL }),
+  ...(style.code && { fontSize: 9, background: CODE_FILL }),
   ...(style.link && { link: style.link, color: colors.primary, decoration: 'underline' as const })
 });
 
@@ -275,7 +275,7 @@ const list = (token: Tokens.List, ctx: Context): Content => {
       child.type === 'text' ? paragraph((child as Tokens.Text).tokens ?? [child], inner, { margin: [0, 0, 0, 2] }) : block(child, inner)
     );
     if (item.task) {
-      const box: ContentText = { text: item.checked ? '[x] ' : '[ ] ', font: 'Courier', fontSize: 9 };
+      const box: ContentText = { text: item.checked ? '[x] ' : '[ ] ', fontSize: 9 };
       const first = blocks[0];
       const runs = first && typeof first === 'object' && 'text' in first && Array.isArray(first.text) ? (first.text as Content[]) : null;
       if (runs) blocks[0] = { ...(first as ContentText), text: [box, ...runs] };
@@ -312,7 +312,7 @@ const codeBlock = (token: Tokens.Code, ctx: Context): Content => {
     if (diagram) return imageBlock(diagram, ctx);
   }
   return {
-    table: { widths: ['*'], body: [[{ text: token.text, font: 'Courier', fontSize: 8.5, preserveLeadingSpaces: true, lineHeight: 1.2 }]] },
+    table: { widths: ['*'], body: [[{ text: token.text, fontSize: 8.5, preserveLeadingSpaces: true, lineHeight: 1.2 }]] },
     layout: {
       hLineWidth: () => 0,
       vLineWidth: () => 0,

@@ -10,6 +10,7 @@
   import { fitTableColumns } from '$lib/doc/table-columns';
   import { separateBreakLines } from '$lib/doc/pdf-pages';
   import { attachTableWidths, type SizedTable } from '$lib/doc/table-widths';
+  import { fontsReady, textFontFamily } from '$lib/ui/text-font';
 
   const escapeAttr = (value: string): string =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -119,7 +120,7 @@
     if (mermaidPres.length === 0) return;
 
     const mermaid = (await import('mermaid')).default;
-    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+    mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() } });
 
     for (const pre of mermaidPres) {
       const source = (pre.textContent ?? '').trim();
@@ -148,20 +149,25 @@
   };
 
   $effect(() => {
+    let cancelled = false;
     if (container && content) {
       // The HTML is in place by now; this doesn't wait for a frame, which a hidden window never draws.
       showLostImages(container);
       fitTableColumns(container);
-      // Wait a tick for the HTML to render, then draw charts and mermaid diagrams
+      // Wait a tick for the HTML to render, and for the app's font (a canvas keeps the font it
+      // was drawn in), then draw charts and mermaid diagrams.
       requestAnimationFrame(() => {
-        // The renderer may be gone by the next frame (a {#key} remount).
-        if (!container) return;
-        for (const c of charts) c.destroy();
-        charts = mountCharts(container, branding);
-        renderMermaid(container);
+        void fontsReady().then(() => {
+          // The renderer may be gone, or this content replaced, by then (a {#key} remount).
+          if (!container || cancelled) return;
+          for (const c of charts) c.destroy();
+          charts = mountCharts(container, branding);
+          renderMermaid(container);
+        });
       });
     }
     return () => {
+      cancelled = true;
       for (const c of charts) c.destroy();
       charts = [];
     };

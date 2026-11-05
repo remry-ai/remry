@@ -466,10 +466,10 @@
               onmousedown={(e) => { e.preventDefault(); select(row); }}
             >
               {#if row.kind === 'scope'}
-                <span class="name mono">{row.scope.keywords[0]}:</span>
+                <span class="name">{row.scope.keywords[0]}:</span>
                 <span class="kind">Search {row.scope.label.toLowerCase()} only <kbd>tab</kbd></span>
               {:else if row.kind === 'command'}
-                <span class="name mono">/{row.command.id}</span>
+                <span class="name">/{row.command.id}</span>
                 <span class="kind">{row.command.label}</span>
               {:else if row.kind === 'hit'}
                 <span class="line">

@@ -48,7 +48,7 @@
         <tbody>
           {#each kinds as kind (kind.key)}
             <tr>
-              <td>{kind.label} <span class="muted mono text-xs">{kind.key}</span></td>
+              <td>{kind.label} <span class="muted text-xs">{kind.key}</span></td>
               <td class="text-2">{kind.symmetric ? '—' : kind.inverseLabel}</td>
               <td class="text-2">{kind.exclusive ? 'Yes' : 'No'}</td>
               <td class="num text-2">{kind.relationCount}</td>

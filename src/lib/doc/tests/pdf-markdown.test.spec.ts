@@ -20,7 +20,7 @@ describe('markdownToPdf', () => {
       { text: ', ' },
       { text: 'gone', decoration: 'lineThrough' },
       { text: ' and ' },
-      expect.objectContaining({ text: 'code', font: 'Courier' }),
+      expect.objectContaining({ text: 'code', fontSize: 9 }),
       { text: '.' }
     ]);
   });
@@ -62,7 +62,7 @@ describe('markdownToPdf', () => {
     expect(JSON.stringify(ul)).toContain('inner');
     expect(JSON.stringify(ul)).toContain('[x] ');
     // The box sits on the task's own line.
-    expect(JSON.stringify(ul)).toMatch(/"text":\[\{"text":"\[x\] ","font":"Courier","fontSize":9\},\{"text":"done"\}\]/);
+    expect(JSON.stringify(ul)).toMatch(/"text":\[\{"text":"\[x\] ","fontSize":9\},\{"text":"done"\}\]/);
     expect(ol).toMatchObject({ start: 3 });
   });
 
@@ -88,7 +88,7 @@ describe('markdownToPdf', () => {
 
   it('shows a code block in a monospace box, keeping its indentation', () => {
     expect(convert('```js\n  const a = 1;\n```')[0]).toMatchObject({
-      table: { body: [[{ text: '  const a = 1;', font: 'Courier', preserveLeadingSpaces: true }]] }
+      table: { body: [[{ text: '  const a = 1;', preserveLeadingSpaces: true }]] }
     });
   });
 

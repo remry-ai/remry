@@ -55,16 +55,15 @@
   --viz-4: #ea580c;
 
   // --- Type ---
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   // Written content (docs, wiki pages, notes): Source Serif 4, bundled (@fontsource-variable/source-serif-4,
   // loaded in the root layout, with its optical sizes: headings get the display cut by themselves).
   --font-serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
-  // All text you write or read: every input, select, textarea, label and hint, docs, wiki pages,
-  // notes, chat messages, spreadsheet cells and every editor. Change these two to change it all
-  // (and PDF_BODY_SIZE in lib/doc/pdf-markdown.ts, which is --fs-text in points: px × 0.75).
+  // The app's one font, for everything: interface, fields, labels, docs, notes, code, charts and
+  // diagrams (the PDF uses the same face). --fs-text is the size of text you write or read: fields,
+  // labels, docs, notes, chat and spreadsheet cells. Change these to change it all (and
+  // PDF_BODY_SIZE in lib/doc/pdf-markdown.ts, which is --fs-text in points: px × 0.75).
   --font-text: var(--font-serif);
   --fs-text: var(--fs-md);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-md: 13px;

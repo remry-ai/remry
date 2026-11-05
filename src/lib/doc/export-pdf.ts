@@ -9,6 +9,7 @@ import { fileUrl } from '$shared/utils/files';
 import { parseChartSpec } from '$shared/types/charts';
 import type { ChartBranding } from '$shared/types/branding';
 import { renderChart } from '$lib/chart/chart-render';
+import { fontsReady, textFontFamily } from '$lib/ui/text-font';
 import { buildPdfDocument, type PdfBranding } from './pdf-document';
 import { collectPdfAssets, PDF_FONT, type PdfAssets, type PdfImage } from './pdf-markdown';
 import { pdfFileName } from './pdf-pages';
@@ -137,7 +138,7 @@ const drawDiagrams = async (sources: readonly string[]): Promise<Map<string, Pdf
   const drawn = new Map<string, PdfImage>();
   if (sources.length === 0) return drawn;
   const mermaid = (await import('mermaid')).default as unknown as Mermaid;
-  mermaid.initialize({ startOnLoad: false, theme: 'default', htmlLabels: false, flowchart: { htmlLabels: false } });
+  mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() }, htmlLabels: false, flowchart: { htmlLabels: false } });
   try {
     for (const source of sources) {
       const image = await drawDiagram(mermaid, source);
@@ -145,7 +146,7 @@ const drawDiagrams = async (sources: readonly string[]): Promise<Map<string, Pdf
     }
   } finally {
     // The page's own diagrams keep HTML labels, which wrap long text.
-    mermaid.initialize({ startOnLoad: false, theme: 'default', htmlLabels: true, flowchart: { htmlLabels: true } });
+    mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() }, htmlLabels: true, flowchart: { htmlLabels: true } });
   }
   return drawn;
 };
@@ -221,15 +222,12 @@ const loadSerif = async (): Promise<TFontContainer> => {
 
 /** Saves the doc as `<title>.pdf`. */
 export const downloadPdf = async (input: PdfExportInput): Promise<void> => {
-  const [pdfMakeModule, serif, courierModule] = await Promise.all([
-    import('pdfmake/build/pdfmake'),
-    loadSerif(),
-    import('pdfmake/build/standard-fonts/Courier')
-  ]);
+  const [pdfMakeModule, serif] = await Promise.all([import('pdfmake/build/pdfmake'), loadSerif()]);
   const pdfMake = defaultOf<PdfMake>(pdfMakeModule);
   pdfMake.addFontContainer(serif);
-  pdfMake.addFontContainer(defaultOf<TFontContainer>(courierModule));
 
+  // Charts and diagrams draw their labels in the app's font, so it must have loaded.
+  await fontsReady();
   const needed = collectPdfAssets(input.markdown);
   const logoHref = input.letterhead ? (input.branding?.logoUrl ?? input.branding?.iconUrl ?? null) : null;
   const [images, charts, diagrams, logo] = await Promise.all([

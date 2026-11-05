@@ -132,10 +132,10 @@
         <p>Install <a href={TAILSCALE_DOWNLOAD} target="_blank" rel="noopener">Tailscale</a> and sign in, then check again.</p>
       {:else if tailscale?.state === 'not-running'}
         <p>Open the Tailscale app, then check again.</p>
-        {#if tailscale.detail}<p class="text-2 mono">{tailscale.detail}</p>{/if}
+        {#if tailscale.detail}<p class="text-2">{tailscale.detail}</p>{/if}
       {:else if tailscale?.state === 'unreadable'}
         <p>Remry found Tailscale but couldn't read its status. Check that the Tailscale app is open and signed in, then check again. If this keeps happening, install the command-line tool from Tailscale's Settings (CLI integration).</p>
-        <p class="text-2 mono">{tailscale.cli}: {tailscale.detail}</p>
+        <p class="text-2">{tailscale.cli}: {tailscale.detail}</p>
       {:else if tailscale?.state === 'signed-out'}
         <p>Sign in to Tailscale from its menu bar icon, then check again.</p>
       {:else if tailscale?.state === 'disconnected'}

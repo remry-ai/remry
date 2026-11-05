@@ -18,6 +18,7 @@ import {
   Tooltip,
   type ChartConfiguration
 } from 'chart.js';
+import { textFontFamily } from '$lib/ui/text-font';
 import { chartColors, solidRgba, type ChartBranding } from '$shared/types/branding';
 import { parseChartSpec, sectionsToSpec, type AggregatedSection, type ChartSpec } from '$shared/types/charts';
 
@@ -77,6 +78,8 @@ export const renderChart = (el: HTMLElement, spec: ChartSpec, branding: ChartBra
     }
   } as ChartConfiguration;
 
+  // Labels, ticks and legends in the app's one font.
+  Chart.defaults.font.family = textFontFamily();
   return new Chart(canvas, config);
 };
 

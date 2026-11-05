@@ -254,7 +254,7 @@
         <ul class="list">
           {#each goal.checkIns as checkIn (checkIn.id)}
             <li class="list-row">
-              <span class="meta mono">{day(checkIn.date)}</span>
+              <span class="meta">{day(checkIn.date)}</span>
               {#if checkIn.value !== null}<strong>{formatGoalValue(checkIn.value, goal.unit)}</strong>{/if}
               {#if checkIn.status}<span class={goalStatusBadgeClass(checkIn.status)}>{GOAL_STATUS_LABELS[checkIn.status]}</span>{/if}
               <span class="grow truncate text-2">{checkIn.comment ?? ''}</span>

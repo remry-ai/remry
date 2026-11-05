@@ -143,7 +143,7 @@
             tabindex="-1"
             onmousedown={(e) => { e.preventDefault(); pickScope(s); }}
           >
-            <span class="grow mono">/{s.slash}</span>
+            <span class="grow">/{s.slash}</span>
           </li>
         {/each}
       {:else}

@@ -48,7 +48,7 @@
             <tr>
               <td>
                 <a href="/app/groups?kind={kind.key}">{kind.plural}</a>
-                <span class="muted mono text-xs">{kind.key}</span>
+                <span class="muted text-xs">{kind.key}</span>
               </td>
               <td class="text-2">{kind.exclusive ? 'Yes' : 'No'}</td>
               <td class="num text-2">{kind.groupCount}</td>
