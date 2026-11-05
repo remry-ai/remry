@@ -30,14 +30,14 @@ a {
 // a table's columns keep their width and a wide table still scrolls inside its wrapper.
 .md-rendered, .milkdown .editor, .pre-line { overflow-wrap: break-word; }
 
-// Written content (rendered markdown and the editor): Source Serif 4 at the body size, with room
+// Written content (rendered markdown and the editor): Source Serif 4 at the form size, like every field, with room
 // between lines, and headings set apart by size and weight as in Google Docs: a bold h1, a large
 // regular h2, a regular h3, then smaller grey ones. Weights only step down with each level. Not the
 // app's own headings, whose h4 is an eyebrow. The PDF export follows the same rules (`HEADINGS`
 // in lib/doc/pdf-markdown.ts): change both together.
 .md-rendered, .milkdown .editor {
-  font-family: var(--font-serif);
-  font-size: var(--fs-base);
+  font-family: var(--font-form);
+  font-size: var(--fs-form);
   line-height: 1.7;
   :is(h1, h2, h3, h4, h5, h6) {
     margin: 1.4em 0 0.5em;
@@ -51,16 +51,11 @@ a {
   h2 { font-size: var(--fs-h2); font-weight: 400; }
   h3 { font-size: var(--fs-h3); font-weight: 400; }
   h4 { font-size: var(--fs-lg); font-weight: 400; color: var(--text-2); }
-  h5 { font-size: var(--fs-base); font-weight: 400; color: var(--text-2); }
-  h6 { font-size: var(--fs-base); font-weight: 400; font-style: italic; color: var(--text-3); }
+  h5 { font-size: var(--fs-form); font-weight: 400; color: var(--text-2); }
+  h6 { font-size: var(--fs-form); font-weight: 400; font-style: italic; color: var(--text-3); }
   // Tables keep the app's size (their header row stays the small uppercase one).
   table { font-size: var(--fs-md); line-height: 1.5; }
 }
-
-// In a form (a todo's or project's description, a note) the editor is a field like the rest;
-// a doc's or wiki page's editor shows the text at the size it's read at.
-.milkdown .editor { font-size: var(--fs-form); }
-.doc-editor .milkdown .editor { font-size: var(--fs-base); }
 
 // Links in written content (docs, notes, descriptions, Claude's answers) stand out from the
 // text: the link colour, always underlined. Names in lists and tables keep the plain style.
