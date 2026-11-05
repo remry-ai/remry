@@ -10,7 +10,8 @@ const json = (markdown: string, assets?: PdfAssets): string => JSON.stringify(co
 describe('markdownToPdf', () => {
   it('turns headings, paragraphs and inline styles into text runs', () => {
     const [heading, paragraph] = convert('## Plan\n\nSome **bold**, *italic*, ~~gone~~ and `code`.') as Record<string, unknown>[];
-    expect(heading).toMatchObject({ bold: true, fontSize: 16, headlineLevel: 2 });
+    expect(heading).toMatchObject({ fontSize: 16.5, headlineLevel: 2 });
+    expect(heading).not.toHaveProperty('bold');
     expect(paragraph!.text).toEqual([
       { text: 'Some ' },
       { text: 'bold', bold: true },
@@ -129,6 +130,17 @@ describe('buildPdfDocument', () => {
     const header = doc.header as (page: number) => unknown;
     expect(header(1)).toBeNull();
     expect(header(2)).toMatchObject({ image: logo.dataUrl });
+  });
+
+  it('sets headings as the screen does: a bold h1, then regular, smaller and greyer', () => {
+    const blocks = convert('# One\n\n## Two\n\n### Three\n\n#### Four\n\n###### Six') as Record<string, unknown>[];
+    expect(blocks.map((b) => [b.fontSize, b.bold ?? false, b.italics ?? false, b.color ?? null])).toEqual([
+      [19.5, true, false, null],
+      [16.5, false, false, null],
+      [13.5, false, false, null],
+      [12, false, false, '#52525b'],
+      [10.5, false, true, '#a1a1aa']
+    ]);
   });
 
   it('keeps a heading off the bottom of a page', () => {

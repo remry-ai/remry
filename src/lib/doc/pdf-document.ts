@@ -3,7 +3,7 @@
 // every footer. Pure: images arrive drawn (`PdfAssets`, and the logo as a `PdfImage`).
 
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { markdownToPdf, PLAIN_COLORS, type PdfAssets, type PdfColors, type PdfImage } from './pdf-markdown';
+import { markdownToPdf, PDF_BODY_SIZE, PDF_FONT, PDF_LINE_HEIGHT, PLAIN_COLORS, type PdfAssets, type PdfColors, type PdfImage } from './pdf-markdown';
 
 /** A4 in points, and its margins. */
 export const PDF_PAGE = { width: 595.28, height: 841.89, marginX: 48, marginTop: 52, marginBottom: 56 } as const;
@@ -74,7 +74,7 @@ export const buildPdfDocument = (input: PdfDocumentInput): TDocumentDefinitions 
     pageSize: 'A4',
     pageMargins: [PDF_PAGE.marginX, PDF_PAGE.marginTop, PDF_PAGE.marginX, PDF_PAGE.marginBottom],
     info: { title: input.title, ...(input.branding && { author: input.branding.name }) },
-    defaultStyle: { font: 'Roboto', fontSize: 10.5, lineHeight: 1.3, color: '#1a1a1a' },
+    defaultStyle: { font: PDF_FONT, fontSize: PDF_BODY_SIZE, lineHeight: PDF_LINE_HEIGHT, color: '#1a1a1a' },
     content: [...head, ...body],
     pageBreakBefore: keepHeadingsWithText,
     // The letterhead opens page one; later pages carry the logo small, top right.

@@ -49,6 +49,17 @@ const MERMAID_START = /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagr
 const PAGE_BREAK = /^<!--\s*page-?break\s*-->$/i;
 const PX_TO_PT = 0.75;
 const MUTED = '#666666';
+
+// The screen's written content (styles/_base.scss), in points: a pixel is 0.75pt, so 14px body
+// text is 10.5pt. pdfmake's lineHeight multiplies the font's own line height, Merriweather's
+// 1.257em, so 1.4 is the screen's 1.75em, and 1.05 its headings' 1.3em.
+export const PDF_FONT = 'Merriweather';
+export const PDF_BODY_SIZE = 10.5;
+export const PDF_LINE_HEIGHT = 1.4;
+const HEADING_LINE_HEIGHT = 1.05;
+// --text-2 and --text-3.
+const TEXT_2 = '#52525b';
+const TEXT_3 = '#a1a1aa';
 const RULE = '#d0d0d0';
 const CODE_FILL = '#f4f4f4';
 
@@ -215,18 +226,37 @@ const paragraph = (tokens: readonly Token[], ctx: Context, extra: Partial<Conten
   return blocks;
 };
 
-const HEADING_SIZES = [20, 16, 13.5, 12, 11, 10.5] as const;
+interface HeadingStyle {
+  readonly size: number;
+  readonly bold?: boolean;
+  readonly italics?: boolean;
+  readonly color?: string;
+}
+
+// As on screen: a bold h1, then regular weight, smaller and greyer with each level.
+const HEADINGS: readonly HeadingStyle[] = [
+  { size: 19.5, bold: true },
+  { size: 16.5 },
+  { size: 13.5 },
+  { size: 12, color: TEXT_2 },
+  { size: PDF_BODY_SIZE, color: TEXT_2 },
+  { size: PDF_BODY_SIZE, italics: true, color: TEXT_3 }
+];
 
 const heading = (token: Tokens.Heading, ctx: Context): Content[] => {
   const { colors, branded } = ctx.options;
-  const size = HEADING_SIZES[token.depth - 1] ?? 10.5;
-  const color = token.depth <= 2 && branded ? colors.primary : undefined;
+  const style = HEADINGS[token.depth - 1] ?? HEADINGS[HEADINGS.length - 1]!;
+  // A branding colours the top two levels, as the print page does.
+  const color = token.depth <= 2 && branded ? colors.primary : style.color;
   const text: Content = {
-    text: inlines(token.tokens, { bold: true }, colors).flatMap((part) => (part.kind === 'text' ? [part.run] : [])),
-    fontSize: size,
-    bold: true,
+    text: inlines(token.tokens, { bold: style.bold, italics: style.italics }, colors).flatMap((part) => (part.kind === 'text' ? [part.run] : [])),
+    fontSize: style.size,
+    ...(style.bold && { bold: true }),
+    ...(style.italics && { italics: true }),
     ...(color && { color }),
-    margin: [0, token.depth <= 2 ? 12 : 8, 0, token.depth === 2 && branded ? 2 : 4],
+    lineHeight: HEADING_LINE_HEIGHT,
+    // In ems, as on screen (1.4em above and 0.5em below there; a little less above on a page).
+    margin: [0, style.size * 1.2, 0, token.depth === 2 && branded ? 3 : style.size * 0.5],
     // So pageBreakBefore can keep a heading with what follows it.
     headlineLevel: token.depth
   };
@@ -327,6 +357,8 @@ const table = (token: Tokens.Table, ctx: Context): Content => {
       paddingBottom: () => 3
     },
     fontSize: 9.5,
+    // The screen's tables: 1.5em, not the body's looser lines.
+    lineHeight: 1.2,
     margin: [0, 2, 0, 10]
   };
 };

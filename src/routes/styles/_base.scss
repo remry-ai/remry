@@ -33,7 +33,8 @@ a {
 // Written content (rendered markdown and the editor): Merriweather at the body size, with room
 // between lines, and headings set apart by size and weight as in Google Docs: a bold h1, a large
 // regular h2, a regular h3, then smaller grey ones. Weights only step down with each level. Not the
-// app's own headings, whose h4 is an eyebrow.
+// app's own headings, whose h4 is an eyebrow. The PDF export follows the same rules (`HEADINGS`
+// in lib/doc/pdf-markdown.ts): change both together.
 .md-rendered, .milkdown .editor {
   font-family: var(--font-serif);
   font-size: var(--fs-base);

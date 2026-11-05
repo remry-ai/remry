@@ -36,6 +36,7 @@
     "remry": "bun cli/main.ts"
   },
   "dependencies": {
+    "@expo-google-fonts/merriweather": "0.4.2",
     "@fontsource-variable/merriweather": "^5.3.0",
     "@libsql/client": "^0.15.15",
     "@milkdown/core": "^7.21.1",
