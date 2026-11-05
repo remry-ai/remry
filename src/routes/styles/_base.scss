@@ -30,6 +30,31 @@ a {
 // a table's columns keep their width and a wide table still scrolls inside its wrapper.
 .md-rendered, .milkdown .editor, .pre-line { overflow-wrap: break-word; }
 
+// Written content (rendered markdown and the editor): Merriweather at the body size, with room
+// between lines, and headings set apart by size and weight as in Google Docs: a bold h1, a large
+// light h2, a bold h3, then smaller grey ones. Not the app's own headings, whose h4 is an eyebrow.
+.md-rendered, .milkdown .editor {
+  font-family: var(--font-serif);
+  font-size: var(--fs-base);
+  line-height: 1.75;
+  :is(h1, h2, h3, h4, h5, h6) {
+    margin: 1.4em 0 0.5em;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text);
+  }
+  > :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
+  h1 { font-size: var(--fs-h1); font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: var(--fs-h2); font-weight: 300; }
+  h3 { font-size: var(--fs-h3); font-weight: 700; }
+  h4 { font-size: var(--fs-lg); font-weight: 400; color: var(--text-2); }
+  h5 { font-size: var(--fs-base); font-weight: 700; color: var(--text-2); }
+  h6 { font-size: var(--fs-base); font-weight: 400; font-style: italic; color: var(--text-3); }
+  // Tables keep the app's size (their header row stays the small uppercase one).
+  table { font-size: var(--fs-md); line-height: 1.5; }
+}
+
 // Links in written content (docs, notes, descriptions, Claude's answers) stand out from the
 // text: the link colour, always underlined. Names in lists and tables keep the plain style.
 .md-rendered a {

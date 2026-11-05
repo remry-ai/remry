@@ -56,6 +56,8 @@
 
   // --- Type ---
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  // Written content (docs, wiki pages, notes): Merriweather, bundled (@fontsource-variable/merriweather, loaded in the root layout).
+  --font-serif: 'Merriweather Variable', Merriweather, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --fs-xs: 11px;
   --fs-sm: 12px;
@@ -63,6 +65,10 @@
   --fs-base: 14px;
   --fs-lg: 16px;
   --fs-xl: 20px;
+  // Headings in written content, a step apart each, as in Google Docs.
+  --fs-h1: 26px;
+  --fs-h2: 22px;
+  --fs-h3: 18px;
 
   // --- Space (4px grid) ---
   --sp-1: 4px;

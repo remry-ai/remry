@@ -171,10 +171,8 @@
 {/if}
 
 <style lang="scss">
+  // Its font, size and headings are written content's, in styles/_base.scss.
   .md-rendered {
-    font-size: var(--fs-md);
-    line-height: 1.6;
-
     :global(p:last-child) { margin-bottom: 0; }
 
     // Room below a table, so the text after it doesn't sit on its last row.

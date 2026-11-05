@@ -281,9 +281,6 @@
     :global(.editor) {
       outline: none;
       min-height: 180px;
-      font-family: inherit;
-      font-size: var(--fs-md);
-      line-height: 1.55;
     }
 
     :global(.editor p) {
@@ -298,9 +295,6 @@
       overflow-x: auto;
       margin-bottom: var(--sp-4);
     }
-    :global(h1) { font-size: var(--fs-xl); }
-    :global(h2) { font-size: var(--fs-lg); margin-top: var(--sp-4); }
-    :global(h3) { font-size: var(--fs-base); margin-top: var(--sp-3); }
 
     :global(ul), :global(ol) {
       padding-left: var(--sp-5);

@@ -38,7 +38,7 @@ Scoped docs:
 - **Framework:** SvelteKit (Svelte 5, TypeScript, SCSS), `@sveltejs/adapter-node`
 - **API:** tRPC v11 + Zod over the Fetch adapter. This is the validated API behind both the UI and the CLI.
 - **Database:** SQLite through Prisma 7 and `@prisma/adapter-libsql`. The better-sqlite3 adapter does not run under Bun.
-- **Content:** marked and Milkdown for markdown, chart.js for charts, mermaid for diagrams, pdfmake for doc PDFs (bundled with its Roboto font, loaded only on export)
+- **Content:** marked and Milkdown for markdown, set in Merriweather (bundled with `@fontsource-variable/merriweather`; the PDF export keeps Roboto), chart.js for charts, mermaid for diagrams, pdfmake for doc PDFs (bundled with its Roboto font, loaded only on export)
 - **Tests:** Vitest (unit and integration)
 
 ## Where code goes

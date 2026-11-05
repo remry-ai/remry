@@ -79,14 +79,7 @@
     :global(.editor) {
       outline: none;
       min-height: 350px;
-      font-family: inherit;
-      font-size: 0.9rem;
-      line-height: 1.6;
     }
-
-    :global(h1) { font-size: 1.5rem; }
-    :global(h2) { font-size: 1.2rem; margin-top: 1.5rem; }
-    :global(h3) { font-size: 1rem; margin-top: 1rem; }
 
     :global(table) {
       width: 100%;

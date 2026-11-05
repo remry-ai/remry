@@ -1,4 +1,6 @@
 <script lang="ts">
+  import "@fontsource-variable/merriweather/wght.css";
+  import "@fontsource-variable/merriweather/wght-italic.css";
   import "./styles.scss";
   import { navigating } from "$app/stores";
   import FindBar from "$lib/common/FindBar.svelte";
