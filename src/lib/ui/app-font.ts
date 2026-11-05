@@ -10,12 +10,12 @@
 //   3. Set `family` to its name (the @fontsource-variable CSS names it "<Font> Variable").
 //   4. Set `pdf.lineHeightEm` from `bun run font:metrics <the Regular .ttf>`.
 
-import '@fontsource-variable/source-serif-4/opsz.css';
-import '@fontsource-variable/source-serif-4/opsz-italic.css';
-import regular from '@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf?url';
-import bold from '@expo-google-fonts/source-serif-4/700Bold/SourceSerif4_700Bold.ttf?url';
-import italic from '@expo-google-fonts/source-serif-4/400Regular_Italic/SourceSerif4_400Regular_Italic.ttf?url';
-import boldItalic from '@expo-google-fonts/source-serif-4/700Bold_Italic/SourceSerif4_700Bold_Italic.ttf?url';
+import '@fontsource-variable/inter/opsz.css';
+import '@fontsource-variable/inter/opsz-italic.css';
+import regular from '@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf?url';
+import bold from '@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf?url';
+import italic from '@expo-google-fonts/inter/400Regular_Italic/Inter_400Regular_Italic.ttf?url';
+import boldItalic from '@expo-google-fonts/inter/700Bold_Italic/Inter_700Bold_Italic.ttf?url';
 
 export interface AppFont {
   /** The CSS font stack: the font, then fallbacks. */
@@ -33,12 +33,12 @@ export interface AppFont {
 }
 
 export const APP_FONT: AppFont = {
-  family: "'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif",
+  family: "'Inter Variable', 'Inter', system-ui, sans-serif",
   textSizePx: 13,
   lineHeight: 1.7,
   pdf: {
     files: { normal: regular, bold, italics: italic, bolditalics: boldItalic },
-    lineHeightEm: 1.371
+    lineHeightEm: 1.21
   }
 };
 
