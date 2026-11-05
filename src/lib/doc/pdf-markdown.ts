@@ -56,7 +56,8 @@ const MUTED = '#666666';
 // 0.75pt. pdfmake's lineHeight multiplies the font's own line height, so the screen's spacing
 // (and its headings' 1.3) is divided by that.
 export const PDF_FONT = 'AppFont';
-export const PDF_BODY_SIZE = APP_FONT.textSizePx * PX_TO_PT;
+// A PDF is a doc, so it takes the doc size.
+export const PDF_BODY_SIZE = APP_FONT.docSizePx * PX_TO_PT;
 export const PDF_LINE_HEIGHT = APP_FONT.lineHeight / APP_FONT.pdf.lineHeightEm;
 const HEADING_LINE_HEIGHT = 1.3 / APP_FONT.pdf.lineHeightEm;
 // --text-2 and --text-3.

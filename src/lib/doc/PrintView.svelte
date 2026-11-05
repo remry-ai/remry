@@ -117,7 +117,7 @@
     {/if}
     {#if details}<div class="print-details">{@render details()}</div>{/if}
     <div
-      class="doc-body"
+      class="doc-body doc-text"
       class:branded={!!branding}
       style:--doc-primary={branding?.primaryColor}
       style:--doc-primary-font={branding?.primaryFontColor}

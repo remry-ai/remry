@@ -231,9 +231,11 @@ select.sm {
 
 // --- Tables ---
 
+// Digits line up in columns: tabular figures in every table, the app's and a doc's.
 table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-md);
   th, td {
     padding: 6px 10px;

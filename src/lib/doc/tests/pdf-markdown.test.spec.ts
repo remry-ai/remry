@@ -139,7 +139,7 @@ describe('buildPdfDocument', () => {
       [16.5, false, false, null],
       [13.5, false, false, null],
       [12, false, false, '#52525b'],
-      [9.75, false, true, '#a1a1aa']
+      [10.5, false, true, '#a1a1aa']
     ]);
   });
 

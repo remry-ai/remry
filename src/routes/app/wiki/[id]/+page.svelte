@@ -275,7 +275,7 @@
         {#if converting}
           <p class="text-sm muted" aria-busy="true">Converting the file with {$assistantName}… This can take a minute or two.</p>
         {:else if wikiPage.content.trim()}
-          <MarkdownRenderer content={wikiPage.content} />
+          <div class="doc-text"><MarkdownRenderer content={wikiPage.content} /></div>
         {:else}
           <EmptyState message="This page is empty.">
             <button type="button" class="btn sm" onclick={startEditing}>Write it</button>

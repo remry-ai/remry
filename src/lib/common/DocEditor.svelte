@@ -276,7 +276,7 @@
   {:else if resolving}
     <div class="status" aria-busy="true">Loading…</div>
   {:else}
-    <div class="doc-editor" class:with-title={showTitle}>
+    <div class="doc-editor doc-text" class:with-title={showTitle}>
       <div class="doc-sentinel" bind:this={sentinelEl}></div>
       <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
       <div class="doc-sticky" class:stuck bind:this={stickyEl}>
