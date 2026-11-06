@@ -6,7 +6,8 @@
   // with onUploadFile also uploads a file as a link, shown in the line like the others.
   import { timeAgo } from '$lib/home/utils';
   import AddLinkForm from './AddLinkForm.svelte';
-  import { isSyncStale, linkLabel, linkSource } from '../source';
+  import { linkLabel, linkSource } from '../source';
+  import { isSyncStale } from '$shared/utils/sync-state';
   import { fileLinkKey, linkHref } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
 

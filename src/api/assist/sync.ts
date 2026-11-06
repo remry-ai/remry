@@ -18,11 +18,11 @@ import { updateDoc } from '$api/attached/doc/operations';
 import { updatePage } from '$api/page/operations';
 import { markLinkSynced } from '$api/attached/link/operations';
 import { readyLlm } from './llm';
+import { recordSync, type SyncTarget } from '$api/_last-sync';
 
 export const SYNC_RETRY = 'choose Sync now again, or ask Claude in a chat to sync it.';
 
 type SyncReg = Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>;
-export type SyncTarget = 'DOC' | 'PAGE';
 
 export const syncJobKey = (notebookId: string, entityType: SyncTarget, id: string): string => `${notebookId}/SYNC:${entityType}:${id}`;
 
@@ -99,6 +99,10 @@ export const startSyncNow = async (
       for (const source of parsed.value.read) await markLinkSynced(reg, source.id, source.editedAt ?? undefined);
       if (parsed.value.unread.length === 0) return ok(null);
       return ok(`Synced, except: ${parsed.value.unread.map((u) => `${titleOf.get(u.id) ?? 'a source'} (${u.reason})`).join('; ')}.`);
+    },
+    onFinish: async (status) => {
+      if (status.state === 'failed') await recordSync(reg, entityType, id, { by: 'APP', outcome: 'FAILED', message: status.message ?? 'Sync failed.' });
+      else if (status.state === 'done') await recordSync(reg, entityType, id, { by: 'APP', outcome: status.message ? 'PARTIAL' : 'OK', message: status.message ?? null });
     }
   });
   return started.ok ? ok({ started: true }) : err(started.error);

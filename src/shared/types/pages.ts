@@ -2,6 +2,8 @@
 // kinds or fields (removed in 0.16.42: the drop_page_kinds migration wrote each
 // page's field values into the top of its text). Shared by the server and the client.
 
+import type { LastSync } from './sync-now';
+
 /** What a page's body is: markdown (`doc`) or a spreadsheet's JSON (`sheet`, see $shared/utils/sheet). */
 export const PAGE_BODY_TYPES = ['doc', 'sheet'] as const;
 
@@ -27,6 +29,8 @@ export interface PageDetail extends PageSummary {
   readonly content: string;
   /** A sync page's prompt: what to pull from its linked sources. Null for an ordinary page. */
   readonly prompt: string | null;
+  /** A sync page's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
+  readonly lastSync: LastSync | null;
   readonly parent: { readonly id: string; readonly title: string } | null;
   readonly children: readonly PageLink[];
   readonly createdAt: Date;

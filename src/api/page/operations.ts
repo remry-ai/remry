@@ -4,6 +4,7 @@ import type { ArchiveFilter } from '$shared/types/enums';
 import { validateChartBlocks } from '$shared/types/charts';
 import type { PageBodyType, PageDetail, PageSummary } from '$shared/types/pages';
 import { entityPath } from '$shared/utils/entity';
+import { readLastSync } from '$shared/utils/sync-state';
 import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
@@ -116,6 +117,7 @@ export const getPage = async (
     ...toSummary(row),
     content: row.content,
     prompt: row.prompt,
+    lastSync: readLastSync(row),
     parent: row.parent,
     children: row.children.map((child) => ({
       id: child.id,

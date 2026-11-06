@@ -50,7 +50,11 @@ export const createSyncRunner = (): SyncRunner => {
           state: 'failed',
           message: `Couldn't run ${llmProvider(job.llm.provider).name}: ${error instanceof Error ? error.message : String(error)}`
         }))
-        .then((status) => { jobs.set(job.key, status); });
+        .then(async (status) => {
+          // Saved before it reads as finished, so the page reloads onto the new last sync.
+          await job.onFinish?.(status).catch(() => undefined);
+          jobs.set(job.key, status);
+        });
       return ok(undefined);
     },
     status: (key) => {

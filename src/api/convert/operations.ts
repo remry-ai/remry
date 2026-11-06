@@ -9,6 +9,8 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { RELATABLE_TYPES, type EntityType } from '$shared/types/enums';
+import { lastSyncColumnsOf } from '$api/_last-sync';
+import type { LastSyncColumns } from '$shared/utils/sync-state';
 import { docPath, entityPath } from '$shared/utils/entity';
 import { ensureAttachable, ensureWritable } from '$api/_archive';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
@@ -155,7 +157,7 @@ const docToPage = async (
   run.created.push(item);
   await reg.prisma.page.update({
     where: { id: page.value.id },
-    data: { prompt: doc.prompt, ...(placement.sortOrder !== undefined && { sortOrder: placement.sortOrder }) }
+    data: { prompt: doc.prompt, ...lastSyncColumnsOf(doc), ...(placement.sortOrder !== undefined && { sortOrder: placement.sortOrder }) }
   });
   const to = { entityType: 'PAGE', entityId: page.value.id };
   await rehomeAttachments(reg, { entityType: 'DOC', entityId: doc.id }, to);
@@ -310,6 +312,7 @@ const pageToProject = async (
     docId = doc.value.id;
     const filled = await updateDoc(reg, docId, { content: markdown, prompt: page.prompt });
     if (!filled.ok) return err(filled.error);
+    await reg.prisma.doc.update({ where: { id: docId }, data: lastSyncColumnsOf(page) });
     run.created.push({ entityType: 'DOC', id: docId, title: page.title, path: docPath('PROJECT', created.value.id, docId) });
   }
 
@@ -370,7 +373,7 @@ const convertPageToProject = async (reg: Reg, input: ConvertInput): Promise<Resu
 
 // ----- Page → doc or note -----
 
-interface LeafPage {
+interface LeafPage extends LastSyncColumns {
   readonly id: string;
   readonly title: string;
   readonly bodyType: string;
@@ -411,6 +414,7 @@ const convertPageToDoc = async (reg: Reg, input: ConvertInput): Promise<Result<C
   // Its images are copied into the doc's folder as the text is saved.
   const filled = await updateDoc(reg, doc.value.id, { content: pageMarkdown(page.value.bodyType, page.value.content), prompt: page.value.prompt });
   if (!filled.ok) return err(filled.error);
+  await reg.prisma.doc.update({ where: { id: doc.value.id }, data: lastSyncColumnsOf(page.value) });
   const path = docPath(on, holder.value.entityId, doc.value.id);
 
   const from = { entityType: 'PAGE', entityId: page.value.id };

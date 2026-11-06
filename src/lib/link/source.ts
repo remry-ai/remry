@@ -69,11 +69,3 @@ export const linkLabel = (title: string | null, url: string, source: LinkSource 
   return `${parsed.hostname.replace(/^www\./, '')}${path}`;
 };
 
-/** Days after which a synced link reads as out of date; the skill re-syncs past this too. */
-export const SYNC_STALE_DAYS = 7;
-
-/** True when the entity was last synced from this link more than `SYNC_STALE_DAYS` ago. */
-export const isSyncStale = (syncedAt: Date | string, now: Date = new Date()): boolean => {
-  const at = typeof syncedAt === 'string' ? new Date(syncedAt) : syncedAt;
-  return now.getTime() - at.getTime() > SYNC_STALE_DAYS * 24 * 60 * 60 * 1000;
-};

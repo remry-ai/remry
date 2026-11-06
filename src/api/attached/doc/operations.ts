@@ -7,6 +7,9 @@ import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { EDITOR_IMAGE_TYPES, adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
+import { loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
+import { readLastSync } from '$shared/utils/sync-state';
+import type { LastSync, SyncNeed } from '$shared/types/sync-now';
 
 // ----- Types -----
 
@@ -16,9 +19,16 @@ export interface DocSummary {
   readonly content: string;
   /** A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc. */
   readonly prompt: string | null;
+  /** A sync doc's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
+  readonly lastSync: LastSync | null;
   readonly sortOrder: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+export interface DocListItem extends DocSummary {
+  /** Why a sync doc wants syncing (never synced, last sync failed, over a week old); null when it doesn't. */
+  readonly syncNeed: SyncNeed | null;
 }
 
 export interface DocDetail extends DocSummary {
@@ -43,6 +53,7 @@ export const getDoc = async (
     title: doc.title,
     content: doc.content,
     prompt: doc.prompt,
+    lastSync: readLastSync(doc),
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -54,15 +65,26 @@ export const getDoc = async (
 };
 
 export const listDocs = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'now'>,
   entityType: EntityType,
   entityId: string
-): Promise<Result<readonly DocSummary[]>> => {
+): Promise<Result<readonly DocListItem[]>> => {
   const docs = await reg.prisma.doc.findMany({
     where: { entityType, entityId },
     orderBy: { sortOrder: 'asc' }
   });
-  return ok(docs);
+  const summaries = docs.map((doc) => ({
+    id: doc.id,
+    title: doc.title,
+    content: doc.content,
+    prompt: doc.prompt,
+    lastSync: readLastSync(doc),
+    sortOrder: doc.sortOrder,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt
+  }));
+  const needs = await loadSyncNeeds(reg, summaries.filter((d) => d.prompt).map((d) => ({ entityType: 'DOC' as const, id: d.id, lastSync: d.lastSync })));
+  return ok(summaries.map((d) => ({ ...d, syncNeed: needs.get(syncNeedKey('DOC', d.id)) ?? null })));
 };
 
 export interface DocTitle {

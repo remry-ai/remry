@@ -220,7 +220,7 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} />
+      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} lastSync={wikiPage.lastSync} target={{ entityType: 'PAGE', id: wikiPage.id }} onRefresh={invalidateAll} />
     {:else if makingSync}
       <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
     {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}

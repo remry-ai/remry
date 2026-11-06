@@ -4,6 +4,7 @@ import { router, procedure } from '$shared/trpc/init';
 import { listLinks, findLinks, addLink, markLinkSynced, readLinkFile, removeLink, updateLink, uploadLinkFile } from './operations';
 import { convertFileLink, getFileLinkConversion, transcribeFileLink } from './convert';
 import { FILE_LINK_HOLDERS } from '$shared/utils/file-links';
+import { recordClaudeSync } from '$api/_last-sync';
 
 // Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file), as for a doc's PDF.
 const MAX_FILE_BASE64_CHARS = 24_000_000;
@@ -36,7 +37,12 @@ export const linkRouter = router({
       synced: z.boolean().optional(),
       sourceEditedAt: z.coerce.date().optional()
     }))
-    .mutation(({ ctx, input }) => addLink(ctx.reg, input.entityType, input.entityId, input)),
+    .mutation(async ({ ctx, input }) => {
+      const added = await addLink(ctx.reg, input.entityType, input.entityId, input);
+      // Called by Claude (the app's own sync marks sources through the operation), so it's Claude's sync.
+      if (added.ok && input.synced) await recordClaudeSync(ctx.reg, input.entityType, input.entityId);
+      return added;
+    }),
 
   read: procedure
     .meta({ description: "Reads a file uploaded as a link (a url starting storage://): its saved text when it has one, else the file (a text file's text, or an image or PDF to look at). original: true opens the file itself. Not for an outside link: read that with its own tool." })
@@ -86,7 +92,11 @@ export const linkRouter = router({
   markSynced: procedure
     .meta({ description: "Records that an entity was updated from its linked source now, or checked and found current. Pass sourceEditedAt, the source's own last-edited time, so the next check compares that instead of reading the source." })
     .input(z.object({ id: z.string(), sourceEditedAt: z.coerce.date().optional() }))
-    .mutation(({ ctx, input }) => markLinkSynced(ctx.reg, input.id, input.sourceEditedAt)),
+    .mutation(async ({ ctx, input }) => {
+      const marked = await markLinkSynced(ctx.reg, input.id, input.sourceEditedAt);
+      if (marked.ok) await recordClaudeSync(ctx.reg, marked.value.entityType, marked.value.entityId);
+      return marked;
+    }),
 
   remove: procedure
     .input(z.object({ id: z.string() }))

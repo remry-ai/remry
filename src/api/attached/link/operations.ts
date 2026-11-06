@@ -194,7 +194,7 @@ export const markLinkSynced = async (
   reg: Pick<Registry, 'prisma' | 'now'>,
   id: string,
   sourceEditedAt?: Date
-): Promise<Result<{ readonly id: string; readonly syncedAt: Date; readonly sourceEditedAt: Date | null }>> => {
+): Promise<Result<{ readonly id: string; readonly entityType: EntityType; readonly entityId: string; readonly syncedAt: Date; readonly sourceEditedAt: Date | null }>> => {
   const existing = await reg.prisma.link.findUnique({ where: { id } });
   if (!existing) return err(new Error('Link not found. Find it with link.find --url, or add it with link.add --synced true'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
@@ -206,7 +206,7 @@ export const markLinkSynced = async (
     data: { syncedAt, ...(sourceEditedAt ? { sourceEditedAt } : {}) },
     select: { sourceEditedAt: true }
   });
-  return ok({ id, syncedAt, sourceEditedAt: updated.sourceEditedAt });
+  return ok({ id, entityType: existing.entityType as EntityType, entityId: existing.entityId, syncedAt, sourceEditedAt: updated.sourceEditedAt });
 };
 
 /** Whether the link points at a file uploaded to its own entity (the only files a read or a saved text covers). */

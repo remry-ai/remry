@@ -3,6 +3,7 @@
   import RecentUpdates from '$lib/home/components/RecentUpdates.svelte';
   import FocusGraph from '$lib/home/components/FocusGraph.svelte';
   import UpcomingBirthdays from '$lib/home/components/UpcomingBirthdays.svelte';
+  import SyncsNeeded from '$lib/home/components/SyncsNeeded.svelte';
   import type { PageData } from './$types';
 
   const { data } = $props<{ data: PageData }>();
@@ -15,6 +16,7 @@
     <HomeTodos todos={data.todos.items} total={data.todos.total} page={data.todoPage} pageSize={data.todoPageSize} />
     <RecentUpdates updates={data.updates} />
     {#if data.birthdays}<UpcomingBirthdays birthdays={data.birthdays} />{/if}
+    <SyncsNeeded syncs={data.syncsNeeded} />
   </div>
   {#if data.graph.focus}
     <FocusGraph graph={{ ...data.graph, focus: data.graph.focus }} />

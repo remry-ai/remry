@@ -3,12 +3,16 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import { SYNC_NEED_LABELS } from '$shared/utils/sync-state';
+  import type { SyncNeed } from '$shared/types/sync-now';
 
   interface Doc {
     readonly id: string;
     readonly title: string;
     /** Set on a sync doc, which gets a badge. */
     readonly prompt?: string | null;
+    /** Why a sync doc wants syncing (never synced, failed, over a week old); its badge says so. */
+    readonly syncNeed?: SyncNeed | null;
     readonly sortOrder: number;
   }
 
@@ -38,6 +42,14 @@
   let expanded = $state(activeDocId === null);
 
   const toggle = () => { expanded = !expanded; };
+
+  // Shown in the header too, so a folded list still says some sync docs want syncing.
+  const needingSync = $derived(docs.filter((d) => d.prompt && d.syncNeed).length);
+
+  const syncTitle = (doc: Doc): string => {
+    const why = doc.syncNeed === 'failed' ? 'Its last sync failed. ' : doc.syncNeed === 'never' ? "It hasn't been synced from its sources yet. " : doc.syncNeed === 'stale' ? 'Last synced over a week ago. ' : '';
+    return `Sync doc: Claude keeps it in step with its sources. ${why}${doc.prompt ?? ''}`;
+  };
 
   // A plain click opens the doc in place; a modified click (new tab) is left to the browser.
   const select = (e: MouseEvent, id: string) => {
@@ -74,6 +86,7 @@
         Docs <span class="count">{docs.length}</span>
       </DisclosureButton>
     </h4>
+    {#if needingSync > 0}<span class="badge warning to-sync" title="Sync docs that failed, were never synced, or were last synced over a week ago">{needingSync} to sync</span>{/if}
     <button type="button" class="btn icon sm" onclick={startAdd} title="Add doc" aria-label="Add doc">+</button>
   </div>
   {#if expanded}
@@ -81,7 +94,9 @@
       <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
-            {#if doc.prompt}<span class="badge accent" title="Sync doc: Claude keeps it in step with its sources. {doc.prompt}">Sync</span>{/if}
+            {#if doc.prompt}
+              <span class="badge" class:accent={!doc.syncNeed} class:warning={doc.syncNeed && doc.syncNeed !== 'failed'} class:danger={doc.syncNeed === 'failed'} title={syncTitle(doc)}>{doc.syncNeed ? `Sync · ${SYNC_NEED_LABELS[doc.syncNeed].toLowerCase()}` : 'Sync'}</span>
+            {/if}
             {#snippet actions()}
               <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
               <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>
@@ -97,6 +112,8 @@
 </div>
 
 <style lang="scss">
+  // Beside the heading, with the add button kept at the far end.
+  .to-sync { margin-right: auto; }
   // The rows are EntityRows, so their parts are reached through the list.
   .doc-list {
     :global(.doc-title) {

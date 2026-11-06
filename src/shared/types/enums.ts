@@ -68,3 +68,13 @@ export type ArchiveFilter = (typeof ARCHIVE_FILTERS)[number];
 export const RELATABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'DOC', 'NOTE', 'TODO'] as const;
 
 export type RelatableType = (typeof RELATABLE_TYPES)[number];
+
+/** What ran a sync doc's or page's last sync: the app's Sync now, or Claude (link.markSynced in a chat). */
+export const SYNC_RUNNERS = ['APP', 'CLAUDE'] as const;
+
+export type SyncRunnerKind = (typeof SYNC_RUNNERS)[number];
+
+/** How a sync doc's or page's last sync went: every source read, some not read, or nothing saved. */
+export const SYNC_OUTCOMES = ['OK', 'PARTIAL', 'FAILED'] as const;
+
+export type SyncOutcome = (typeof SYNC_OUTCOMES)[number];

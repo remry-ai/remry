@@ -18,7 +18,7 @@ import { closeRegistries } from '$shared/registry.server';
 export const APP_ONLY: ReadonlySet<string> = new Set([
   'trpcMeta.list',
   // These run the Claude Code CLI for the web app; from the CLI or MCP, Claude reads the PDF (or the page) itself.
-  'link.convert', 'link.conversion', 'link.transcribe', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask', 'sync.now', 'sync.status',
+  'link.convert', 'link.conversion', 'link.transcribe', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask', 'sync.now', 'sync.status', 'sync.needed',
   'llm.available', 'llm.setDefault',
   // entity.archive and entity.delete do these for every type.
   ...['person', 'group', 'project', 'goal', 'page'].flatMap((type) => [`${type}.archive`, `${type}.unarchive`, `${type}.delete`]),

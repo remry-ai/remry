@@ -25,6 +25,8 @@
   import { convertFileLinkAndWait, newestFileLink, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
   import { syncNowAndWait } from '$lib/link/sync-now';
+  import type { LastSyncView } from '$lib/link/last-sync';
+  import type { SyncNeed } from '$shared/types/sync-now';
   import { createDocHandlers } from '$lib/common/use-doc-handlers';
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage, rightPanelTodos } from '$lib/stores/right-panel';
@@ -41,6 +43,10 @@
     readonly content: string;
     /** Set on a sync doc: what Claude pulls from its sources. */
     readonly prompt?: string | null;
+    /** A sync doc's last sync (doc.list). */
+    readonly lastSync?: LastSyncView | null;
+    /** Why a sync doc wants syncing (doc.list); null when it doesn't. */
+    readonly syncNeed?: SyncNeed | null;
     readonly sortOrder: number;
   }
 
@@ -371,9 +377,13 @@
     try {
       return await syncNowAndWait('DOC', doc.id);
     } finally {
-      await invalidateAll();
-      await loadDocLinks(doc.id);
+      await refreshSyncDoc(doc.id);
     }
+  };
+
+  const refreshSyncDoc = async (id: string) => {
+    await invalidateAll();
+    await loadDocLinks(id);
   };
 
   // "+ Add a file" on a new doc: saves it, uploads the file as its link and writes it from that.
@@ -544,7 +554,7 @@
 
 {#snippet docSources()}
   {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onSyncNow={archivedAt ? undefined : handleSyncDoc} />
+    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={activeDoc.lastSync ?? null} target={{ entityType: 'DOC', id: activeDoc.id }} onRefresh={() => refreshSyncDoc(activeDoc.id)} />
   {:else if makingSyncDoc === activeDoc?.id}
     <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
   {:else}

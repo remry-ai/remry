@@ -16,6 +16,10 @@ export interface SyncNowOutcome {
 export const syncNowAndWait = async (entityType: 'DOC' | 'PAGE', id: string, pollMs = 3000): Promise<SyncNowOutcome | null> => {
   const started = await startWithLlm(() => submitOrThrow(() => trpc().sync.now.mutate({ entityType, id })));
   if (!started.started) return { tone: 'warning', message: started.warning };
+  return await untilFinished(entityType, id, pollMs);
+};
+
+const untilFinished = async (entityType: 'DOC' | 'PAGE', id: string, pollMs: number): Promise<SyncNowOutcome | null> => {
   for (;;) {
     await wait(pollMs);
     const status = await submitOrThrow(() => trpc().sync.status.query({ entityType, id }));
@@ -24,3 +28,13 @@ export const syncNowAndWait = async (entityType: 'DOC' | 'PAGE', id: string, pol
     return status.message ? { tone: 'done', message: status.message } : null;
   }
 };
+
+/** Whether a sync of it is running now (started before the page opened); `waitForSync` then waits for it. */
+export const syncRunning = async (entityType: 'DOC' | 'PAGE', id: string): Promise<boolean> => {
+  const status = await trpc().sync.status.query({ entityType, id });
+  return status.ok && status.value.state === 'running';
+};
+
+/** Waits for a running sync to finish. Throws when it fails; its outcome is saved as the last sync either way. */
+export const waitForSync = (entityType: 'DOC' | 'PAGE', id: string, pollMs = 3000): Promise<SyncNowOutcome | null> =>
+  untilFinished(entityType, id, pollMs);

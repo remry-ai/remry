@@ -141,6 +141,11 @@ model Doc {
   sourceUrl  String?  @map("source_url")
   /// A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc.
   prompt     String?
+  /// A sync doc's last sync: when, what ran it (APP or CLAUDE), how it went (OK, PARTIAL, FAILED) and why.
+  lastSyncAt      DateTime? @map("last_sync_at")
+  lastSyncBy      String?   @map("last_sync_by")
+  lastSyncOutcome String?   @map("last_sync_outcome")
+  lastSyncMessage String?   @map("last_sync_message")
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -265,6 +270,11 @@ model Page {
   content    String   @default("")
   /// A sync page's prompt: what to pull from its linked sources. Null for an ordinary page.
   prompt     String?
+  /// A sync page's last sync: when, what ran it (APP or CLAUDE), how it went (OK, PARTIAL, FAILED) and why.
+  lastSyncAt      DateTime? @map("last_sync_at")
+  lastSyncBy      String?   @map("last_sync_by")
+  lastSyncOutcome String?   @map("last_sync_outcome")
+  lastSyncMessage String?   @map("last_sync_message")
   sortOrder  Int      @default(0) @map("sort_order")
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime @default(now()) @map("created_at")

@@ -99,7 +99,9 @@ export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
   // Moves docs' attached PDFs into links; an older Remry sees the links and no attached PDF.
   '20261101120000_doc_sources_to_links',
   // Two nullable link columns, and the link search triggers rewritten to index the saved text.
-  '20261102120000_link_text_and_source_edited'
+  '20261102120000_link_text_and_source_edited',
+  // Four nullable columns on doc and page: a sync's last run.
+  '20261106120000_last_sync'
 ]);
 
 /**

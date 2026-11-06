@@ -4,7 +4,11 @@
   // the sources. The prompt is editable here; clearing it makes an ordinary doc.
   // `creating` opens it on an empty prompt, for "Make sync doc"; Cancel leaves it as it was.
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
+  // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
+  // with `target`, a sync still running when the page opens shows as running until it ends.
   import { assistantName } from '$lib/stores/assistant';
+  import { lastSyncLine, type LastSyncView } from '../last-sync';
+  import { syncRunning, waitForSync } from '../sync-now';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
   import { errorMessage, submit } from '$lib/ui/submit';
@@ -34,9 +38,17 @@
     readonly empty?: boolean;
     /** Rewrites the text from the sources now, with the local Claude (`syncNowAndWait`); resolves once it's saved. */
     readonly onSyncNow?: () => Promise<SyncNowOutcome | null>;
+    /** Its last sync (doc.get, page.get, doc.list); null when never synced. */
+    readonly lastSync?: LastSyncView | null;
+    /** The doc or page, to pick up a sync that's already running when the page opens. */
+    readonly target?: { readonly entityType: 'DOC' | 'PAGE'; readonly id: string };
+    /** Reloads the page's data once that sync ends (onSyncNow does its own). */
+    readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, onRefresh }: Props = $props();
+
+  const syncLine = $derived(lastSync ? lastSyncLine(lastSync) : null);
 
   // svelte-ignore state_referenced_locally
   let editing = $state(creating);
@@ -46,18 +58,46 @@
 
   let syncing = $state(false);
   let syncNotice = $state<{ readonly tone: 'warning' | 'error' | 'done'; readonly message: string } | null>(null);
-  const syncNow = async () => {
-    if (!onSyncNow) return;
+  // The last sync's time when the notice was set: once a newer last sync is loaded, its line says
+  // the same thing (it ran, failed, or skipped a source), so the notice gives way to it.
+  let noticeFor = $state<string | null>(null);
+  const showNotice = $derived(syncNotice !== null && noticeFor === String(lastSync?.at ?? null));
+
+  const runSync = async (sync: () => Promise<SyncNowOutcome | null>) => {
+    const before = String(lastSync?.at ?? null);
     syncing = true;
     syncNotice = null;
     try {
-      syncNotice = await onSyncNow();
+      syncNotice = await sync();
     } catch (e: unknown) {
       syncNotice = { tone: 'error', message: errorMessage(e) };
     } finally {
+      noticeFor = before;
       syncing = false;
     }
   };
+
+  const syncNow = async () => {
+    if (onSyncNow) await runSync(onSyncNow);
+  };
+
+  // A sync started before the page opened (from another tab, or before a reload) still shows as running.
+  $effect(() => {
+    if (!target || !onSyncNow) return;
+    const { entityType, id } = target;
+    let live = true;
+    void syncRunning(entityType, id).then((running) => {
+      if (!running || !live || syncing) return;
+      void runSync(async () => {
+        try {
+          return await waitForSync(entityType, id);
+        } finally {
+          await onRefresh?.();
+        }
+      });
+    }).catch(() => undefined);
+    return () => { live = false; };
+  });
 
   const startEditing = () => { draft = prompt; error = ''; editing = true; };
 
@@ -113,7 +153,13 @@
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
   {/if}
 
-  {#if syncNotice}
+  {#if syncLine && !creating && !syncing}
+    <p class="text-xs last-sync" class:text-2={syncLine.tone === 'ok'} class:form-error={syncLine.tone === 'error'} class:warning={syncLine.tone === 'warning'} title={syncLine.title}>{syncLine.text}</p>
+  {:else if !syncLine && !creating && !empty && !syncing && links.length > 0}
+    <p class="text-xs text-2 last-sync">Not synced from its sources yet.</p>
+  {/if}
+
+  {#if syncNotice && showNotice}
     <p class="text-xs" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
   {/if}
 
@@ -142,4 +188,5 @@
     font-weight: 600;
   }
   .warning { color: var(--warning); margin: 0; }
+  .last-sync { margin: 0; }
 </style>

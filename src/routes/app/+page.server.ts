@@ -17,11 +17,12 @@ export const load: PageServerLoad = async ({ fetch, url, locals }) => {
   const todoPageQuery = (page: number) =>
     client.home.todos.query({ limit: TODO_PAGE_SIZE, offset: (page - 1) * TODO_PAGE_SIZE, sort: todoSort });
   const requestedPage = parsePageParam(url.searchParams.get('todoPage'));
-  const [firstTry, updates, graph, persons] = await Promise.all([
+  const [firstTry, updates, graph, persons, syncs] = await Promise.all([
     todoPageQuery(requestedPage),
     client.home.updates.query({ limit: 12 }),
     client.home.graph.query(focus ? { focusType: focus.type, focusId: focus.id } : {}),
-    showBirthdays ? client.person.list.query({}) : Promise.resolve(null)
+    showBirthdays ? client.person.list.query({}) : Promise.resolve(null),
+    client.sync.needed.query()
   ]);
   // A page past the end (todos were closed since) shows the last page instead.
   const todoPage = firstTry.ok ? clampPage(requestedPage, firstTry.value.total, TODO_PAGE_SIZE) : 1;
@@ -41,6 +42,7 @@ export const load: PageServerLoad = async ({ fetch, url, locals }) => {
     todoPageSize: TODO_PAGE_SIZE,
     updates: updates.ok ? updates.value : [],
     graph: graph.ok ? graph.value : { focus: null, groups: [], branches: {} },
-    birthdays
+    birthdays,
+    syncsNeeded: syncs.ok ? syncs.value : []
   };
 };

@@ -105,7 +105,7 @@ describe('syncedAt', () => {
       } as unknown as Registry['prisma']
     });
     const result = await markLinkSynced(reg, 'l1');
-    expect(result.ok && result.value).toEqual({ id: 'l1', syncedAt: now, sourceEditedAt: null });
+    expect(result.ok && result.value).toEqual({ id: 'l1', entityType: 'GROUP', entityId: 't1', syncedAt: now, sourceEditedAt: null });
     // Without a sourceEditedAt, the one from the last sync stays.
     expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { syncedAt: now }, select: { sourceEditedAt: true } });
   });
@@ -121,7 +121,7 @@ describe('syncedAt', () => {
       } as unknown as Registry['prisma']
     });
     const result = await markLinkSynced(reg, 'l1', edited);
-    expect(result.ok && result.value).toEqual({ id: 'l1', syncedAt: now, sourceEditedAt: edited });
+    expect(result.ok && result.value).toEqual({ id: 'l1', entityType: 'GROUP', entityId: 't1', syncedAt: now, sourceEditedAt: edited });
     expect(update).toHaveBeenCalledWith({ where: { id: 'l1' }, data: { syncedAt: now, sourceEditedAt: edited }, select: { sourceEditedAt: true } });
   });
 

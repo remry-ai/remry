@@ -5,11 +5,13 @@ import type { SyncNowJob, SyncRunner } from '$shared/types/sync-now';
 import { startSyncNow, syncJobKey } from '../sync';
 import { updatePage } from '$api/page/operations';
 import { markLinkSynced } from '$api/attached/link/operations';
+import { recordSync } from '$api/_last-sync';
 import { fakeLookup } from './fake-llm';
 
 // Saving the page and marking links synced are tested with them; here, what a sync does with them.
 vi.mock('$api/page/operations', () => ({ updatePage: vi.fn().mockResolvedValue({ ok: true, value: { id: 'pg1' } }) }));
 vi.mock('$api/attached/link/operations', () => ({ markLinkSynced: vi.fn().mockResolvedValue({ ok: true, value: {} }) }));
+vi.mock('$api/_last-sync', () => ({ recordSync: vi.fn().mockResolvedValue(undefined) }));
 
 const page = { title: 'Vendors', content: '# Old', prompt: 'Pricing tiers only.', bodyType: 'doc', archivedAt: null };
 const links = [
@@ -46,6 +48,17 @@ describe('startSyncNow', () => {
     expect(updatePage).toHaveBeenLastCalledWith(reg, 'pg1', { content: '# New' });
     expect(markLinkSynced).toHaveBeenCalledWith(reg, 'l1', new Date('2026-10-28T16:30:00Z'));
     expect(markLinkSynced).not.toHaveBeenCalledWith(reg, 'l2', expect.anything());
+  });
+
+  it('saves how it went as the last sync: done, done with sources unread, or failed', async () => {
+    const { reg, runner, jobs } = setup();
+    await startSyncNow(reg, runner, 'work', 'PAGE', 'pg1');
+    await jobs[0]!.onFinish!({ state: 'done' });
+    expect(recordSync).toHaveBeenLastCalledWith(reg, 'PAGE', 'pg1', { by: 'APP', outcome: 'OK', message: null });
+    await jobs[0]!.onFinish!({ state: 'done', message: 'Synced, except: Quote.pdf (blank scan).' });
+    expect(recordSync).toHaveBeenLastCalledWith(reg, 'PAGE', 'pg1', { by: 'APP', outcome: 'PARTIAL', message: 'Synced, except: Quote.pdf (blank scan).' });
+    await jobs[0]!.onFinish!({ state: 'failed', message: 'Claude Code took longer than 15 minutes, so nothing was changed.' });
+    expect(recordSync).toHaveBeenLastCalledWith(reg, 'PAGE', 'pg1', { by: 'APP', outcome: 'FAILED', message: 'Claude Code took longer than 15 minutes, so nothing was changed.' });
   });
 
   it('refuses a page with no prompt, a spreadsheet and one with no sources, and warns without claude', async () => {

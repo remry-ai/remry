@@ -3,6 +3,7 @@
 
 import type { Result } from '$shared/utils/result';
 import type { LlmLookup, LocatedLlm } from './llm';
+import type { SyncOutcome, SyncRunnerKind } from './enums';
 
 export interface SyncNowStatus {
   readonly state: 'idle' | 'running' | 'failed' | 'done';
@@ -22,6 +23,8 @@ export interface SyncNowJob {
   readonly urls: readonly string[];
   /** Saves the reply; ok with a note for the user (sources it couldn't read), or null. */
   readonly onReply: (reply: string) => Promise<Result<string | null>>;
+  /** Called once the job ends, done or failed, to save how it went. */
+  readonly onFinish?: (status: SyncNowStatus) => Promise<void>;
 }
 
 export interface SyncRunner {
@@ -32,3 +35,16 @@ export interface SyncRunner {
   /** A failed or done status is reported once, then it reads as idle. */
   readonly status: (key: string) => SyncNowStatus;
 }
+
+/** A sync doc's or page's last sync, saved so the banner can say when it ran, by what, and how it went. */
+export interface LastSync {
+  readonly at: Date;
+  /** Null for a sync from before they were recorded, when only each source's time was saved. */
+  readonly by: SyncRunnerKind | null;
+  readonly outcome: SyncOutcome;
+  /** Why it failed, or the sources a partial sync couldn't read. */
+  readonly message: string | null;
+}
+
+/** Why a sync doc or page wants syncing: never synced, its last sync failed, or it's over a week old. */
+export type SyncNeed = 'never' | 'failed' | 'stale';
