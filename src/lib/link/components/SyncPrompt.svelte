@@ -58,6 +58,7 @@
   // An existing sync doc's prompt stays editable.
   const license = $derived((appPage.data?.license as LicenseStatus | undefined) ?? NO_LICENSE);
   const creatingLocked = $derived(creating && !isProActive(license));
+  const PROMPT_EXAMPLE = 'PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.';
 
   const status = $derived(links.length > 0 || lastSync ? syncStatus(lastSync) : null);
 
@@ -132,8 +133,7 @@
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
     <span class="badge accent" title="Claude rewrites this from its sources, following the prompt.">Sync</span>
-    {#if creatingLocked}<!-- The lock below says why. -->
-    {:else if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
+    {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
     {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
@@ -146,12 +146,14 @@
   </div>
 
   {#if creatingLocked}
+    <!-- What a sync doc is, as the prompt box would say, so the lock isn't the only explanation. -->
+    <p class="text-sm text-2 explain">A sync doc is rewritten by Claude from its sources, following a prompt you write. For example: <em>{PROMPT_EXAMPLE}</em></p>
     <ProLock title="Sync docs" message={lockedMessage('sync', license, 'app')} compact>
       <button type="button" class="btn ghost sm" onclick={cancel}>Cancel</button>
     </ProLock>
   {:else if editing}
     <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void save(); }}>
-      <Field label="Prompt" hint={creating ? 'For example: PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.' : 'Empty makes it an ordinary doc'}>
+      <Field label="Prompt" hint={creating ? `For example: ${PROMPT_EXAMPLE}` : 'Empty makes it an ordinary doc'}>
         {#snippet children({ id })}
           <!-- svelte-ignore a11y_autofocus -->
           <textarea {id} rows="3" maxlength="2000" bind:value={draft} autofocus={creating}></textarea>
@@ -196,4 +198,5 @@
     font-weight: 600;
   }
   .warning { color: var(--warning); margin: 0; }
+  .explain { margin: 0; }
 </style>
