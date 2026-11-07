@@ -34,7 +34,7 @@
 </script>
 
 {#if bodyType === 'sheet'}
-  <SheetEditor {content} {editable} {onSave} />
+  <SheetEditor {content} {editable} {onSave} {title} />
 {:else}
   <DrawingImage {content} {title} readOnly={!editable} onOpen={() => { drawingOpen = true; }} onImportLink={editable ? onImportLink : undefined} />
   {#if drawingOpen}

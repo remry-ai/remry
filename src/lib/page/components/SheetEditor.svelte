@@ -19,15 +19,18 @@
   import { cellName, evaluateSheet, FORMULA_FUNCTIONS, parseCellNumber, type FormulaProblem } from '$shared/utils/sheet-formula';
   import { formatExample, MAX_DECIMALS, type SheetFormat } from '$shared/utils/sheet-format';
   import HelpPopover from '$lib/ui/HelpPopover.svelte';
+  import ExpandIcon from '$lib/ui/ExpandIcon.svelte';
 
   interface Props {
     readonly content: string;
     /** False for an archived page: the grid shows but doesn't edit. */
     readonly editable?: boolean;
     readonly onSave: (content: string) => Promise<void>;
+    /** Names the sheet in its full-screen bar. */
+    readonly title?: string;
   }
 
-  const { content, editable = true, onSave }: Props = $props();
+  const { content, editable = true, onSave, title = 'Spreadsheet' }: Props = $props();
 
   const SAVE_DELAY_MS = 600;
 
@@ -140,6 +143,50 @@
   };
 
   const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
+
+  // ----- Full screen -----
+  // The same grid, moved onto <body> over the whole window (no stacking context on the page
+  // can draw over it, as with the drawing editor), and back again: nothing is remounted, so
+  // the selection, an edit and the save state carry on. The moved part is the editor's inner
+  // box, never its outer element, which Svelte adds and removes where it was.
+  let fullScreen = $state(false);
+  let expandButton = $state<HTMLButtonElement | null>(null);
+
+  const liftWhen = (node: HTMLElement, on: boolean) => {
+    const home = document.createComment('sheet');
+    const apply = (lifted: boolean) => {
+      if (lifted && node.parentNode !== document.body) {
+        node.replaceWith(home);
+        document.body.append(node);
+      } else if (!lifted && home.parentNode) {
+        home.replaceWith(node);
+      }
+    };
+    apply(on);
+    return {
+      update: apply,
+      destroy: () => {
+        if (node.parentNode === document.body) node.remove();
+        home.remove();
+      }
+    };
+  };
+
+  const closeFullScreen = () => {
+    fullScreen = false;
+    queueMicrotask(() => expandButton?.focus());
+  };
+
+  // Esc leaves full screen, unless it's ending a cell's edit, the rename box or something open. In the capture
+  // phase, so it sees the edit before the library's own listener ends it.
+  const fullScreenKeys = (event: KeyboardEvent) => {
+    if (!fullScreen || event.key !== 'Escape' || renaming || worksheet?.edition) return;
+    // The formula help, a field, or the grid's open right-click menu closes first.
+    if ((event.target as HTMLElement | null)?.closest('input, textarea, .help-popover') || document.querySelector('.jcontextmenu-focus')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeFullScreen();
+  };
 
   // ----- Number formats -----
   // The header's menu sets a column's format ("Format column"): what its numbers show as.
@@ -349,7 +396,16 @@
   });
 </script>
 
+<svelte:window onkeydowncapture={fullScreenKeys} />
+
 <div class="sheet-editor">
+<div class="sheet-body" class:full-screen={fullScreen} use:liftWhen={fullScreen} role={fullScreen ? 'dialog' : undefined} aria-modal={fullScreen ? 'true' : undefined} aria-label={fullScreen ? title : undefined}>
+  {#if fullScreen}
+    <div class="full-screen-bar">
+      <span class="full-screen-title truncate">{title}</span>
+      <button type="button" class="btn icon sm" onclick={closeFullScreen} aria-label="Close full screen" title="Close full screen">&times;</button>
+    </div>
+  {/if}
   <div class="sheet-frame">
     <div class="sheet-grid" bind:this={host}></div>
     {#if renaming}
@@ -388,12 +444,49 @@
     {#if problems.length > 0}
       <span class="formula-problem">{problems.length === 1 ? '1 formula fails' : `${problems.length} formulas fail`}: {problems.slice(0, 5).map((p) => p.cell).join(', ')}{problems.length > 5 ? '…' : ''}. Select one to see why.</span>
     {/if}
+    {#if !fullScreen}
+      <button bind:this={expandButton} type="button" class="btn icon sm expand" onclick={() => { fullScreen = true; }} aria-label="Full screen" title="Full screen"><ExpandIcon /></button>
+    {/if}
   </div>
   {#if error}<p class="form-error">{error}</p>{/if}
+</div>
 </div>
 
 <style lang="scss">
   .sheet-editor { min-width: 0; }
+
+  // Full screen: the window's height for the grid, with a bar naming the sheet above it.
+  .sheet-body.full-screen {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-viewer);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    background: var(--bg);
+
+    .sheet-frame {
+      flex: 1;
+      min-height: 0;
+    }
+    // Over the library's inline max-height (tableHeight), hence !important.
+    :global(.jss_content) { max-height: 100% !important; }
+    .sheet-grid,
+    .sheet-grid :global(.jtabs-content),
+    :global(.jss_container) { height: 100%; }
+  }
+  .full-screen-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+  }
+  .full-screen-title {
+    font-weight: 600;
+    min-width: 0;
+  }
+  .expand { margin-left: auto; }
 
   // The rename box sits over the header it renames (its offset within the frame).
   .sheet-frame { position: relative; }

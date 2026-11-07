@@ -82,7 +82,7 @@
     top: calc(100% + var(--sp-1));
     left: 0;
     z-index: var(--z-nav);
-    width: min(420px, 90vw);
+    width: min(640px, calc(100vw - 2 * var(--sp-4)));
     // Long help scrolls inside it rather than running under the top bar.
     max-height: min(24rem, 60vh);
     overflow-y: auto;
