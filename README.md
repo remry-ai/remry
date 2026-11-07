@@ -34,7 +34,8 @@ No forms, and the app doesn't need to be open.
 check-ins. So "what depends on the payments API?" gets the same answer every time.
 
 **Nothing leaves your computer.** Your notebooks live in a folder on your Mac or PC. No accounts, no
-keys, no sync. The app never calls a language model; Claude works on it from outside.
+keys, no cloud. The app has no model of its own: Claude works on it from outside, and the AI
+features inside the app run your own Claude Code.
 
 ## What using it looks like
 
@@ -78,18 +79,35 @@ the chart shows the pace you need, and a goal that trails it is flagged "Behind 
 > **You:** We pay Datadog $40k a year for 40 seats; it renews in March. Platform uses it for
 > alerting.
 
-Pages are markdown, or spreadsheets for many records of one shape. A page's details go in a list at
-the top. Anything can link to anything, and mentioning a project in a page adds a "Mentioned in"
-link to the project.
+Pages are markdown, spreadsheets or drawings. A page's details go in a list at the top. Anything can
+link to anything, and mentioning a project in a page adds a "Mentioned in" link to the project.
+
+- **Spreadsheets** for many records of one shape: formulas, number and currency formats, and a
+  full-screen view.
+- **Drawings** are [Excalidraw](https://excalidraw.com), built in. Ask Claude for an architecture
+  diagram or a flowchart and it lays out the shapes and arrows; open the drawing to edit it full
+  screen. Open `.excalidraw` files and Excalidraw links, and share one as a link (encrypted, only
+  when you ask). Each notebook has 3 free; Remry Pro removes the limit.
 
 ![The Datadog page: vendor, cost and renewal in a list, with Platform linked to it](docs/images/wiki-page.png)
+
+### A brief that stays current
+
+> **You:** Make a Checkout brief from the PRD, the Linear project and the pricing sheet. Flag where
+> they disagree.
+
+Claude writes one view of the project, says where each point comes from, and ends with the
+discrepancies: "Launch date. PRD: 12 Nov. Linear: 30 Oct." This is a sync doc. It keeps its sources
+and a prompt saying what to take from each, so each source shows when it was last synced, and next
+time Claude rewrites it the same way, or tells you what changed if you've edited it since. With
+Remry Pro, **Sync now** has your Claude Code refresh it from the app.
 
 ### Writing up the quarter
 
 > **You:** Write up Platform's quarter as a doc: delivery and reliability, with charts.
 
 Claude builds it from what's already in the notebook. Docs are markdown with charts drawn from
-figures you give Claude. Paste or drop images into a doc or wiki page, and export either to PDF
+figures you give Claude, and like wiki pages, a doc can also be a spreadsheet or a drawing. Paste or drop images into a doc or wiki page, and export either to PDF
 (branded with Remry Pro).
 
 ![A doc on the Platform team: a bar chart of committed against delivered story points](docs/images/doc-charts.png)
@@ -108,7 +126,10 @@ mostly for reading, in a browser pane beside Claude or as a desktop app.
   todos and notes in the panel on the right, finished todos under Done.
 - **Find anything:** press ⌘K and type a name. `/search budget review` searches the full text, and
   with Remry Pro, `/ask who owns billing?` asks your local Claude and answers with links.
-- **Ask about this page:** the side panel's Chat tab asks Claude about the page you're on.
+- **Docs your way:** text with charts, a spreadsheet, or an Excalidraw drawing, on any person, team,
+  project or goal.
+- **Ask about this page** (Remry Pro): the side panel's Chat tab asks your local Claude about the
+  page you're on.
 
 ![The home dashboard: open todos and a feed of the latest updates](docs/images/home.png)
 
@@ -141,8 +162,11 @@ and links back to them.
 
 - **Local only.** Notebooks are files on your computer, with hourly backups. No cloud sync.
 - **No accounts.** Nothing to sign up for or log in to.
-- **The app never calls a model.** Claude works on it from outside. The app's only request is the
-  desktop app checking GitHub for updates, and it sends nothing about you or your notebooks.
+- **No model of its own.** Claude works on it from outside. The AI features in the app (Chat, `/ask`,
+  Sync now) run your own Claude Code, or Copilot, on your computer; the app holds no keys.
+- **Almost no requests.** The desktop app checks GitHub for updates and sends nothing about you.
+  The only other one is a drawing you choose to share as an Excalidraw link, encrypted on your
+  computer so Excalidraw can't read it.
 - **Offline license key.** A Pro key is checked on your computer. No license server.
 
 ## Getting started
