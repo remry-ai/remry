@@ -154,7 +154,7 @@
             {#snippet actions()}
               {#if editable(item)}
                 <button type="button" class="btn icon sm" aria-label="Edit link to {name}" title="Edit link" onclick={() => startEdit(item)}><PencilIcon /></button>
-                <ConfirmButton label="Remove link to {name}" variant="icon" onConfirm={() => handleRemove(item)} />
+                <ConfirmButton label="Remove link to {name}" variant="unlink" onConfirm={() => handleRemove(item)} />
               {/if}
             {/snippet}
           </EntityRow>

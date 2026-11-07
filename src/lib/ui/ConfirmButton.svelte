@@ -1,14 +1,15 @@
 <script lang="ts">
   // Two-step inline confirmation. Replaces window.confirm(). As an icon: `delete` (a trash
-  // can) for something deleted for good, `icon` (×) for taking something off a list (unlink,
-  // remove a member) where both items stay.
+  // can) for something deleted for good, `unlink` (a broken link) for taking something off a
+  // list (unlink, remove a member) where both items stay. A × only ever closes.
   import TrashIcon from './TrashIcon.svelte';
+  import UnlinkIcon from './UnlinkIcon.svelte';
 
   interface Props {
     readonly label: string;
     readonly confirmLabel?: string;
     readonly onConfirm: () => Promise<void> | void;
-    readonly variant?: 'link' | 'button' | 'icon' | 'delete';
+    readonly variant?: 'link' | 'button' | 'unlink' | 'delete';
     readonly title?: string;
     readonly timeoutMs?: number;
   }
@@ -54,7 +55,7 @@
   };
 
   const triggerClass = $derived(
-    variant === 'icon' || variant === 'delete' ? 'btn icon sm danger' : variant === 'button' ? 'btn danger' : 'btn link danger text-sm',
+    variant === 'unlink' || variant === 'delete' ? 'btn icon sm danger' : variant === 'button' ? 'btn danger' : 'btn link danger text-sm',
   );
 </script>
 
@@ -66,8 +67,8 @@
     <button type="button" class="btn ghost sm" onclick={disarm} disabled={busy}>Cancel</button>
   </span>
 {:else}
-  <button type="button" class={triggerClass} onclick={arm} title={title ?? label} aria-label={variant === 'icon' || variant === 'delete' ? label : undefined}>
-    {#if variant === 'delete'}<TrashIcon />{:else if variant === 'icon'}&times;{:else}{label}{/if}
+  <button type="button" class={triggerClass} onclick={arm} title={title ?? label} aria-label={variant === 'unlink' || variant === 'delete' ? label : undefined}>
+    {#if variant === 'delete'}<TrashIcon />{:else if variant === 'unlink'}<UnlinkIcon />{:else}{label}{/if}
   </button>
 {/if}
 {#if error}<span class="inline-error" role="alert">{error}</span>{/if}

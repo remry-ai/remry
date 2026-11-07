@@ -248,7 +248,7 @@
           {#each project.children as child (child.id)}
             <EntityRow href="/app/projects/{child.id}" label={child.name}>
               <StatusBadge status={child.status} />
-              {#snippet actions()}<ConfirmButton label="Unlink sub-project" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
+              {#snippet actions()}<ConfirmButton label="Unlink sub-project" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
             </EntityRow>
           {/each}
         </ul>

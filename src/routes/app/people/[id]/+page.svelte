@@ -140,7 +140,7 @@
           {#each person.groups as g (g.id)}
             <EntityRow href={g.path} label={g.name}>
               <span class="meta">{g.kindName}</span>
-              {#snippet actions()}<ConfirmButton label="Leave {g.name}" variant="icon" onConfirm={() => handleLeave(g.id)} />{/snippet}
+              {#snippet actions()}<ConfirmButton label="Leave {g.name}" variant="unlink" onConfirm={() => handleLeave(g.id)} />{/snippet}
             </EntityRow>
           {/each}
         </ul>

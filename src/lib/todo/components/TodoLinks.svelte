@@ -1,4 +1,5 @@
 <script lang="ts">
+  import UnlinkIcon from '$lib/ui/UnlinkIcon.svelte';
   // The todo form's links. A saved todo shows its relations, added and removed
   // straight away; a new one collects picks in `pending`, which TodoForm adds
   // once the todo is created.
@@ -79,7 +80,7 @@
             <span class="grow truncate">{link.name}</span>
             <span class="meta">{link.choiceName}</span>
             <span class="row-actions">
-              <button type="button" class="btn icon sm" aria-label="Don't link {link.name}" title="Don't link" onclick={() => dropPending(link)}>&times;</button>
+              <button type="button" class="btn icon sm" aria-label="Don't link {link.name}" title="Don't link" onclick={() => dropPending(link)}><UnlinkIcon /></button>
             </span>
           </li>
         {/each}

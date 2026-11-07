@@ -309,7 +309,7 @@
           {#each goal.projects as project (project.id)}
             <EntityRow href={project.path} label={project.name}>
               <StatusBadge status={project.status} />
-              {#snippet actions()}<ConfirmButton label="Unlink project" variant="icon" onConfirm={() => handleUnlinkProject(project.id)} />{/snippet}
+              {#snippet actions()}<ConfirmButton label="Unlink project" variant="unlink" onConfirm={() => handleUnlinkProject(project.id)} />{/snippet}
             </EntityRow>
           {/each}
         </ul>

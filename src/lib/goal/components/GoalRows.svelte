@@ -33,7 +33,7 @@
         </span>
       {/if}
       {#snippet actions()}
-        {#if onRemove}<ConfirmButton label={removeLabel} variant="icon" onConfirm={() => onRemove(goal.id)} />{/if}
+        {#if onRemove}<ConfirmButton label={removeLabel} variant="unlink" onConfirm={() => onRemove(goal.id)} />{/if}
       {/snippet}
     </EntityRow>
   {/each}

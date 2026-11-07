@@ -66,7 +66,7 @@
         <ul class="list">
           {#each group.members as m (m.personId)}
             <EntityRow href="/app/people/{m.personId}" label={m.personName}>
-              {#snippet actions()}<ConfirmButton label="Remove member" variant="icon" onConfirm={() => handleRemoveMember(m.personId)} />{/snippet}
+              {#snippet actions()}<ConfirmButton label="Remove member" variant="unlink" onConfirm={() => handleRemoveMember(m.personId)} />{/snippet}
             </EntityRow>
           {/each}
         </ul>

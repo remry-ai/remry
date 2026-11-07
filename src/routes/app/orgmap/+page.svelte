@@ -213,7 +213,7 @@
           {#each editDept.members as m (m.personId)}
             <li class="list-row">
               <span class="grow truncate">{m.personName}</span>
-              <span class="row-actions"><ConfirmButton label="Remove member" variant="icon" onConfirm={() => removeDeptMember(editDept.id, m.personId)} /></span>
+              <span class="row-actions"><ConfirmButton label="Remove member" variant="unlink" onConfirm={() => removeDeptMember(editDept.id, m.personId)} /></span>
             </li>
           {/each}
         </ul>
@@ -235,7 +235,7 @@
           {#each editTeam.members as m (m.personId)}
             <li class="list-row">
               <span class="grow truncate">{m.personName}</span>
-              <span class="row-actions"><ConfirmButton label="Remove member" variant="icon" onConfirm={() => removeTeamMember(editTeam.id, m.personId)} /></span>
+              <span class="row-actions"><ConfirmButton label="Remove member" variant="unlink" onConfirm={() => removeTeamMember(editTeam.id, m.personId)} /></span>
             </li>
           {/each}
         </ul>
@@ -259,7 +259,7 @@
           {#each personDeptMemberships as d (d.id)}
             <li class="list-row">
               <span class="grow truncate">{d.name}</span>
-              <span class="row-actions"><ConfirmButton label="Remove from department" variant="icon" onConfirm={() => removeDeptMember(d.id, editPerson.id)} /></span>
+              <span class="row-actions"><ConfirmButton label="Remove from department" variant="unlink" onConfirm={() => removeDeptMember(d.id, editPerson.id)} /></span>
             </li>
           {/each}
         </ul>
@@ -275,7 +275,7 @@
           {#each personTeamMemberships as t (t.id)}
             <li class="list-row">
               <span class="grow truncate">{t.name}</span>
-              <span class="row-actions"><ConfirmButton label="Remove from team" variant="icon" onConfirm={() => removeTeamMember(t.id, editPerson.id)} /></span>
+              <span class="row-actions"><ConfirmButton label="Remove from team" variant="unlink" onConfirm={() => removeTeamMember(t.id, editPerson.id)} /></span>
             </li>
           {/each}
         </ul>

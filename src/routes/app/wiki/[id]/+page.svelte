@@ -316,7 +316,7 @@
           <ul class="list">
             {#each wikiPage.children as child (child.id)}
               <EntityRow href={child.path} label={child.title}>
-                {#snippet actions()}<ConfirmButton label="Unlink sub-page" variant="icon" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
+                {#snippet actions()}<ConfirmButton label="Unlink sub-page" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
               </EntityRow>
             {/each}
           </ul>
