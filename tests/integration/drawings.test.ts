@@ -10,7 +10,6 @@ import { addDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { listRelationsForEntity } from '../../src/api/relation/operations';
 import { convertEntity } from '../../src/api/convert/operations';
 import { searchNotebook } from '../../src/api/search/operations';
-import { drawingBlock } from '../../src/shared/types/drawing-blocks';
 import { importShareLink, shareDrawing } from '../../src/api/drawing/operations';
 import { encryptScene } from '../../src/shared/drawing/excalidraw-link';
 import type { ExcalidrawBackend } from '../../src/shared/drawing/excalidraw-backend.server';
@@ -90,23 +89,18 @@ describe('drawing pages', () => {
 });
 
 describe('drawing blocks', () => {
-  it('embed a drawing page, link back to it, and are refused when they name no drawing', async () => {
+  it('from before drawings were only pages save as they are and still link back to the drawing', async () => {
     const drawing = await createDrawing('Architecture');
-    const page = await createPage(reg, { title: 'Design notes', content: `How it fits:\n\n${drawingBlock(drawing)}` });
+    const page = await createPage(reg, { title: 'Design notes', content: `How it fits:\n\n\`\`\`drawing\n/app/wiki/${drawing}\n\`\`\`` });
     if (!page.ok) throw page.error;
     const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Onboarding' });
     if (!doc.ok) throw doc.error;
-    expect((await updateDoc(reg, doc.value.id, { content: `\`\`\`drawing\n${drawing}\n\`\`\`` })).ok).toBe(true);
+    expect((await updateDoc(reg, doc.value.id, { content: `See the [architecture](/app/wiki/${drawing}).` })).ok).toBe(true);
 
     const backlinks = await listRelationsForEntity(reg, 'PAGE', drawing);
     expect(backlinks.ok && backlinks.value.flatMap((g) => g.items.map((i) => i.other.label)).sort()).toEqual(['Design notes', 'Onboarding']);
-
-    const missing = await updatePage(reg, page.value.id, { content: 'Intro\n\n```drawing\n/app/wiki/cmnosuchpage00\n```' });
-    expect(!missing.ok && missing.error.message).toBe('drawing block at line 3: page cmnosuchpage00 not found');
-    const notDrawing = await createPage(reg, { title: 'Embeds a doc', content: `\`\`\`drawing\n/app/wiki/${page.value.id}\n\`\`\`` });
-    expect(!notDrawing.ok && notDrawing.error.message).toMatch(/is a document, not a drawing/);
-    const noPage = await createPage(reg, { title: 'Embeds nothing', content: '```drawing\nhello there\n```' });
-    expect(!noPage.ok && noPage.error.message).toMatch(/drawing block at line 1: its body must be a drawing page's path/);
+    // No longer checked: drawings aren't shown inside other text.
+    expect((await updatePage(reg, page.value.id, { content: '```drawing\n/app/wiki/cmnosuchpage00\n```' })).ok).toBe(true);
   });
 });
 

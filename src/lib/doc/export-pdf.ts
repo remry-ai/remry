@@ -1,6 +1,6 @@
 // Builds a doc's PDF in the browser with pdfmake, from its markdown: real text, laid out and
 // paged by pdfmake (`pdf-document.ts`, `pdf-markdown.ts`). This file draws what the PDF shows
-// as pictures (images, charts, mermaid diagrams, drawings, the logo) and saves the file. pdfmake and its
+// as pictures (images, charts, mermaid diagrams, the logo) and saves the file. pdfmake and its
 // font (the app's one font, lib/ui/app-font.ts, served with the app's own files) load only when the user
 // exports. Nothing leaves the page.
 
@@ -14,9 +14,6 @@ import { buildPdfDocument, type PdfBranding } from './pdf-document';
 import { collectPdfAssets, PDF_FONT, type PdfAssets, type PdfImage } from './pdf-markdown';
 import { pdfFileName } from './pdf-pages';
 import { APP_FONT } from '$lib/ui/app-font';
-import { loadDrawingPage } from '$lib/drawing/mount-drawings';
-import { renderDrawing } from '$lib/drawing/render-drawing';
-import { readDrawingContent } from '$shared/utils/drawing';
 
 export interface PdfExportInput {
   readonly title: string;
@@ -61,6 +58,15 @@ const toPng = (img: HTMLImageElement, width: number, height: number, scale = 1):
 /** An image in the doc, as the PDF can hold it; null when it can't be loaded (it prints as a note). */
 const drawImage = async (href: string): Promise<PdfImage | null> => {
   const src = href.startsWith('storage://') ? fileUrl(href.slice('storage://'.length)) : href;
+  // A picture the page made itself (a drawing page's PNG): the CSP lets an image load it, not fetch.
+  if (/^(blob|data):/.test(src)) {
+    try {
+      const img = await loadImage(src, false);
+      return { dataUrl: toPng(img, img.naturalWidth, img.naturalHeight), width: img.naturalWidth, height: img.naturalHeight };
+    } catch {
+      return null;
+    }
+  }
   try {
     const response = await fetch(src);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -151,15 +157,6 @@ const drawDiagrams = async (sources: readonly string[]): Promise<Map<string, Pdf
   return drawn;
 };
 
-// An embedded drawing page, drawn at print resolution.
-const drawDrawing = async (pageId: string): Promise<PdfImage | null> => {
-  const page = await loadDrawingPage(pageId);
-  if (typeof page === 'string') return null;
-  const rendered = await renderDrawing(readDrawingContent(page.content), { scale: DRAW_SCALE });
-  if (!rendered) return null;
-  return { dataUrl: await blobToDataUrl(rendered.blob), width: rendered.width, height: rendered.height };
-};
-
 const drawAll = async <T>(keys: readonly string[], draw: (key: string) => Promise<T | null> | T | null): Promise<Map<string, T>> => {
   const entries = await Promise.all(keys.map(async (key) => [key, await draw(key)] as const));
   return new Map(entries.flatMap(([key, value]) => (value ? [[key, value] as const] : [])));
@@ -228,14 +225,13 @@ export const downloadPdf = async (input: PdfExportInput): Promise<void> => {
   await fontsReady();
   const needed = collectPdfAssets(input.markdown);
   const logoHref = input.letterhead ? (input.branding?.logoUrl ?? input.branding?.iconUrl ?? null) : null;
-  const [images, charts, diagrams, drawings, logo] = await Promise.all([
+  const [images, charts, diagrams, logo] = await Promise.all([
     drawAll(needed.images, drawImage),
     drawAll(needed.charts, (source) => drawChart(source, input.branding)),
     drawDiagrams(needed.diagrams),
-    drawAll(needed.drawings, drawDrawing),
     logoHref ? drawImage(logoHref) : Promise.resolve(null)
   ]);
-  const assets: PdfAssets = { images, charts, diagrams, drawings };
+  const assets: PdfAssets = { images, charts, diagrams };
 
   const definition = buildPdfDocument({
     title: input.title,

@@ -10,8 +10,7 @@
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
   import SheetEditor from '$lib/page/components/SheetEditor.svelte';
-  import DrawingEditor from '$lib/drawing/DrawingEditor.svelte';
-  import { drawingBlock } from '$shared/types/drawing-blocks';
+  import DrawingImage from '$lib/drawing/DrawingImage.svelte';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -156,12 +155,13 @@
   const handleShareDrawing = async (): Promise<string> =>
     (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ pageId: wikiPage.id }))).url;
 
-  // "Copy embed": the drawing block that shows this drawing in a doc, a note or another page.
-  let embedCopied = $state(false);
-  const handleCopyEmbed = async () => {
-    await navigator.clipboard.writeText(drawingBlock(wikiPage.id));
-    embedCopied = true;
-    setTimeout(() => { embedCopied = false; }, 1500);
+  // A drawing shows as a picture; clicking it (or Edit) opens the full-screen editor,
+  // and closing it reloads the page so the picture shows what was drawn.
+  let drawingOpen = $state(false);
+  $effect(() => { void wikiPage.id; drawingOpen = false; });
+  const closeDrawing = async () => {
+    drawingOpen = false;
+    await invalidateAll();
   };
 
   const handleSetParent = async (parentId: string | null) => {
@@ -261,13 +261,17 @@
         <div class="section-header">
           <h4>Drawing</h4>
           <span class="content-actions">
-            <button type="button" class="btn ghost sm" title="Copy the block that shows this drawing in a doc, a note or another page" onclick={handleCopyEmbed}>{embedCopied ? 'Copied' : 'Copy embed'}</button>
             <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+            <button type="button" class="btn icon sm" aria-label="{wikiPage.archivedAt ? 'Open' : 'Edit'} the drawing {wikiPage.title}" title={wikiPage.archivedAt ? 'Open full screen' : 'Edit drawing'} onclick={() => { drawingOpen = true; }}><PencilIcon /></button>
           </span>
         </div>
-        {#key wikiPage.id}
-          <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} title={wikiPage.title} onShare={handleShareDrawing} />
-        {/key}
+        <DrawingImage content={wikiPage.content} title={wikiPage.title} readOnly={!!wikiPage.archivedAt} onOpen={() => { drawingOpen = true; }} />
+        {#if drawingOpen}
+          <!-- Loaded when opened, so other pages never load the editor or its styles. -->
+          {#await import('$lib/drawing/DrawingEditor.svelte') then { default: DrawingEditor }}
+            <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} title={wikiPage.title} onShare={handleShareDrawing} onClose={closeDrawing} />
+          {/await}
+        {/if}
       </section>
     {:else if editing}
       <!-- A section, so it keeps the Content section's gap below the sync banner or links line. -->

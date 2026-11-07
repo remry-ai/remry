@@ -1,6 +1,6 @@
 // A doc's markdown as pdfmake content: the PDF is laid out from the text itself, not a
 // picture of the print page, so its text is real and pdfmake breaks pages between lines,
-// rows and blocks. Pure: images, charts, diagrams and drawings come in already drawn (`PdfAssets`),
+// rows and blocks. Pure: images, charts and diagrams come in already drawn (`PdfAssets`),
 // and `collectPdfAssets` says which to draw. `export-pdf.ts` does the drawing and saving.
 
 import { Lexer, type Token, type Tokens } from 'marked';
@@ -10,6 +10,7 @@ import { nowrapColumns } from './table-columns';
 import { attachTableWidths, type SizedTable } from './table-widths';
 import { APP_FONT } from '$lib/ui/app-font';
 import { drawingBlockPageId } from '$shared/types/drawing-blocks';
+import { entityPath } from '$shared/utils/entity';
 
 /** An image ready for the PDF: a PNG or JPEG data URL and its size in CSS pixels. */
 export interface PdfImage {
@@ -25,8 +26,6 @@ export interface PdfAssets {
   readonly charts: ReadonlyMap<string, PdfImage>;
   /** By the diagram's mermaid source. */
   readonly diagrams: ReadonlyMap<string, PdfImage>;
-  /** By the id of the drawing page a ```drawing block embeds. */
-  readonly drawings: ReadonlyMap<string, PdfImage>;
 }
 
 export interface PdfColors {
@@ -82,32 +81,26 @@ export interface NeededAssets {
   readonly images: readonly string[];
   readonly charts: readonly string[];
   readonly diagrams: readonly string[];
-  /** Drawing page ids. */
-  readonly drawings: readonly string[];
 }
 
-/** What the PDF needs drawn: each image's address, each chart's text, each diagram's source and each embedded drawing's page. */
+/** What the PDF needs drawn: each image's address, each chart's text and each diagram's source. */
 export const collectPdfAssets = (markdown: string): NeededAssets => {
   const images = new Set<string>();
   const charts = new Set<string>();
   const diagrams = new Set<string>();
-  const drawings = new Set<string>();
   const walk = (tokens: readonly Token[]): void => {
     for (const token of tokens) {
       if (token.type === 'image') images.add((token as Tokens.Image).href);
       if (token.type === 'code') {
         const code = token as Tokens.Code;
         if (isChart(code)) charts.add(code.text);
-        else if (isDrawing(code)) {
-          const pageId = drawingBlockPageId(code.text);
-          if (pageId) drawings.add(pageId);
-        } else if (isDiagram(code)) diagrams.add(code.text.trim());
+        else if (isDiagram(code) && !isDrawing(code)) diagrams.add(code.text.trim());
       }
       for (const child of childTokens(token)) walk(child);
     }
   };
   walk(lex(markdown));
-  return { images: [...images], charts: [...charts], diagrams: [...diagrams], drawings: [...drawings] };
+  return { images: [...images], charts: [...charts], diagrams: [...diagrams] };
 };
 
 /** Every list of tokens inside one: inline text, list items, table cells. */
@@ -324,12 +317,9 @@ const codeBlock = (token: Tokens.Code, ctx: Context): Content => {
     if (chart) return { ...imageBlock(chart, { ...ctx, width: Math.min(ctx.width, 450) }), unbreakable: true };
     return { text: 'Chart error: this chart block is not valid.', color: '#c0392b', margin: [0, 0, 0, 8] };
   }
-  if (isDrawing(token)) {
-    const pageId = drawingBlockPageId(token.text);
-    const drawing = pageId ? ctx.assets.drawings.get(pageId) : undefined;
-    if (drawing) return { ...imageBlock(drawing, ctx), unbreakable: true };
-    return { text: pageId ? "Drawing: this drawing couldn't be drawn." : 'Drawing: this block names no drawing page.', color: MUTED, italics: true, margin: [0, 0, 0, 8] };
-  }
+  // A drawing block from before drawings were only pages: the screen shows a link to the page.
+  const drawingPage = isDrawing(token) ? drawingBlockPageId(token.text) : null;
+  if (drawingPage) return { text: `Drawing: ${entityPath('PAGE', drawingPage)}`, color: MUTED, italics: true, margin: [0, 0, 0, 8] };
   if (isDiagram(token)) {
     const diagram = ctx.assets.diagrams.get(token.text.trim());
     if (diagram) return imageBlock(diagram, ctx);

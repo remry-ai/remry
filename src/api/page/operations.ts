@@ -7,7 +7,6 @@ import { entityPath } from '$shared/utils/entity';
 import { readLastSync } from '$shared/utils/sync-state';
 import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
 import { isEmptyDrawing, parseDrawingContent, readDrawingContent } from '$shared/utils/drawing';
-import { extractDrawingBlocks } from '$shared/types/drawing-blocks';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
@@ -48,25 +47,6 @@ export const asBodyType = (value: string): PageBodyType => (value === 'sheet' ||
 
 const BODY_NAMES: Readonly<Record<PageBodyType, string>> = { doc: 'document', sheet: 'spreadsheet', drawing: 'drawing' };
 
-/**
- * Refuses markdown whose `drawing` blocks don't each name a drawing page that
- * exists, naming the block's line, so an embed never shows nothing.
- */
-export const checkDrawingBlocks = async (reg: Pick<Registry, 'prisma'>, markdown: string): Promise<Result<void>> => {
-  const blocks = extractDrawingBlocks(markdown);
-  if (blocks.length === 0) return ok(undefined);
-  const ids = [...new Set(blocks.flatMap((b) => (b.pageId ? [b.pageId] : [])))];
-  const rows = ids.length === 0 ? [] : await reg.prisma.page.findMany({ where: { id: { in: ids } }, select: { id: true, bodyType: true } });
-  const types = new Map(rows.map((r) => [r.id, r.bodyType]));
-  const problems = blocks.flatMap((block) => {
-    if (!block.pageId) return [`drawing block at line ${block.line}: its body must be a drawing page's path, like /app/wiki/<pageId>`];
-    const type = types.get(block.pageId);
-    if (type === undefined) return [`drawing block at line ${block.line}: page ${block.pageId} not found`];
-    if (type !== 'drawing') return [`drawing block at line ${block.line}: page ${block.pageId} is a ${BODY_NAMES[asBodyType(type)]}, not a drawing`];
-    return [];
-  });
-  return problems.length > 0 ? err(new Error(problems.join('\n'))) : ok(undefined);
-};
 
 // ----- Row mapping -----
 
@@ -177,10 +157,6 @@ export const createPage = async (
   const bodyType = input.bodyType ?? 'doc';
   const content = prepareContent(bodyType, input.content ?? '');
   if (!content.ok) return err(content.error);
-  if (bodyType === 'doc') {
-    const drawings = await checkDrawingBlocks(reg, content.value);
-    if (!drawings.ok) return err(drawings.error);
-  }
 
   if (input.parentId) {
     const parent = await checkParent(reg, null, input.parentId);
@@ -233,10 +209,6 @@ export const updatePage = async (
   if (input.content !== undefined || bodyType !== currentType) {
     const prepared = prepareContent(bodyType, input.content ?? '');
     if (!prepared.ok) return err(prepared.error);
-    if (bodyType === 'doc') {
-      const drawings = await checkDrawingBlocks(reg, prepared.value);
-      if (!drawings.ok) return err(drawings.error);
-    }
     // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
     content = bodyType === 'doc' ? await adoptForeignImages(reg, `pages/${id}`, prepared.value) : prepared.value;
   }

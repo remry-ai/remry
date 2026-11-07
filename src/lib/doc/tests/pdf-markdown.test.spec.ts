@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { collectPdfAssets, markdownToPdf, PLAIN_COLORS, type PdfAssets } from '../pdf-markdown';
 import { buildPdfDocument } from '../pdf-document';
 
-const none: PdfAssets = { images: new Map(), charts: new Map(), diagrams: new Map(), drawings: new Map() };
+const none: PdfAssets = { images: new Map(), charts: new Map(), diagrams: new Map() };
 const options = { width: 500, height: 700, colors: PLAIN_COLORS, branded: false };
 const convert = (markdown: string, assets: PdfAssets = none): unknown[] => markdownToPdf(markdown, assets, options);
 const json = (markdown: string, assets?: PdfAssets): string => JSON.stringify(convert(markdown, assets));
@@ -71,8 +71,7 @@ describe('markdownToPdf', () => {
     const assets: PdfAssets = {
       images: new Map([['storage://a.png', image]]),
       charts: new Map([['type: bar\nlabels: [a]\nvalues: [1]', image]]),
-      diagrams: new Map([['graph TD; A-->B', image]]),
-      drawings: new Map()
+      diagrams: new Map([['graph TD; A-->B', image]])
     };
     const content = convert('Text ![a](storage://a.png "w=200") more\n\n![lost](storage://b.png)\n\n```chart\ntype: bar\nlabels: [a]\nvalues: [1]\n```\n\n```mermaid\ngraph TD; A-->B\n```', assets);
     const out = JSON.stringify(content);
@@ -104,23 +103,20 @@ describe('collectPdfAssets', () => {
     expect(collectPdfAssets('![a](x.png)\n\n- ![b](y.png)\n\n| c |\n|---|\n| ![c](x.png) |\n\n```chart\nA\n```\n\n```\nflowchart LR\n```')).toEqual({
       images: ['x.png', 'y.png'],
       charts: ['A'],
-      diagrams: ['flowchart LR'],
-      drawings: []
+      diagrams: ['flowchart LR']
     });
   });
 
-  it('lists each embedded drawing by its page id', () => {
-    expect(collectPdfAssets('```drawing\n/app/wiki/abcdefgh123\n```\n\n```drawing\nabcdefgh123\n```\n\n```drawing\nnot a page\n```').drawings).toEqual(['abcdefgh123']);
+  it('draws nothing for an old drawing block', () => {
+    expect(collectPdfAssets('```drawing\n/app/wiki/abcdefgh123\n```')).toEqual({ images: [], charts: [], diagrams: [] });
   });
 });
 
 describe('drawing blocks', () => {
-  it('places a drawn drawing, and says when one could not be drawn', () => {
-    const image = { dataUrl: 'data:image/png;base64,AA', width: 400, height: 200 };
-    const drawn = convert('```drawing\n/app/wiki/abcdefgh123\n```', { ...none, drawings: new Map([['abcdefgh123', image]]) });
-    expect(drawn[0]).toMatchObject({ image: image.dataUrl, width: 300, unbreakable: true });
-    expect(json('```drawing\n/app/wiki/missingpage1\n```')).toContain("couldn't be drawn");
-    expect(json('```drawing\nnothing\n```')).toContain('names no drawing page');
+  it('print as a line naming the drawing page, from before drawings were only pages', () => {
+    expect(convert('```drawing\n/app/wiki/abcdefgh123\n```')[0]).toMatchObject({ text: 'Drawing: /app/wiki/abcdefgh123', italics: true });
+    // A block that names no page stays a code block.
+    expect(json('```drawing\nnothing\n```')).toContain('"text":"nothing"');
   });
 });
 

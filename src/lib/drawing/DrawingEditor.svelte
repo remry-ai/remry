@@ -1,6 +1,9 @@
 <script lang="ts">
-  // A drawing page's body (bodyType 'drawing'), drawn and edited in place with
-  // Excalidraw (a React component, mounted here with createRoot). Every change
+  // A drawing page's editor: Excalidraw (a React component, mounted here with
+  // createRoot) over the whole window, opened from the page's picture
+  // (DrawingImage) and closed with Done. It sits on <body>, like ZoomViewer, so
+  // nothing on the page draws over it. Esc stays with Excalidraw (deselect,
+  // leave a tool) and never closes it, so an edit isn't lost. Every change
   // saves itself after a short pause as the scene's JSON (see
   // $shared/utils/drawing). A skeleton Claude wrote is laid out and expanded
   // when it opens, and the first edit saves it as a scene. Its menu opens and
@@ -25,9 +28,11 @@
     readonly title?: string;
     /** Uploads the saved drawing and returns its share link; without it, no Share link button. */
     readonly onShare?: () => Promise<string>;
+    /** Done: called once any change still waiting has saved. */
+    readonly onClose: () => void;
   }
 
-  const { content, editable = true, onSave, title = 'Drawing', onShare }: Props = $props();
+  const { content, editable = true, onSave, title = 'Drawing', onShare, onClose }: Props = $props();
 
   const SAVE_DELAY_MS = 600;
 
@@ -35,7 +40,7 @@
   let root: Root | null = null;
   let status = $state<'loading' | 'idle' | 'saving' | 'saved'>('loading');
   let error = $state('');
-  let expanded = $state(false);
+  let closing = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: Promise<void> = Promise.resolve();
   // What was last saved (or loaded): a save only goes out when the scene changed.
@@ -123,12 +128,33 @@
     }
   };
 
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && expanded) expanded = false;
+  // Done: wait for the save, so the page's picture shows what was drawn.
+  const handleDone = async () => {
+    closing = true;
+    try {
+      await saveNow();
+      onClose();
+    } catch {
+      // The error shows under the bar; the editor stays open so nothing is lost.
+      closing = false;
+    }
+  };
+
+  // Mounted on <body>, so no stacking context on the page can draw over it.
+  const portal = (node: HTMLElement): { destroy: () => void } => {
+    document.body.append(node);
+    return { destroy: () => node.remove() };
+  };
+
+  // Esc belongs to Excalidraw; it mustn't also close a popup under the editor.
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') event.stopPropagation();
   };
 
   onMount(() => {
     let destroyed = false;
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Excalidraw takes focus itself (autoFocus), so its shortcuts work at once.
     (async () => {
       try {
         const [loaded, React, ReactDOM] = await Promise.all([loadExcalidraw(), import('react'), import('react-dom/client')]);
@@ -186,7 +212,7 @@
               },
               viewModeEnabled: !editable,
               theme: 'light',
-              autoFocus: false,
+              autoFocus: true,
               handleKeyboardGlobally: false,
               onChange: handleChange,
               UIOptions: {
@@ -204,11 +230,9 @@
         error = `The drawing couldn't load: ${e instanceof Error ? e.message : String(e)}`;
       }
     })();
-    window.addEventListener('keydown', onKey);
-
     return () => {
       destroyed = true;
-      window.removeEventListener('keydown', onKey);
+      returnFocus?.focus();
       // Leaving the page with a save still waiting: send it now.
       if (timer !== undefined) {
         clearTimeout(timer);
@@ -223,16 +247,17 @@
   });
 </script>
 
-<div class="drawing-editor" class:expanded>
+<div class="drawing-editor" role="dialog" aria-modal="true" aria-label="{editable ? 'Edit' : 'View'} {title}" tabindex="-1" use:portal onkeydown={handleKeydown}>
   <div class="drawing-toolbar">
+    <span class="drawing-title truncate">{title}</span>
     <p class="drawing-status text-xs muted" aria-live="polite">
-      {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves. Double-click to add text; drag from a shape's edge to connect it with an arrow.{/if}
+      {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves. Done closes the editor.{/if}
     </p>
     <span class="drawing-actions">
       {#if onShare}
         <button type="button" class="btn ghost sm" disabled={status === 'loading'} onclick={() => { share = share === 'closed' ? 'confirm' : 'closed'; shareError = ''; }} aria-expanded={share !== 'closed'}>Share link</button>
       {/if}
-      <button type="button" class="btn ghost sm" onclick={() => { expanded = !expanded; }} aria-pressed={expanded}>{expanded ? 'Close full screen' : 'Full screen'}</button>
+      <button type="button" class="btn primary sm" onclick={handleDone} disabled={closing} aria-busy={closing}>{closing ? 'Saving…' : 'Done'}</button>
     </span>
   </div>
   {#if share === 'confirm' || share === 'working'}
@@ -253,7 +278,7 @@
       </Field>
       <div class="toolbar">
         <button type="button" class="btn primary sm" onclick={copyLink}>{copied ? 'Copied' : 'Copy link'}</button>
-        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }}>Done</button>
+        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }}>Close</button>
       </div>
       {#if shareError}<p class="form-error" role="alert">{shareError}</p>{/if}
     </div>
@@ -264,20 +289,21 @@
 
 <style lang="scss">
   .drawing-editor {
-    min-width: 0;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-viewer);
     display: flex;
     flex-direction: column;
-    gap: var(--sp-1);
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    background: var(--bg);
 
-    &.expanded {
-      position: fixed;
-      inset: 0;
-      z-index: var(--z-viewer);
-      background: var(--bg);
-      padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    &:focus { outline: none; }
+  }
 
-      .drawing-canvas { height: auto; flex: 1; }
-    }
+  .drawing-title {
+    font-weight: 600;
+    min-width: 0;
   }
 
   .drawing-actions {
@@ -300,13 +326,14 @@
   }
 
   .drawing-status {
+    flex: 1;
     margin: 0;
     min-height: 1.4em;
   }
 
   .drawing-canvas {
-    height: min(70vh, 720px);
-    min-height: 420px;
+    flex: 1;
+    min-height: 0;
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     overflow: hidden;
