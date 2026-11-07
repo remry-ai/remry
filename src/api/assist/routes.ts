@@ -31,16 +31,16 @@ export const chatRouter = router({
       pageText: z.string().max(CHAT_LIMITS.pageText * 2),
       content: z.string().trim().min(1).max(CHAT_LIMITS.message)
     }))
-    .mutation(({ ctx, input }) => sendChat(ctx.reg, ctx.pageChat, ctx.notebook.id, input)),
+    .mutation(({ ctx, input }) => gated(ctx, 'ai', () => sendChat(ctx.reg, ctx.pageChat, ctx.notebook.id, input))),
 
   status: procedure
     .input(z.object({ chatId: z.string().min(1) }))
     .query(({ ctx, input }) => getChatStatus(ctx.pageChat, ctx.notebook.id, input.chatId)),
 
-  // The ⌘K finder's /ask: one answer about the whole notebook, from full-text search (Pro).
+  // The ⌘K finder's /ask: one answer about the whole notebook, from full-text search (AI assist, Pro).
   ask: procedure
     .input(z.object({ question: z.string().trim().min(1).max(ASK_LIMITS.question) }))
-    .mutation(({ ctx, input }) => gated(ctx, 'search', () => askNotebook(ctx.reg, ctx.pageChat, ctx.notebook.id, input.question))),
+    .mutation(({ ctx, input }) => gated(ctx, 'ai', () => askNotebook(ctx.reg, ctx.pageChat, ctx.notebook.id, input.question))),
 
   clear: procedure
     .input(z.object(entity))
@@ -53,7 +53,7 @@ const syncTarget = { entityType: z.enum(['DOC', 'PAGE']), id: z.string().min(1) 
 export const syncRouter = router({
   now: procedure
     .input(z.object(syncTarget))
-    .mutation(({ ctx, input }) => startSyncNow(ctx.reg, ctx.syncRunner, ctx.notebook.id, input.entityType, input.id)),
+    .mutation(({ ctx, input }) => gated(ctx, 'sync', () => startSyncNow(ctx.reg, ctx.syncRunner, ctx.notebook.id, input.entityType, input.id))),
 
   status: procedure
     .input(z.object(syncTarget))

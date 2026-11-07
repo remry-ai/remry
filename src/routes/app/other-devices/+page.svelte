@@ -3,6 +3,7 @@
   // tailnet. Turn on checks this computer's Tailscale, shares the app with `tailscale serve`
   // and saves its name (remoteAccess.set --tailscale), which the server then answers on.
   // The address can still be set by hand, for a `tailscale serve` run some other way.
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import type { PageData } from './$types';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -152,7 +153,7 @@
       {#if shareError}<p class="form-error">{shareError}</p>{/if}
       <div class="form-actions">
         {#if tailscale?.state === 'ready'}
-          <button type="button" class="btn primary" disabled={sharing || tailscale.serving === 'other'} aria-busy={sharing} onclick={share}>{sharing ? 'Turning on…' : 'Turn on'}</button>
+          <button type="button" class="btn primary" disabled={sharing || tailscale.serving === 'other'} aria-busy={sharing} onclick={share}>{sharing ? 'Turning on…' : 'Turn on'}{#if !sharing}<ProIcon />{/if}</button>
         {:else}
           <button type="button" class="btn" disabled={checking} aria-busy={checking} onclick={checkAgain}>{checking ? 'Checking…' : 'Check again'}</button>
         {/if}
@@ -173,7 +174,7 @@
           </Field>
           {#if error}<p class="form-error">{error}</p>{/if}
           <div class="form-actions">
-            <button type="submit" class="btn" disabled={busy || !address.trim()} aria-busy={busy}>{busy ? 'Saving…' : 'Save'}</button>
+            <button type="submit" class="btn" disabled={busy || !address.trim()} aria-busy={busy}>{busy ? 'Saving…' : 'Save'}{#if !busy}<ProIcon />{/if}</button>
           </div>
         </form>
       {/if}

@@ -65,3 +65,19 @@ export const allowRequest = (request: GuardRequest, tailnetHost: string | null, 
   }
   return !request.pathname.startsWith(api.basePath) || request.header(api.localHeader) === '1';
 };
+
+/** What a remoteAccess.set call asks for. */
+export interface RemoteAccessInput {
+  readonly tailscale?: boolean;
+  readonly hostname?: string | null;
+  readonly startAtLogin?: boolean;
+  readonly port?: number;
+}
+
+/**
+ * Whether a remoteAccess.set call opens the app to other devices (sharing it on the tailnet, or
+ * setting the tailnet name by hand), which is Remry Pro. Turning that off, and starting at login,
+ * are free, so a lapsed license never leaves the app open with no way to close it.
+ */
+export const opensToOtherDevices = (input: RemoteAccessInput): boolean =>
+  input.tailscale === true || (input.hostname !== undefined && input.hostname !== null);

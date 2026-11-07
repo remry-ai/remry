@@ -65,11 +65,11 @@ describe('daysLeft', () => {
 
 describe('lockedMessage', () => {
   it('says what to do, for each state', () => {
-    expect(lockedMessage('search', { state: 'none', licensee: null, expires: null, daysLeft: null, problem: null }))
-      .toBe(`Full-text search is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
-    expect(lockedMessage('pdf-export', { state: 'expired', licensee: { name: 'Dana', email: 'd@x' }, expires: '2027-10-03', daysLeft: -2, problem: null }))
+    expect(lockedMessage('sync', { state: 'none', licensee: null, expires: null, daysLeft: null, problem: null }))
+      .toBe(`Sync now is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
+    expect(lockedMessage('ai', { state: 'expired', licensee: { name: 'Dana', email: 'd@x' }, expires: '2027-10-03', daysLeft: -2, problem: null }))
       .toContain(`expired on 2027-10-03. A renewed subscription emails a new key: add it in the app (License) or with license.activate. Otherwise renew (${REMRY_LINKS.buy}).`);
-    expect(lockedMessage('search', { state: 'invalid', licensee: null, expires: null, daysLeft: null, problem: 'this license was refunded or revoked' }))
+    expect(lockedMessage('ai', { state: 'invalid', licensee: null, expires: null, daysLeft: null, problem: 'this license was refunded or revoked' }))
       .toContain(`help with keys: ${REMRY_LINKS.help}`);
     expect(lockedMessage('branding', { state: 'none', licensee: null, expires: null, daysLeft: null, problem: null }, 'app'))
       .toBe('Branding is part of Remry Pro. Buy a license, then add its key on the License page.');

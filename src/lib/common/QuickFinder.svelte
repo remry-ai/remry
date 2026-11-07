@@ -3,10 +3,11 @@
   // no match searches titles word by word. "project: api" narrows to one type
   // (docs and todos too, loaded when first narrowed to), on Enter as well. "/search …" searches the full text and
   // "/ask …" asks the local Claude a question about the notebook, answered once
-  // with links (both Remry Pro). Rows come from quick-finder.ts.
+  // with links (Remry Pro: AI assist). Rows come from quick-finder.ts.
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { trpc } from '$shared/trpc/client';
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import { startWithLlm } from '$lib/assist/ask-llm';
   import { loadEntityOptions, type EntityOption } from '$shared/trpc/load-entity-options';
   import { RELATABLE_TYPES } from '$shared/types/enums';
@@ -56,7 +57,7 @@
 
   const scopeLabel = (scope: string): string => ENTITY_SEARCH_SCOPES.find((s) => s.id === scope)?.label ?? '';
 
-  // Full-text search and Ask are Remry Pro; the /app layout loads the license.
+  // Ask is Remry Pro (AI assist); full-text search is free. The /app layout loads the license.
   const pro = $derived.by((): boolean => {
     const license = $page.data.license as LicenseStatus | undefined;
     return license ? isProActive(license) : false;
@@ -109,7 +110,7 @@
   const scoped = $derived(parsed.kind === 'names' || parsed.kind === 'search' ? parseScope(parsed.text, available) : { scope: null, text: '' });
   const scope = $derived(scoped.scope);
   const allEntries = $derived([...entries, ...(attached.DOC ?? []), ...(attached.TODO ?? [])]);
-  const needsPro = $derived((parsed.kind === 'search' || parsed.kind === 'ask') && !pro);
+  const needsPro = $derived(parsed.kind === 'ask' && !pro);
 
   const rows = $derived.by((): readonly FinderRow[] => {
     if (submitted) return submittedRows(submitted.titles, submitted.hits ?? []);
@@ -132,7 +133,7 @@
     if (parsed.kind === 'ask') return parsed.text.trim() ? 'Press ↵ to ask Claude.' : 'Type a question about this notebook.';
     if (parsed.kind === 'commands') return 'No such command. Try /search or /ask.';
     if (scope && (scope.type === 'DOC' || scope.type === 'TODO') && !attached[scope.type]) return `Loading ${scope.label.toLowerCase()}…`;
-    if (scope) return `No matching ${scope.label.toLowerCase()}. Press ↵ to search ${pro ? 'their titles and text' : 'their titles'}.`;
+    if (scope) return `No matching ${scope.label.toLowerCase()}. Press ↵ to search their titles and text.`;
     return 'No matching names. Press ↵ to search titles.';
   });
 
@@ -163,7 +164,7 @@
     }
   };
 
-  // Enter narrowed to a type: its titles, reloaded, and with Remry Pro its full text.
+  // Enter narrowed to a type: its titles, reloaded, then its full text.
   const searchScoped = async (q: string, narrowed: FinderScope, text: string) => {
     const type = narrowed.type;
     searching = true;
@@ -172,12 +173,12 @@
       else await loadEntities(true);
       if (query !== q) return;
       const titles = titleMatches(allEntries.filter((e) => inScope(e, narrowed)), text);
-      submitted = { query: q, titles, hits: pro ? null : [] };
+      submitted = { query: q, titles, hits: null };
       active = 0;
     } finally {
       searching = false;
     }
-    if (pro) await searchHits(q, text, narrowed);
+    await searchHits(q, text, narrowed);
   };
 
   const searchText = async (q: string, text: string, narrowed?: FinderScope | null) => {
@@ -431,7 +432,7 @@
       <div class="loading-bar" class:active={waiting} role="progressbar" aria-label="Loading" aria-hidden={!waiting}></div>
       {#if needsPro}
         <p class="pro-note">
-          {parsed.kind === 'ask' ? 'Ask' : 'Full-text search'} is part of Remry Pro. <a href="/app/license" onclick={close}>See the License page</a>.
+          Ask is part of Remry Pro<ProIcon show label="Remry Pro" />. <a href="/app/license" onclick={close}>See the License page</a>.
         </p>
       {:else if parsed.kind === 'ask' && answer?.query === query}
         <!-- Enter on a focused link fires click too, so the links work from the keyboard. -->
@@ -470,7 +471,7 @@
                 <span class="kind">Search {row.scope.label.toLowerCase()} only <kbd>tab</kbd></span>
               {:else if row.kind === 'command'}
                 <span class="name">/{row.command.id}</span>
-                <span class="kind">{row.command.label}</span>
+                <span class="kind">{row.command.label}{#if row.command.id === 'ask'}<ProIcon />{/if}</span>
               {:else if row.kind === 'hit'}
                 <span class="line">
                   <span class="name truncate">{row.hit.name}</span>

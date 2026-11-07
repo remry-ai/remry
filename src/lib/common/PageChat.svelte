@@ -9,6 +9,9 @@
   import { askAboutPage, waitForReply } from '$lib/common/use-page-chat';
   import { startWithLlm } from '$lib/assist/ask-llm';
   import { assistantName } from '$lib/stores/assistant';
+  import { page as appPage } from '$app/state';
+  import ProLock from '$lib/ui/ProLock.svelte';
+  import { isProActive, lockedMessage, NO_LICENSE, type LicenseStatus } from '$shared/types/license';
 
   interface Props {
     readonly page: RightPanelPage;
@@ -29,6 +32,10 @@
   onDestroy(() => closed.abort());
 
   const entity = () => ({ entityType: page.entityType, entityId: page.entityId });
+
+  // Chat is Remry Pro (AI assist): without it a saved conversation still shows, but there's no composer.
+  const license = $derived((appPage.data?.license as LicenseStatus | undefined) ?? NO_LICENSE);
+  const locked = $derived(!isProActive(license));
 
   $effect(() => {
     void messages.length;
@@ -136,6 +143,9 @@
     {/if}
   </div>
 
+  {#if locked}
+    <div class="composer"><ProLock title="Chat" message={lockedMessage('ai', license, 'app')} compact /></div>
+  {:else}
   <form class="composer" onsubmit={(e) => { e.preventDefault(); void send(); }}>
     <textarea
       rows="3"
@@ -153,6 +163,7 @@
       </button>
     </div>
   </form>
+  {/if}
 </div>
 
 <style lang="scss">

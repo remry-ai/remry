@@ -5,7 +5,6 @@
   // tag and title, so a doc scrolled down still names itself. That row is pulled up over what's
   // above the bar (hidden, so nothing jumps when it shows); the bar is stuck once it has moved.
   import type { Snippet } from 'svelte';
-  import ProBadge from '$lib/ui/ProBadge.svelte';
   import { BODY_LABELS, type BodyType } from '$shared/types/body-types';
 
   interface Props {
@@ -59,7 +58,7 @@
     <div class="tabs scroll">
       {#if tabs}{@render tabs()}{/if}
       {#if exportHref}
-        <a class="tab" class:divided={!!tabs} href={exportHref} onclick={onExport}>Export PDF <ProBadge /></a>
+        <a class="tab" class:divided={!!tabs} href={exportHref} onclick={onExport}>Export PDF</a>
       {/if}
     </div>
     <div class="doc-actions">

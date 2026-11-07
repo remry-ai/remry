@@ -3,8 +3,10 @@ import { router, procedure } from '$shared/trpc/init';
 import { setTailnetHost, tailnetAccess } from '$shared/remote/store.server';
 import { readTailscale, shareOnTailnet, stopSharing } from '$shared/remote/tailscale.server';
 import { DEFAULT_APP_PORT } from '$shared/remote/tailscale';
+import { opensToOtherDevices, type RemoteAccessInput } from '$shared/remote/tailnet';
 import { setStartAtLogin, startAtLoginStatus } from '$shared/startup/login-agent.server';
 import { ok, err } from '$shared/utils/result';
+import { gated } from '$api/_license';
 
 // Opening Remry from other devices belongs to the computer, not a notebook: the tailnet name
 // ($shared/remote/tailnet.ts), the user's Tailscale ($shared/remote/tailscale.ts) and starting
@@ -31,24 +33,30 @@ export const remoteAccessRouter = router({
       startAtLogin: z.boolean().optional().describe('Start the app server, with no window, when you log in to this Mac.'),
       port
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       if (input.tailscale === undefined && input.hostname === undefined && input.startAtLogin === undefined) {
         return err(new Error('Give tailscale, hostname or startAtLogin.'));
       }
       if (input.tailscale !== undefined && input.hostname !== undefined) return err(new Error('Give tailscale or hostname, not both.'));
-      const appPort = input.port ?? DEFAULT_APP_PORT;
-      if (input.tailscale !== undefined) {
-        const shared = input.tailscale ? await shareOnTailnet(appPort) : await stopSharing(appPort);
-        if (!shared.ok) return shared;
-      }
-      if (input.hostname !== undefined) {
-        const set = await setTailnetHost(input.hostname);
-        if (!set.ok) return set;
-      }
-      if (input.startAtLogin !== undefined) {
-        const login = await setStartAtLogin(input.startAtLogin);
-        if (!login.ok) return login;
-      }
-      return ok({ ...(await tailnetAccess()), startAtLogin: startAtLoginStatus() });
+      // Opening the app to other devices is Remry Pro; turning it off, and starting at login, always work.
+      if (!opensToOtherDevices(input)) return applyRemoteAccess(input);
+      return gated(ctx, 'other-devices', () => applyRemoteAccess(input));
     })
 });
+
+const applyRemoteAccess = async (input: RemoteAccessInput) => {
+  const appPort = input.port ?? DEFAULT_APP_PORT;
+  if (input.tailscale !== undefined) {
+    const shared = input.tailscale ? await shareOnTailnet(appPort) : await stopSharing(appPort);
+    if (!shared.ok) return shared;
+  }
+  if (input.hostname !== undefined) {
+    const set = await setTailnetHost(input.hostname);
+    if (!set.ok) return set;
+  }
+  if (input.startAtLogin !== undefined) {
+    const login = await setStartAtLogin(input.startAtLogin);
+    if (!login.ok) return login;
+  }
+  return ok({ ...(await tailnetAccess()), startAtLogin: startAtLoginStatus() });
+};

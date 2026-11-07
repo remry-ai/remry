@@ -170,8 +170,6 @@ Wiki pages have no kinds or fields: a page is a document, a spreadsheet or a dra
 
 ## Searching
 
-**Full-text search is part of Remry Pro.** Without an active license, `search.query` and `search.recall` return an error saying so. Then don't retry: answer with the list and get procedures instead (`person.get`, `note.list`, `todo.forEntity`, `doc.list`, `relation.forEntity`, and `<type>.list` to find ids by name), and mention once that full-text search comes with Pro. `license.status` says whether this computer has a license; if the user gives you a key (it starts `WN1.`), add it with `license.activate --key <key>`.
-
 `search.query --q "<words>"` searches the text of everything in the notebook: names and titles, notes, docs, wiki pages (content and property values), todos, comments, links and goal check-in comments. Matches in names and titles rank first.
 
 - **Words:** every word must match, and each also matches as a prefix (`migr` finds "migration"). Word endings are ignored (`leaving` finds "leave"), and so are case and accents.
@@ -228,7 +226,7 @@ When the user asks for a report or write-up, write it as a doc on the person, gr
 1. Gather the facts first (`person.get`, `note.list`, `todo.forEntity`, and so on). Don't invent numbers; ask for them if they're missing.
 2. Write the markdown. Add charts as fenced `chart` blocks; the syntax is in [references/charts.md](references/charts.md). Refer to a drawing by linking its page (`[Architecture](/app/wiki/<id>)`); drawings aren't shown inside a document's text (a drawing can be a doc of its own, `--bodyType drawing`) ([references/drawings.md](references/drawings.md)). A horizontal rule (`---` on its own line, with a blank line above it) starts a new page when the doc is exported to PDF, and isn't drawn; so use `---` only where the user wants a new page (say, before an appendix), not as a decorative divider. A `<!-- table-cols: 30, 20, 50 -->` line above a table holds the column widths the user set by dragging in the editor (percents, one per column); it's never shown. Keep it with its table when you rewrite a doc, drop it if you change the table's columns, and add one yourself only when the user asks for set widths.
 3. `remry doc.add --entityType GROUP --entityId <id> --title "Q3 review"`, then `remry doc.update --id <doc> --content-file /tmp/q3.md`.
-4. Tell the user where to view it. Call `app_open` (with the doc's `notebook`) so the app is running, then link the doc: the entity's page with `?doc=<doc id>&notebook=<notebook id>`. Its "Export PDF" button makes a PDF with the notebook's branding (Remry Pro).
+4. Tell the user where to view it. Call `app_open` (with the doc's `notebook`) so the app is running, then link the doc: the entity's page with `?doc=<doc id>&notebook=<notebook id>`. Its "Export PDF" button makes a PDF, with the notebook's branding and letterhead with Remry Pro.
 
 ## Importing from other tools
 
@@ -256,7 +254,7 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
 
 **Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
-1. Get them: `search.recall` returns its `links` with `syncedAt` and `sourceEditedAt`, and `docSources`, the links on its docs, each with its `docId` (without Pro: `link.list` for the entity and for each doc). Only links with a `syncedAt` count, except on a sync doc (below), where a link without one is a source the user added by hand.
+1. Get them: `search.recall` returns its `links` with `syncedAt` and `sourceEditedAt`, and `docSources`, the links on its docs, each with its `docId`. Only links with a `syncedAt` count, except on a sync doc (below), where a link without one is a source the user added by hand.
 2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed. Compare it with the link's `sourceEditedAt` (the doc's own time at the last sync, so clocks don't matter); a link without one is compared with `syncedAt`.
 3. **Edited since:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link> --sourceEditedAt <its last-edited time>`.
 4. **Not edited since:** `link.markSynced --id <link> --sourceEditedAt <the same time>`, so the app shows it as checked. Don't read the content, and add no note.
@@ -362,7 +360,13 @@ The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is
 
 ## Remry Pro
 
-A yearly license unlocks three things: full-text search (`search.*`), branding (creating or changing brandings, and the app wearing them), and PDF export of docs and wiki pages. Everything else is free. Without a license, those procedures return an error that says so, and the app shows a Pro notice; nothing stored is lost, and it all comes back with the license. The license belongs to the computer, so it covers every notebook. Never look for, edit or work around the license file.
+A yearly license unlocks:
+- **More than 3 drawings in a notebook.** Each notebook has 3 free drawings (drawing pages and docs together, archived ones included). Past them, `page.create --bodyType drawing`, `doc.add --bodyType drawing`, turning an empty page or doc into a drawing, and `drawing.importLink` into a new one return an error saying so. Existing drawings stay fully editable, and deleting one frees a place. Don't work around it by making another kind of page: tell the user, and offer a mermaid diagram in a doc instead.
+- **Branding:** creating or changing brandings, the app wearing them, and branded PDFs (plain PDF export is free).
+- **AI assist and Sync now in the app:** its Chat tab, the finder's /ask, Convert with Claude, and Sync now. Nothing you do through these tools is limited by them: you can still write and sync docs yourself.
+- **Opening Remry on other devices:** `remoteAccess.set --tailscale true` or `--hostname`. Turning it off, and `--startAtLogin`, are free.
+
+Everything else is free, full-text search (`search.query`, `search.recall`) and spreadsheets included. A locked procedure returns an error that says so: don't retry it, say it once, and carry on. Nothing stored is lost without a license, and it all comes back with one. The license belongs to the computer, so it covers every notebook. `license.status` says whether this computer has one; if the user gives you a key (it starts `WN1.`), add it with `license.activate --key <key>`. Never look for, edit or work around the license file.
 
 **Opening the app from another device.** If the user wants Remry on their phone or another computer, it goes through their Tailscale tailnet. `remoteAccess.status` says what this computer's Tailscale is missing (not installed, not running, signed out, HTTPS certificates off: tell them how to fix that one thing); then `remoteAccess.set --tailscale true` shares the app with `tailscale serve` and returns the `https://<machine>.<tailnet>.ts.net/app` address to open on their devices (`--tailscale false` turns it off). They need Tailscale on the phone too, signed in to the same account. `remoteAccess.set --startAtLogin true` starts the app at login on a Mac with the desktop app, so it still works after a restart. The app's Other devices page (notebook menu) does the same. Nothing else opens it to the network: never suggest Funnel, port forwarding or another hostname.
 

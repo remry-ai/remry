@@ -3,6 +3,7 @@ import { ENTITY_TYPES } from '$shared/types/enums';
 import { router, procedure } from '$shared/trpc/init';
 import { excalidrawBackend } from '$shared/drawing/excalidraw-backend.server';
 import { importShareLink, shareDrawing } from './operations';
+import { drawingGated } from '$api/_license';
 
 // The only procedures that reach the network, and only excalidraw.com's share-link storage.
 export const drawingRouter = router({
@@ -23,5 +24,7 @@ export const drawingRouter = router({
       parentId: z.string().optional(),
       replace: z.boolean().optional()
     }))
-    .mutation(({ ctx, input }) => importShareLink(ctx.reg, excalidrawBackend, input))
+    // A new page or doc is another drawing; filling an empty one (pageId or docId) isn't.
+    .mutation(({ ctx, input }) =>
+      drawingGated(ctx, ctx.reg, input.pageId === undefined && input.docId === undefined, () => importShareLink(ctx.reg, excalidrawBackend, input)))
 });

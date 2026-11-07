@@ -9,7 +9,7 @@
   import Field from '$lib/ui/Field.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import { submit, submitOrThrow } from '$lib/ui/submit';
-  import { isProActive, PRO_FEATURES, PRO_FEATURE_LABELS, RENEWAL_NOTICE_DAYS } from '$shared/types/license';
+  import { isProActive, PRO_FEATURES, PRO_FEATURE_DETAILS, PRO_FEATURE_LABELS, RENEWAL_NOTICE_DAYS } from '$shared/types/license';
   import { REMRY_LINKS } from '$shared/types/site';
 
   const { data }: { data: PageData } = $props();
@@ -43,7 +43,7 @@
 <svelte:head><title>License</title></svelte:head>
 
 <div class="page">
-  <PageHeader title="License" description="Remry Pro unlocks branding, PDF export and full-text search. A license lasts a year, and everything else is free." />
+  <PageHeader title="License" description="Remry Pro unlocks AI assist, Sync now, unlimited drawings, branding and other devices. A license lasts a year, and everything else, full-text search and PDF export included, is free." />
 
   <section class="card status">
     {#if active}
@@ -74,7 +74,7 @@
     <ul class="list features">
       {#each PRO_FEATURES as feature (feature)}
         <li class="list-row">
-          <span class="grow">{PRO_FEATURE_LABELS[feature]}</span>
+          <span class="grow"><span class="feature">{PRO_FEATURE_LABELS[feature]}</span> <span class="text-2 text-sm">{PRO_FEATURE_DETAILS[feature]}</span></span>
           <span class="meta">{active ? 'Unlocked' : 'Locked'}</span>
         </li>
       {/each}

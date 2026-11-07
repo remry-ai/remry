@@ -7,6 +7,9 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import { submit } from '$lib/ui/submit';
   import { BODY_LABELS, BODY_TYPES, type BodyType } from '$shared/types/body-types';
+  import { page } from '$app/state';
+  import ProIcon from '$lib/ui/ProIcon.svelte';
+  import { drawingAllowanceNote, type DrawingAllowanceView } from '$lib/license/drawings';
 
   interface PageData {
     readonly id?: string;
@@ -31,6 +34,12 @@
   let shareLink = $state('');
   let submitting = $state(false);
   let error = $state('');
+
+  // Drawings are free up to a number per notebook: the form says how many are used, and once
+  // they're gone it says so with the Pro icon and doesn't offer to add one.
+  const allowance = $derived(page.data?.drawingAllowance as DrawingAllowanceView | undefined);
+  const drawingNote = $derived(allowance ? drawingAllowanceNote(allowance) : null);
+  const drawingLocked = $derived(!isEdit && bodyType === 'drawing' && allowance !== undefined && !allowance.canAdd);
 
   const handleSubmit = async () => {
     submitting = true;
@@ -77,7 +86,11 @@
     {/if}
   </div>
 
-  {#if !isEdit && bodyType === 'drawing'}
+  {#if !isEdit && bodyType === 'drawing' && drawingNote}
+    <p class="text-sm" class:text-2={!drawingLocked}>{drawingNote}{#if drawingLocked}<ProIcon show label="Remry Pro" /> <a href="/app/license">License</a>{/if}</p>
+  {/if}
+
+  {#if !isEdit && bodyType === 'drawing' && !drawingLocked}
     <Field label="From an Excalidraw link" hint="Optional. Paste a share link (excalidraw.com/#json=…) to start from that drawing; Remry fetches it from excalidraw.com and decrypts it here.">
       {#snippet children({ id })}
         <input {id} type="url" bind:value={shareLink} placeholder="https://excalidraw.com/#json=…" />
@@ -88,7 +101,7 @@
   {#if error}<p class="form-error">{error}</p>{/if}
 
   <div class="form-actions">
-    <button type="submit" class="btn primary" disabled={submitting || !title.trim()} aria-busy={submitting}>
+    <button type="submit" class="btn primary" disabled={submitting || !title.trim() || drawingLocked} aria-busy={submitting}>
       {isEdit ? 'Save' : 'Add page'}
     </button>
     {#if onCancel}

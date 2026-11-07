@@ -30,6 +30,27 @@ export const resolvePrintOptions = (
   return { choice: '', brandingId: defaultId, header };
 };
 
+export interface PrintBrandingChoice<B extends BrandingRef> {
+  /** The brandings to offer: none without Remry Pro. */
+  readonly brandings: readonly B[];
+  readonly options: PrintOptions;
+  /** Branded export is Remry Pro: the page prints plain, and the branding choice shows it's locked. */
+  readonly brandingLocked: boolean;
+}
+
+/**
+ * What a print page offers. Plain PDF export is free; choosing a branding or its letterhead is
+ * Remry Pro, so without it the page ignores ?branding and ?header and prints without a branding.
+ */
+export const printBrandingChoice = <B extends BrandingRef>(
+  params: URLSearchParams,
+  brandings: readonly B[],
+  pro: boolean
+): PrintBrandingChoice<B> =>
+  pro
+    ? { brandings, options: resolvePrintOptions(params, brandings), brandingLocked: false }
+    : { brandings: [], options: { choice: '', brandingId: null, header: false }, brandingLocked: true };
+
 const printPath = (base: string, choice: string, header: boolean): string => {
   const params = new URLSearchParams();
   if (choice) params.set('branding', choice);

@@ -4,6 +4,7 @@
   import { clampDrawerWidth, PANEL_MIN_W } from '$lib/common/panel-width';
   import NotesList from '$lib/common/NotesList.svelte';
   import PageChat from '$lib/common/PageChat.svelte';
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import TodoWidget from '$lib/todo/components/TodoWidget.svelte';
   import DoneTodos from '$lib/todo/components/DoneTodos.svelte';
   import { isClosedTodo } from '$lib/todo/utils';
@@ -66,7 +67,7 @@
         Done
       </button>
       <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'chat'} aria-selected={$rightPanelTab === 'chat'} onclick={() => rightPanelTab.set('chat')}>
-        Chat
+        Chat<ProIcon />
       </button>
       {#if $rightPanelPeek}
         <button type="button" role="tab" class="tab" class:active={$rightPanelTab === 'peek'} aria-selected={$rightPanelTab === 'peek'} onclick={() => rightPanelTab.set('peek')}>

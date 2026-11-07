@@ -95,12 +95,19 @@ describe('remry mcp', () => {
     const person = JSON.parse((await callTool('person_get', { id })).text) as { name: string };
     expect(person).toMatchObject({ name: '2024 Mika Tanaka', extensions: { org: { title: '2024' } } });
 
-    // Full-text search is Remry Pro: refused, with the way out, until a license is added.
-    const locked = await callTool('search_query', { q: 'tanaka' });
+    // Full-text search is free.
+    expect((await callTool('search_query', { q: 'tanaka' })).isError).toBe(false);
+
+    // Drawings are free up to 3 a notebook; a fourth is Remry Pro, refused with the way out, until a license is added.
+    for (const n of [1, 2, 3]) expect((await callTool('page_create', { title: `MCP drawing ${n}`, bodyType: 'drawing' })).isError).toBe(false);
+    const locked = await callTool('page_create', { title: 'MCP drawing 4', bodyType: 'drawing' });
     expect(locked.isError).toBe(true);
-    expect(locked.text).toContain('Remry Pro');
+    expect(locked.text).toContain('3 are free in each notebook');
     expect(locked.text).toContain('license.activate');
+    // Spreadsheets have no limit.
+    for (const n of [1, 2, 3, 4]) expect((await callTool('page_create', { title: `MCP sheet ${n}`, bodyType: 'sheet' })).isError).toBe(false);
     expect((await callTool('license_activate', { key: testLicenseKey() })).isError).toBe(false);
+    expect((await callTool('page_create', { title: 'MCP drawing 4', bodyType: 'drawing' })).isError).toBe(false);
 
     const found = JSON.parse((await callTool('search_query', { q: 'tanaka' })).text) as { results: Array<{ entityId: string }> };
     expect(found.results.map((r) => r.entityId)).toContain(id);

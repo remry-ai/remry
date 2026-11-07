@@ -2,6 +2,8 @@
 
 A drawing is a wiki page with `bodyType: drawing`, or a doc with it (`doc.add --bodyType drawing`, then `doc.update --content-file`, on a person, group, project or goal): a diagram the user edits by hand in the app (Excalidraw: shapes, arrows, text, a hand-drawn look). You write it as a **skeleton**, a short list of shapes, labels and arrows; the app lays it out, draws it, and keeps it editable. Its text is searchable. The page or doc shows the drawing as a picture; clicking it opens the editor full screen. A drawing is only ever its own page or doc: it isn't shown inside the text of docs, notes or other pages.
 
+Each notebook has 3 free drawings; more are Remry Pro (the skill's **Remry Pro**). Making a fourth without a license returns an error saying so: tell the user, and offer a mermaid diagram in a doc instead. Editing an existing drawing is never limited.
+
 ```bash
 remry page.create --title "Request flow" --bodyType drawing --content-file /tmp/flow.json
 ```

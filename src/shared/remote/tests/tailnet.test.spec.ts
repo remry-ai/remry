@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allowRequest, isTailnetHostname, parseTailnetHost, storedTailnetHost } from '../tailnet';
+import { allowRequest, isTailnetHostname, opensToOtherDevices, parseTailnetHost, storedTailnetHost } from '../tailnet';
 
 const API = { basePath: '/api/trpc', localHeader: 'x-remry' };
 const HOST = 'my-mac.tail1234.ts.net';
@@ -63,5 +63,21 @@ describe('allowRequest', () => {
 
   it('refuses Funnel traffic from the internet', () => {
     expect(allowRequest(request(HOST, '/app', { 'tailscale-funnel-request': '?1' }), HOST, API)).toBe(false);
+  });
+});
+
+describe('opensToOtherDevices', () => {
+  it('is true for sharing on the tailnet or setting a tailnet name: the Pro part', () => {
+    expect(opensToOtherDevices({ tailscale: true })).toBe(true);
+    expect(opensToOtherDevices({ hostname: 'mac.tail1234.ts.net' })).toBe(true);
+    expect(opensToOtherDevices({ tailscale: true, startAtLogin: false })).toBe(true);
+  });
+
+  it('is false for turning it off and for starting at login, which stay free', () => {
+    expect(opensToOtherDevices({ tailscale: false })).toBe(false);
+    expect(opensToOtherDevices({ hostname: null })).toBe(false);
+    expect(opensToOtherDevices({ startAtLogin: true })).toBe(false);
+    expect(opensToOtherDevices({ startAtLogin: false, tailscale: false })).toBe(false);
+    expect(opensToOtherDevices({})).toBe(false);
   });
 });

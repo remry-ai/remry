@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
@@ -195,7 +196,7 @@
     <DocTitle {title} bodyType="doc" {onSaveTitle} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
       {#snippet after()}
         {#if hasSourceFile && onConvert && !converting && !content.trim()}
-          <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}</button>
+          <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}<ProIcon /></button>
         {/if}
       {/snippet}
     </DocTitle>

@@ -4,6 +4,7 @@ import { BODY_TYPES } from '$shared/types/body-types';
 import { router, procedure } from '$shared/trpc/init';
 import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
+import { becomesDrawing, drawingGated } from '$api/_license';
 
 export const docRouter = router({
   list: procedure
@@ -28,7 +29,7 @@ export const docRouter = router({
       title: z.string().min(1).max(200),
       bodyType: z.enum(BODY_TYPES).optional()
     }))
-    .mutation(({ ctx, input }) => addDoc(ctx.reg, input.entityType, input.entityId, input)),
+    .mutation(({ ctx, input }) => drawingGated(ctx, ctx.reg, input.bodyType === 'drawing', () => addDoc(ctx.reg, input.entityType, input.entityId, input))),
 
   update: procedure
     .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs), bodyType (only while empty), or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it), or moves it to another entity (entityType + entityId), keeping its images, links and notes.' })
@@ -41,7 +42,8 @@ export const docRouter = router({
       entityType: z.enum(ENTITY_TYPES).optional(),
       entityId: z.string().optional()
     }))
-    .mutation(({ ctx, input }) => updateDoc(ctx.reg, input.id, input)),
+    .mutation(async ({ ctx, input }) =>
+      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType), () => updateDoc(ctx.reg, input.id, input))),
 
   remove: procedure
     .input(z.object({ id: z.string() }))

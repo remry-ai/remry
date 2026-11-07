@@ -5,6 +5,7 @@ import { listLinks, findLinks, addLink, markLinkSynced, readLinkFile, removeLink
 import { convertFileLink, getFileLinkConversion, transcribeFileLink } from './convert';
 import { FILE_LINK_HOLDERS } from '$shared/utils/file-links';
 import { recordClaudeSync } from '$api/_last-sync';
+import { gated } from '$api/_license';
 
 // Base64 inflates by a third; this stays under the 25M BODY_SIZE_LIMIT (~18 MB of file), as for a doc's PDF.
 const MAX_FILE_BASE64_CHARS = 24_000_000;
@@ -78,7 +79,7 @@ export const linkRouter = router({
 
   convert: procedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => convertFileLink(ctx.reg, ctx.pdfConverter, ctx.notebook.id, input.id)),
+    .mutation(({ ctx, input }) => gated(ctx, 'ai', () => convertFileLink(ctx.reg, ctx.pdfConverter, ctx.notebook.id, input.id))),
 
   // The web app's "Re-read": saves a file link's text with the local Claude (link.conversion with LINK and its id until done).
   transcribe: procedure

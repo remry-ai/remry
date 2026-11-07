@@ -1,9 +1,12 @@
 <script lang="ts">
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
-  import ProBadge from '$lib/ui/ProBadge.svelte';
   import { goto, invalidateAll } from '$app/navigation';
+  import { page } from '$app/state';
+  import { hasPro } from '$lib/license/pro';
+  import { drawingAllowanceNote, type DrawingAllowanceView } from '$lib/license/drawings';
   import { trpc } from '$shared/trpc/client';
   import EntityDetailPage from '$lib/common/EntityDetailPage.svelte';
   import DocEditor from '$lib/common/DocEditor.svelte';
@@ -100,8 +103,9 @@
     const empty = !wikiPage.content.trim();
     const linkId = await uploadFileLink('PAGE', wikiPage.id, file);
     await invalidateAll();
-    // Writing the page saves the file's text too; otherwise save it on its own.
-    if (empty) void handleConvert(linkId);
+    // Writing the page saves the file's text too; otherwise save it on its own. Writing it is
+    // Remry Pro (AI assist), so without it the file stays a link, its text saved.
+    if (empty && hasPro(page.data ?? {})) void handleConvert(linkId);
     else transcribeInBackground(linkId);
   };
   // "Sync now": the local Claude rewrites the page from its sources.
@@ -148,6 +152,11 @@
     editingId = null;
     await invalidateAll();
   };
+
+  // Drawings are free up to a number per notebook; past them the button wears the Pro icon and
+  // the server's refusal says why.
+  const drawingAllowance = $derived(page.data?.drawingAllowance as DrawingAllowanceView | undefined);
+  const drawingTitle = $derived(drawingAllowance ? drawingAllowanceNote(drawingAllowance) ?? undefined : undefined);
 
   let sheetError = $state('');
   const handleMakeBody = async (bodyType: GridOrDrawing) => {
@@ -260,7 +269,7 @@
         <div class="section-header">
           <h4>{BODY_LABELS[wikiPage.bodyType]}</h4>
           <span class="content-actions">
-            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export PDF <ProBadge /></a>
+            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export PDF</a>
             {#if wikiPage.bodyType === 'sheet'}
               <SheetActions control={sheet} editable={!wikiPage.archivedAt} />
             {/if}
@@ -298,9 +307,9 @@
           <h4>Content</h4>
           <span class="content-actions">
             {#if wikiPage.content.trim()}
-              <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+              <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF</a>
             {:else if fileLink && !converting && !wikiPage.archivedAt && isDocument}
-              <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}</button>
+              <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}<ProIcon /></button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={startEditing}><PencilIcon /></button>
           </span>
@@ -314,7 +323,7 @@
           <EmptyState message="This page is empty.">
             <button type="button" class="btn sm" onclick={startEditing}>Write it</button>
             <button type="button" class="btn ghost sm" onclick={() => handleMakeBody('sheet')}>Make it a spreadsheet</button>
-            <button type="button" class="btn ghost sm" onclick={() => handleMakeBody('drawing')}>Make it a drawing</button>
+            <button type="button" class="btn ghost sm" onclick={() => handleMakeBody('drawing')} title={drawingTitle}>Make it a drawing<ProIcon show={!!drawingAllowance && !drawingAllowance.canAdd} /></button>
           </EmptyState>
           {#if sheetError}<p class="form-error">{sheetError}</p>{/if}
         {/if}

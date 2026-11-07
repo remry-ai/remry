@@ -8,6 +8,10 @@
     readonly current?: boolean;
     /** Draw a divider above this item. */
     readonly divided?: boolean;
+    /** Small muted text at the item's right end ("2 of 3 free"). */
+    readonly hint?: string;
+    /** Mark it as Remry Pro, with the Pro icon after its label. */
+    readonly pro?: boolean;
   }
 </script>
 
@@ -15,6 +19,7 @@
   // A button that opens a short list of links and actions. Closes on Escape, on a
   // click outside, on Tab and after a pick. Arrow keys, Home and End move between items.
   import type { Snippet } from 'svelte';
+  import ProIcon from './ProIcon.svelte';
 
   interface Props {
     /** The menu's accessible name, and the trigger text when there is no trigger snippet. */
@@ -109,12 +114,14 @@
         {#if item.href}
           <a role="menuitem" class="menu-item" href={item.href} tabindex="-1" aria-current={item.current ? 'true' : undefined} onclick={() => close()}>
             <span class="menu-check" aria-hidden="true">{item.current ? '✓' : ''}</span>
-            <span class="truncate">{item.label}</span>
+            <span class="truncate">{item.label}</span>{#if item.pro}<ProIcon show />{/if}
+            {#if item.hint}<span class="menu-hint">{item.hint}</span>{/if}
           </a>
         {:else}
           <button role="menuitem" type="button" class="menu-item" tabindex="-1" aria-current={item.current ? 'true' : undefined} onclick={() => pick(item)}>
             <span class="menu-check" aria-hidden="true">{item.current ? '✓' : ''}</span>
-            <span class="truncate">{item.label}</span>
+            <span class="truncate">{item.label}</span>{#if item.pro}<ProIcon show />{/if}
+            {#if item.hint}<span class="menu-hint">{item.hint}</span>{/if}
           </button>
         {/if}
       {/each}
@@ -154,6 +161,13 @@
       left: auto;
       right: 0;
     }
+  }
+  .menu-hint {
+    margin-inline-start: auto;
+    padding-inline-start: var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+    white-space: nowrap;
   }
   .menu-item {
     display: flex;

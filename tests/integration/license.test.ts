@@ -28,8 +28,12 @@ describe('license', () => {
     const api = await caller();
     expect(await api.license.status()).toMatchObject({ ok: true, value: { state: 'none' } });
 
-    const search = await api.search.query({ q: 'alice' });
-    expect(!search.ok && search.error.message).toBe(`Full-text search is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
+    // Full-text search is free.
+    expect((await api.search.query({ q: 'alice' })).ok).toBe(true);
+    expect((await api.search.recall({ entityType: 'PERSON', entityId: 'person_alice' })).ok).toBe(true);
+
+    const sync = await api.sync.now({ entityType: 'DOC', id: 'doc_none' });
+    expect(!sync.ok && sync.error.message).toBe(`Sync now is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
     const branding = await api.branding.create({ name: 'Acme' });
     expect(!branding.ok && branding.error.message).toContain('Branding is part of Remry Pro');
 
@@ -53,7 +57,9 @@ describe('license', () => {
     // Beside the default notebook in settings.json, which it keeps.
     expect(settingsJson()).toMatchObject({ defaultNotebook: TEST_NOTEBOOK, licenseKey: expect.stringMatching(/^WN1\./) });
 
-    expect((await api.search.query({ q: 'alice' })).ok).toBe(true);
+    // Past the gate: Sync now gets as far as finding the doc.
+    const sync = await api.sync.now({ entityType: 'DOC', id: 'doc_none' });
+    expect(!sync.ok && sync.error.message).not.toContain('Remry Pro');
     const created = await api.branding.create({ name: 'Acme' });
     expect(created.ok).toBe(true);
     if (created.ok) expect((await api.branding.update({ id: created.value.id, primaryColor: '#112233' })).ok).toBe(true);
@@ -63,11 +69,11 @@ describe('license', () => {
     storeKey(testLicenseKey('2021-06-30'));
     const api = await caller();
     expect(await currentLicense()).toMatchObject({ state: 'expired', expires: '2021-06-30' });
-    const search = await api.search.query({ q: 'alice' });
-    expect(!search.ok && search.error.message).toContain('expired on 2021-06-30');
+    const branding = await api.branding.create({ name: 'Lapsed' });
+    expect(!branding.ok && branding.error.message).toContain('expired on 2021-06-30');
 
     expect((await activateLicense(testLicenseKey())).ok).toBe(true);
-    expect((await api.search.query({ q: 'alice' })).ok).toBe(true);
+    expect((await api.branding.create({ name: 'Renewed' })).ok).toBe(true);
   });
 
   it('says a tampered stored key is invalid', async () => {

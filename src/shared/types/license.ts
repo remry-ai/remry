@@ -3,15 +3,29 @@
 
 import { REMRY_LINKS } from './site';
 
-export const PRO_FEATURES = ['branding', 'pdf-export', 'search'] as const;
+export const PRO_FEATURES = ['ai', 'sync', 'drawings', 'branding', 'other-devices'] as const;
 export type ProFeature = (typeof PRO_FEATURES)[number];
 
+/** Drawings each notebook makes without a license; more need Remry Pro. Existing ones always stay editable. */
+export const FREE_DRAWINGS = 3;
+
+/** A feature's name, as "<name> is part of Remry Pro" says it. */
 export const PRO_FEATURE_LABELS: Readonly<Record<ProFeature, string>> = {
+  ai: 'AI assist',
+  sync: 'Sync now',
+  drawings: `More than ${FREE_DRAWINGS} drawings`,
   branding: 'Branding',
-  'pdf-export': 'PDF export',
-  search: 'Full-text search'
+  'other-devices': 'Opening Remry on other devices'
 };
 
+/** What each feature covers, for the License page. */
+export const PRO_FEATURE_DETAILS: Readonly<Record<ProFeature, string>> = {
+  ai: 'Chat about a page, /ask in the finder, and Convert with Claude',
+  sync: 'Rewriting a sync doc from its sources with one click',
+  drawings: `Free notebooks hold ${FREE_DRAWINGS} drawings each`,
+  branding: 'Your colours, logo and letterhead, in the app and in PDFs',
+  'other-devices': 'Your phone or another computer on your tailnet'
+};
 /** What a license key carries, signed. Dates are YYYY-MM-DD (UTC); a license is good through `expires`. */
 export interface LicensePayload {
   readonly v: 1;
@@ -49,8 +63,14 @@ export const isProActive = (status: LicenseStatus): boolean => status.state === 
  * procedure (`tool`, the default), or the user in the app (`app`). The tool message carries the
  * buy and help links, for Claude to pass on; in the app, the License page has them.
  */
-export const lockedMessage = (feature: ProFeature, status: LicenseStatus, audience: 'tool' | 'app' = 'tool'): string => {
-  const what = `${PRO_FEATURE_LABELS[feature]} is part of Remry Pro`;
+export const lockedMessage = (
+  feature: ProFeature,
+  status: LicenseStatus,
+  audience: 'tool' | 'app' = 'tool',
+  /** Replaces "<feature> is part of Remry Pro", for a limit that needs saying differently. */
+  lead?: string
+): string => {
+  const what = lead ?? `${PRO_FEATURE_LABELS[feature]} is part of Remry Pro`;
   const where = audience === 'app' ? 'on the License page' : 'in the app (License) or with license.activate';
   const at = (url: string): string => (audience === 'app' ? '' : ` (${url})`);
   switch (status.state) {
@@ -62,3 +82,15 @@ export const lockedMessage = (feature: ProFeature, status: LicenseStatus, audien
       return `${what}. Buy a license${at(REMRY_LINKS.buy)}, then add its key ${where}.`;
   }
 };
+
+/** Why another drawing is locked: the free ones are used up in this notebook. Existing ones stay editable. */
+export const drawingLimitMessage = (used: number, status: LicenseStatus, audience: 'tool' | 'app' = 'tool'): string =>
+  lockedMessage(
+    'drawings',
+    status,
+    audience,
+    `This notebook has ${used} drawing${used === 1 ? '' : 's'}, and ${FREE_DRAWINGS} are free in each notebook; more are part of Remry Pro. Its drawings stay editable either way, and deleting one frees a place`
+  );
+
+/** Whether a notebook with `used` drawings may make another. */
+export const canAddDrawing = (used: number, status: LicenseStatus): boolean => isProActive(status) || used < FREE_DRAWINGS;

@@ -6,6 +6,7 @@ import { setArchived } from '$api/_archive';
 import { createPage, deletePage, getPage, listPages, updatePage, uploadPageImage } from './operations';
 
 import { EDITOR_IMAGE_TYPES, MAX_IMAGE_BASE64_CHARS } from '$api/_images';
+import { becomesDrawing, drawingGated } from '$api/_license';
 
 // doc: content is markdown. sheet: content is JSON, {"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]};
 // cells are strings, and a cell starting with = is a formula the app evaluates. drawing: content is
@@ -35,7 +36,7 @@ export const pageRouter = router({
       parentId: z.string().optional(),
       content: z.string().optional()
     }))
-    .mutation(({ ctx, input }) => createPage(ctx.reg, input)),
+    .mutation(({ ctx, input }) => drawingGated(ctx, ctx.reg, input.bodyType === 'drawing', () => createPage(ctx.reg, input))),
 
   update: procedure
     .meta({ description: 'Changes a page\'s title, parent, content or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it).' })
@@ -47,7 +48,8 @@ export const pageRouter = router({
       content: z.string().optional(),
       prompt: z.string().max(2000).nullable().optional()
     }))
-    .mutation(({ ctx, input: { id, ...data } }) => updatePage(ctx.reg, id, data)),
+    .mutation(async ({ ctx, input: { id, ...data } }) =>
+      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'PAGE', id, data.bodyType), () => updatePage(ctx.reg, id, data))),
 
   uploadImage: procedure
     .meta({ description: "Uploads an image to a wiki page and returns its key and the markdown to put in the content (then page.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })

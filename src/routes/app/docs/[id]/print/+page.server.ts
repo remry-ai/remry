@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { trpc } from '$shared/trpc/client';
-import { resolvePrintOptions } from '$lib/doc/print-options';
-import { isProActive, lockedMessage, NO_LICENSE } from '$shared/types/license';
+import { printBrandingChoice } from '$lib/doc/print-options';
+import { isProActive, NO_LICENSE } from '$shared/types/license';
 
 export const load: PageServerLoad = async ({ params, url, fetch }) => {
   const client = trpc(fetch);
@@ -12,19 +12,15 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
     client.license.status.query()
   ]);
   if (!doc.ok) error(404, 'Doc not found');
-  // PDF export is Remry Pro: without an active license the page explains instead.
-  const status = license.ok ? license.value : NO_LICENSE;
-  if (!isProActive(status)) {
-    return { doc: doc.value, locked: lockedMessage('pdf-export', status, 'app'), brandings: [], options: resolvePrintOptions(new URLSearchParams(), []), branding: null };
-  }
-  const brandingList = brandings.ok ? brandings.value : [];
-  const options = resolvePrintOptions(url.searchParams, brandingList);
-  const branding = options.brandingId ? await client.branding.get.query({ id: options.brandingId }) : null;
+  // Plain PDF export is free; a branding and its letterhead are Remry Pro.
+  const pro = isProActive(license.ok ? license.value : NO_LICENSE);
+  const choice = printBrandingChoice(url.searchParams, brandings.ok ? brandings.value : [], pro);
+  const branding = choice.options.brandingId ? await client.branding.get.query({ id: choice.options.brandingId }) : null;
   return {
     doc: doc.value,
-    locked: null,
-    brandings: brandingList,
-    options,
+    brandings: choice.brandings,
+    options: choice.options,
+    brandingLocked: choice.brandingLocked,
     branding: branding?.ok ? branding.value : null
   };
 };

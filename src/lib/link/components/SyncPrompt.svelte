@@ -6,6 +6,7 @@
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
   // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
   // with `target`, a sync still running when the page opens shows as running until it ends.
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import { syncStatus, type LastSyncView } from '../last-sync';
   import SyncStatus from './SyncStatus.svelte';
@@ -128,7 +129,7 @@
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onSyncNow && !editing && !creating}
-      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}</button>
+      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
     {/if}
     {#if onSave && !editing}
       <button type="button" class="btn icon sm" class:ml-auto={!onSyncNow} aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>

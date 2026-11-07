@@ -6,6 +6,8 @@
   import Menu from '$lib/ui/Menu.svelte';
   import { errorMessage } from '$lib/ui/submit';
   import { BODY_LABELS, BODY_TYPES, isGridOrDrawing, type BodyType } from '$shared/types/body-types';
+  import { page } from '$app/state';
+  import { drawingMenuMarks, type DrawingAllowanceView } from '$lib/license/drawings';
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
   import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
@@ -77,7 +79,14 @@
     }
   };
 
-  const addItems = BODY_TYPES.map((type) => ({ label: BODY_LABELS[type], onSelect: () => { void add(type); } }));
+  // Drawings are free up to a number per notebook; the item says how many are used, and wears
+  // the Pro icon once they're gone (the server then refuses another, saying why).
+  const allowance = $derived(page.data?.drawingAllowance as DrawingAllowanceView | undefined);
+  const addItems = $derived(BODY_TYPES.map((type) => ({
+    label: BODY_LABELS[type],
+    onSelect: () => { void add(type); },
+    ...(type === 'drawing' && allowance ? drawingMenuMarks(allowance) : {})
+  })));
 
   const moveUp = async (index: number) => {
     if (index <= 0) return;

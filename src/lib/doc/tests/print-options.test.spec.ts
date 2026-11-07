@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NO_BRANDING, printUrl, resolvePrintOptions, wikiPrintUrl, withoutLeadingTitle } from '../print-options';
+import { NO_BRANDING, printBrandingChoice, printUrl, resolvePrintOptions, wikiPrintUrl, withoutLeadingTitle } from '../print-options';
 
 const brandings = [
   { id: 'brand_acme', isDefault: true },
@@ -61,5 +61,19 @@ describe('withoutLeadingTitle', () => {
   it('keeps a different first heading, and headings further down', () => {
     expect(withoutLeadingTitle('# Summary\nBody', 'Plan')).toBe('# Summary\nBody');
     expect(withoutLeadingTitle('Intro\n# Plan', 'Plan')).toBe('Intro\n# Plan');
+  });
+});
+
+describe('printBrandingChoice', () => {
+  it('with Remry Pro, offers the brandings and follows the URL', () => {
+    const choice = printBrandingChoice(new URLSearchParams('branding=brand_side&header=1'), brandings, true);
+    expect(choice).toEqual({ brandings, options: { choice: 'brand_side', brandingId: 'brand_side', header: true }, brandingLocked: false });
+  });
+
+  it('without it, prints plain whatever the URL asks, and says branding is locked', () => {
+    for (const query of ['', 'branding=brand_side&header=1', `branding=${NO_BRANDING}`, 'header=1']) {
+      expect(printBrandingChoice(new URLSearchParams(query), brandings, false))
+        .toEqual({ brandings: [], options: { choice: '', brandingId: null, header: false }, brandingLocked: true });
+    }
   });
 });

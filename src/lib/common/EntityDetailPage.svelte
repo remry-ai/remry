@@ -12,6 +12,7 @@
   import DetailLayout from '$lib/common/DetailLayout.svelte';
   import DocsManager from '$lib/common/DocsManager.svelte';
   import { page } from '$app/state';
+  import { hasPro } from '$lib/license/pro';
   import DocEditor from '$lib/common/DocEditor.svelte';
   import DocBodyCard from '$lib/doc/DocBodyCard.svelte';
   import { BODY_LABELS, isGridOrDrawing, type BodyType } from '$shared/types/body-types';
@@ -379,8 +380,9 @@
     if (!doc) return;
     const linkId = await uploadFileLink('DOC', doc.id, file);
     await loadDocLinks(doc.id);
-    // Writing the doc saves the file's text too; otherwise save it on its own.
-    if (doc.content.trim() === '') void runFileConversion(doc.id, linkId);
+    // Writing the doc saves the file's text too; otherwise save it on its own. Writing it is
+    // Remry Pro (AI assist), so without it the file stays a link, its text saved.
+    if (doc.content.trim() === '' && hasPro(page.data ?? {})) void runFileConversion(doc.id, linkId);
     else transcribeInBackground(linkId);
   };
 

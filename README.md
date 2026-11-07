@@ -13,7 +13,7 @@ templates, no plugins.
 > **Get it:** [Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg) ·
 > [Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe),
 > then connect Claude with [docs/INSTALL.md](docs/INSTALL.md).
-> Remry is free; [Remry Pro](#remry-pro) adds full-text search, branding and PDF export.
+> Remry is free; [Remry Pro](#remry-pro) adds AI assist in the app, Sync now, unlimited drawings, branding and opening it on other devices.
 > More at [remry.ai](https://remry.ai).
 
 ![A tour: telling Claude about a new hire, a note and a todo on her page, a blocked project, the projects timeline and a peek, a goal check-in, a wiki page, and a doc with charts](docs/images/demo.gif)
@@ -90,7 +90,7 @@ link to the project.
 
 Claude builds it from what's already in the notebook. Docs are markdown with charts drawn from
 figures you give Claude. Paste or drop images into a doc or wiki page, and export either to PDF
-with Remry Pro.
+(branded with Remry Pro).
 
 ![A doc on the Platform team: a bar chart of committed against delivered story points](docs/images/doc-charts.png)
 
@@ -106,8 +106,8 @@ mostly for reading, in a browser pane beside Claude or as a desktop app.
   leaving the list.
 - **A page for everything:** each person, project, goal and page gets one: docs in the middle,
   todos and notes in the panel on the right, finished todos under Done.
-- **Find anything:** press ⌘K and type a name. With Remry Pro, `/search budget review` searches the
-  full text, and `/ask who owns billing?` asks your local Claude and answers with links.
+- **Find anything:** press ⌘K and type a name. `/search budget review` searches the full text, and
+  with Remry Pro, `/ask who owns billing?` asks your local Claude and answers with links.
 - **Ask about this page:** the side panel's Chat tab asks Claude about the page you're on.
 
 ![The home dashboard: open todos and a feed of the latest updates](docs/images/home.png)
@@ -186,10 +186,14 @@ is open. Copies stay on this disk; Time Machine covers them against losing the d
 
 Remry is free. **Remry Pro** is a yearly license that adds:
 
-- **Full-text search** across notes, docs, wiki pages, todos and comments, and "what do I know
-  about X" from Claude.
-- **Branding:** your organisation's colours and icon, on screen and in print.
-- **PDF export** of docs and wiki pages.
+- **AI assist in the app:** the Chat tab, `/ask` in the finder, and Convert with Claude, all run
+  by your own Claude Code (or Copilot).
+- **Sync now:** rewrite a sync doc from its sources with one click.
+- **Unlimited drawings:** each notebook has 3 free; Pro removes the limit.
+- **Branding:** your organisation's colours and icon, on screen and in PDFs.
+- **Other devices:** open Remry on your phone or another computer over Tailscale.
+
+Full-text search, spreadsheets, PDF export and everything you do through Claude stay free.
 
 It costs **$40 USD a year** ($50 CAD). That's the founding price, locked in while you renew; it goes
 to $60 USD / $80 CAD later. **[Buy Remry Pro →](https://buy.stripe.com/bJefZg54rbNLa0H1sb0Jq01)**
@@ -198,8 +202,8 @@ Stripe runs the checkout, sales tax and receipts. Your license key is shown afte
 emailed to you; each renewal emails a new one. To activate it, choose **License** from the notebook
 menu (the chevron beside the notebook name) and paste the key, or ask Claude to.
 
-- **When a license lapses,** search, branding and PDF export lock. Nothing else changes and no data
-  is lost; a renewed key brings it all back.
+- **When a license lapses,** those features lock. Nothing else changes and no data is lost: your
+  drawings stay editable (you just can't add a fourth), and a renewed key brings it all back.
 - **The key is checked offline,** on your computer. Remry never contacts a license server.
 - **Refunds:** ask within 30 days of buying. The refunded key stops working with the next update.
 - **Lost your key?** Use the [contact form](https://jweatherby.dev/contact) with the email you

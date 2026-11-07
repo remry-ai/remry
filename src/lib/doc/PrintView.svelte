@@ -4,6 +4,7 @@
   // print pages render it; each owns its URL (through `urlFor`) and its "Back" link.
   import type { Snippet } from 'svelte';
   import { goto } from '$app/navigation';
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import DocPrintHeader from '$lib/doc/DocPrintHeader.svelte';
   import { NO_BRANDING, withoutLeadingTitle, type PrintOptions } from '$lib/doc/print-options';
@@ -40,9 +41,11 @@
     readonly urlFor: (choice: string, header: boolean) => string;
     /** Printed between the title and the body (a wiki page's properties). */
     readonly details?: Snippet;
+    /** Branded export is Remry Pro: it prints plain, and the branding choice links to the License page. */
+    readonly brandingLocked?: boolean;
   }
 
-  const { title, content: markdown, backHref, brandings, options, branding, urlFor, details }: Props = $props();
+  const { title, content: markdown, backHref, brandings, options, branding, urlFor, details, brandingLocked = false }: Props = $props();
 
   const defaultBranding = $derived(brandings.find((b) => b.isDefault) ?? null);
   const showHeader = $derived(options.header && !!branding);
@@ -79,6 +82,9 @@
 <div class="print-toolbar no-print">
   <a href={backHref} class="btn ghost sm">← Back</a>
   <div class="options">
+    {#if brandingLocked}
+      <a class="branding-locked text-sm text-2" href="/app/license" title="Branded PDFs are part of Remry Pro">Branding<ProIcon show label="Branded PDFs are part of Remry Pro" /></a>
+    {:else}
     <select
       class="sm"
       aria-label="Branding"
@@ -100,6 +106,7 @@
       />
       <span>Header</span>
     </label>
+    {/if}
     <button type="button" class="btn ghost sm" onclick={() => printPage()}>Print…</button>
     <button type="button" class="btn primary sm" onclick={handleDownload} disabled={exporting} aria-busy={exporting}>
       {exporting ? 'Making PDF…' : 'Download PDF'}
@@ -145,6 +152,12 @@
     align-items: center;
     gap: var(--sp-3);
     select { width: auto; max-width: 200px; }
+  }
+  .branding-locked {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    &:hover { color: var(--text); }
   }
   .print-page {
     max-width: 900px;
