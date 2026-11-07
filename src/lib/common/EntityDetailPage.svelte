@@ -222,7 +222,7 @@
   // A doc fills the centre pane, so the metadata above it gives way.
   const docOpen = $derived(activeDoc !== null || newDocOpen);
 
-  const openDoc = (id: string) => { void openDocUrl(id); };
+  const openDoc = (id: string) => { newDocId = null; void openDocUrl(id); };
   // Close a floating drawer so the editor in the center pane is reachable.
   const openNote = (id: string) => { activeDrawer.set(null); void openPopup(NOTE_POPUP, { [NOTE_PARAM]: id }); };
   const openNewNote = () => { activeDrawer.set(null); void openPopup(NOTE_POPUP); };
@@ -239,8 +239,10 @@
   const closeDoc = () => { void closeDocUrl(); };
 
   // A spreadsheet or drawing doc is made at once, empty, and opens; it's renamed in place.
+  // The new doc opens with its title selected to type over, as a new document's does.
+  let newDocId = $state<string | null>(null);
   const handleAddBodyDoc = async (bodyType: GridOrDrawing) => {
-    await docHandlers.handleAddDoc(`Untitled ${BODY_LABELS[bodyType].toLowerCase()}`, bodyType);
+    await docHandlers.handleAddDoc(`Untitled ${BODY_LABELS[bodyType].toLowerCase()}`, bodyType, (id) => { newDocId = id; });
   };
 
   const activeBodyType = $derived<BodyType>(activeDoc?.bodyType ?? 'doc');
@@ -263,6 +265,7 @@
   // Closes a spreadsheet or drawing doc, then reloads, so reopening it shows what was saved.
   // In that order: a reload started alongside the navigation cancelled it, and × did nothing.
   const closeBodyDoc = async (): Promise<void> => {
+    newDocId = null;
     await closeDocUrl();
     await invalidateAll();
   };
@@ -556,6 +559,7 @@
       <DocBodyCard
         title={activeDoc.title}
         bodyType={activeBodyType}
+        autoEditTitle={activeDoc.id === newDocId}
         content={activeDoc.content}
         editable={!archivedAt}
         onSave={handleSaveBody}

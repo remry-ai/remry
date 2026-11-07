@@ -24,14 +24,19 @@
     readonly onImportLink?: (url: string) => Promise<void>;
     readonly exportHref?: string;
     readonly sources?: Snippet;
+    /** A doc just made: it opens with its title selected, ready to type over. */
+    readonly autoEditTitle?: boolean;
   }
 
-  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, onImportLink, exportHref, sources }: Props = $props();
+  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, onImportLink, exportHref, sources, autoEditTitle = false }: Props = $props();
 
   const kind = $derived(BODY_LABELS[bodyType]);
 
-  let editingTitle = $state(false);
-  let titleDraft = $state('');
+  // Read once: a new doc starts with its title in the box.
+  // svelte-ignore state_referenced_locally
+  let editingTitle = $state(autoEditTitle);
+  // svelte-ignore state_referenced_locally
+  let titleDraft = $state(autoEditTitle ? title : '');
   let error = $state('');
 
   const startEditingTitle = () => {
