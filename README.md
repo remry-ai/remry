@@ -34,8 +34,8 @@ No forms, and the app doesn't need to be open.
 check-ins. So "what depends on the payments API?" gets the same answer every time.
 
 **Nothing leaves your computer.** Your notebooks live in a folder on your Mac or PC. No accounts, no
-keys, no cloud. The app has no model of its own: Claude works on it from outside, and the AI
-features inside the app run your own Claude Code.
+keys, no cloud. Claude works on it from outside, and the AI features in the app run your own
+Claude Code.
 
 ## What using it looks like
 
@@ -65,7 +65,7 @@ Each project has a status: proposed, committed, in progress, blocked, done or ab
 projects list puts every project on one timeline, coloured by status, and a peek shows a project in
 the side panel without leaving the list.
 
-### Goals with real numbers
+### Goals and check-ins
 
 > **You:** Platform's H2 goal is p95 latency under 200ms, from 480. We're at 310 now.
 
@@ -84,32 +84,34 @@ a page adds a "Mentioned in" link to the project.
 
 ![The Datadog page: vendor, cost and renewal in a list, with Platform linked to it](docs/images/wiki-page.png)
 
-### A brief that stays current
+### A brief from several sources
 
 > **You:** Make a Checkout brief from the PRD, the Linear project and the pricing sheet. Flag where
 > they disagree.
 
-Claude writes one view of the project, says where each point comes from, and ends with the
-discrepancies: "Launch date. PRD: 12 Nov. Linear: 30 Oct." This is a sync doc. It keeps its sources
-and a prompt saying what to take from each, so each source shows when it was last synced, and next
-time Claude rewrites it the same way, or tells you what changed if you've edited it since. With
-Remry Pro, **Sync now** has your Claude Code refresh it from the app.
+Claude writes one view of the project, notes where each point came from, and lists where the
+sources disagree: "Launch date. PRD: 12 Nov. Linear: 30 Oct."
+
+This is a sync doc. It keeps its sources and a prompt saying what to take from each, and each
+source shows when it was last read. Ask Claude to refresh it and it rewrites it the same way. If
+you've edited it since, Claude tells you what changed instead of overwriting your edits. With Remry
+Pro, **Sync now** refreshes it from the app.
 
 ![A sync doc on the New checkout project: its prompt, three synced sources (a Notion PRD, a Linear project and a pricing sheet), Sync now, and the brief ending in a list of discrepancies](docs/images/sync-brief.png)
 
-### Spreadsheets and drawings, built in
+### Spreadsheets and drawings
 
 > **You:** Put our software in a sheet: owner, seats, annual cost and cost per seat.
 
 Any wiki page or doc can be a spreadsheet, for many records of one shape: formulas, number and
-currency formats, and a full-screen view. Ask what you spend and Claude reads the totals back.
+currency formats, and a full-screen view. Ask Claude what you spend and it reads the totals.
 
 ![A Software spreadsheet: tools, owners, seats, annual cost and a per-seat formula, with a total row](docs/images/sheet.png)
 
 > **You:** Draw the checkout architecture.
 
-Or a drawing: [Excalidraw](https://excalidraw.com), built in. Claude lays out the shapes and arrows;
-open the drawing to move things around, full screen. Open `.excalidraw` files and Excalidraw links,
+A page or doc can also be an [Excalidraw](https://excalidraw.com) drawing. Claude lays out the
+shapes and arrows; open the drawing to move things around, full screen. Open `.excalidraw` files and Excalidraw links,
 and share one as a link (encrypted, only when you ask). Each notebook has 3 free drawings; Remry Pro
 removes the limit.
 
@@ -139,7 +141,7 @@ mostly for reading, in a browser pane beside Claude or as a desktop app.
   todos and notes in the panel on the right, finished todos under Done.
 - **Find anything:** press ⌘K and type a name. `/search budget review` searches the full text, and
   with Remry Pro, `/ask who owns billing?` asks your local Claude and answers with links.
-- **Docs your way:** text with charts, a spreadsheet, or an Excalidraw drawing, on any person, team,
+- **Docs and pages:** text with charts, a spreadsheet, or an Excalidraw drawing, on any person, team,
   project or goal.
 - **Ask about this page** (Remry Pro): the side panel's Chat tab asks your local Claude about the
   page you're on.
@@ -175,7 +177,7 @@ and links back to them.
 
 - **Local only.** Notebooks are files on your computer, with hourly backups. No cloud sync.
 - **No accounts.** Nothing to sign up for or log in to.
-- **No model of its own.** Claude works on it from outside. The AI features in the app (Chat, `/ask`,
+- **No AI keys.** Claude works on it from outside. The AI features in the app (Chat, `/ask`,
   Sync now) run your own Claude Code, or Copilot, on your computer; the app holds no keys.
 - **Almost no requests.** The desktop app checks GitHub for updates and sends nothing about you.
   The only other one is a drawing you choose to share as an Excalidraw link, encrypted on your
