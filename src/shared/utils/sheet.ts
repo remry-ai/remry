@@ -1,13 +1,14 @@
 // A spreadsheet page's body: JSON in page.content when bodyType is 'sheet'.
 // `data` holds what was typed (formulas included, like =SUM(B2:B5)); `values`
-// is what the grid showed when it was last saved from the app, so print,
-// search and Claude can read the results without evaluating formulas. A sheet
-// written from the CLI or MCP may leave `values` out: it reads as `data` until
-// the page is next saved in the app. Shared by the server (validation) and the
-// client (the editor and the print view).
+// is what each cell shows, its formula worked out (./sheet-formula), filled in
+// whenever a sheet is read or saved, so print, search and Claude read results
+// without evaluating formulas, and a sheet written from the CLI or MCP has its
+// results at once. A `values` given with the sheet is ignored. Shared by the
+// server (validation) and the client (the editor and the print view).
 
 import { z } from 'zod';
 import { ok, err, type Result } from './result';
+import { evaluateSheet } from './sheet-formula';
 
 export const SHEET_LIMITS = { rows: 2000, columns: 100, cell: 10_000, title: 60 } as const;
 
@@ -74,8 +75,7 @@ export const emptySheet = (columns = 5, rowCount = 10): SheetContent => {
 /** Pads every row to the column count, so the grid and the markdown agree. */
 /**
  * A formula as Excel stores it: uppercased outside "quoted text", so =sum(b2:c2)
- * becomes =SUM(B2:C2). Jspreadsheet only finds uppercase cell references, so a
- * lowercase one would show #ERROR. Anything that isn't a formula is unchanged.
+ * becomes =SUM(B2:C2). Anything that isn't a formula is unchanged.
  */
 export const normaliseFormula = (value: string): string => {
   if (!value.startsWith('=')) return value;
@@ -103,9 +103,7 @@ export const parseSheetContent = (input: unknown): Result<SheetContent> => {
   }
   const width = parsed.data.columns.length;
   const data = padRows(parsed.data.data, width).map((row) => row.map(normaliseFormula));
-  // Values the grid computed only stand in for data of the same shape.
-  const values = parsed.data.values && parsed.data.values.length === data.length ? padRows(parsed.data.values, width) : data;
-  return ok({ version: 1, columns: parsed.data.columns, data, values });
+  return ok({ version: 1, columns: parsed.data.columns, data, values: evaluateSheet(data).values });
 };
 
 /** Reads a stored sheet; anything unreadable (never written by the app) reads as an empty one. */

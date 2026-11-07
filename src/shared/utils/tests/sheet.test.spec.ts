@@ -48,9 +48,10 @@ describe('parseSheetContent', () => {
     expect(parsed.ok && parsed.value.values).toEqual([['1'], ['2']]);
   });
 
-  it('ignores computed values of a different shape', () => {
-    const parsed = parseSheetContent({ columns: [{ title: 'A' }], data: [['1'], ['=A1*2']], values: [['1']] });
-    expect(parsed.ok && parsed.value.values).toEqual([['1'], ['=A1*2']]);
+  it('works out the values itself, ignoring any given', () => {
+    const parsed = parseSheetContent({ columns: [{ title: 'A' }], data: [['1'], ['=a1*2']], values: [['9'], ['stale']] });
+    expect(parsed.ok && parsed.value.data).toEqual([['1'], ['=A1*2']]);
+    expect(parsed.ok && parsed.value.values).toEqual([['1'], ['2']]);
   });
 
   it('names the problem', () => {

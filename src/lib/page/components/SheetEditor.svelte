@@ -1,15 +1,22 @@
 <script lang="ts">
   // A wiki page's spreadsheet body (bodyType 'sheet'), edited in place with
-  // Jspreadsheet CE: typed cells, paste from Excel or Sheets, basic formulas
+  // Jspreadsheet CE: typed cells, paste from Excel or Sheets, formulas
   // (=SUM(B2:B5)), resizable columns, renamed in a box of our own (below),
   // right-click to add or remove rows and columns. Every change saves itself after a short pause, as
-  // the sheet's JSON with the values the grid showed (see $shared/utils/sheet).
+  // the sheet's JSON (see $shared/utils/sheet).
+  //
+  // Formulas are worked out by $shared/utils/sheet-formula, not the library: its engine runs
+  // eval, which the app's Content Security Policy refuses, so every formula showed #ERROR.
+  // parseFormulas is off, cells keep what was typed, and after each change the formula cells
+  // show their results (an error's reason in its tooltip). The line under the grid explains
+  // the selected cell's formula, or how to write one, and names the formulas that fail.
   import { onMount } from 'svelte';
   import 'jsuites/dist/jsuites.css';
   import 'jspreadsheet-ce/dist/jspreadsheet.css';
   import 'jspreadsheet-ce/dist/jspreadsheet.themes.css';
   import type jspreadsheet from 'jspreadsheet-ce';
   import { columnLetter, normaliseFormula, readSheetContent, type SheetContent } from '$shared/utils/sheet';
+  import { cellName, evaluateSheet, FORMULA_FUNCTIONS, type FormulaProblem } from '$shared/utils/sheet-formula';
 
   interface Props {
     readonly content: string;
@@ -34,7 +41,8 @@
   // What the grid holds now: raw cells (formulas included) and what each cell shows.
   const snapshot = (sheet: jspreadsheet.WorksheetInstance): SheetContent => {
     const data = sheet.getData(false, false).map((row) => row.map(text));
-    const shown = data.map((row, y) => row.map((_, x) => sheet.records[y]?.[x]?.element?.textContent ?? ''));
+    // The server works the values out again on save; these are the same results.
+    const shown = evaluateSheet(data).values;
     const headers = sheet.getHeaders(true) as string[];
     const widths = sheet.getWidth() as (number | string)[];
     const columns = headers.map((title, i) => {
@@ -122,8 +130,58 @@
 
   const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
 
+  // ----- Formulas -----
+  let problems = $state<readonly FormulaProblem[]>([]);
+  let selected = $state<{ readonly x: number; readonly y: number } | null>(null);
+  let selectedFormula = $state<{ readonly cell: string; readonly formula: string; readonly result: string; readonly problem: FormulaProblem | null } | null>(null);
+
+  // Shows each formula's result in its cell (the cell keeps the formula, for editing).
+  const showResults = () => {
+    const sheet = worksheet;
+    if (!sheet) return;
+    const data = sheet.getData(false, false).map((row) => row.map(text));
+    const evaluated = evaluateSheet(data);
+    const failed = new Map(evaluated.problems.map((p) => [p.cell, p]));
+    data.forEach((row, y) => row.forEach((raw, x) => {
+      const element = sheet.records[y]?.[x]?.element;
+      if (!element) return;
+      if (!raw.startsWith('=')) {
+        if (element.classList.contains('formula-cell')) {
+          element.classList.remove('formula-cell', 'formula-error');
+          element.removeAttribute('title');
+        }
+        return;
+      }
+      const problem = failed.get(cellName(x, y));
+      element.textContent = evaluated.values[y]![x]!;
+      element.classList.add('formula-cell');
+      element.classList.toggle('formula-error', !!problem);
+      element.title = problem ? `${raw}: ${problem.message}` : raw;
+    }));
+    problems = evaluated.problems;
+    describeSelected(data, evaluated.values, failed);
+  };
+
+  const describeSelected = (data?: string[][], values?: string[][], failed?: Map<string, FormulaProblem>) => {
+    const sheet = worksheet;
+    const at = selected;
+    if (!sheet || !at) { selectedFormula = null; return; }
+    const rows = data ?? sheet.getData(false, false).map((row) => row.map(text));
+    const raw = rows[at.y]?.[at.x] ?? '';
+    if (!raw.startsWith('=')) { selectedFormula = null; return; }
+    const evaluated = values && failed ? { values, failed } : (() => { const e = evaluateSheet(rows); return { values: e.values, failed: new Map(e.problems.map((p) => [p.cell, p])) }; })();
+    const cell = cellName(at.x, at.y);
+    selectedFormula = { cell, formula: raw, result: evaluated.values[at.y]?.[at.x] ?? '', problem: evaluated.failed.get(cell) ?? null };
+  };
+
+  const handleSelection = (x1: number, y1: number, x2: number, y2: number) => {
+    selected = x1 === x2 && y1 === y2 ? { x: x1, y: y1 } : null;
+    describeSelected();
+  };
+
   // Saves run one after another, so an older snapshot never lands after a newer one.
   const schedule = () => {
+    showResults();
     if (!editable) return;
     clearTimeout(timer);
     timer = setTimeout(() => { pending = pending.then(save); }, SAVE_DELAY_MS);
@@ -139,6 +197,9 @@
       const [instance] = lib(host, {
         tabs: false,
         toolbar: false,
+        // Worked out by sheet-formula (showResults): the library's engine needs eval.
+        parseFormulas: false,
+        onselection: (_sheet, x1, y1, x2, y2) => handleSelection(x1, y1, x2, y2),
         worksheets: [{
           data: sheet.data.map((row) => [...row]),
           columns: sheet.columns.map((c, i) => ({ title: c.title || columnLetter(i), width: c.width ?? 120, type: 'text' as const })),
@@ -178,6 +239,7 @@
         onredo: schedule
       });
       worksheet = instance ?? null;
+      showResults();
       const onKey = (event: KeyboardEvent) => enterToEdit(lib, event);
       window.addEventListener('keydown', onKey, true);
       // A double-click on a column header renames it.
@@ -227,9 +289,21 @@
       />
     {/if}
   </div>
-  <p class="sheet-status text-xs muted" aria-live="polite">
-    {#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Enter or double-click edits a cell; start it with = for a formula, like =SUM(B1:B5). Right-click to add or remove rows and columns; double-click a column header to rename it.{/if}
-  </p>
+  <div class="sheet-status text-xs">
+    <p class="sheet-help" aria-live="polite">
+      {#if selectedFormula}
+        <span class="formula-line"><strong>{selectedFormula.cell}</strong> <code>{selectedFormula.formula}</code>
+          {#if selectedFormula.problem}<span class="formula-problem">{selectedFormula.problem.code} {selectedFormula.problem.message}</span>{:else}= <strong>{selectedFormula.result}</strong>{/if}
+        </span>
+      {:else if editable}
+        <span class="muted">Start a cell with = for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>. Functions: {FORMULA_FUNCTIONS.join(', ')}. Right-click a row or column to add or remove one; double-click a header to rename it.</span>
+      {/if}
+      {#if problems.length > 0}
+        <span class="formula-problem">{problems.length === 1 ? '1 formula fails' : `${problems.length} formulas fail`}: {problems.slice(0, 5).map((p) => p.cell).join(', ')}{problems.length > 5 ? '…' : ''}. Select one to see why.</span>
+      {/if}
+    </p>
+    <span class="sheet-saved muted" aria-live="polite">{#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{/if}</span>
+  </div>
   {#if error}<p class="form-error">{error}</p>{/if}
 </div>
 
@@ -281,8 +355,24 @@
     }
   }
 
+  // Help or the selected formula on the left, the save state on the right.
   .sheet-status {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
     margin-top: var(--sp-1);
     min-height: 1.4em;
   }
+  .sheet-help {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-3);
+  }
+  .sheet-saved { flex-shrink: 0; white-space: nowrap; }
+  .formula-problem { color: var(--danger); }
+  // A formula cell's result, and one that fails, told apart in the grid.
+  .sheet-grid :global(td.formula-error) { color: var(--danger); }
 </style>
