@@ -118,7 +118,7 @@ const NEED_ORDER: Readonly<Record<SyncNeed, number>> = { failed: 0, never: 1, st
  */
 export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Promise<readonly SyncNeeded[]> => {
   const [docs, pages, archived] = await Promise.all([
-    reg.prisma.doc.findMany({ where: { prompt: { not: null } }, select: { id: true, title: true, entityType: true, entityId: true, ...LAST_SYNC_FIELDS } }),
+    reg.prisma.doc.findMany({ where: { prompt: { not: null }, bodyType: 'doc' }, select: { id: true, title: true, entityType: true, entityId: true, ...LAST_SYNC_FIELDS } }),
     reg.prisma.page.findMany({ where: { prompt: { not: null }, archivedAt: null, bodyType: 'doc' }, select: { id: true, title: true, ...LAST_SYNC_FIELDS } }),
     loadArchivedIds(reg)
   ]);

@@ -37,7 +37,8 @@ export const fileToBase64 = async (file: File): Promise<string> => {
 };
 
 export interface DocHandlers {
-  readonly handleAddDoc: (title: string) => Promise<void>;
+  /** Adds a doc and opens it: a document, or a spreadsheet or drawing (bodyType). */
+  readonly handleAddDoc: (title: string, bodyType?: 'doc' | 'sheet' | 'drawing') => Promise<void>;
   /**
    * A new doc's steps before it opens: create it on the server without opening it (so the draft's
    * editor stays put while its images upload to it), then finish it (title and text, then open it),
@@ -62,8 +63,8 @@ export const createDocHandlers = (
   getActiveDocId: () => string | null,
   setActiveDocId: (id: string | null) => void | Promise<void>
 ): DocHandlers => ({
-  handleAddDoc: async (title: string) => {
-    const doc = await submitOrThrow(() => docTrpc.add.mutate({ entityType, entityId, title }));
+  handleAddDoc: async (title: string, bodyType?: 'doc' | 'sheet' | 'drawing') => {
+    const doc = await submitOrThrow(() => docTrpc.add.mutate({ entityType, entityId, title, ...(bodyType && { bodyType }) }));
     await invalidateAll();
     await setActiveDocId(doc.id);
   },

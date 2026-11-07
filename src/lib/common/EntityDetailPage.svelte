@@ -13,6 +13,8 @@
   import DocsManager from '$lib/common/DocsManager.svelte';
   import { page } from '$app/state';
   import DocEditor from '$lib/common/DocEditor.svelte';
+  import DocBodyCard from '$lib/doc/DocBodyCard.svelte';
+  import type { BodyType } from '$shared/types/body-types';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import { printUrl } from '$lib/doc/print-options';
   import { DOC_PARAM, NEW_DOC, openDocUrl, closeDocUrl } from '$lib/doc/doc-url';
@@ -40,6 +42,8 @@
   interface DocItem {
     readonly id: string;
     readonly title: string;
+    /** A document (markdown), a spreadsheet or a drawing; a document when left out. */
+    readonly bodyType?: BodyType;
     readonly content: string;
     /** Set on a sync doc: what Claude pulls from its sources. */
     readonly prompt?: string | null;
@@ -233,6 +237,27 @@
   const openNewTodo = () => { activeDrawer.set(null); void openPopup('todo'); };
   const openEditTodo = (id: string) => { activeDrawer.set(null); void openPopup('todo', { todo: id }); };
   const closeDoc = () => { void closeDocUrl(); };
+
+  // A spreadsheet or drawing doc is made at once, empty, and opens; it's renamed in place.
+  const handleAddBodyDoc = async (bodyType: 'sheet' | 'drawing') => {
+    await docHandlers.handleAddDoc(bodyType === 'sheet' ? 'Untitled spreadsheet' : 'Untitled drawing', bodyType);
+  };
+
+  const activeBodyType = $derived(activeDoc?.bodyType ?? 'doc');
+
+  // "Share link" on a drawing doc: the server uploads an encrypted copy to excalidraw.com.
+  const handleShareDocDrawing = async (): Promise<string> => {
+    const id = activeDoc?.id;
+    if (!id) throw new Error('No drawing is open.');
+    return (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ docId: id }))).url;
+  };
+
+  // A spreadsheet or drawing saves itself as it's edited; the page reloads only when it closes.
+  const handleSaveBody = async (content: string) => {
+    const id = activeDoc?.id;
+    if (!id) return;
+    await submitOrThrow(() => trpc().doc.update.mutate({ id, content }));
+  };
 
   // ----- Handlers -----
   const docHandlers = $derived(
@@ -504,13 +529,30 @@
           {activeDocId}
           onSelect={openDoc}
           onStartAdd={openNewDoc}
+          onAddOfType={archivedAt ? undefined : handleAddBodyDoc}
           onRemove={docHandlers.handleRemoveDoc}
           onReorder={docHandlers.handleReorderDocs}
         />
       </div>
     {/if}
 
-    {#if activeDoc}
+    {#if activeDoc && activeBodyType !== 'doc'}
+      {#key activeDoc.id}
+      <DocBodyCard
+        title={activeDoc.title}
+        bodyType={activeBodyType === 'sheet' ? 'sheet' : 'drawing'}
+        content={activeDoc.content}
+        editable={!archivedAt}
+        onSave={handleSaveBody}
+        onSaveTitle={docHandlers.handleSaveTitle}
+        onClose={() => { closeDoc(); void invalidateAll(); }}
+        onDrawingClosed={invalidateAll}
+        onShare={handleShareDocDrawing}
+        exportHref={printUrl(activeDoc.id)}
+        sources={docLinks.length > 0 || !archivedAt ? bodySources : undefined}
+      />
+      {/key}
+    {:else if activeDoc}
       <!-- Keyed, so each doc opens on its own first tab (Preview) rather than the last one's. -->
       {#key activeDoc.id}
       <DocEditor
@@ -560,6 +602,11 @@
   {:else}
     <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
   {/if}
+{/snippet}
+
+<!-- A spreadsheet or drawing doc takes links, but isn't synced or written from a file. -->
+{#snippet bodySources()}
+  <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} />
 {/snippet}
 
 <!-- A doc not saved yet can't take links, but a source file makes it, and Claude converts it. -->

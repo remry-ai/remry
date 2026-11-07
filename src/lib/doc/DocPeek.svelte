@@ -1,5 +1,6 @@
 <script lang="ts">
-  // A doc in the right panel's Peek tab (a SidePeek): its text, rendered. Read-only; the
+  // A doc in the right panel's Peek tab (a SidePeek): its text rendered, a spreadsheet as a
+  // table, or a drawing as its picture. Read-only; the
   // Open link opens it on its entity's page. Loads in the browser on each id.
   import { trpc } from '$shared/trpc/client';
   import { docPath } from '$shared/utils/entity';
@@ -7,7 +8,10 @@
   import SidePeek from '$lib/ui/SidePeek.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
+  import DrawingImage from '$lib/drawing/DrawingImage.svelte';
   import { errorMessage } from '$lib/ui/submit';
+  import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
+  import type { BodyType } from '$shared/types/body-types';
 
   interface Props {
     readonly id: string;
@@ -17,6 +21,7 @@
 
   interface PeekedDoc {
     readonly title: string;
+    readonly bodyType: BodyType;
     readonly content: string;
     readonly entityType: EntityType;
     readonly entityId: string;
@@ -41,6 +46,7 @@
 
   const doc = $derived(loaded?.id === id ? loaded.doc : null);
   const error = $derived(failed?.id === id ? failed.message : null);
+  const markdown = $derived(!doc ? '' : doc.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(doc.content)) : doc.content);
   const href = $derived(doc ? docPath(doc.entityType, doc.entityId, id) : '');
 </script>
 
@@ -49,7 +55,11 @@
     <EmptyState message={error} />
   {:else if doc}
     {#key id}
-      <MarkdownRenderer content={doc.content} placeholder="*This doc is empty.*" />
+      {#if doc.bodyType === 'drawing'}
+        <DrawingImage content={doc.content} title={doc.title} />
+      {:else}
+        <MarkdownRenderer content={markdown} placeholder="*This doc is empty.*" />
+      {/if}
     {/key}
   {/if}
 </SidePeek>

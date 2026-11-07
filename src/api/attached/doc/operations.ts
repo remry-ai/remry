@@ -5,17 +5,21 @@ import type { EntityType } from '$shared/types/enums';
 import { acceptsDocs, docPath, entityPath } from '$shared/utils/entity';
 import { resolveEntityLabel, resolveEntityLabels } from '$api/_entity-labels';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
-import { EDITOR_IMAGE_TYPES, adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
+import { EDITOR_IMAGE_TYPES, adoptForeignImages, storeEditorImage, tidyEditorImages, type EditorImageType, type StoredImage } from '$api/_images';
 import { syncMentions } from '$api/relation/mentions';
 import { loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
 import { readLastSync } from '$shared/utils/sync-state';
 import type { LastSync, SyncNeed } from '$shared/types/sync-now';
+import { asBodyType, BODY_NAMES, type BodyType } from '$shared/types/body-types';
+import { isEmptyBody, prepareContent } from '$api/_body';
 
 // ----- Types -----
 
 export interface DocSummary {
   readonly id: string;
   readonly title: string;
+  /** What content holds: markdown, a spreadsheet's JSON or a drawing's JSON. */
+  readonly bodyType: BodyType;
   readonly content: string;
   /** A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc. */
   readonly prompt: string | null;
@@ -51,6 +55,7 @@ export const getDoc = async (
   return ok({
     id: doc.id,
     title: doc.title,
+    bodyType: asBodyType(doc.bodyType),
     content: doc.content,
     prompt: doc.prompt,
     lastSync: readLastSync(doc),
@@ -76,6 +81,7 @@ export const listDocs = async (
   const summaries = docs.map((doc) => ({
     id: doc.id,
     title: doc.title,
+    bodyType: asBodyType(doc.bodyType),
     content: doc.content,
     prompt: doc.prompt,
     lastSync: readLastSync(doc),
@@ -117,13 +123,17 @@ export const addDoc = async (
   reg: Pick<Registry, 'prisma'>,
   entityType: EntityType,
   entityId: string,
-  input: { readonly title: string }
+  input: { readonly title: string; readonly bodyType?: BodyType }
 ): Promise<Result<{ readonly id: string }>> => {
   if (!acceptsDocs(entityType)) {
     return err(new Error("Wiki pages don't take docs. Write it into the page's content with page.update, or add a sub-page with page.create --parentId <pageId>."));
   }
   const writable = await ensureAttachable(reg, entityType, entityId);
   if (!writable.ok) return err(writable.error);
+  const bodyType = input.bodyType ?? 'doc';
+  // An empty spreadsheet or drawing, in the shape its editor reads.
+  const content = prepareContent(bodyType, '');
+  if (!content.ok) return err(content.error);
   const maxOrder = await reg.prisma.doc.aggregate({
     where: { entityType, entityId },
     _max: { sortOrder: true }
@@ -133,6 +143,8 @@ export const addDoc = async (
       entityType,
       entityId,
       title: input.title,
+      bodyType,
+      content: content.value,
       sortOrder: (maxOrder._max.sortOrder ?? 0) + 1
     }
   });
@@ -142,6 +154,8 @@ export const addDoc = async (
 export interface UpdateDocInput {
   readonly title?: string;
   readonly content?: string;
+  /** Makes it a document, a spreadsheet or a drawing; only while it's empty. */
+  readonly bodyType?: BodyType;
   readonly prompt?: string | null;
   /** Moves the doc to another entity (both together). It keeps its id, so its images, links, notes and PDF go with it. */
   readonly entityType?: EntityType;
@@ -185,27 +199,39 @@ export const updateDoc = async (
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
-  if (input.content !== undefined) {
-    const images = refuseBlobUrls(input.content);
-    if (!images.ok) return err(images.error);
+  const currentType = asBodyType(existing.bodyType);
+  const bodyType = input.bodyType ?? currentType;
+  if (bodyType !== currentType && !isEmptyBody(currentType, existing.content)) {
+    return err(new Error(`This doc already has content as a ${BODY_NAMES[currentType]}, so it can't become a ${BODY_NAMES[bodyType]}. Clear its content first, or add a new doc (doc.add --bodyType ${bodyType}).`));
+  }
+  if (bodyType !== 'doc' && (input.prompt === undefined ? existing.prompt : input.prompt)?.trim()) {
+    return err(new Error(`A ${BODY_NAMES[bodyType]} doc can't be a sync doc: only a document's text is rewritten from its sources.`));
+  }
+  let prepared: string | undefined;
+  if (input.content !== undefined || bodyType !== currentType) {
+    const checked = prepareContent(bodyType, input.content ?? '');
+    if (!checked.ok) return err(checked.error);
+    prepared = checked.value;
   }
   const move = await moveTarget(reg, input);
   if (!move.ok) return err(move.error);
   // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
-  const content = input.content === undefined ? undefined : await adoptForeignImages(reg, `docs/${id}`, input.content);
+  const content = prepared === undefined || bodyType !== 'doc' ? prepared : await adoptForeignImages(reg, `docs/${id}`, prepared);
 
   await reg.prisma.doc.update({
     where: { id },
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(content !== undefined && { content }),
+      ...(bodyType !== currentType && { bodyType }),
       ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
       ...(move.value && move.value)
     }
   });
   if (content !== undefined) {
-    await syncMentions(reg, { entityType: 'DOC', entityId: id }, content);
-    await tidyEditorImages(reg, `docs/${id}`, content);
+    // A spreadsheet or drawing has no links or images in its text.
+    await syncMentions(reg, { entityType: 'DOC', entityId: id }, bodyType === 'doc' ? content : '');
+    await tidyEditorImages(reg, `docs/${id}`, bodyType === 'doc' ? content : '');
   }
   return ok({ id });
 };

@@ -3,6 +3,8 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
+  import Menu from '$lib/ui/Menu.svelte';
+  import { errorMessage } from '$lib/ui/submit';
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
   import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
@@ -10,6 +12,8 @@
   interface Doc {
     readonly id: string;
     readonly title: string;
+    /** A spreadsheet or drawing doc gets a badge saying so. */
+    readonly bodyType?: 'doc' | 'sheet' | 'drawing';
     /** Set on a sync doc, which gets a badge. */
     readonly prompt?: string | null;
     /** Why a sync doc wants syncing (never synced, failed, over a week old); its badge says so. */
@@ -24,6 +28,8 @@
     readonly activeDocId: string | null;
     readonly onSelect: (id: string) => void;
     readonly onStartAdd: () => void;
+    /** Adds an empty spreadsheet or drawing doc and opens it. Without it, + adds a document only. */
+    readonly onAddOfType?: (bodyType: 'sheet' | 'drawing') => Promise<void>;
     readonly onRemove: (id: string) => Promise<void>;
     readonly onReorder: (docIds: readonly string[]) => Promise<void>;
   }
@@ -33,6 +39,7 @@
     activeDocId,
     onSelect,
     onStartAdd,
+    onAddOfType,
     onRemove,
     onReorder,
   }: Props = $props();
@@ -65,6 +72,25 @@
     onStartAdd();
   };
 
+  let addError = $state('');
+  const addOfType = async (bodyType: 'sheet' | 'drawing') => {
+    addError = '';
+    expanded = false;
+    try {
+      await onAddOfType?.(bodyType);
+    } catch (e: unknown) {
+      addError = errorMessage(e);
+    }
+  };
+
+  const addItems = $derived([
+    { label: 'Document', onSelect: startAdd },
+    { label: 'Spreadsheet', onSelect: () => { void addOfType('sheet'); } },
+    { label: 'Drawing', onSelect: () => { void addOfType('drawing'); } }
+  ]);
+
+  const BADGES = { sheet: 'Spreadsheet', drawing: 'Drawing' } as const;
+
   const moveUp = async (index: number) => {
     if (index <= 0) return;
     const ids = docs.map((d) => d.id);
@@ -88,13 +114,23 @@
       </DisclosureButton>
     </h4>
     {#if needingSync > 0}<span class="to-sync"><SyncStatus tone="warning" text={String(needingSync)} title="{needingSync} sync doc{needingSync === 1 ? '' : 's'} failed, never synced, or last synced over a week ago" /></span>{/if}
-    <button type="button" class="btn icon sm" onclick={startAdd} title="Add doc" aria-label="Add doc">+</button>
+    {#if onAddOfType}
+      <Menu label="Add doc" items={addItems} align="end">
+        {#snippet trigger()}<span aria-hidden="true">+</span><span class="sr-only">Add doc</span>{/snippet}
+      </Menu>
+    {:else}
+      <button type="button" class="btn icon sm" onclick={startAdd} title="Add doc" aria-label="Add doc">+</button>
+    {/if}
   </div>
+  {#if addError}<p class="form-error" role="alert">{addError}</p>{/if}
   {#if expanded}
     {#if docs.length > 0}
       <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
+            {#if doc.bodyType === 'sheet' || doc.bodyType === 'drawing'}
+              <span class="badge">{BADGES[doc.bodyType]}</span>
+            {/if}
             {#if doc.prompt}
               <SyncStatus {...statusOf(doc)} />
               <span class="badge accent" title="Sync doc: Claude keeps it in step with its sources. {doc.prompt}">Sync</span>

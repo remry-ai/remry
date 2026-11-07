@@ -88,7 +88,9 @@ describe('entity.convert', () => {
     expect(project.children.map((c) => c.name)).toEqual(['Shed budget']);
     expect(must(await listDocs(reg, 'PROJECT', project.id)).map((d) => d.content)).toEqual(['Build a shed.']);
     const budget = must(await listDocs(reg, 'PROJECT', project.children[0]!.id));
-    expect(budget[0]!.content).toBe('| Item | Cost |\n| --- | --- |\n| Wood | 300 |');
+    // A spreadsheet page becomes a spreadsheet doc.
+    expect(budget[0]!.bodyType).toBe('sheet');
+    expect(JSON.parse(budget[0]!.content).values).toEqual([['Wood', '300']]);
     expect(must(await listNotes(reg, 'PROJECT', project.id)).map((n) => n.content)).toEqual(['Ordered wood']);
     expect((await getPage(reg, page.id)).ok).toBe(false);
 

@@ -4,11 +4,13 @@
   import { printUrl } from '$lib/doc/print-options';
   import { docPath } from '$shared/utils/entity';
   import ProLock from '$lib/ui/ProLock.svelte';
+  import { printableBody } from '$lib/doc/printable-body.svelte';
 
   const { data }: { data: PageData } = $props();
   const doc = $derived(data.doc);
   // Back to the doc itself, open on its entity's page.
   const backHref = $derived(docPath(doc.entityType, doc.entityId, doc.id));
+  const body = printableBody(() => doc);
 </script>
 
 {#if data.locked}
@@ -18,7 +20,7 @@
 {:else}
   <PrintView
     title={doc.title}
-    content={doc.content}
+    content={body.markdown}
     {backHref}
     brandings={data.brandings}
     options={data.options}

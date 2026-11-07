@@ -1,12 +1,13 @@
 // Drawing pages (bodyType 'drawing') against the real database: a skeleton or a
-// scene stored and validated, its text indexed (not its JSON), drawing blocks
-// checked on a page save and turned into MENTIONS backlinks, and conversions
-// that would lose a drawing refused.
+// scene stored and validated, its text indexed (not its JSON), old drawing
+// blocks turned into MENTIONS backlinks, drawings kept as drawings between
+// pages and docs, spreadsheet and drawing docs, and share links.
 
 import { describe, it, expect } from 'vitest';
 import { getRegistry } from '../../src/shared/registry.server';
 import { createPage, getPage, updatePage } from '../../src/api/page/operations';
-import { addDoc, updateDoc } from '../../src/api/attached/doc/operations';
+import { addDoc, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
+import { recallEntity } from '../../src/api/search/recall';
 import { listRelationsForEntity } from '../../src/api/relation/operations';
 import { convertEntity } from '../../src/api/convert/operations';
 import { searchNotebook } from '../../src/api/search/operations';
@@ -105,21 +106,60 @@ describe('drawing blocks', () => {
 });
 
 describe('converting', () => {
-  it("refuses to turn a drawing into a doc, a note or a project, or a tree that holds one", async () => {
+  it('keeps a drawing a drawing between a page and a doc, and refuses a note', async () => {
     const drawing = await createDrawing('Network map');
-    const toDoc = await convertEntity(reg, { entityType: 'PAGE', id: drawing, to: 'DOC', onType: 'PERSON', onId: 'person_bob' });
-    expect(!toDoc.ok && toDoc.error.message).toMatch(/is a drawing, which a doc can't hold/);
     const toNote = await convertEntity(reg, { entityType: 'PAGE', id: drawing, to: 'NOTE', onType: 'PERSON', onId: 'person_bob' });
     expect(!toNote.ok && toNote.error.message).toMatch(/is a drawing, which a note can't hold/);
-    const toProject = await convertEntity(reg, { entityType: 'PAGE', id: drawing, to: 'PROJECT' });
-    expect(!toProject.ok && toProject.error.message).toMatch(/is a drawing, which can't become a project/);
+
+    const toDoc = await convertEntity(reg, { entityType: 'PAGE', id: drawing, to: 'DOC', onType: 'PERSON', onId: 'person_bob' });
+    if (!toDoc.ok) throw toDoc.error;
+    const docId = toDoc.value.created[0]!.id;
+    const doc = await getDoc(reg, docId);
+    expect(doc.ok && doc.value.bodyType).toBe('drawing');
+    expect(doc.ok && JSON.parse(doc.value.content)).toMatchObject({ skeleton: skeleton.skeleton });
+
+    const back = await convertEntity(reg, { entityType: 'DOC', id: docId, to: 'PAGE' });
+    if (!back.ok) throw back.error;
+    const page = await getPage(reg, back.value.created[0]!.id);
+    expect(page.ok && page.value.bodyType).toBe('drawing');
 
     const parent = await createPage(reg, { title: 'Infra' });
     if (!parent.ok) throw parent.error;
-    await updatePage(reg, drawing, { parentId: parent.value.id });
+    await updatePage(reg, back.value.created[0]!.id, { parentId: parent.value.id });
     const tree = await convertEntity(reg, { entityType: 'PAGE', id: parent.value.id, to: 'PROJECT' });
-    expect(!tree.ok && tree.error.message).toMatch(/Drawing pages stay pages, so "Network map"/);
-    expect((await getPage(reg, drawing)).ok).toBe(true);
+    if (!tree.ok) throw tree.error;
+    expect(tree.value.created.map((c) => `${c.entityType} ${c.title}`)).toEqual(['PROJECT Infra', 'PROJECT Network map', 'DOC Network map']);
+  });
+});
+
+describe('spreadsheet and drawing docs', () => {
+  it('start empty in their shape, validate, index their text, and change type only while empty', async () => {
+    const sheet = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Budget', bodyType: 'sheet' });
+    if (!sheet.ok) throw sheet.error;
+    const blank = await getDoc(reg, sheet.value.id);
+    expect(blank.ok && blank.value.bodyType).toBe('sheet');
+    expect(blank.ok && JSON.parse(blank.value.content).columns.length).toBeGreaterThan(0);
+
+    const bad = await updateDoc(reg, sheet.value.id, { content: '# a heading' });
+    expect(!bad.ok && bad.error.message).toMatch(/sheet content: invalid JSON/);
+    const filled = await updateDoc(reg, sheet.value.id, { content: JSON.stringify({ columns: [{ title: 'Item' }], data: [['Platypus feed']] }) });
+    expect(filled.ok).toBe(true);
+    const rows = await reg.prisma.$queryRawUnsafe<{ body: string }[]>("SELECT body FROM search_index WHERE entity_type = 'DOC' AND entity_id = ?", sheet.value.id);
+    expect(rows[0]?.body).toBe('Platypus feed');
+    const recall = await recallEntity(reg, 'PERSON', 'person_alice');
+    expect(recall.ok && recall.value.docs.items.find((d) => d.id === sheet.value.id)?.excerpt).toContain('Platypus feed');
+
+    const toDrawing = await updateDoc(reg, sheet.value.id, { bodyType: 'drawing' });
+    expect(!toDrawing.ok && toDrawing.error.message).toMatch(/already has content as a spreadsheet, so it can't become a drawing/);
+    const sync = await updateDoc(reg, sheet.value.id, { prompt: 'Pull the costs' });
+    expect(!sync.ok && sync.error.message).toMatch(/can't be a sync doc/);
+
+    const doc = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Sketch' });
+    if (!doc.ok) throw doc.error;
+    expect((await updateDoc(reg, doc.value.id, { bodyType: 'drawing', content: JSON.stringify(skeleton) })).ok).toBe(true);
+    const drawn = await reg.prisma.$queryRawUnsafe<{ body: string }[]>("SELECT body FROM search_index WHERE entity_type = 'DOC' AND entity_id = ?", doc.value.id);
+    expect(drawn[0]?.body).toContain('zebrafish');
+    expect(drawn[0]?.body).not.toContain('rectangle');
   });
 });
 
@@ -166,6 +206,27 @@ describe('share links', () => {
     const full = await importShareLink(reg, backend, { url: shared.value.url, pageId: empty.value.id });
     expect(!full.ok && full.error.message).toMatch(/already has a drawing\. Pass replace: true/);
     expect((await importShareLink(reg, backend, { url: shared.value.url, pageId: empty.value.id, replace: true })).ok).toBe(true);
+  });
+
+  it('work for a drawing doc too: share it, and import into a new doc or an empty one', async () => {
+    const backend = fakeExcalidraw();
+    const doc = await addDoc(reg, 'PERSON', 'person_carol', { title: 'Whiteboard', bodyType: 'drawing' });
+    if (!doc.ok) throw doc.error;
+    expect((await updateDoc(reg, doc.value.id, { content: JSON.stringify(scene) })).ok).toBe(true);
+    const shared = await shareDrawing(reg, backend, { docId: doc.value.id });
+    if (!shared.ok) throw shared.error;
+
+    const imported = await importShareLink(reg, backend, { url: shared.value.url, title: 'Copy', entityType: 'PERSON', entityId: 'person_carol' });
+    if (!imported.ok) throw imported.error;
+    expect(imported.value.path).toBe(`/app/people/person_carol?doc=${imported.value.id}`);
+    const copy = await getDoc(reg, imported.value.id);
+    expect(copy.ok && copy.value.bodyType).toBe('drawing');
+    const full = await importShareLink(reg, backend, { url: shared.value.url, docId: doc.value.id });
+    expect(!full.ok && full.error.message).toMatch(/already has a drawing/);
+    const text = await addDoc(reg, 'PERSON', 'person_carol', { title: 'Words' });
+    if (!text.ok) throw text.error;
+    const notDrawing = await shareDrawing(reg, backend, { docId: text.value.id });
+    expect(!notDrawing.ok && notDrawing.error.message).toMatch(/isn't a drawing doc/);
   });
 
   it('refuse what they cannot share or read, before any request', async () => {

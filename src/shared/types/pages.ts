@@ -3,11 +3,12 @@
 // page's field values into the top of its text). Shared by the server and the client.
 
 import type { LastSync } from './sync-now';
+import { BODY_TYPES, type BodyType } from './body-types';
 
-/** What a page's body is: markdown (`doc`), a spreadsheet's JSON (`sheet`, see $shared/utils/sheet) or a drawing's JSON (`drawing`, see $shared/utils/drawing). */
-export const PAGE_BODY_TYPES = ['doc', 'sheet', 'drawing'] as const;
+/** What a page's body is: the same three a doc's can be ($shared/types/body-types). */
+export const PAGE_BODY_TYPES = BODY_TYPES;
 
-export type PageBodyType = (typeof PAGE_BODY_TYPES)[number];
+export type PageBodyType = BodyType;
 
 export interface PageSummary {
   readonly id: string;

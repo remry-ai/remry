@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
+import { BODY_TYPES } from '$shared/types/body-types';
 import { router, procedure } from '$shared/trpc/init';
 import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
@@ -20,20 +21,22 @@ export const docRouter = router({
     .query(({ ctx, input }) => getDoc(ctx.reg, input.id)),
 
   add: procedure
-    .meta({ description: 'Creates an empty doc on an entity. Write its content with doc.update.' })
+    .meta({ description: 'Creates an empty doc on an entity: markdown, or with bodyType sheet a spreadsheet, with bodyType drawing a diagram (the same content as a wiki page of that type). Write its content with doc.update.' })
     .input(z.object({
       entityType: z.enum(ENTITY_TYPES),
       entityId: z.string(),
-      title: z.string().min(1).max(200)
+      title: z.string().min(1).max(200),
+      bodyType: z.enum(BODY_TYPES).optional()
     }))
     .mutation(({ ctx, input }) => addDoc(ctx.reg, input.entityType, input.entityId, input)),
 
   update: procedure
-    .meta({ description: 'Changes a doc\'s title, markdown content (fenced chart and mermaid blocks render) or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it), or moves it to another entity (entityType + entityId), keeping its images, links and notes.' })
+    .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs), bodyType (only while empty), or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it), or moves it to another entity (entityType + entityId), keeping its images, links and notes.' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       content: z.string().optional(),
+      bodyType: z.enum(BODY_TYPES).optional(),
       prompt: z.string().max(2000).nullable().optional(),
       entityType: z.enum(ENTITY_TYPES).optional(),
       entityId: z.string().optional()

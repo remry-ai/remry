@@ -18,6 +18,8 @@ import { loadOwner } from '$api/_owners';
 import { findProjectNamed } from '$api/_duplicates';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { createPage, deletePage } from '$api/page/operations';
+import { asBodyType } from '$shared/types/body-types';
+import { isEmptyBody } from '$api/_body';
 import { createProject } from '$api/project/operations';
 import { addDoc, updateDoc, DOC_HOLDERS } from '$api/attached/doc/operations';
 import { addNote } from '$api/attached/note/operations';
@@ -152,7 +154,7 @@ const docToPage = async (
   const doc = await reg.prisma.doc.findUnique({ where: { id: docId } });
   if (!doc) return err(new Error(`Doc ${docId} not found`));
   // Its images are copied into the page's folder as it's created.
-  const page = await createPage(reg, { title: doc.title, content: doc.content, parentId: placement.parentId });
+  const page = await createPage(reg, { title: doc.title, bodyType: asBodyType(doc.bodyType), content: doc.content, parentId: placement.parentId });
   if (!page.ok) return err(page.error);
   const item: ConvertedItem = { entityType: 'PAGE', id: page.value.id, title: doc.title, path: page.value.path };
   run.created.push(item);
@@ -304,14 +306,14 @@ const pageToProject = async (
   run.created.push({ entityType: 'PROJECT', id: created.value.id, title: page.title, path: created.value.path });
   const holder = { entityType: 'PROJECT', entityId: created.value.id };
 
-  // Its text becomes a doc of the same name; a sync page becomes a sync doc, with its sources.
-  const markdown = pageMarkdown(page.bodyType, page.content);
+  // Its text becomes a doc of the same name and type (a spreadsheet stays one); a sync page becomes a sync doc, with its sources.
+  const bodyType = asBodyType(page.bodyType);
   let docId: string | null = null;
-  if (markdown.trim() !== '' || page.prompt) {
-    const doc = await addDoc(reg, 'PROJECT', created.value.id, { title: page.title });
+  if (!isEmptyBody(bodyType, page.content) || page.prompt) {
+    const doc = await addDoc(reg, 'PROJECT', created.value.id, { title: page.title, bodyType });
     if (!doc.ok) return err(doc.error);
     docId = doc.value.id;
-    const filled = await updateDoc(reg, docId, { content: markdown, prompt: page.prompt });
+    const filled = await updateDoc(reg, docId, { content: page.content, prompt: bodyType === 'doc' ? page.prompt : null });
     if (!filled.ok) return err(filled.error);
     await reg.prisma.doc.update({ where: { id: docId }, data: lastSyncColumnsOf(page) });
     run.created.push({ entityType: 'DOC', id: docId, title: page.title, path: docPath('PROJECT', created.value.id, docId) });
@@ -337,14 +339,6 @@ const pageToProject = async (
 const convertPageToProject = async (reg: Reg, input: ConvertInput): Promise<Result<ConvertResult>> => {
   const tree = await loadPageTree(reg, input.id);
   if (!tree) return err(new Error(`Page ${input.id} not found. Find its id with page.list.`));
-  const drawings = flattenPages(tree).filter((p) => p.bodyType === 'drawing');
-  if (tree.bodyType === 'drawing') {
-    return err(new Error(`"${tree.title}" is a drawing, which can't become a project. Keep it as a page and embed it in a project's doc with a drawing block instead.`));
-  }
-  if (drawings.length > 0) {
-    const names = drawings.map((p) => `"${p.title}"`).join(', ');
-    return err(new Error(`Drawing pages stay pages, so ${names} can't become a project's doc. Move ${drawings.length === 1 ? 'it' : 'them'} out from under this page first (page.update --parentId), then convert.`));
-  }
   const writable = await ensureWritable(reg, 'PAGE', input.id);
   if (!writable.ok) return err(writable.error);
   if (input.parentId) {
@@ -393,8 +387,8 @@ interface LeafPage extends LastSyncColumns {
 const checkLeafPage = async (reg: Pick<Registry, 'prisma'>, id: string, to: string): Promise<Result<LeafPage>> => {
   const page = await reg.prisma.page.findUnique({ where: { id }, include: { _count: { select: { children: true } } } });
   if (!page) return err(new Error(`Page ${id} not found. Find its id with page.list.`));
-  if (page.bodyType === 'drawing') {
-    return err(new Error(`"${page.title}" is a drawing, which a ${to} can't hold. Keep it as a page and embed it in a doc with a drawing block (\`\`\`drawing, then /app/wiki/${page.id}).`));
+  if (page.bodyType === 'drawing' && to === 'note') {
+    return err(new Error(`"${page.title}" is a drawing, which a note can't hold. Convert it to a DOC instead (a doc can be a drawing).`));
   }
   if (page._count.children > 0) {
     return err(new Error(`"${page.title}" has ${page._count.children} sub-page${page._count.children === 1 ? '' : 's'}, which a ${to} can't hold. Move or convert them first (page.update --parentId), or convert the page to a PROJECT, whose sub-projects they'd become.`));
@@ -421,10 +415,11 @@ const convertPageToDoc = async (reg: Reg, input: ConvertInput): Promise<Result<C
   if (!holder.ok) return err(holder.error);
   const on = holder.value.entityType as EntityType;
 
-  const doc = await addDoc(reg, on, holder.value.entityId, { title: page.value.title });
+  // A spreadsheet or drawing page becomes a doc of the same type.
+  const doc = await addDoc(reg, on, holder.value.entityId, { title: page.value.title, bodyType: asBodyType(page.value.bodyType) });
   if (!doc.ok) return err(doc.error);
   // Its images are copied into the doc's folder as the text is saved.
-  const filled = await updateDoc(reg, doc.value.id, { content: pageMarkdown(page.value.bodyType, page.value.content), prompt: page.value.prompt });
+  const filled = await updateDoc(reg, doc.value.id, { content: page.value.content, prompt: page.value.bodyType === 'doc' ? page.value.prompt : null });
   if (!filled.ok) return err(filled.error);
   await reg.prisma.doc.update({ where: { id: doc.value.id }, data: lastSyncColumnsOf(page.value) });
   const path = docPath(on, holder.value.entityId, doc.value.id);

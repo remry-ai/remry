@@ -96,7 +96,10 @@ const readContent = async (reg: Pick<Registry, 'prisma'>, source: ContentSource)
       const page = await p.page.findUnique({ where: { id }, select: { content: true, bodyType: true } });
       return page && page.bodyType === 'doc' ? page.content : null;
     }
-    case 'DOC': return (await p.doc.findUnique({ where: { id }, select: { content: true } }))?.content ?? null;
+    case 'DOC': {
+      const doc = await p.doc.findUnique({ where: { id }, select: { content: true, bodyType: true } });
+      return doc && doc.bodyType === 'doc' ? doc.content : null;
+    }
     case 'NOTE': return (await p.note.findUnique({ where: { id }, select: { content: true } }))?.content ?? null;
     default: return null;
   }

@@ -136,6 +136,8 @@ model Doc {
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
   title      String
+  /// What content holds, as on a page: markdown (doc), a spreadsheet's JSON (sheet) or a drawing's JSON (drawing).
+  bodyType   String   @default("doc") @map("body_type")
   content    String   @default("")
   /// Unused since the doc_sources_to_links migration moved attached PDFs into file links.
   sourceUrl  String?  @map("source_url")

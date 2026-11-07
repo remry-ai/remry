@@ -2,6 +2,8 @@
 // for Claude. Includes text elsewhere that names the entity without linking it,
 // which no relation records.
 
+import { asBodyType } from '$shared/types/body-types';
+import { pageMarkdown } from '$api/convert/content';
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import type { EntityType, RelatableType } from '$shared/types/enums';
@@ -91,7 +93,7 @@ export const recallEntity = async (
       take,
       select: { id: true, title: true, description: true, status: true, priority: true, targetDate: true }
     }),
-    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, prompt: true, updatedAt: true, ...LAST_SYNC_FIELDS } }),
+    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, bodyType: true, content: true, prompt: true, updatedAt: true, ...LAST_SYNC_FIELDS } }),
     p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true } }),
     p.tagAttachment.findMany({ where: attached, select: { tag: { select: { name: true } } } }),
     listRelationsForEntity(reg, entityType, entityId),
@@ -159,7 +161,9 @@ export const recallEntity = async (
     docs: capped(docs.map((d) => ({
       id: d.id,
       title: d.title,
-      excerpt: excerpt(d.content),
+      bodyType: asBodyType(d.bodyType),
+      // A spreadsheet's or drawing's text, not its JSON.
+      excerpt: excerpt(pageMarkdown(d.bodyType, d.content)),
       prompt: d.prompt,
       updatedAt: d.updatedAt,
       lastSync: lastSyncOf.get(d.id) ?? null,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isEmptyBody, prepareContent } from '../operations';
+import { isEmptyBody, prepareContent } from '../_body';
 import { emptySheet } from '$shared/utils/sheet';
 
 describe('prepareContent', () => {

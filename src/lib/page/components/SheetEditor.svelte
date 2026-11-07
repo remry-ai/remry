@@ -141,8 +141,10 @@
         clearTimeout(timer);
         void save();
       }
-      if (host && (host as jspreadsheet.JspreadsheetInstanceElement).spreadsheet) {
-        import('jspreadsheet-ce').then(({ default: lib }) => lib.destroy(host as jspreadsheet.JspreadsheetInstanceElement, true));
+      // Kept here: Svelte clears `host` once the component is gone, before the import resolves.
+      const el = host as jspreadsheet.JspreadsheetInstanceElement | null;
+      if (el?.spreadsheet) {
+        import('jspreadsheet-ce').then(({ default: lib }) => lib.destroy(el, true));
       }
       worksheet = null;
     };

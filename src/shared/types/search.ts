@@ -73,7 +73,9 @@ export interface RecallTodo {
 export interface RecallDoc {
   readonly id: string;
   readonly title: string;
-  /** The start of the content; `doc.get` returns all of it. */
+  /** A document, a spreadsheet or a drawing. */
+  readonly bodyType: 'doc' | 'sheet' | 'drawing';
+  /** The start of the content (a spreadsheet's or drawing's text); `doc.get` returns all of it. */
   readonly excerpt: string;
   /** Set on a sync doc: what to pull from its sources (`docSources`). */
   readonly prompt: string | null;

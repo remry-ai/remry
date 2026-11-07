@@ -1,52 +1,16 @@
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import type { ArchiveFilter } from '$shared/types/enums';
-import { validateChartBlocks } from '$shared/types/charts';
 import type { PageBodyType, PageDetail, PageSummary } from '$shared/types/pages';
 import { entityPath } from '$shared/utils/entity';
 import { readLastSync } from '$shared/utils/sync-state';
-import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
-import { isEmptyDrawing, parseDrawingContent, readDrawingContent } from '$shared/utils/drawing';
+import { asBodyType, BODY_NAMES } from '$shared/types/body-types';
+import { isEmptyBody, prepareContent } from '$api/_body';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
-import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
-
-// ----- Pure helpers -----
-
-/**
- * Checks a body before it's stored and returns what to store: markdown as
- * given (its chart blocks valid), a sheet's JSON normalised (values filled
- * in, rows padded) so search and print can rely on its shape, or a drawing's
- * JSON (a skeleton or a scene, deleted elements dropped).
- */
-export const prepareContent = (bodyType: PageBodyType, content: string): Result<string> => {
-  if (bodyType === 'doc') {
-    const images = refuseBlobUrls(content);
-    if (!images.ok) return err(images.error);
-    const charts = validateChartBlocks(content);
-    return charts.ok ? ok(content) : err(charts.error);
-  }
-  if (bodyType === 'drawing') {
-    const drawing = parseDrawingContent(content);
-    return drawing.ok ? ok(JSON.stringify(drawing.value)) : err(drawing.error);
-  }
-  const sheet = parseSheetContent(content);
-  return sheet.ok ? ok(JSON.stringify(sheet.value)) : err(sheet.error);
-};
-
-/** A document with no text, a sheet with no filled cells, or a drawing with nothing drawn. */
-export const isEmptyBody = (bodyType: PageBodyType, content: string): boolean => {
-  if (bodyType === 'doc') return content.trim() === '';
-  if (bodyType === 'drawing') return isEmptyDrawing(readDrawingContent(content));
-  return readSheetContent(content).data.every((row) => row.every((cell) => cell.trim() === ''));
-};
-
-export const asBodyType = (value: string): PageBodyType => (value === 'sheet' || value === 'drawing' ? value : 'doc');
-
-const BODY_NAMES: Readonly<Record<PageBodyType, string>> = { doc: 'document', sheet: 'spreadsheet', drawing: 'drawing' };
-
+import { adoptForeignImages, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
 
 // ----- Row mapping -----
 
