@@ -389,14 +389,14 @@
   }
   .sheet-saved { white-space: nowrap; }
   .formula-problem { color: var(--danger); }
-  // Column headers in bold; a renamed one shows its formula letter in its top-right corner
+  // Column headers in bold; a renamed one shows its formula letter in its top-left corner
   // (the header cell is sticky, so it already positions the letter).
   .sheet-grid :global(thead td) { font-weight: 600; }
   .sheet-grid :global(thead td[data-letter])::after {
     content: attr(data-letter);
     position: absolute;
     top: 1px;
-    right: var(--sp-1);
+    left: var(--sp-1);
     font-weight: 400;
     font-size: var(--fs-xs);
     line-height: 1;
