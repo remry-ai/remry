@@ -3,6 +3,7 @@
 
 import type { EntityType, RelatableType } from './enums';
 import type { RelationGroup } from './relations';
+import type { LastSync, SyncNeed } from './sync-now';
 
 /** What the index holds rows for. GOAL_CHECKIN is a goal check-in's comment; it opens on its goal. */
 export const SEARCH_TYPES = [
@@ -77,6 +78,10 @@ export interface RecallDoc {
   /** Set on a sync doc: what to pull from its sources (`docSources`). */
   readonly prompt: string | null;
   readonly updatedAt: Date;
+  /** A sync doc's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
+  readonly lastSync: LastSync | null;
+  /** Why a sync doc wants syncing (never synced, last sync failed, over a week old); null when it doesn't. */
+  readonly syncNeed: SyncNeed | null;
 }
 
 export interface RecallLink {

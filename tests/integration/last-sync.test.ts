@@ -14,6 +14,7 @@ import { addDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { createPage, updatePage } from '../../src/api/page/operations';
 import { addLink } from '../../src/api/attached/link/operations';
 import { recordSync } from '../../src/api/_last-sync';
+import { recallEntity } from '../../src/api/search/recall';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
 const reg = getRegistry(TEST_NOTEBOOK);
@@ -85,6 +86,19 @@ describe('last sync', () => {
     expect(listed.map((d) => d.syncNeed)).toEqual(['failed']);
     const current = value(await api.doc.list({ entityType: 'PROJECT', entityId: fresh.project.id }));
     expect(current.map((d) => d.syncNeed)).toEqual([null]);
+  });
+});
+
+describe('search.recall', () => {
+  it('gives each sync doc its last sync and whether it wants one, so Claude can say how current it is', async () => {
+    const { project, doc } = await syncDocOnProject('Recall (last sync)');
+    await recordSync(reg, 'DOC', doc.id, { by: 'APP', outcome: 'FAILED', message: 'Notion MCP server not connected.' });
+    const plain = value(await addDoc(reg, 'PROJECT', project.id, { title: 'Meeting notes' }));
+
+    const recalled = value(await recallEntity(reg, 'PROJECT', project.id));
+    const byId = new Map(recalled.docs.items.map((d) => [d.id, d]));
+    expect(byId.get(doc.id)).toMatchObject({ syncNeed: 'failed', lastSync: { by: 'APP', outcome: 'FAILED', message: 'Notion MCP server not connected.' } });
+    expect(byId.get(plain.id)).toMatchObject({ syncNeed: null, lastSync: null });
   });
 });
 

@@ -16,6 +16,8 @@ import { getProject } from '$api/project/operations';
 import { getGoal } from '$api/goal/operations';
 import { getPage } from '$api/page/operations';
 import { getDoc } from '$api/attached/doc/operations';
+import { LAST_SYNC_FIELDS, loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
+import { readLastSync } from '$shared/utils/sync-state';
 import { phraseQuery } from './fts-query';
 import { archivedIdList, queryIndex, searchableTypes } from './operations';
 
@@ -67,7 +69,7 @@ const loadEntity = async (reg: Pick<Registry, 'prisma'>, entityType: RelatableTy
 };
 
 export const recallEntity = async (
-  reg: Pick<Registry, 'prisma'>,
+  reg: Pick<Registry, 'prisma' | 'now'>,
   entityType: RelatableType,
   entityId: string,
   limit: number = RECALL_LIMITS.defaultItems
@@ -89,7 +91,7 @@ export const recallEntity = async (
       take,
       select: { id: true, title: true, description: true, status: true, priority: true, targetDate: true }
     }),
-    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, prompt: true, updatedAt: true } }),
+    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, content: true, prompt: true, updatedAt: true, ...LAST_SYNC_FIELDS } }),
     p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true } }),
     p.tagAttachment.findMany({ where: attached, select: { tag: { select: { name: true } } } }),
     listRelationsForEntity(reg, entityType, entityId),
@@ -127,6 +129,11 @@ export const recallEntity = async (
     })
     : [];
 
+  // A sync doc's last sync and whether it wants one, so Claude can say how current it is before checking.
+  const syncDocs = docs.slice(0, limit).filter((d) => d.prompt).map((d) => ({ entityType: 'DOC' as const, id: d.id, lastSync: readLastSync(d) }));
+  const syncNeeds = await loadSyncNeeds(reg, syncDocs);
+  const lastSyncOf = new Map(syncDocs.map((d) => [d.id, d.lastSync]));
+
   // Text elsewhere that names this entity: not the entity or what's attached to
   // it, not sources that already link to it, and nothing archived.
   const match = name ? phraseQuery(name) : null;
@@ -149,7 +156,15 @@ export const recallEntity = async (
     notes: capped(notes, limit),
     comments: capped(comments, limit),
     todos: capped(todos, limit),
-    docs: capped(docs.map((d) => ({ id: d.id, title: d.title, excerpt: excerpt(d.content), prompt: d.prompt, updatedAt: d.updatedAt })), limit),
+    docs: capped(docs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      excerpt: excerpt(d.content),
+      prompt: d.prompt,
+      updatedAt: d.updatedAt,
+      lastSync: lastSyncOf.get(d.id) ?? null,
+      syncNeed: syncNeeds.get(syncNeedKey('DOC', d.id)) ?? null
+    })), limit),
     links: capped(links, limit),
     docSources: capped(docLinks.map(({ entityId: docId, ...link }) => ({ ...link, docId })), limit),
     tags: tags.map((t) => t.tag.name).sort((a, b) => a.localeCompare(b)),

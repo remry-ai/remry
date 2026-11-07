@@ -258,6 +258,21 @@ A project (or any entity) can track outside docs: a spec in Notion, a plan in Go
 4. **Not edited since:** `link.markSynced --id <link> --sourceEditedAt <the same time>`, so the app shows it as checked. Don't read the content, and add no note.
 5. **Tool not available, or the doc can't be read:** don't guess. Answer from the notebook and say how old it is ("the PRD was last checked 3 weeks ago").
 
+**Show the check as you go.** The user can't see your tool calls, so a check that runs silently looks like nothing happened. While you check, write a short log in the chat, a line as each source is done, before the answer:
+
+```
+Checking Checkout's sources (brief last synced 3 Nov by Sync now)…
+· Notion: Checkout PRD: edited 18 Oct, after the last sync, so reading it
+· Linear: Checkout: unchanged since 2 Nov
+· Pricing sheet: couldn't read it (Google Drive isn't connected)
+Brief synced: 2 of 3 sources read.
+```
+
+- The first line names what you're checking and how current it is. `search.recall`'s `docs` carry a sync doc's `lastSync` (when, `by` APP for the app's Sync now or CLAUDE, `outcome` OK, PARTIAL or FAILED, and its `message`) and its `syncNeed` (`never`, `failed`, or `stale`, over a week old); `doc.get` and `page.get` return `lastSync` too. Say it when the last sync failed or skipped a source: "last sync failed 2 days ago: Notion wasn't connected".
+- One line per source: its link title, then unchanged (with the date), edited (and that you're reading it), or couldn't be read (and why). No content in the log; what changed goes in the answer.
+- The last line says what you saved: the doc rewritten, a note added, or nothing changed. `link.markSynced` records the sync, so the app's banner then reads "Last synced just now by Claude in a chat".
+- Skip it when there's nothing to check (no tracked docs), and keep it to the log: no headings, no tables.
+
 Then answer, leading with what's new: "Two updates since you last looked: the PRD moved launch to 12 Nov, and the Linear project is now In progress." Keep the summary to what changed; link the doc for the rest. Never copy a doc in bulk, and never change the user's own notes or todos because a doc disagrees: tell them instead.
 
 Keep it proportionate: check the docs of the entities your answer is about, not every entity a search touches. If that's more than about five docs, check the ones that matter most and offer to check the rest. Don't re-check a doc you checked earlier in the same conversation.
@@ -289,6 +304,7 @@ The user can ask for one write-up drawn from several sources, with where they di
 **Refreshing it.** Run **Tracked docs** over its sources whenever you answer about the sync doc or what it's on, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed:
 - If the doc or page hasn't been edited since its sources were last synced (its `updatedAt` is no later than the newest `syncedAt` among them), rewrite it from all its sources, following the prompt, Discrepancies included.
 - If it has (the user edited the text or the prompt), don't overwrite it. Add a note with what's new and which discrepancies appeared or went away, and ask whether to rewrite it from the prompt.
+- Show the log above as you check its sources.
 - Either way, tell the user what changed: "Since the last brief: the PRD moved launch to 12 Nov, so the launch-date discrepancy with Linear is new; the pricing sheet now matches the PRD on tiers, so that one's resolved."
 Then `link.markSynced` each source you checked.
 
