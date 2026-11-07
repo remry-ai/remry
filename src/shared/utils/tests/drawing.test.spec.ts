@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   arrowBetween,
+  countImages,
+  toExcalidrawFile,
   DRAWING_LIMITS,
   drawingText,
   drawingToMarkdown,
@@ -53,6 +55,26 @@ describe('parseDrawingContent', () => {
       files: {}
     };
     expect(parsed(scene)).toEqual({ version: 1, elements: [{ id: '1', type: 'rectangle', x: 1 }], appState: { viewBackgroundColor: '#fafafa' } });
+  });
+
+  it('reads an .excalidraw file, leaving out its pictures', () => {
+    const file = {
+      type: 'excalidraw',
+      version: 2,
+      source: 'https://excalidraw.com',
+      elements: [{ id: '1', type: 'ellipse' }, { id: '2', type: 'image', fileId: 'f1' }],
+      appState: { gridSize: 20, viewBackgroundColor: '#ffffff' },
+      files: { f1: { dataURL: 'data:image/png;base64,AA' } }
+    };
+    expect(countImages(file)).toBe(1);
+    expect(countImages(JSON.stringify(file))).toBe(1);
+    expect(parsed(JSON.stringify(file))).toEqual({ version: 1, elements: [{ id: '1', type: 'ellipse' }], appState: { gridSize: 20, viewBackgroundColor: '#ffffff' } });
+  });
+
+  it('writes a scene as an .excalidraw file', () => {
+    const file = JSON.parse(toExcalidrawFile({ version: 1, elements: [{ id: '1', type: 'text', text: 'Hi' }], appState: { viewBackgroundColor: '#fafafa' } }));
+    expect(file).toMatchObject({ type: 'excalidraw', version: 2, elements: [{ id: '1' }], appState: { viewBackgroundColor: '#fafafa' }, files: {} });
+    expect(parsed(file)).toMatchObject({ elements: [{ id: '1', text: 'Hi' }] });
   });
 
   it('names the element and field that is wrong', () => {

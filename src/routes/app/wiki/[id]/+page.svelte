@@ -152,6 +152,10 @@
     await invalidateAll();
   };
 
+  // "Share link": the server uploads an encrypted copy to excalidraw.com (drawing.shareLink).
+  const handleShareDrawing = async (): Promise<string> =>
+    (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ pageId: wikiPage.id }))).url;
+
   // "Copy embed": the drawing block that shows this drawing in a doc, a note or another page.
   let embedCopied = $state(false);
   const handleCopyEmbed = async () => {
@@ -262,7 +266,7 @@
           </span>
         </div>
         {#key wikiPage.id}
-          <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} />
+          <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} title={wikiPage.title} onShare={handleShareDrawing} />
         {/key}
       </section>
     {:else if editing}

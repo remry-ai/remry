@@ -50,6 +50,12 @@ At the top level, beside `skeleton`, `"layout": "right"` lays the shapes out lef
 
 Once the user changes a drawing in the app, it's saved as Excalidraw's own scene: `{"version":1,"elements":[…]}`, with every shape's coordinates, styles and ids. `page.get` returns that. Read its text from the `text` elements (`originalText`). To change one, prefer telling the user what to change in the app; if they ask you to redo it, write a new skeleton with `page.update --content` (it replaces their layout, so say so first).
 
+## Excalidraw files and share links
+
+- **An `.excalidraw` file** (the user attaches one, or it's on disk): its JSON is a drawing's content as it is. `page.create --title … --bodyType drawing --content-file <file>.excalidraw`. Pictures in it are left out (a drawing keeps no image files); say so if it had any. In the app, the drawing's menu has **Open** (load a file into it) and **Save to…** (download one).
+- **An excalidraw.com share link** (`https://excalidraw.com/#json=<id>,<key>`) the user pastes: `drawing.importLink --url <link> --title "<what it shows>"` (add `--parentId` to put it under a page), or `--pageId <empty drawing page>` to fill one (`--replace true` only when the user asked to overwrite it). The app fetches it from excalidraw.com and decrypts it with the key in the link. Pass on `imagesLeftOut` when it isn't 0. A `#room=` link is a live session Excalidraw doesn't store: ask the user for a share link instead (in Excalidraw: Share → Export to link). Don't fetch the link yourself; `drawing.importLink` does it.
+- **Making a share link**, only when the user asks to share a drawing outside Remry: `drawing.shareLink --pageId <id>` uploads an encrypted copy to excalidraw.com and returns the link. Tell the user, with the link, that anyone who has it can open the drawing, that it's a snapshot (later edits need a new link), and that it can't be taken down from Remry. A drawing you wrote that nobody has opened yet is refused: it has no layout until the app lays it out, so ask the user to open it once (or share it from the app's "Share link"). Never share on your own initiative; inside Remry, link the page instead.
+
 ## Showing a drawing elsewhere
 
 A fenced `drawing` block whose body is the drawing page's path shows the drawing there, on screen and in the PDF, with its title linking to the page:
@@ -73,5 +79,8 @@ It works in docs, notes and document pages, and counts as a link to the drawing 
 | `Unrecognized key(s) in object` | Remove the key; only the keys above are allowed |
 | `drawing block at line 5: page … not found` (on a page) | The block must name a drawing page that exists: `page.list` to find it |
 | `drawing block at line 5: page … is a document, not a drawing` | Embed only drawing pages; link a document page with a markdown link instead |
+| `That isn't an Excalidraw share link` / `live-collaboration link (#room=)` | Ask the user for a `#json=` share link |
+| `… hasn't been opened in the app yet, so it has no layout to share` | Ask the user to open the drawing in Remry once, then share again |
+| `Couldn't reach excalidraw.com …` | The computer is offline, or excalidraw.com is down: say so and try later |
 
 `bodyType` changes only while a page is empty, and a drawing page can't be converted to a doc, note or project (`entity.convert` refuses): embed it instead.

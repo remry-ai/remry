@@ -1,6 +1,7 @@
 <script lang="ts">
   // A page's title, and on create whether its body is a document, a spreadsheet or a drawing.
-  // Content is edited on the page itself.
+  // Content is edited on the page itself; a new drawing can start from an excalidraw.com
+  // share link, which the server fetches and decrypts (drawing.importLink).
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
@@ -27,19 +28,23 @@
   // Follows `initial` (another page opened), and the input writes to it.
   let title = $derived(initial.title ?? '');
   let bodyType = $state<PageBodyType>('doc');
+  let shareLink = $state('');
   let submitting = $state(false);
   let error = $state('');
 
   const handleSubmit = async () => {
     submitting = true;
     error = '';
+    const fromLink = !isEdit && bodyType === 'drawing' && shareLink.trim() !== '';
     const outcome = isEdit
       ? await submit(() => trpc().page.update.mutate({ id: initial.id!, title: title.trim() }))
-      : await submit(() => trpc().page.create.mutate({
-          title: title.trim(),
-          bodyType,
-          parentId: initial.parentId ?? undefined,
-        }));
+      : fromLink
+        ? await submit(() => trpc().drawing.importLink.mutate({ url: shareLink.trim(), title: title.trim(), parentId: initial.parentId ?? undefined }))
+        : await submit(() => trpc().page.create.mutate({
+            title: title.trim(),
+            bodyType,
+            parentId: initial.parentId ?? undefined,
+          }));
     submitting = false;
     if (!outcome.ok) {
       error = outcome.error;
@@ -48,6 +53,7 @@
     if (!isEdit) {
       title = '';
       bodyType = 'doc';
+      shareLink = '';
     }
     onSuccess(outcome.value);
   };
@@ -72,6 +78,14 @@
       </Field>
     {/if}
   </div>
+
+  {#if !isEdit && bodyType === 'drawing'}
+    <Field label="From an Excalidraw link" hint="Optional. Paste a share link (excalidraw.com/#json=…) to start from that drawing; Remry fetches it from excalidraw.com and decrypts it here.">
+      {#snippet children({ id })}
+        <input {id} type="url" bind:value={shareLink} placeholder="https://excalidraw.com/#json=…" />
+      {/snippet}
+    </Field>
+  {/if}
 
   {#if error}<p class="form-error">{error}</p>{/if}
 

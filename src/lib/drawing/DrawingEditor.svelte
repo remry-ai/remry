@@ -3,23 +3,31 @@
   // Excalidraw (a React component, mounted here with createRoot). Every change
   // saves itself after a short pause as the scene's JSON (see
   // $shared/utils/drawing). A skeleton Claude wrote is laid out and expanded
-  // when it opens, and the first edit saves it as a scene.
+  // when it opens, and the first edit saves it as a scene. Its menu opens and
+  // saves .excalidraw files (on this computer), and "Share link" uploads an
+  // encrypted copy to excalidraw.com, after saying so (onShare).
   import { onMount } from 'svelte';
   import '@excalidraw/excalidraw/index.css';
   import type { Root } from 'react-dom/client';
   import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types';
   import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
-  import { readDrawingContent, type DrawingScene as StoredScene } from '$shared/utils/drawing';
-  import { loadExcalidraw, toScene } from './excalidraw';
+  import { isSkeleton, readDrawingContent, type DrawingScene as StoredScene } from '$shared/utils/drawing';
+  import Field from '$lib/ui/Field.svelte';
+  import { errorMessage } from '$lib/ui/submit';
+  import { loadExcalidraw, toScene, type ExcalidrawModule } from './excalidraw';
 
   interface Props {
     readonly content: string;
     /** False for an archived page: the drawing shows but doesn't edit. */
     readonly editable?: boolean;
     readonly onSave: (content: string) => Promise<void>;
+    /** The file name "Save to…" suggests. */
+    readonly title?: string;
+    /** Uploads the saved drawing and returns its share link; without it, no Share link button. */
+    readonly onShare?: () => Promise<string>;
   }
 
-  const { content, editable = true, onSave }: Props = $props();
+  const { content, editable = true, onSave, title = 'Drawing', onShare }: Props = $props();
 
   const SAVE_DELAY_MS = 600;
 
@@ -33,6 +41,17 @@
   // What was last saved (or loaded): a save only goes out when the scene changed.
   let savedKey = '';
   let latest: StoredScene | null = null;
+  let api: ExcalidrawImperativeAPI | null = null;
+  let lib: ExcalidrawModule | null = null;
+  // A skeleton is stored until the first save writes the scene the app laid out.
+  // svelte-ignore state_referenced_locally
+  let storedSkeleton = isSkeleton(readDrawingContent(content));
+
+  const sceneOf = (elements: readonly ExcalidrawElement[], background: string, from: ExcalidrawModule): StoredScene => ({
+    version: 1,
+    elements: from.getNonDeletedElements(elements) as unknown as StoredScene['elements'],
+    ...(background !== '#ffffff' && { appState: { viewBackgroundColor: background } })
+  });
 
   const sceneKey = (version: number, background: string): string => `${version}:${background}`;
 
@@ -44,6 +63,7 @@
     try {
       await onSave(json);
       status = 'saved';
+      storedSkeleton = false;
     } catch (e) {
       status = 'idle';
       error = e instanceof Error ? e.message : String(e);
@@ -59,6 +79,50 @@
     }, SAVE_DELAY_MS);
   };
 
+  /** Sends any change still waiting, and a skeleton's laid-out scene, so the server has what's on screen. */
+  const saveNow = async (): Promise<void> => {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timer = undefined;
+      pending = pending.then(save);
+    } else if (storedSkeleton && editable && api && lib) {
+      latest = sceneOf(api.getSceneElements(), api.getAppState().viewBackgroundColor, lib);
+      pending = pending.then(save);
+    }
+    await pending;
+    if (error) throw new Error(error);
+  };
+
+  // Share link: say what it does, then upload and show the link.
+  let share = $state<'closed' | 'confirm' | 'working' | 'done'>('closed');
+  let shareUrl = $state('');
+  let shareError = $state('');
+  let copied = $state(false);
+
+  const createLink = async () => {
+    if (!onShare) return;
+    share = 'working';
+    shareError = '';
+    try {
+      await saveNow();
+      shareUrl = await onShare();
+      share = 'done';
+    } catch (e) {
+      shareError = errorMessage(e);
+      share = 'confirm';
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      copied = true;
+      setTimeout(() => { copied = false; }, 1500);
+    } catch {
+      shareError = 'Copying was blocked; select the link and copy it instead.';
+    }
+  };
+
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && expanded) expanded = false;
   };
@@ -67,31 +131,31 @@
     let destroyed = false;
     (async () => {
       try {
-        const [lib, React, ReactDOM] = await Promise.all([loadExcalidraw(), import('react'), import('react-dom/client')]);
+        const [loaded, React, ReactDOM] = await Promise.all([loadExcalidraw(), import('react'), import('react-dom/client')]);
         if (destroyed) return;
-        const scene = await toScene(lib, readDrawingContent(content));
+        lib = loaded;
+        const scene = await toScene(loaded, readDrawingContent(content));
         const background = scene.viewBackgroundColor ?? '#ffffff';
-        savedKey = sceneKey(lib.getSceneVersion(scene.elements), background);
+        savedKey = sceneKey(loaded.getSceneVersion(scene.elements), background);
 
         const handleChange = (elements: readonly ExcalidrawElement[], appState: AppState) => {
           if (!editable) return;
-          const key = sceneKey(lib.getSceneVersion(elements), appState.viewBackgroundColor);
+          const key = sceneKey(loaded.getSceneVersion(elements), appState.viewBackgroundColor);
           if (key === savedKey) return;
           savedKey = key;
-          latest = {
-            version: 1,
-            elements: lib.getNonDeletedElements(elements) as unknown as StoredScene['elements'],
-            ...(appState.viewBackgroundColor !== '#ffffff' && { appState: { viewBackgroundColor: appState.viewBackgroundColor } })
-          };
+          latest = sceneOf(elements, appState.viewBackgroundColor, loaded);
           schedule();
         };
 
         const { createElement: h } = React;
-        const { MainMenu, WelcomeScreen } = lib;
+        const { MainMenu, WelcomeScreen } = loaded;
         // Remry links nowhere outside the app: the menu keeps only what works on this drawing.
+        // Open and Save to… read and write .excalidraw files on this computer.
         const menu = h(
           MainMenu,
           null,
+          editable ? h(MainMenu.DefaultItems.LoadScene) : null,
+          h(MainMenu.DefaultItems.Export),
           h(MainMenu.DefaultItems.SaveAsImage),
           editable ? h(MainMenu.DefaultItems.ClearCanvas) : null,
           h(MainMenu.Separator),
@@ -108,14 +172,16 @@
         root = ReactDOM.createRoot(host);
         root.render(
           h(
-            lib.Excalidraw,
+            loaded.Excalidraw,
             {
+              name: title,
               initialData: { elements: scene.elements, appState: { viewBackgroundColor: background }, scrollToContent: true },
               // Open with the whole drawing in view, zoomed out if it's bigger than the canvas (never in past 100%).
-              excalidrawAPI: (api: ExcalidrawImperativeAPI) => {
+              excalidrawAPI: (ready: ExcalidrawImperativeAPI) => {
+                api = ready;
                 if (scene.elements.length === 0) return;
                 requestAnimationFrame(() => {
-                  if (!destroyed) api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9, maxZoom: 1, animate: false });
+                  if (!destroyed) ready.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9, maxZoom: 1, animate: false });
                 });
               },
               viewModeEnabled: !editable,
@@ -124,7 +190,8 @@
               handleKeyboardGlobally: false,
               onChange: handleChange,
               UIOptions: {
-                canvasActions: { loadScene: false, saveToActiveFile: false, export: false, toggleTheme: null, saveAsImage: true, clearCanvas: editable, changeViewBackgroundColor: editable },
+                // export: only "Save to disk" (no onExportToBackend, so no Excalidraw+ or link card there).
+                canvasActions: { loadScene: editable, saveToActiveFile: false, export: { saveFileToDisk: true }, toggleTheme: null, saveAsImage: true, clearCanvas: editable, changeViewBackgroundColor: editable },
                 tools: { image: false }
               }
             },
@@ -161,8 +228,36 @@
     <p class="drawing-status text-xs muted" aria-live="polite">
       {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves. Double-click to add text; drag from a shape's edge to connect it with an arrow.{/if}
     </p>
-    <button type="button" class="btn ghost sm" onclick={() => { expanded = !expanded; }} aria-pressed={expanded}>{expanded ? 'Close full screen' : 'Full screen'}</button>
+    <span class="drawing-actions">
+      {#if onShare}
+        <button type="button" class="btn ghost sm" disabled={status === 'loading'} onclick={() => { share = share === 'closed' ? 'confirm' : 'closed'; shareError = ''; }} aria-expanded={share !== 'closed'}>Share link</button>
+      {/if}
+      <button type="button" class="btn ghost sm" onclick={() => { expanded = !expanded; }} aria-pressed={expanded}>{expanded ? 'Close full screen' : 'Full screen'}</button>
+    </span>
   </div>
+  {#if share === 'confirm' || share === 'working'}
+    <div class="card compact share-panel">
+      <p class="text-sm">A share link uploads an encrypted copy of this drawing to <strong>excalidraw.com</strong>. Anyone with the link can open it there (the key is in the link, so Excalidraw can't read it), and it stays there: Remry can't take it down. It's a snapshot; later changes need a new link.</p>
+      <div class="toolbar">
+        <button type="button" class="btn primary sm" onclick={createLink} disabled={share === 'working'} aria-busy={share === 'working'}>{share === 'working' ? 'Creating…' : 'Create link'}</button>
+        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }} disabled={share === 'working'}>Cancel</button>
+      </div>
+      {#if shareError}<p class="form-error" role="alert">{shareError}</p>{/if}
+    </div>
+  {:else if share === 'done'}
+    <div class="card compact share-panel">
+      <Field label="Share link" hint="Anyone with this link can open the drawing on excalidraw.com.">
+        {#snippet children({ id })}
+          <input {id} type="text" class="sm" readonly value={shareUrl} onfocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
+        {/snippet}
+      </Field>
+      <div class="toolbar">
+        <button type="button" class="btn primary sm" onclick={copyLink}>{copied ? 'Copied' : 'Copy link'}</button>
+        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }}>Done</button>
+      </div>
+      {#if shareError}<p class="form-error" role="alert">{shareError}</p>{/if}
+    </div>
+  {/if}
   <div class="drawing-canvas" bind:this={host}></div>
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
 </div>
@@ -183,6 +278,18 @@
 
       .drawing-canvas { height: auto; flex: 1; }
     }
+  }
+
+  .drawing-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+
+  .share-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
   }
 
   .drawing-toolbar {
