@@ -1,6 +1,7 @@
 import { invalidateAll } from '$app/navigation';
 import { submitOrThrow } from '$lib/ui/submit';
 import { fileUrl } from '$shared/utils/files';
+import type { BodyType } from '$shared/types/body-types';
 
 // Handlers throw the API's error message; DocEditor, DocsManager's
 // ConfirmButton and EntityDetailPage's create flow catch and show it.
@@ -38,7 +39,7 @@ export const fileToBase64 = async (file: File): Promise<string> => {
 
 export interface DocHandlers {
   /** Adds a doc and opens it: a document, or a spreadsheet or drawing (bodyType). */
-  readonly handleAddDoc: (title: string, bodyType?: 'doc' | 'sheet' | 'drawing') => Promise<void>;
+  readonly handleAddDoc: (title: string, bodyType?: BodyType) => Promise<void>;
   /**
    * A new doc's steps before it opens: create it on the server without opening it (so the draft's
    * editor stays put while its images upload to it), then finish it (title and text, then open it),
@@ -63,7 +64,7 @@ export const createDocHandlers = (
   getActiveDocId: () => string | null,
   setActiveDocId: (id: string | null) => void | Promise<void>
 ): DocHandlers => ({
-  handleAddDoc: async (title: string, bodyType?: 'doc' | 'sheet' | 'drawing') => {
+  handleAddDoc: async (title: string, bodyType?: BodyType) => {
     const doc = await submitOrThrow(() => docTrpc.add.mutate({ entityType, entityId, title, ...(bodyType && { bodyType }) }));
     await invalidateAll();
     await setActiveDocId(doc.id);

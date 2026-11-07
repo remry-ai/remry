@@ -9,8 +9,8 @@
   import DocEditor from '$lib/common/DocEditor.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
-  import SheetEditor from '$lib/page/components/SheetEditor.svelte';
-  import DrawingImage from '$lib/drawing/DrawingImage.svelte';
+  import BodyView from '$lib/doc/BodyView.svelte';
+  import { BODY_LABELS, isGridOrDrawing, type GridOrDrawing } from '$shared/types/body-types';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -53,8 +53,6 @@
   let editingId = $state<string | null>(null);
   const editing = $derived(editingId === wikiPage.id);
   const startEditing = () => { editingId = wikiPage.id; };
-  const isSheet = $derived(wikiPage.bodyType === 'sheet');
-  const isDrawing = $derived(wikiPage.bodyType === 'drawing');
   // Neither a spreadsheet nor a drawing has text to sync, write from a file or edit as markdown.
   const isDocument = $derived(wikiPage.bodyType === 'doc');
 
@@ -141,7 +139,7 @@
   };
 
   let sheetError = $state('');
-  const handleMakeBody = async (bodyType: 'sheet' | 'drawing') => {
+  const handleMakeBody = async (bodyType: GridOrDrawing) => {
     sheetError = '';
     const outcome = await submit(() => trpc().page.update.mutate({ id: wikiPage.id, bodyType }));
     if (!outcome.ok) {
@@ -155,14 +153,16 @@
   const handleShareDrawing = async (): Promise<string> =>
     (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ pageId: wikiPage.id }))).url;
 
-  // A drawing shows as a picture; clicking it (or Edit) opens the full-screen editor,
-  // and closing it reloads the page so the picture shows what was drawn.
-  let drawingOpen = $state(false);
-  $effect(() => { void wikiPage.id; drawingOpen = false; });
-  const closeDrawing = async () => {
-    drawingOpen = false;
+  // "From an Excalidraw link" on an empty drawing page, as on an empty drawing doc.
+  const handleImportDrawing = async (url: string): Promise<void> => {
+    await submitOrThrow(() => trpc().drawing.importLink.mutate({ url, pageId: wikiPage.id }));
     await invalidateAll();
   };
+
+  // A drawing shows as a picture; clicking it (or Edit) opens the full-screen editor,
+  // and closing it reloads the page so the picture shows what was drawn (BodyView).
+  let drawingOpen = $state(false);
+  $effect(() => { void wikiPage.id; drawingOpen = false; });
 
   const handleSetParent = async (parentId: string | null) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, parentId }));
@@ -244,34 +244,20 @@
       <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
       <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
     {/if}
-    {#if isSheet}
+    {#if isGridOrDrawing(wikiPage.bodyType)}
       <section class="section">
         <div class="section-header">
-          <h4>Spreadsheet</h4>
+          <h4>{BODY_LABELS[wikiPage.bodyType]}</h4>
           <span class="content-actions">
             <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+            {#if wikiPage.bodyType === 'drawing'}
+              <button type="button" class="btn icon sm" aria-label="{wikiPage.archivedAt ? 'Open' : 'Edit'} the drawing {wikiPage.title}" title={wikiPage.archivedAt ? 'Open full screen' : 'Edit drawing'} onclick={() => { drawingOpen = true; }}><PencilIcon /></button>
+            {/if}
           </span>
         </div>
         {#key wikiPage.id}
-          <SheetEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} />
+          <BodyView bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} editable={!wikiPage.archivedAt} onSave={handleSaveContent} onShare={handleShareDrawing} onImportLink={handleImportDrawing} onDrawingClosed={invalidateAll} bind:drawingOpen />
         {/key}
-      </section>
-    {:else if isDrawing}
-      <section class="section">
-        <div class="section-header">
-          <h4>Drawing</h4>
-          <span class="content-actions">
-            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
-            <button type="button" class="btn icon sm" aria-label="{wikiPage.archivedAt ? 'Open' : 'Edit'} the drawing {wikiPage.title}" title={wikiPage.archivedAt ? 'Open full screen' : 'Edit drawing'} onclick={() => { drawingOpen = true; }}><PencilIcon /></button>
-          </span>
-        </div>
-        <DrawingImage content={wikiPage.content} title={wikiPage.title} readOnly={!!wikiPage.archivedAt} onOpen={() => { drawingOpen = true; }} />
-        {#if drawingOpen}
-          <!-- Loaded when opened, so other pages never load the editor or its styles. -->
-          {#await import('$lib/drawing/DrawingEditor.svelte') then { default: DrawingEditor }}
-            <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} title={wikiPage.title} onShare={handleShareDrawing} onClose={closeDrawing} />
-          {/await}
-        {/if}
       </section>
     {:else if editing}
       <!-- A section, so it keeps the Content section's gap below the sync banner or links line. -->

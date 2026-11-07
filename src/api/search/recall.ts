@@ -3,7 +3,7 @@
 // which no relation records.
 
 import { asBodyType } from '$shared/types/body-types';
-import { pageMarkdown } from '$api/convert/content';
+import { bodyMarkdown } from '$shared/utils/body';
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import type { EntityType, RelatableType } from '$shared/types/enums';
@@ -163,7 +163,7 @@ export const recallEntity = async (
       title: d.title,
       bodyType: asBodyType(d.bodyType),
       // A spreadsheet's or drawing's text, not its JSON.
-      excerpt: excerpt(pageMarkdown(d.bodyType, d.content)),
+      excerpt: excerpt(bodyMarkdown(d.bodyType, d.content)),
       prompt: d.prompt,
       updatedAt: d.updatedAt,
       lastSync: lastSyncOf.get(d.id) ?? null,

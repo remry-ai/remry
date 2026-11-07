@@ -1,15 +1,6 @@
 // Pure parts of entity.convert: the text a converted item gets, and links to it rewritten.
 
-import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
-import { drawingToMarkdown, readDrawingContent } from '$shared/utils/drawing';
 import { projectStatusLabel } from '$shared/utils/project-status';
-
-/** A wiki page's body as markdown: a sheet becomes a table, a drawing a list of its text, a document stays as it is. */
-export const pageMarkdown = (bodyType: string, content: string): string => {
-  if (bodyType === 'sheet') return sheetToMarkdown(readSheetContent(content));
-  if (bodyType === 'drawing') return drawingToMarkdown(readDrawingContent(content));
-  return content;
-};
 
 export interface LinkedItem {
   readonly label: string;

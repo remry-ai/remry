@@ -14,6 +14,7 @@ import type { ConvertPdfResult } from '$shared/types/pdf-conversion';
 import type { SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
 import { entityTypeLabel } from '$shared/utils/entity';
+import { requireDocument } from '$api/_body';
 import { updateDoc } from '$api/attached/doc/operations';
 import { updatePage } from '$api/page/operations';
 import { markLinkSynced } from '$api/attached/link/operations';
@@ -37,15 +38,15 @@ const loadTarget = async (reg: SyncReg, entityType: SyncTarget, id: string): Pro
   if (entityType === 'PAGE') {
     const page = await reg.prisma.page.findUnique({ where: { id }, select: { title: true, content: true, prompt: true, bodyType: true } });
     if (!page) return err(new Error('Page not found'));
-    if (page.bodyType === 'sheet') return err(new Error("A spreadsheet page can't be synced."));
-    if (page.bodyType === 'drawing') return err(new Error("A drawing page can't be synced."));
+    const document = requireDocument('page', page.bodyType, 'synced');
+    if (!document.ok) return err(document.error);
     if (!page.prompt?.trim()) return err(new Error('Only a sync page can be synced: give it a prompt first.'));
     return ok({ title: page.title, content: page.content, prompt: page.prompt, on: null });
   }
   const doc = await reg.prisma.doc.findUnique({ where: { id }, select: { title: true, content: true, prompt: true, bodyType: true, entityType: true, entityId: true } });
   if (!doc) return err(new Error('Doc not found'));
-  if (doc.bodyType === 'sheet') return err(new Error("A spreadsheet doc can't be synced."));
-  if (doc.bodyType === 'drawing') return err(new Error("A drawing doc can't be synced."));
+  const document = requireDocument('doc', doc.bodyType, 'synced');
+  if (!document.ok) return err(document.error);
   if (!doc.prompt?.trim()) return err(new Error('Only a sync doc can be synced: give it a prompt first.'));
   const parentType = doc.entityType as EntityType;
   const labels = await resolveEntityLabels(reg, [{ entityType: parentType, entityId: doc.entityId }]);

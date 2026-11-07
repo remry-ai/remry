@@ -4,8 +4,8 @@ import type { ArchiveFilter } from '$shared/types/enums';
 import type { PageBodyType, PageDetail, PageSummary } from '$shared/types/pages';
 import { entityPath } from '$shared/utils/entity';
 import { readLastSync } from '$shared/utils/sync-state';
-import { asBodyType, BODY_NAMES } from '$shared/types/body-types';
-import { isEmptyBody, prepareContent } from '$api/_body';
+import { asBodyType } from '$shared/types/body-types';
+import { linkedText, planBodyUpdate, prepareContent } from '$api/_body';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
@@ -135,7 +135,7 @@ export const createPage = async (
       content: content.value
     }
   });
-  if (bodyType === 'doc' && content.value) {
+  if (linkedText(bodyType, content.value)) {
     // Text from a doc (a doc turned into a page) keeps its images: they're copied here.
     const adopted = await adoptForeignImages(reg, `pages/${row.id}`, content.value);
     if (adopted !== content.value) await reg.prisma.page.update({ where: { id: row.id }, data: { content: adopted } });
@@ -159,23 +159,16 @@ export const updatePage = async (
   id: string,
   input: UpdatePageInput
 ): Promise<Result<{ readonly id: string }>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { bodyType: true, content: true } });
+  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { bodyType: true, content: true, prompt: true } });
   if (!existing) return err(new Error(`Page ${id} not found`));
   const writable = await ensureWritable(reg, 'PAGE', id);
   if (!writable.ok) return err(writable.error);
 
-  const currentType = asBodyType(existing.bodyType);
-  const bodyType = input.bodyType ?? currentType;
-  if (bodyType !== currentType && !isEmptyBody(currentType, existing.content)) {
-    return err(new Error(`This page already has content as a ${BODY_NAMES[currentType]}, so it can't become a ${BODY_NAMES[bodyType]}. Clear its content first, or create a new page.`));
-  }
-  let content: string | undefined;
-  if (input.content !== undefined || bodyType !== currentType) {
-    const prepared = prepareContent(bodyType, input.content ?? '');
-    if (!prepared.ok) return err(prepared.error);
-    // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
-    content = bodyType === 'doc' ? await adoptForeignImages(reg, `pages/${id}`, prepared.value) : prepared.value;
-  }
+  const body = planBodyUpdate('page', existing, input);
+  if (!body.ok) return err(body.error);
+  const { bodyType, typeChanged } = body.value;
+  // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
+  const content = body.value.content === undefined || bodyType !== 'doc' ? body.value.content : await adoptForeignImages(reg, `pages/${id}`, body.value.content);
 
   if (input.parentId) {
     const parent = await checkParent(reg, id, input.parentId);
@@ -187,15 +180,15 @@ export const updatePage = async (
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.parentId !== undefined && { parentId: input.parentId }),
-      ...(bodyType !== currentType && { bodyType }),
+      ...(typeChanged && { bodyType }),
       ...(content !== undefined && { content }),
       ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
     }
   });
   // A sheet or drawing links nothing and shows no images, so switching to one clears the page's mentions.
   if (content !== undefined) {
-    await syncMentions(reg, { entityType: 'PAGE', entityId: id }, bodyType === 'doc' ? content : '');
-    await tidyEditorImages(reg, `pages/${id}`, bodyType === 'doc' ? content : '');
+    await syncMentions(reg, { entityType: 'PAGE', entityId: id }, linkedText(bodyType, content));
+    await tidyEditorImages(reg, `pages/${id}`, linkedText(bodyType, content));
   }
   return ok({ id });
 };

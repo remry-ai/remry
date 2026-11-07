@@ -10,8 +10,8 @@ import { syncMentions } from '$api/relation/mentions';
 import { loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
 import { readLastSync } from '$shared/utils/sync-state';
 import type { LastSync, SyncNeed } from '$shared/types/sync-now';
-import { asBodyType, BODY_NAMES, type BodyType } from '$shared/types/body-types';
-import { isEmptyBody, prepareContent } from '$api/_body';
+import { asBodyType, type BodyType } from '$shared/types/body-types';
+import { linkedText, planBodyUpdate, prepareContent } from '$api/_body';
 
 // ----- Types -----
 
@@ -199,20 +199,10 @@ export const updateDoc = async (
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
-  const currentType = asBodyType(existing.bodyType);
-  const bodyType = input.bodyType ?? currentType;
-  if (bodyType !== currentType && !isEmptyBody(currentType, existing.content)) {
-    return err(new Error(`This doc already has content as a ${BODY_NAMES[currentType]}, so it can't become a ${BODY_NAMES[bodyType]}. Clear its content first, or add a new doc (doc.add --bodyType ${bodyType}).`));
-  }
-  if (bodyType !== 'doc' && (input.prompt === undefined ? existing.prompt : input.prompt)?.trim()) {
-    return err(new Error(`A ${BODY_NAMES[bodyType]} doc can't be a sync doc: only a document's text is rewritten from its sources.`));
-  }
-  let prepared: string | undefined;
-  if (input.content !== undefined || bodyType !== currentType) {
-    const checked = prepareContent(bodyType, input.content ?? '');
-    if (!checked.ok) return err(checked.error);
-    prepared = checked.value;
-  }
+  const body = planBodyUpdate('doc', existing, input);
+  if (!body.ok) return err(body.error);
+  const { bodyType, typeChanged } = body.value;
+  const prepared = body.value.content;
   const move = await moveTarget(reg, input);
   if (!move.ok) return err(move.error);
   // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
@@ -223,15 +213,15 @@ export const updateDoc = async (
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(content !== undefined && { content }),
-      ...(bodyType !== currentType && { bodyType }),
+      ...(typeChanged && { bodyType }),
       ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
       ...(move.value && move.value)
     }
   });
   if (content !== undefined) {
     // A spreadsheet or drawing has no links or images in its text.
-    await syncMentions(reg, { entityType: 'DOC', entityId: id }, bodyType === 'doc' ? content : '');
-    await tidyEditorImages(reg, `docs/${id}`, bodyType === 'doc' ? content : '');
+    await syncMentions(reg, { entityType: 'DOC', entityId: id }, linkedText(bodyType, content));
+    await tidyEditorImages(reg, `docs/${id}`, linkedText(bodyType, content));
   }
   return ok({ id });
 };

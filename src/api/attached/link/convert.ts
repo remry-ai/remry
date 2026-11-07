@@ -4,6 +4,7 @@
 // from the HTTP tRPC context; the CLI and MCP have none, so there Claude reads the file itself and
 // saves its text with link.update.
 
+import { requireDocument } from '$api/_body';
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { ensureWritable } from '$api/_archive';
@@ -95,15 +96,11 @@ export const convertFileLink = async (
   const link = found.value;
   // Only a doc or a document page has text to write; a person's or project's files are kept as they are.
   if (link.entityType !== 'DOC' && link.entityType !== 'PAGE') return err(new Error('Only a doc or a wiki page can be written from a file.'));
-  if (link.entityType === 'PAGE') {
-    const page = await reg.prisma.page.findUnique({ where: { id: link.entityId }, select: { bodyType: true } });
-    if (page?.bodyType === 'sheet') return err(new Error("A spreadsheet page can't be written from a file."));
-    if (page?.bodyType === 'drawing') return err(new Error("A drawing page can't be written from a file."));
-  } else {
-    const doc = await reg.prisma.doc.findUnique({ where: { id: link.entityId }, select: { bodyType: true } });
-    if (doc?.bodyType === 'sheet') return err(new Error("A spreadsheet doc can't be written from a file."));
-    if (doc?.bodyType === 'drawing') return err(new Error("A drawing doc can't be written from a file."));
-  }
+  const holder = link.entityType === 'PAGE'
+    ? await reg.prisma.page.findUnique({ where: { id: link.entityId }, select: { bodyType: true } })
+    : await reg.prisma.doc.findUnique({ where: { id: link.entityId }, select: { bodyType: true } });
+  const document = requireDocument(link.entityType === 'PAGE' ? 'page' : 'doc', holder?.bodyType ?? 'doc', 'written from a file');
+  if (!document.ok) return err(document.error);
   const writable = await ensureWritable(reg, link.entityType, link.entityId);
   if (!writable.ok) return err(writable.error);
 

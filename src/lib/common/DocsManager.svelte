@@ -5,6 +5,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Menu from '$lib/ui/Menu.svelte';
   import { errorMessage } from '$lib/ui/submit';
+  import { BODY_LABELS, isGridOrDrawing, type BodyType, type GridOrDrawing } from '$shared/types/body-types';
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
   import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
@@ -13,7 +14,7 @@
     readonly id: string;
     readonly title: string;
     /** A spreadsheet or drawing doc gets a badge saying so. */
-    readonly bodyType?: 'doc' | 'sheet' | 'drawing';
+    readonly bodyType?: BodyType;
     /** Set on a sync doc, which gets a badge. */
     readonly prompt?: string | null;
     /** Why a sync doc wants syncing (never synced, failed, over a week old); its badge says so. */
@@ -29,7 +30,7 @@
     readonly onSelect: (id: string) => void;
     readonly onStartAdd: () => void;
     /** Adds an empty spreadsheet or drawing doc and opens it. Without it, + adds a document only. */
-    readonly onAddOfType?: (bodyType: 'sheet' | 'drawing') => Promise<void>;
+    readonly onAddOfType?: (bodyType: GridOrDrawing) => Promise<void>;
     readonly onRemove: (id: string) => Promise<void>;
     readonly onReorder: (docIds: readonly string[]) => Promise<void>;
   }
@@ -73,7 +74,7 @@
   };
 
   let addError = $state('');
-  const addOfType = async (bodyType: 'sheet' | 'drawing') => {
+  const addOfType = async (bodyType: GridOrDrawing) => {
     addError = '';
     expanded = false;
     try {
@@ -84,12 +85,10 @@
   };
 
   const addItems = $derived([
-    { label: 'Document', onSelect: startAdd },
-    { label: 'Spreadsheet', onSelect: () => { void addOfType('sheet'); } },
-    { label: 'Drawing', onSelect: () => { void addOfType('drawing'); } }
+    { label: BODY_LABELS.doc, onSelect: startAdd },
+    { label: BODY_LABELS.sheet, onSelect: () => { void addOfType('sheet'); } },
+    { label: BODY_LABELS.drawing, onSelect: () => { void addOfType('drawing'); } }
   ]);
-
-  const BADGES = { sheet: 'Spreadsheet', drawing: 'Drawing' } as const;
 
   const moveUp = async (index: number) => {
     if (index <= 0) return;
@@ -128,8 +127,8 @@
       <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
-            {#if doc.bodyType === 'sheet' || doc.bodyType === 'drawing'}
-              <span class="badge">{BADGES[doc.bodyType]}</span>
+            {#if doc.bodyType && isGridOrDrawing(doc.bodyType)}
+              <span class="badge muted">{BODY_LABELS[doc.bodyType]}</span>
             {/if}
             {#if doc.prompt}
               <SyncStatus {...statusOf(doc)} />

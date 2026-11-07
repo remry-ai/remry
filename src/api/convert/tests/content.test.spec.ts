@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { hasStoredImages, noteFromPage, pageMarkdown, projectPageContent, relinkContent, titleFromNote } from '../content';
+import { hasStoredImages, noteFromPage, projectPageContent, relinkContent, titleFromNote } from '../content';
+import { bodyMarkdown } from '$shared/utils/body';
 
 const none = {
   description: null, status: null, owner: null, startDate: null, endDate: null,
@@ -54,8 +55,8 @@ describe('relinkContent', () => {
 describe('page text', () => {
   it('turns a sheet into a table and keeps a document', () => {
     const sheet = JSON.stringify({ columns: [{ title: 'Item' }, { title: 'Cost' }], data: [['Rent', '1200']], values: [['Rent', '1200']] });
-    expect(pageMarkdown('sheet', sheet)).toBe('| Item | Cost |\n| --- | --- |\n| Rent | 1200 |');
-    expect(pageMarkdown('doc', '# Hi')).toBe('# Hi');
+    expect(bodyMarkdown('sheet', sheet)).toBe('| Item | Cost |\n| --- | --- |\n| Rent | 1200 |');
+    expect(bodyMarkdown('doc', '# Hi')).toBe('# Hi');
   });
 
   it('makes a note with the title in bold', () => {

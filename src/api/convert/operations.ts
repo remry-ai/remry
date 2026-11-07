@@ -23,7 +23,8 @@ import { isEmptyBody } from '$api/_body';
 import { createProject } from '$api/project/operations';
 import { addDoc, updateDoc, DOC_HOLDERS } from '$api/attached/doc/operations';
 import { addNote } from '$api/attached/note/operations';
-import { hasStoredImages, noteFromPage, pageMarkdown, projectPageContent, titleFromNote } from './content';
+import { hasStoredImages, noteFromPage, projectPageContent, titleFromNote } from './content';
+import { bodyMarkdown } from '$shared/utils/body';
 import { hasFileLinks, moveLinks, rehomeAttachments, relinkMentions, type Ref } from './rehome';
 
 type Reg = Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>;
@@ -445,7 +446,7 @@ const convertPageToNote = async (reg: Reg, input: ConvertInput): Promise<Result<
   if (!holder.ok) return err(holder.error);
   const on = holder.value.entityType as EntityType;
 
-  const note = await addNote(reg, on, holder.value.entityId, { content: noteFromPage(page.value.title, pageMarkdown(page.value.bodyType, page.value.content)) });
+  const note = await addNote(reg, on, holder.value.entityId, { content: noteFromPage(page.value.title, bodyMarkdown(page.value.bodyType, page.value.content)) });
   if (!note.ok) return err(note.error);
   const path = entityPath(on, holder.value.entityId);
 

@@ -14,7 +14,7 @@
   import { page } from '$app/state';
   import DocEditor from '$lib/common/DocEditor.svelte';
   import DocBodyCard from '$lib/doc/DocBodyCard.svelte';
-  import type { BodyType } from '$shared/types/body-types';
+  import { BODY_LABELS, isGridOrDrawing, type BodyType, type GridOrDrawing } from '$shared/types/body-types';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import { printUrl } from '$lib/doc/print-options';
   import { DOC_PARAM, NEW_DOC, openDocUrl, closeDocUrl } from '$lib/doc/doc-url';
@@ -239,11 +239,19 @@
   const closeDoc = () => { void closeDocUrl(); };
 
   // A spreadsheet or drawing doc is made at once, empty, and opens; it's renamed in place.
-  const handleAddBodyDoc = async (bodyType: 'sheet' | 'drawing') => {
-    await docHandlers.handleAddDoc(bodyType === 'sheet' ? 'Untitled spreadsheet' : 'Untitled drawing', bodyType);
+  const handleAddBodyDoc = async (bodyType: GridOrDrawing) => {
+    await docHandlers.handleAddDoc(`Untitled ${BODY_LABELS[bodyType].toLowerCase()}`, bodyType);
   };
 
-  const activeBodyType = $derived(activeDoc?.bodyType ?? 'doc');
+  const activeBodyType = $derived<BodyType>(activeDoc?.bodyType ?? 'doc');
+
+  // "From an Excalidraw link" on an empty drawing doc, as on an empty drawing page.
+  const handleImportDocDrawing = async (url: string): Promise<void> => {
+    const id = activeDoc?.id;
+    if (!id) return;
+    await submitOrThrow(() => trpc().drawing.importLink.mutate({ url, docId: id }));
+    await invalidateAll();
+  };
 
   // "Share link" on a drawing doc: the server uploads an encrypted copy to excalidraw.com.
   const handleShareDocDrawing = async (): Promise<string> => {
@@ -536,11 +544,11 @@
       </div>
     {/if}
 
-    {#if activeDoc && activeBodyType !== 'doc'}
+    {#if activeDoc && isGridOrDrawing(activeBodyType)}
       {#key activeDoc.id}
       <DocBodyCard
         title={activeDoc.title}
-        bodyType={activeBodyType === 'sheet' ? 'sheet' : 'drawing'}
+        bodyType={activeBodyType}
         content={activeDoc.content}
         editable={!archivedAt}
         onSave={handleSaveBody}
@@ -548,6 +556,7 @@
         onClose={() => { closeDoc(); void invalidateAll(); }}
         onDrawingClosed={invalidateAll}
         onShare={handleShareDocDrawing}
+        onImportLink={handleImportDocDrawing}
         exportHref={printUrl(activeDoc.id)}
         sources={docLinks.length > 0 || !archivedAt ? bodySources : undefined}
       />

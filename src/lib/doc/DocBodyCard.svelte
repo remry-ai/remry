@@ -1,18 +1,17 @@
 <script lang="ts">
   // An open doc that's a spreadsheet or a drawing, in the centre pane where DocEditor shows a
   // document: its title (double-click to rename), Export PDF and Close, its links, then the
-  // spreadsheet's grid (saving itself) or the drawing's picture, which opens the full-screen
-  // editor as on a drawing page.
+  // body exactly as a wiki page shows it (BodyView).
   import type { Snippet } from 'svelte';
   import ProBadge from '$lib/ui/ProBadge.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
-  import SheetEditor from '$lib/page/components/SheetEditor.svelte';
-  import DrawingImage from '$lib/drawing/DrawingImage.svelte';
+  import BodyView from './BodyView.svelte';
   import { errorMessage } from '$lib/ui/submit';
+  import { BODY_LABELS, type GridOrDrawing } from '$shared/types/body-types';
 
   interface Props {
     readonly title: string;
-    readonly bodyType: 'sheet' | 'drawing';
+    readonly bodyType: GridOrDrawing;
     readonly content: string;
     /** False when what it's on is archived: it shows but doesn't edit. */
     readonly editable: boolean;
@@ -22,13 +21,14 @@
     /** After the full-screen drawing editor closes: reload, so the picture shows what was drawn. */
     readonly onDrawingClosed?: () => Promise<void>;
     readonly onShare?: () => Promise<string>;
+    readonly onImportLink?: (url: string) => Promise<void>;
     readonly exportHref?: string;
     readonly sources?: Snippet;
   }
 
-  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, exportHref, sources }: Props = $props();
+  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, onImportLink, exportHref, sources }: Props = $props();
 
-  const kind = $derived(bodyType === 'sheet' ? 'Spreadsheet' : 'Drawing');
+  const kind = $derived(BODY_LABELS[bodyType]);
 
   let editingTitle = $state(false);
   let titleDraft = $state('');
@@ -60,10 +60,6 @@
   const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
 
   let drawingOpen = $state(false);
-  const closeDrawing = async () => {
-    drawingOpen = false;
-    await onDrawingClosed?.();
-  };
 </script>
 
 <section class="card doc-card">
@@ -84,17 +80,7 @@
   </div>
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
-  {#if bodyType === 'sheet'}
-    <SheetEditor {content} {editable} {onSave} />
-  {:else}
-    <DrawingImage {content} {title} readOnly={!editable} onOpen={() => { drawingOpen = true; }} />
-    {#if drawingOpen}
-      <!-- Loaded when opened, so other pages never load the editor or its styles. -->
-      {#await import('$lib/drawing/DrawingEditor.svelte') then { default: DrawingEditor }}
-        <DrawingEditor {content} {editable} {onSave} {title} {onShare} onClose={closeDrawing} />
-      {/await}
-    {/if}
-  {/if}
+  <BodyView {bodyType} {content} {title} {editable} {onSave} {onShare} {onImportLink} {onDrawingClosed} bind:drawingOpen />
 </section>
 
 <style lang="scss">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BODY_LABELS, isGridOrDrawing } from '$shared/types/body-types';
   import type { PageData } from './$types';
   import Popup from '$lib/common/Popup.svelte';
   import PageHeader from '$lib/ui/PageHeader.svelte';
@@ -84,7 +85,7 @@
                     {:else}
                       <span class="disclosure-spacer"></span>
                     {/if}
-                    <a href={page.path}>{page.title}</a>{#if page.bodyType === 'sheet'} <span class="badge muted">Sheet</span>{:else if page.bodyType === 'drawing'} <span class="badge muted">Drawing</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <a href={page.path}>{page.title}</a>{#if isGridOrDrawing(page.bodyType)} <span class="badge muted">{BODY_LABELS[page.bodyType]}</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
                     <span class="row-actions">
                       <button type="button" class="btn icon sm" aria-label="Peek at {page.title}" title="Peek" onclick={() => openPeek(page.id)}><PeekIcon /></button>
                     </span>

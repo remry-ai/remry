@@ -6,7 +6,7 @@
   import Field from '$lib/ui/Field.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import { submit } from '$lib/ui/submit';
-  import type { PageBodyType } from '$shared/types/pages';
+  import { BODY_LABELS, BODY_TYPES, type BodyType } from '$shared/types/body-types';
 
   interface PageData {
     readonly id?: string;
@@ -27,7 +27,7 @@
 
   // Follows `initial` (another page opened), and the input writes to it.
   let title = $derived(initial.title ?? '');
-  let bodyType = $state<PageBodyType>('doc');
+  let bodyType = $state<BodyType>('doc');
   let shareLink = $state('');
   let submitting = $state(false);
   let error = $state('');
@@ -70,9 +70,7 @@
       <Field label="Body">
         {#snippet children({ id })}
           <select {id} bind:value={bodyType}>
-            <option value="doc">Document</option>
-            <option value="sheet">Spreadsheet</option>
-            <option value="drawing">Drawing</option>
+            {#each BODY_TYPES as type (type)}<option value={type}>{BODY_LABELS[type]}</option>{/each}
           </select>
         {/snippet}
       </Field>

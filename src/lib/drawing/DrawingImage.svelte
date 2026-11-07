@@ -14,9 +14,30 @@
     readonly onOpen?: () => void;
     /** Says "Open drawing" rather than "Edit drawing" (an archived page). */
     readonly readOnly?: boolean;
+    /** An empty drawing can start from an excalidraw.com share link; throws the server's error. */
+    readonly onImportLink?: (url: string) => Promise<void>;
   }
 
-  const { content, title, onOpen, readOnly = false }: Props = $props();
+  const { content, title, onOpen, readOnly = false, onImportLink }: Props = $props();
+
+  let importing = $state(false);
+  let shareLink = $state('');
+  let importBusy = $state(false);
+  let importError = $state('');
+  const handleImport = async () => {
+    if (!onImportLink || !shareLink.trim()) return;
+    importBusy = true;
+    importError = '';
+    try {
+      await onImportLink(shareLink.trim());
+      importing = false;
+      shareLink = '';
+    } catch (e: unknown) {
+      importError = e instanceof Error ? e.message : String(e);
+    } finally {
+      importBusy = false;
+    }
+  };
 
   const empty = $derived(isEmptyDrawing(readDrawingContent(content)));
   let image = $state<{ readonly url: string; readonly width: number } | null>(null);
@@ -56,7 +77,17 @@
 {#if empty}
   <EmptyState message="Nothing drawn yet.">
     {#if onOpen && !readOnly}<button type="button" class="btn sm" onclick={onOpen}>Start drawing</button>{/if}
+    {#if onImportLink && !readOnly && !importing}<button type="button" class="btn ghost sm" onclick={() => { importing = true; }}>From an Excalidraw link</button>{/if}
   </EmptyState>
+  {#if importing}
+    <!-- Remry fetches it from excalidraw.com and decrypts it here (drawing.importLink). -->
+    <form class="toolbar import-link" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void handleImport(); }}>
+      <input type="url" class="sm" bind:value={shareLink} placeholder="https://excalidraw.com/#json=…" aria-label="Excalidraw share link" />
+      <button type="submit" class="btn sm" disabled={importBusy || !shareLink.trim()} aria-busy={importBusy}>{importBusy ? 'Importing…' : 'Import'}</button>
+      <button type="button" class="btn ghost sm" onclick={() => { importing = false; importError = ''; }}>Cancel</button>
+    </form>
+    {#if importError}<p class="form-error" role="alert">{importError}</p>{/if}
+  {/if}
 {:else if error}
   <p class="form-error" role="alert">{error}</p>
 {:else if !image}
@@ -96,4 +127,5 @@
   }
 
   .drawing-loading { min-height: 4em; }
+  .import-link input { flex: 1; }
 </style>

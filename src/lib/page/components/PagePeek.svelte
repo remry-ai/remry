@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A wiki page in a side peek: its parent, content (a sheet
-  // shows as a table), sub-pages and open todos. Read-only; Open goes to the
+  // A wiki page in a side peek: its parent, content (BodyPreview, as a doc's peek shows it),
+  // sub-pages and open todos. Read-only; Open goes to the
   // full page, and a sub-page opens in the peek.
   import { page } from '$app/state';
   import { trpc } from '$shared/trpc/client';
@@ -9,12 +9,10 @@
   import { openPeek, peekValue } from '$lib/ui/peek-url';
   import SidePeek from '$lib/ui/SidePeek.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
-  import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import StatusDot from '$lib/todo/components/StatusDot.svelte';
   import PriorityBadge from '$lib/todo/components/PriorityBadge.svelte';
   import type { TodoStatus } from '$lib/todo/utils';
-  import DrawingImage from '$lib/drawing/DrawingImage.svelte';
-  import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
+  import BodyPreview from '$lib/doc/BodyPreview.svelte';
   import type { PageDetail } from '$shared/types/pages';
 
   interface Props {
@@ -72,13 +70,6 @@
   const peeked = $derived(loaded?.id === id ? loaded.value : null);
   const error = $derived(failed?.id === id ? failed.message : null);
   const wikiPage = $derived(peeked?.page ?? null);
-  const body = $derived(
-    !wikiPage ? ''
-    : wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content))
-    // A drawing shows as its picture, below.
-    : wikiPage.bodyType === 'drawing' ? ''
-    : wikiPage.content
-  );
 </script>
 
 <SidePeek title={wikiPage?.title ?? (error ? 'Page' : 'Loading…')} href="/app/wiki/{id}">
@@ -97,17 +88,9 @@
       {/if}
     </dl>
 
-    {#if wikiPage.bodyType === 'drawing'}
-      {#key wikiPage.id}
-        <div class="card compact content"><DrawingImage content={wikiPage.content} title={wikiPage.title} /></div>
-      {/key}
-    {:else if body.trim()}
-      {#key wikiPage.id}
-        <div class="card compact content"><MarkdownRenderer content={body} /></div>
-      {/key}
-    {:else}
-      <div class="content"><EmptyState message="This page is empty." /></div>
-    {/if}
+    {#key wikiPage.id}
+      <BodyPreview bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} emptyMessage="This page is empty." />
+    {/key}
 
     <section class="section">
       <div class="section-header"><h4>Sub-pages <span class="count">{wikiPage.children.length}</span></h4></div>
@@ -146,6 +129,5 @@
 </SidePeek>
 
 <style lang="scss">
-  .content { margin-top: var(--sp-3); }
   .row-link { justify-content: flex-start; text-align: left; }
 </style>
