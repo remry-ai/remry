@@ -10,7 +10,7 @@
   // parseFormulas is off, cells keep what was typed, and after each change the formula cells
   // show their results (an error's reason in its tooltip). The line under the grid explains
   // the selected cell's formula, or how to write one, and names the formulas that fail.
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import 'jsuites/dist/jsuites.css';
   import 'jspreadsheet-ce/dist/jspreadsheet.css';
   import 'jspreadsheet-ce/dist/jspreadsheet.themes.css';
@@ -19,7 +19,8 @@
   import { cellName, evaluateSheet, FORMULA_FUNCTIONS, parseCellNumber, type FormulaProblem } from '$shared/utils/sheet-formula';
   import { formatExample, MAX_DECIMALS, type SheetFormat } from '$shared/utils/sheet-format';
   import HelpPopover from '$lib/ui/HelpPopover.svelte';
-  import ExpandIcon from '$lib/ui/ExpandIcon.svelte';
+  import SaveButton from '$lib/doc/SaveButton.svelte';
+  import { SheetControl } from '$lib/doc/sheet-control.svelte';
 
   interface Props {
     readonly content: string;
@@ -28,18 +29,22 @@
     readonly onSave: (content: string) => Promise<void>;
     /** Names the sheet in its full-screen bar. */
     readonly title?: string;
+    /**
+     * Its save state, Save and Full screen, for the holder to show in its own bar
+     * (SheetActions), as a document's bar shows its Save.
+     */
+    readonly control?: SheetControl;
   }
 
-  const { content, editable = true, onSave, title = 'Spreadsheet' }: Props = $props();
-
-  const SAVE_DELAY_MS = 600;
+  const { content, editable = true, onSave, title = 'Spreadsheet', control }: Props = $props();
+  const sheetState = untrack(() => control) ?? new SheetControl();
 
   let host: HTMLDivElement;
   let worksheet: jspreadsheet.WorksheetInstance | null = null;
-  let status = $state<'idle' | 'saving' | 'saved'>('idle');
   let error = $state('');
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let pending: Promise<void> = Promise.resolve();
+  // The sheet as last loaded or saved: it's unsaved while the grid holds anything else.
+  let savedJson = '';
+  let pending: Promise<boolean> = Promise.resolve(true);
 
   const text = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
@@ -65,18 +70,41 @@
     return { version: 1, columns, data, values: shown };
   };
 
-  const save = async () => {
-    if (!worksheet) return;
-    const json = JSON.stringify(snapshot(worksheet));
-    status = 'saving';
+  // Saving works as a document does: changes stay unsaved ("● Unsaved") until Save, or until
+  // the sheet is closed or left, which saves them rather than lose them.
+  const refreshDirty = () => {
+    sheetState.dirty = !!worksheet && editable && JSON.stringify(snapshot(worksheet)) !== savedJson;
+  };
+
+  const send = async (json: string): Promise<boolean> => {
+    if (json === savedJson) return true;
+    sheetState.saving = true;
     error = '';
     try {
       await onSave(json);
-      status = 'saved';
+      savedJson = json;
+      return true;
     } catch (e) {
-      status = 'idle';
       error = e instanceof Error ? e.message : String(e);
+      return false;
+    } finally {
+      sheetState.saving = false;
+      if (worksheet) refreshDirty();
     }
+  };
+
+  /**
+   * Saves what the grid holds, a cell still being edited included. The sheet is read at once
+   * (so it works while the grid is going away), and saves run one after another, so an older
+   * one never lands after a newer one. True once nothing is left unsaved.
+   */
+  const save = (): Promise<boolean> => {
+    const sheet = worksheet;
+    if (!sheet || !editable) return Promise.resolve(true);
+    if (sheet.edition) sheet.closeEditor(sheet.edition[0], true);
+    const json = JSON.stringify(snapshot(sheet));
+    pending = pending.then(() => send(json));
+    return pending;
   };
 
   /**
@@ -114,7 +142,6 @@
     readonly height: number;
   }
   let renaming = $state<Renaming | null>(null);
-  const saveLabel = $derived(error ? `Not saved: ${error}` : status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Changes save themselves');
   let renameDraft = $state('');
 
   const startRename = (x: number) => {
@@ -149,8 +176,7 @@
   // can draw over it, as with the drawing editor), and back again: nothing is remounted, so
   // the selection, an edit and the save state carry on. The moved part is the editor's inner
   // box, never its outer element, which Svelte adds and removes where it was.
-  let fullScreen = $state(false);
-  let expandButton = $state<HTMLButtonElement | null>(null);
+  const fullScreen = $derived(sheetState.fullScreen);
 
   const liftWhen = (node: HTMLElement, on: boolean) => {
     const home = document.createComment('sheet');
@@ -172,10 +198,7 @@
     };
   };
 
-  const closeFullScreen = () => {
-    fullScreen = false;
-    queueMicrotask(() => expandButton?.focus());
-  };
+  const closeFullScreen = () => { sheetState.fullScreen = false; };
 
   // Esc leaves full screen, unless it's ending a cell's edit, the rename box or something open. In the capture
   // phase, so it sees the edit before the library's own listener ends it.
@@ -209,7 +232,7 @@
     if (!column) return;
     if (format) column.remryFormat = format;
     else delete column.remryFormat;
-    schedule();
+    changed();
   };
 
   const formatMenu = (x: number): jspreadsheet.ContextMenuItem[] => {
@@ -301,12 +324,10 @@
     describeSelected();
   };
 
-  // Saves run one after another, so an older snapshot never lands after a newer one.
-  const schedule = () => {
+  // After any change: formulas worked out again, and whether there's something to save.
+  const changed = () => {
     showResults();
-    if (!editable) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => { pending = pending.then(save); }, SAVE_DELAY_MS);
+    refreshDirty();
   };
 
   onMount(() => {
@@ -348,20 +369,24 @@
         },
         // Typed or pasted =sum(b2:c2) is stored and evaluated as =SUM(B2:C2).
         onbeforechange: (_sheet, _cell, _x, _y, value) => (typeof value === 'string' ? normaliseFormula(value) : value),
-        onafterchanges: schedule,
-        oninsertrow: schedule,
-        ondeleterow: schedule,
-        oninsertcolumn: schedule,
-        ondeletecolumn: schedule,
-        onmoverow: schedule,
-        onmovecolumn: schedule,
-        onresizecolumn: schedule,
-        onchangeheader: schedule,
-        onundo: schedule,
-        onredo: schedule
+        onafterchanges: changed,
+        oninsertrow: changed,
+        ondeleterow: changed,
+        oninsertcolumn: changed,
+        ondeletecolumn: changed,
+        onmoverow: changed,
+        onmovecolumn: changed,
+        onresizecolumn: changed,
+        onchangeheader: changed,
+        onundo: changed,
+        onredo: changed
       });
       worksheet = instance ?? null;
       showResults();
+      if (worksheet) savedJson = JSON.stringify(snapshot(worksheet));
+      // A holder's control may have shown another page's sheet before this one.
+      sheetState.dirty = false;
+      const detach = sheetState.attach(save);
       const onKey = (event: KeyboardEvent) => enterToEdit(lib, event);
       window.addEventListener('keydown', onKey, true);
       // A double-click on a column header renames it.
@@ -373,6 +398,7 @@
       };
       host.addEventListener('dblclick', onDoubleClick);
       removeKeys = () => {
+        detach();
         window.removeEventListener('keydown', onKey, true);
         host.removeEventListener('dblclick', onDoubleClick);
       };
@@ -381,11 +407,9 @@
     return () => {
       destroyed = true;
       removeKeys?.();
-      // Leaving the page with a save still waiting: send it now.
-      if (timer !== undefined && worksheet) {
-        clearTimeout(timer);
-        void save();
-      }
+      // Leaving the sheet (another page, the doc closed) with unsaved changes: they're saved.
+      if (sheetState.dirty) void save();
+      sheetState.fullScreen = false;
       // Kept here: Svelte clears `host` once the component is gone, before the import resolves.
       const el = host as jspreadsheet.JspreadsheetInstanceElement | null;
       if (el?.spreadsheet) {
@@ -403,7 +427,10 @@
   {#if fullScreen}
     <div class="full-screen-bar">
       <span class="full-screen-title truncate">{title}</span>
-      <button type="button" class="btn icon sm" onclick={closeFullScreen} aria-label="Close full screen" title="Close full screen">&times;</button>
+      <span class="full-screen-actions">
+        {#if editable}<SaveButton dirty={sheetState.dirty} saving={sheetState.saving} onSave={() => void save()} />{/if}
+        <button type="button" class="btn icon sm" onclick={closeFullScreen} aria-label="Close full screen" title="Close full screen">&times;</button>
+      </span>
     </div>
   {/if}
   <div class="sheet-frame">
@@ -420,12 +447,8 @@
       />
     {/if}
   </div>
-  <!-- The save state first, then formula help on a click, then the selected formula or the ones that fail. -->
+  <!-- Formula help on a click, then the selected formula or the ones that fail. -->
   <div class="sheet-status text-xs">
-    {#if editable}
-      <!-- The save state as a dot: grey with nothing to save yet, amber while saving, green once saved, red when a save failed. The words are its tooltip and for screen readers. -->
-      <span class="save-dot {error ? 'failed' : status}" title={saveLabel} role="status"><span class="sr-only">{saveLabel}</span></span>
-    {/if}
     <HelpPopover label="Formulas" placement="above">
       <p>Start a cell with <code>=</code> for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>, <code>="Total: "&amp;B6</code>.</p>
       <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter in the header's top-left corner.</p>
@@ -444,11 +467,8 @@
     {#if problems.length > 0}
       <span class="formula-problem">{problems.length === 1 ? '1 formula fails' : `${problems.length} formulas fail`}: {problems.slice(0, 5).map((p) => p.cell).join(', ')}{problems.length > 5 ? '…' : ''}. Select one to see why.</span>
     {/if}
-    {#if !fullScreen}
-      <button bind:this={expandButton} type="button" class="btn icon sm expand" onclick={() => { fullScreen = true; }} aria-label="Full screen" title="Full screen"><ExpandIcon /></button>
-    {/if}
   </div>
-  {#if error}<p class="form-error">{error}</p>{/if}
+  {#if error}<p class="form-error" role="alert">Not saved: {error}</p>{/if}
 </div>
 </div>
 
@@ -502,7 +522,11 @@
     font-weight: 600;
     min-width: 0;
   }
-  .expand { margin-left: auto; }
+  .full-screen-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+  }
 
   // The rename box sits over the header it renames (its offset within the frame).
   .sheet-frame { position: relative; }
@@ -550,7 +574,7 @@
     }
   }
 
-  // One wrapping row from the left: the save state, Formulas help, the selected formula.
+  // One wrapping row from the left: Formulas help, the selected formula.
   .sheet-status {
     display: flex;
     flex-wrap: wrap;
@@ -559,18 +583,6 @@
     margin-top: var(--sp-1);
     min-height: 1.4em;
     p { margin: 0; }
-  }
-  .save-dot {
-    flex-shrink: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: var(--r-full);
-    background: var(--text-3);
-    opacity: 0.5;
-    transition: background-color var(--ease), opacity var(--ease);
-    &.saving { background: var(--warning); opacity: 1; }
-    &.saved { background: var(--success); opacity: 1; }
-    &.failed { background: var(--danger); opacity: 1; }
   }
   .formula-problem { color: var(--danger); }
   // Numbers in a formatted column line up on the right, in even-width figures (over the

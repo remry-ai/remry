@@ -256,20 +256,27 @@
 
   // Closes the open doc, of any type, then reloads, so reopening it shows what was saved. In
   // that order: a reload started alongside the navigation cancelled it, and × did nothing.
+  // A spreadsheet or drawing saves without reloading, so `activeDoc.content` is still what it
+  // opened with: what it last saved decides whether it's untouched. (Judged on the loaded
+  // content, a new sheet with rows typed in looked empty and was deleted on close.)
   const closeDoc = async (): Promise<void> => {
     const doc = activeDoc;
-    const untouched = doc !== null && doc.id === newDocId && doc.title === untitled(doc.bodyType ?? 'doc') && isEmptyBody(doc.bodyType ?? 'doc', doc.content);
+    const content = doc && savedBody?.id === doc.id ? savedBody.content : doc?.content ?? '';
+    const untouched = doc !== null && doc.id === newDocId && doc.title === untitled(doc.bodyType ?? 'doc') && isEmptyBody(doc.bodyType ?? 'doc', content);
     newDocId = null;
     await closeDocUrl();
     if (untouched) await docHandlers.handleRemoveDoc(doc.id).catch(() => undefined);
     await invalidateAll();
   };
 
-  // A spreadsheet or drawing saves itself as it's edited; the page reloads only when it closes.
+  // A spreadsheet's Save, or a drawing saving itself as it's edited; the page reloads only when
+  // the doc closes, so what was saved last is kept for closeDoc.
+  let savedBody: { readonly id: string; readonly content: string } | null = null;
   const handleSaveBody = async (content: string) => {
     const id = activeDoc?.id;
     if (!id) return;
     await submitOrThrow(() => trpc().doc.update.mutate({ id, content }));
+    savedBody = { id, content };
   };
 
   // ----- Handlers -----

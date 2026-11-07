@@ -9,6 +9,7 @@
   import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
   import { imageFilesIn, insertImages } from '$lib/doc/pasted-images';
   import DocTitle from '$lib/doc/DocTitle.svelte';
+  import SaveButton from '$lib/doc/SaveButton.svelte';
   import DocBar from '$lib/doc/DocBar.svelte';
   import { isEmptyBody } from '$shared/utils/body';
 
@@ -220,8 +221,7 @@
             <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
             <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
           {:else}
-            {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}
-            <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving || !isDirty} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <SaveButton dirty={isDirty} {saving} onSave={handleSave} />
           {/if}
         {/snippet}
       </DocBar>
@@ -263,7 +263,6 @@
     width: 100%;
     min-height: 300px;
   }
-  .unsaved { color: var(--text-3); white-space: nowrap; }
   .status {
     padding: var(--sp-8);
     text-align: center;

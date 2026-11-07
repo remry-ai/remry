@@ -10,6 +10,8 @@
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
   import BodyView from '$lib/doc/BodyView.svelte';
+  import SheetActions from '$lib/doc/SheetActions.svelte';
+  import { SheetControl } from '$lib/doc/sheet-control.svelte';
   import { BODY_LABELS, isGridOrDrawing, type GridOrDrawing } from '$shared/types/body-types';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
@@ -120,6 +122,15 @@
 
   const handleSaveContent = async (content: string) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, content }));
+  };
+
+  // A spreadsheet page's Full screen and Save sit beside Export PDF (SheetActions), and Export
+  // saves its changes first, as a doc's does.
+  const sheet = new SheetControl();
+  const handleSheetExport = async (e: MouseEvent) => {
+    if (!sheet.dirty || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    if (await sheet.save()) await goto(wikiPrintUrl(wikiPage.id));
   };
 
   // Images pasted or dropped into the content upload on save, into the page's files.
@@ -249,14 +260,17 @@
         <div class="section-header">
           <h4>{BODY_LABELS[wikiPage.bodyType]}</h4>
           <span class="content-actions">
-            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export PDF <ProBadge /></a>
+            {#if wikiPage.bodyType === 'sheet'}
+              <SheetActions control={sheet} editable={!wikiPage.archivedAt} />
+            {/if}
             {#if wikiPage.bodyType === 'drawing'}
               <button type="button" class="btn icon sm" aria-label="{wikiPage.archivedAt ? 'Open' : 'Edit'} the drawing {wikiPage.title}" title={wikiPage.archivedAt ? 'Open full screen' : 'Edit drawing'} onclick={() => { drawingOpen = true; }}><PencilIcon /></button>
             {/if}
           </span>
         </div>
         {#key wikiPage.id}
-          <BodyView bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} editable={!wikiPage.archivedAt} onSave={handleSaveContent} onShare={handleShareDrawing} onImportLink={handleImportDrawing} onDrawingClosed={invalidateAll} bind:drawingOpen />
+          <BodyView bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} editable={!wikiPage.archivedAt} onSave={handleSaveContent} onShare={handleShareDrawing} onImportLink={handleImportDrawing} onDrawingClosed={invalidateAll} bind:drawingOpen sheetControl={sheet} />
         {/key}
       </section>
     {:else if editing}
