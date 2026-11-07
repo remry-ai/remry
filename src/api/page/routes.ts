@@ -8,7 +8,9 @@ import { createPage, deletePage, getPage, listPages, updatePage, uploadPageImage
 import { EDITOR_IMAGE_TYPES, MAX_IMAGE_BASE64_CHARS } from '$api/_images';
 
 // doc: content is markdown. sheet: content is JSON, {"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]};
-// cells are strings, and a cell starting with = is a formula the app evaluates.
+// cells are strings, and a cell starting with = is a formula the app evaluates. drawing: content is
+// JSON, {"skeleton":[{"type":"rectangle","id":"a","label":{"text":"Start"}},{"type":"arrow","start":{"id":"a"},"end":{"id":"b"}},…]}
+// (the skill's references/drawings.md), which the app expands into an Excalidraw scene.
 const bodyType = z.enum(PAGE_BODY_TYPES);
 
 export const pageRouter = router({
@@ -26,7 +28,7 @@ export const pageRouter = router({
     .query(({ ctx, input }) => getPage(ctx.reg, input.id)),
 
   create: procedure
-    .meta({ description: 'Creates a wiki page with markdown content (or, with bodyType sheet, a spreadsheet).' })
+    .meta({ description: 'Creates a wiki page with markdown content (or, with bodyType sheet, a spreadsheet; with bodyType drawing, a diagram).' })
     .input(z.object({
       title: z.string().min(1).max(200),
       bodyType: bodyType.optional(),

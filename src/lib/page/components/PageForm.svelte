@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A page's title, and on create whether its body is a document or a spreadsheet.
+  // A page's title, and on create whether its body is a document, a spreadsheet or a drawing.
   // Content is edited on the page itself.
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
@@ -66,6 +66,7 @@
           <select {id} bind:value={bodyType}>
             <option value="doc">Document</option>
             <option value="sheet">Spreadsheet</option>
+            <option value="drawing">Drawing</option>
           </select>
         {/snippet}
       </Field>

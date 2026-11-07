@@ -4,11 +4,16 @@
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import ProLock from '$lib/ui/ProLock.svelte';
   import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
+  import { drawingBlock } from '$shared/types/drawing-blocks';
 
   const { data }: { data: PageData } = $props();
   const wikiPage = $derived(data.page);
-  // A spreadsheet prints as a table of the values its cells showed.
-  const body = $derived(wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content)) : wikiPage.content);
+  // A spreadsheet prints as a table of the values its cells showed, and a drawing as its own embed.
+  const body = $derived(
+    wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content))
+    : wikiPage.bodyType === 'drawing' ? drawingBlock(wikiPage.id)
+    : wikiPage.content
+  );
 </script>
 
 {#if data.locked}

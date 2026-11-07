@@ -10,6 +10,8 @@
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import PageForm from '$lib/page/components/PageForm.svelte';
   import SheetEditor from '$lib/page/components/SheetEditor.svelte';
+  import DrawingEditor from '$lib/drawing/DrawingEditor.svelte';
+  import { drawingBlock } from '$shared/types/drawing-blocks';
   import InlinePicker from '$lib/ui/InlinePicker.svelte';
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -53,6 +55,9 @@
   const editing = $derived(editingId === wikiPage.id);
   const startEditing = () => { editingId = wikiPage.id; };
   const isSheet = $derived(wikiPage.bodyType === 'sheet');
+  const isDrawing = $derived(wikiPage.bodyType === 'drawing');
+  // Neither a spreadsheet nor a drawing has text to sync, write from a file or edit as markdown.
+  const isDocument = $derived(wikiPage.bodyType === 'doc');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
   // A sync page's sources are its links: synced ones, and ones added by hand that Claude reads next.
@@ -60,7 +65,7 @@
 
   // "Make sync page": a document page only (a spreadsheet's rows aren't rewritten from sources).
   let makingSync = $state(false);
-  const canMakeSync = $derived(!wikiPage.prompt && !makingSync && !isSheet && !wikiPage.archivedAt);
+  const canMakeSync = $derived(!wikiPage.prompt && !makingSync && isDocument && !wikiPage.archivedAt);
   $effect(() => { void wikiPage.id; makingSync = false; });
 
   const handleAddLink = async (link: { readonly url: string; readonly title?: string }) => {
@@ -109,7 +114,7 @@
     }
   };
 
-  const uploadSource = $derived(!wikiPage.archivedAt && !isSheet ? handleUploadSource : undefined);
+  const uploadSource = $derived(!wikiPage.archivedAt && isDocument ? handleUploadSource : undefined);
 
   const handleSavePrompt = async (prompt: string | null) => {
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
@@ -137,14 +142,22 @@
   };
 
   let sheetError = $state('');
-  const handleMakeSheet = async () => {
+  const handleMakeBody = async (bodyType: 'sheet' | 'drawing') => {
     sheetError = '';
-    const outcome = await submit(() => trpc().page.update.mutate({ id: wikiPage.id, bodyType: 'sheet' }));
+    const outcome = await submit(() => trpc().page.update.mutate({ id: wikiPage.id, bodyType }));
     if (!outcome.ok) {
       sheetError = outcome.error;
       return;
     }
     await invalidateAll();
+  };
+
+  // "Copy embed": the drawing block that shows this drawing in a doc, a note or another page.
+  let embedCopied = $state(false);
+  const handleCopyEmbed = async () => {
+    await navigator.clipboard.writeText(drawingBlock(wikiPage.id));
+    embedCopied = true;
+    setTimeout(() => { embedCopied = false; }, 1500);
   };
 
   const handleSetParent = async (parentId: string | null) => {
@@ -212,7 +225,7 @@
   {relations}
   links={data.links}
   onFileLinkUploaded={(linkId) => {
-    if (wikiPage.content.trim() || isSheet) return false;
+    if (wikiPage.content.trim() || !isDocument) return false;
     void handleConvert(linkId);
     return true;
   }}
@@ -237,6 +250,19 @@
         </div>
         {#key wikiPage.id}
           <SheetEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} />
+        {/key}
+      </section>
+    {:else if isDrawing}
+      <section class="section">
+        <div class="section-header">
+          <h4>Drawing</h4>
+          <span class="content-actions">
+            <button type="button" class="btn ghost sm" title="Copy the block that shows this drawing in a doc, a note or another page" onclick={handleCopyEmbed}>{embedCopied ? 'Copied' : 'Copy embed'}</button>
+            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
+          </span>
+        </div>
+        {#key wikiPage.id}
+          <DrawingEditor content={wikiPage.content} editable={!wikiPage.archivedAt} onSave={handleSaveContent} />
         {/key}
       </section>
     {:else if editing}
@@ -265,7 +291,7 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF <ProBadge /></a>
-            {:else if fileLink && !converting && !wikiPage.archivedAt && !isSheet}
+            {:else if fileLink && !converting && !wikiPage.archivedAt && isDocument}
               <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}</button>
             {/if}
             <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={startEditing}><PencilIcon /></button>
@@ -279,14 +305,15 @@
         {:else}
           <EmptyState message="This page is empty.">
             <button type="button" class="btn sm" onclick={startEditing}>Write it</button>
-            <button type="button" class="btn ghost sm" onclick={handleMakeSheet}>Make it a spreadsheet</button>
+            <button type="button" class="btn ghost sm" onclick={() => handleMakeBody('sheet')}>Make it a spreadsheet</button>
+            <button type="button" class="btn ghost sm" onclick={() => handleMakeBody('drawing')}>Make it a drawing</button>
           </EmptyState>
           {#if sheetError}<p class="form-error">{sheetError}</p>{/if}
         {/if}
       </section>
     {/if}
 
-    {#if !editing || isSheet}
+    {#if !editing || !isDocument}
       <section class="section">
         <div class="section-header">
           <h4>Sub-pages <span class="count">{wikiPage.children.length}</span></h4>

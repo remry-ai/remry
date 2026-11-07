@@ -50,7 +50,7 @@
 <svelte:head><title>Wiki</title></svelte:head>
 
 <div class="page">
-  <PageHeader title="Wiki" description="Pages for anything worth writing down, as documents or spreadsheets.">
+  <PageHeader title="Wiki" description="Pages for anything worth writing down, as documents, spreadsheets or drawings.">
     <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add page</button>
   </PageHeader>
 
@@ -84,7 +84,7 @@
                     {:else}
                       <span class="disclosure-spacer"></span>
                     {/if}
-                    <a href={page.path}>{page.title}</a>{#if page.bodyType === 'sheet'} <span class="badge muted">Sheet</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <a href={page.path}>{page.title}</a>{#if page.bodyType === 'sheet'} <span class="badge muted">Sheet</span>{:else if page.bodyType === 'drawing'} <span class="badge muted">Drawing</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
                     <span class="row-actions">
                       <button type="button" class="btn icon sm" aria-label="Peek at {page.title}" title="Peek" onclick={() => openPeek(page.id)}><PeekIcon /></button>
                     </span>
