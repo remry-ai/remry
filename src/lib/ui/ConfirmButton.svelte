@@ -1,6 +1,6 @@
 <script lang="ts">
   // Two-step inline confirmation. Replaces window.confirm(). As an icon: `delete` (a trash
-  // can) for something deleted for good, `unlink` (a broken link) for taking something off a
+  // can) for something deleted for good, `unlink` (a link crossed out) for taking something off a
   // list (unlink, remove a member) where both items stay. A × only ever closes.
   import TrashIcon from './TrashIcon.svelte';
   import UnlinkIcon from './UnlinkIcon.svelte';
