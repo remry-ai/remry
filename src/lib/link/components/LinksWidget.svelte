@@ -157,7 +157,7 @@
             {#if row.readable}
               <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : `Re-read with ${$assistantName}: write its text again`} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
             {/if}
-            <ConfirmButton label="Remove link {row.label}" variant="icon" onConfirm={() => handleRemove(row.id)} />
+            <ConfirmButton label="Delete link {row.label}" variant="delete" onConfirm={() => handleRemove(row.id)} />
           </span>
         {/if}
       </li>

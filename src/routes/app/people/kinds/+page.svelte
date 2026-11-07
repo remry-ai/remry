@@ -55,7 +55,7 @@
               <td class="num">
                 <button type="button" class="btn icon sm" aria-label="Edit {kind.label}" title="Edit" onclick={() => openPopup('edit-relation-kind', { kind: kind.key })}><PencilIcon /></button>
                 {#if kind.relationCount === 0}
-                  <ConfirmButton label="Delete {kind.label}" confirmLabel="Delete kind" variant="icon" onConfirm={() => handleDelete(kind)} />
+                  <ConfirmButton label="Delete {kind.label}" confirmLabel="Delete kind" variant="delete" onConfirm={() => handleDelete(kind)} />
                 {/if}
               </td>
             </tr>

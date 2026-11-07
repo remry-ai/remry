@@ -55,7 +55,7 @@
               <td class="num">
                 <button type="button" class="btn icon sm" aria-label="Edit {kind.name}" title="Edit" onclick={() => openPopup('edit-group-kind', { kind: kind.key })}><PencilIcon /></button>
                 {#if kind.groupCount === 0}
-                  <ConfirmButton label="Delete {kind.name}" confirmLabel="Delete kind" variant="icon" onConfirm={() => handleDelete(kind)} />
+                  <ConfirmButton label="Delete {kind.name}" confirmLabel="Delete kind" variant="delete" onConfirm={() => handleDelete(kind)} />
                 {/if}
               </td>
             </tr>

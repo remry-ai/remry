@@ -259,7 +259,7 @@
               {#if checkIn.status}<span class={goalStatusBadgeClass(checkIn.status)}>{GOAL_STATUS_LABELS[checkIn.status]}</span>{/if}
               <span class="grow truncate text-2">{checkIn.comment ?? ''}</span>
               <span class="row-actions">
-                <ConfirmButton label="Remove check-in" variant="icon" onConfirm={() => handleRemoveCheckIn(checkIn.id)} />
+                <ConfirmButton label="Delete check-in" variant="delete" onConfirm={() => handleRemoveCheckIn(checkIn.id)} />
               </span>
             </li>
           {/each}

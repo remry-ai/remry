@@ -76,7 +76,7 @@
                 <button type="button" class="btn icon sm" aria-label="Edit note" title="Edit" onclick={() => onEdit(note)}><PencilIcon /></button>
               {/if}
               {#if onRemove}
-                <ConfirmButton label="Delete note" variant="icon" onConfirm={() => onRemove(note.id)} />
+                <ConfirmButton label="Delete note" variant="delete" onConfirm={() => onRemove(note.id)} />
               {/if}
             </span>
           {/if}

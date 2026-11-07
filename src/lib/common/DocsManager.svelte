@@ -137,7 +137,7 @@
             {#snippet actions()}
               <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
               <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>
-              <ConfirmButton label="Delete doc" variant="icon" onConfirm={() => onRemove(doc.id)} />
+              <ConfirmButton label="Delete doc" variant="delete" onConfirm={() => onRemove(doc.id)} />
             {/snippet}
           </EntityRow>
         {/each}
