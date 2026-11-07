@@ -1,6 +1,6 @@
 // A doc's markdown as pdfmake content: the PDF is laid out from the text itself, not a
 // picture of the print page, so its text is real and pdfmake breaks pages between lines,
-// rows and blocks. Pure: images, charts and diagrams come in already drawn (`PdfAssets`),
+// rows and blocks. Pure: images, charts, diagrams and drawings come in already drawn (`PdfAssets`),
 // and `collectPdfAssets` says which to draw. `export-pdf.ts` does the drawing and saving.
 
 import { Lexer, type Token, type Tokens } from 'marked';
@@ -9,6 +9,7 @@ import { normalizePageBreaks, separateBreakLines } from './pdf-pages';
 import { nowrapColumns } from './table-columns';
 import { attachTableWidths, type SizedTable } from './table-widths';
 import { APP_FONT } from '$lib/ui/app-font';
+import { drawingBlockPageId } from '$shared/types/drawing-blocks';
 
 /** An image ready for the PDF: a PNG or JPEG data URL and its size in CSS pixels. */
 export interface PdfImage {
@@ -24,6 +25,8 @@ export interface PdfAssets {
   readonly charts: ReadonlyMap<string, PdfImage>;
   /** By the diagram's mermaid source. */
   readonly diagrams: ReadonlyMap<string, PdfImage>;
+  /** By the id of the drawing page a ```drawing block embeds. */
+  readonly drawings: ReadonlyMap<string, PdfImage>;
 }
 
 export interface PdfColors {
@@ -68,30 +71,43 @@ const CODE_FILL = '#f4f4f4';
 
 const isChart = (token: Tokens.Code): boolean => token.lang?.trim() === 'chart';
 const isDiagram = (token: Tokens.Code): boolean => token.lang?.trim() === 'mermaid' || MERMAID_START.test(token.text.trim());
+const isDrawing = (token: Tokens.Code): boolean => token.lang?.trim() === 'drawing';
 
 /** The markdown the PDF is laid out from: page breaks and `<br>` lines as the screen reads them. */
 /** The width comments come out here, their tables taking the widths (`table-widths.ts`). */
 const lex = (markdown: string): Token[] =>
   attachTableWidths(new Lexer({ gfm: true }).lex(normalizePageBreaks(separateBreakLines(markdown))));
 
-/** What the PDF needs drawn: each image's address, each chart's text and each diagram's source. */
-export const collectPdfAssets = (markdown: string): { readonly images: readonly string[]; readonly charts: readonly string[]; readonly diagrams: readonly string[] } => {
+export interface NeededAssets {
+  readonly images: readonly string[];
+  readonly charts: readonly string[];
+  readonly diagrams: readonly string[];
+  /** Drawing page ids. */
+  readonly drawings: readonly string[];
+}
+
+/** What the PDF needs drawn: each image's address, each chart's text, each diagram's source and each embedded drawing's page. */
+export const collectPdfAssets = (markdown: string): NeededAssets => {
   const images = new Set<string>();
   const charts = new Set<string>();
   const diagrams = new Set<string>();
+  const drawings = new Set<string>();
   const walk = (tokens: readonly Token[]): void => {
     for (const token of tokens) {
       if (token.type === 'image') images.add((token as Tokens.Image).href);
       if (token.type === 'code') {
         const code = token as Tokens.Code;
         if (isChart(code)) charts.add(code.text);
-        else if (isDiagram(code)) diagrams.add(code.text.trim());
+        else if (isDrawing(code)) {
+          const pageId = drawingBlockPageId(code.text);
+          if (pageId) drawings.add(pageId);
+        } else if (isDiagram(code)) diagrams.add(code.text.trim());
       }
       for (const child of childTokens(token)) walk(child);
     }
   };
   walk(lex(markdown));
-  return { images: [...images], charts: [...charts], diagrams: [...diagrams] };
+  return { images: [...images], charts: [...charts], diagrams: [...diagrams], drawings: [...drawings] };
 };
 
 /** Every list of tokens inside one: inline text, list items, table cells. */
@@ -307,6 +323,12 @@ const codeBlock = (token: Tokens.Code, ctx: Context): Content => {
     const chart = ctx.assets.charts.get(token.text);
     if (chart) return { ...imageBlock(chart, { ...ctx, width: Math.min(ctx.width, 450) }), unbreakable: true };
     return { text: 'Chart error: this chart block is not valid.', color: '#c0392b', margin: [0, 0, 0, 8] };
+  }
+  if (isDrawing(token)) {
+    const pageId = drawingBlockPageId(token.text);
+    const drawing = pageId ? ctx.assets.drawings.get(pageId) : undefined;
+    if (drawing) return { ...imageBlock(drawing, ctx), unbreakable: true };
+    return { text: pageId ? "Drawing: this drawing couldn't be drawn." : 'Drawing: this block names no drawing page.', color: MUTED, italics: true, margin: [0, 0, 0, 8] };
   }
   if (isDiagram(token)) {
     const diagram = ctx.assets.diagrams.get(token.text.trim());

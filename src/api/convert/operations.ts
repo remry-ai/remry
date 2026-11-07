@@ -119,14 +119,15 @@ const loadProjectTree = async (reg: Pick<Registry, 'prisma'>, id: string): Promi
 interface PageNode {
   readonly id: string;
   readonly title: string;
+  readonly bodyType: string;
   readonly children: readonly PageNode[];
 }
 
 const loadPageTree = async (reg: Pick<Registry, 'prisma'>, id: string): Promise<PageNode | null> => {
-  const row = await reg.prisma.page.findUnique({ where: { id }, select: { id: true, title: true, children: { select: { id: true } } } });
+  const row = await reg.prisma.page.findUnique({ where: { id }, select: { id: true, title: true, bodyType: true, children: { select: { id: true } } } });
   if (!row) return null;
   const children = await Promise.all(row.children.map((c) => loadPageTree(reg, c.id)));
-  return { id: row.id, title: row.title, children: children.filter((c): c is PageNode => c !== null) };
+  return { id: row.id, title: row.title, bodyType: row.bodyType, children: children.filter((c): c is PageNode => c !== null) };
 };
 
 const flattenPages = (node: PageNode): readonly PageNode[] => [node, ...node.children.flatMap(flattenPages)];
@@ -336,6 +337,14 @@ const pageToProject = async (
 const convertPageToProject = async (reg: Reg, input: ConvertInput): Promise<Result<ConvertResult>> => {
   const tree = await loadPageTree(reg, input.id);
   if (!tree) return err(new Error(`Page ${input.id} not found. Find its id with page.list.`));
+  const drawings = flattenPages(tree).filter((p) => p.bodyType === 'drawing');
+  if (tree.bodyType === 'drawing') {
+    return err(new Error(`"${tree.title}" is a drawing, which can't become a project. Keep it as a page and embed it in a project's doc with a drawing block instead.`));
+  }
+  if (drawings.length > 0) {
+    const names = drawings.map((p) => `"${p.title}"`).join(', ');
+    return err(new Error(`Drawing pages stay pages, so ${names} can't become a project's doc. Move ${drawings.length === 1 ? 'it' : 'them'} out from under this page first (page.update --parentId), then convert.`));
+  }
   const writable = await ensureWritable(reg, 'PAGE', input.id);
   if (!writable.ok) return err(writable.error);
   if (input.parentId) {
@@ -384,6 +393,9 @@ interface LeafPage extends LastSyncColumns {
 const checkLeafPage = async (reg: Pick<Registry, 'prisma'>, id: string, to: string): Promise<Result<LeafPage>> => {
   const page = await reg.prisma.page.findUnique({ where: { id }, include: { _count: { select: { children: true } } } });
   if (!page) return err(new Error(`Page ${id} not found. Find its id with page.list.`));
+  if (page.bodyType === 'drawing') {
+    return err(new Error(`"${page.title}" is a drawing, which a ${to} can't hold. Keep it as a page and embed it in a doc with a drawing block (\`\`\`drawing, then /app/wiki/${page.id}).`));
+  }
   if (page._count.children > 0) {
     return err(new Error(`"${page.title}" has ${page._count.children} sub-page${page._count.children === 1 ? '' : 's'}, which a ${to} can't hold. Move or convert them first (page.update --parentId), or convert the page to a PROJECT, whose sub-projects they'd become.`));
   }

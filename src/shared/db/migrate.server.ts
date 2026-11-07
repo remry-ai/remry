@@ -101,7 +101,9 @@ export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
   // Two nullable link columns, and the link search triggers rewritten to index the saved text.
   '20261102120000_link_text_and_source_edited',
   // Four nullable columns on doc and page: a sync's last run.
-  '20261106120000_last_sync'
+  '20261106120000_last_sync',
+  // The page search triggers rewritten to index a drawing's text; nothing else changes.
+  '20261107120000_drawing_search'
 ]);
 
 /**

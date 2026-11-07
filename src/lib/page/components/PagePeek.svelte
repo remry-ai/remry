@@ -13,6 +13,8 @@
   import StatusDot from '$lib/todo/components/StatusDot.svelte';
   import PriorityBadge from '$lib/todo/components/PriorityBadge.svelte';
   import type { TodoStatus } from '$lib/todo/utils';
+  import { drawingBlock } from '$shared/types/drawing-blocks';
+  import { isEmptyDrawing, readDrawingContent } from '$shared/utils/drawing';
   import { readSheetContent, sheetToMarkdown } from '$shared/utils/sheet';
   import type { PageDetail } from '$shared/types/pages';
 
@@ -72,7 +74,11 @@
   const error = $derived(failed?.id === id ? failed.message : null);
   const wikiPage = $derived(peeked?.page ?? null);
   const body = $derived(
-    !wikiPage ? '' : wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content)) : wikiPage.content
+    !wikiPage ? ''
+    : wikiPage.bodyType === 'sheet' ? sheetToMarkdown(readSheetContent(wikiPage.content))
+    // A drawing shows as its own embed, drawn by MarkdownRenderer.
+    : wikiPage.bodyType === 'drawing' ? (isEmptyDrawing(readDrawingContent(wikiPage.content)) ? '' : drawingBlock(wikiPage.id))
+    : wikiPage.content
   );
 </script>
 

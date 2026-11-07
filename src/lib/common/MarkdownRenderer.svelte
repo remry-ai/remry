@@ -2,6 +2,7 @@
   import { marked, Renderer } from 'marked';
   import type { Chart } from 'chart.js';
   import { mountCharts } from '$lib/chart/chart-render';
+  import { mountDrawings } from '$lib/drawing/mount-drawings';
   import { fileUrl } from '$shared/utils/files';
   import type { ChartBranding } from '$shared/types/branding';
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
@@ -150,6 +151,7 @@
 
   $effect(() => {
     let cancelled = false;
+    let releaseDrawings: (() => void) | null = null;
     if (container && content) {
       // The HTML is in place by now; this doesn't wait for a frame, which a hidden window never draws.
       showLostImages(container);
@@ -163,11 +165,19 @@
           for (const c of charts) c.destroy();
           charts = mountCharts(container, branding);
           renderMermaid(container);
+          // Drawing embeds load their page, then Excalidraw, so they come last.
+          if (container.querySelector('pre > code.language-drawing')) {
+            void mountDrawings(container, () => cancelled).then((release) => {
+              if (cancelled) release();
+              else releaseDrawings = release;
+            });
+          }
         });
       });
     }
     return () => {
       cancelled = true;
+      releaseDrawings?.();
       for (const c of charts) c.destroy();
       charts = [];
     };
@@ -225,6 +235,22 @@
     }
 
     :global(.lost-image) { color: var(--text-3); }
+
+    // A drawing page shown in place (mount-drawings.ts): the picture, then its title linking to it.
+    :global(.drawing-embed) {
+      margin: var(--sp-4) 0;
+      text-align: center;
+
+      :global(img) {
+        max-width: 100%;
+        height: auto;
+      }
+    }
+    :global(.drawing-caption) {
+      margin-top: var(--sp-1);
+      color: var(--text-3);
+    }
+    :global(.drawing-error) { color: var(--danger); }
 
     &.zoomable {
       :global(.mermaid-diagram svg),

@@ -1,8 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { excalidrawFonts } from './scripts/vite/excalidraw-fonts';
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [sveltekit(), excalidrawFonts()],
   server: {
     host: '127.0.0.1',
     port: 5173,

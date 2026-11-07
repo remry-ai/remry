@@ -1,11 +1,11 @@
-// Wiki pages: a page tree of markdown documents and spreadsheets. Pages have no
+// Wiki pages: a page tree of markdown documents, spreadsheets and drawings. Pages have no
 // kinds or fields (removed in 0.16.42: the drop_page_kinds migration wrote each
 // page's field values into the top of its text). Shared by the server and the client.
 
 import type { LastSync } from './sync-now';
 
-/** What a page's body is: markdown (`doc`) or a spreadsheet's JSON (`sheet`, see $shared/utils/sheet). */
-export const PAGE_BODY_TYPES = ['doc', 'sheet'] as const;
+/** What a page's body is: markdown (`doc`), a spreadsheet's JSON (`sheet`, see $shared/utils/sheet) or a drawing's JSON (`drawing`, see $shared/utils/drawing). */
+export const PAGE_BODY_TYPES = ['doc', 'sheet', 'drawing'] as const;
 
 export type PageBodyType = (typeof PAGE_BODY_TYPES)[number];
 

@@ -98,6 +98,7 @@ export const convertFileLink = async (
   if (link.entityType === 'PAGE') {
     const page = await reg.prisma.page.findUnique({ where: { id: link.entityId }, select: { bodyType: true } });
     if (page?.bodyType === 'sheet') return err(new Error("A spreadsheet page can't be written from a file."));
+    if (page?.bodyType === 'drawing') return err(new Error("A drawing page can't be written from a file."));
   }
   const writable = await ensureWritable(reg, link.entityType, link.entityId);
   if (!writable.ok) return err(writable.error);

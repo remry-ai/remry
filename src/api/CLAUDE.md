@@ -181,9 +181,10 @@ A profile is a list of modules (`MODULES_BY_PROFILE`, `$shared/modules/model`): 
 
 ## Wiki pages
 
-A page is a document or a spreadsheet, with no kinds or fields. Page kinds (`page_kind`, `page.kind`, `page.properties`, `page.query`) were removed in 0.16.42: the `drop_page_kinds` migration writes each page's kind and filled-in values into the top of its text as a list, then drops them. It isn't additive, so an older Remry refuses a notebook that has it.
+A page is a document, a spreadsheet or a drawing, with no kinds or fields. Page kinds (`page_kind`, `page.kind`, `page.properties`, `page.query`) were removed in 0.16.42: the `drop_page_kinds` migration writes each page's kind and filled-in values into the top of its text as a list, then drops them. It isn't additive, so an older Remry refuses a notebook that has it.
 
-- **Body type:** `page.body_type` is `doc` (markdown in `content`) or `sheet` (a spreadsheet's JSON in `content`: columns, raw cells and the values they showed; `$shared/utils/sheet`). `prepareContent` validates either and normalises a sheet before it's stored; sheets skip chart validation and `syncMentions`. `bodyType` changes only while `isEmptyBody`. The `page_body_type` migration's search triggers index a sheet's `values`, not its JSON.
+- **Body type:** `page.body_type` is `doc` (markdown in `content`), `sheet` (a spreadsheet's JSON in `content`: columns, raw cells and the values they showed; `$shared/utils/sheet`) or `drawing` (an Excalidraw drawing's JSON: a skeleton Claude wrote, or the scene the app saved; `$shared/utils/drawing`). `prepareContent` validates each and normalises a sheet or drawing before it's stored; sheets and drawings skip chart validation, images and `syncMentions`. `bodyType` changes only while `isEmptyBody`. The search triggers index a sheet's `values` and a drawing's text (`drawing_search` migration), not their JSON.
+- **Drawing blocks:** a doc page's save runs `checkDrawingBlocks`, which refuses a fenced `drawing` block that doesn't name an existing drawing page ("drawing block at line N: …"). `extractEntityLinks` reads the block as a link, so `syncMentions` makes it a `MENTIONS` backlink in docs and notes too. `entity.convert` refuses a drawing page (to a doc, note or project) and a page tree holding one; `sync.now` and `link.convert` refuse drawings as they do sheets.
 
 ## Sync docs
 

@@ -38,6 +38,7 @@ const loadTarget = async (reg: SyncReg, entityType: SyncTarget, id: string): Pro
     const page = await reg.prisma.page.findUnique({ where: { id }, select: { title: true, content: true, prompt: true, bodyType: true } });
     if (!page) return err(new Error('Page not found'));
     if (page.bodyType === 'sheet') return err(new Error("A spreadsheet page can't be synced."));
+    if (page.bodyType === 'drawing') return err(new Error("A drawing page can't be synced."));
     if (!page.prompt?.trim()) return err(new Error('Only a sync page can be synced: give it a prompt first.'));
     return ok({ title: page.title, content: page.content, prompt: page.prompt, on: null });
   }

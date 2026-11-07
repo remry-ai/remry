@@ -47,3 +47,13 @@ describe('extractEntityLinks', () => {
     expect(extractEntityLinks(md)).toEqual([{ entityType: 'GOAL', entityId: 'g1' }]);
   });
 });
+
+describe('extractEntityLinks and drawing blocks', () => {
+  it('links the drawing page a drawing block embeds, once', () => {
+    const markdown = '```drawing\n/app/wiki/cm1drawing1\n```\n\nSee [it](/app/wiki/cm1drawing1) and\n\n~~~drawing\ncm1drawing2\n~~~\n\n```js\n/app/wiki/cm1notalink\n```';
+    expect(extractEntityLinks(markdown)).toEqual([
+      { entityType: 'PAGE', entityId: 'cm1drawing1' },
+      { entityType: 'PAGE', entityId: 'cm1drawing2' }
+    ]);
+  });
+});

@@ -6,6 +6,8 @@ import type { PageBodyType, PageDetail, PageSummary } from '$shared/types/pages'
 import { entityPath } from '$shared/utils/entity';
 import { readLastSync } from '$shared/utils/sync-state';
 import { parseSheetContent, readSheetContent } from '$shared/utils/sheet';
+import { isEmptyDrawing, parseDrawingContent, readDrawingContent } from '$shared/utils/drawing';
+import { extractDrawingBlocks } from '$shared/types/drawing-blocks';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
@@ -16,8 +18,9 @@ import { adoptForeignImages, refuseBlobUrls, storeEditorImage, tidyEditorImages,
 
 /**
  * Checks a body before it's stored and returns what to store: markdown as
- * given (its chart blocks valid), or a sheet's JSON normalised (values filled
- * in, rows padded) so search and print can rely on its shape.
+ * given (its chart blocks valid), a sheet's JSON normalised (values filled
+ * in, rows padded) so search and print can rely on its shape, or a drawing's
+ * JSON (a skeleton or a scene, deleted elements dropped).
  */
 export const prepareContent = (bodyType: PageBodyType, content: string): Result<string> => {
   if (bodyType === 'doc') {
@@ -26,15 +29,44 @@ export const prepareContent = (bodyType: PageBodyType, content: string): Result<
     const charts = validateChartBlocks(content);
     return charts.ok ? ok(content) : err(charts.error);
   }
+  if (bodyType === 'drawing') {
+    const drawing = parseDrawingContent(content);
+    return drawing.ok ? ok(JSON.stringify(drawing.value)) : err(drawing.error);
+  }
   const sheet = parseSheetContent(content);
   return sheet.ok ? ok(JSON.stringify(sheet.value)) : err(sheet.error);
 };
 
-/** A document with no text, or a sheet with no filled cells. */
-export const isEmptyBody = (bodyType: PageBodyType, content: string): boolean =>
-  bodyType === 'doc' ? content.trim() === '' : readSheetContent(content).data.every((row) => row.every((cell) => cell.trim() === ''));
+/** A document with no text, a sheet with no filled cells, or a drawing with nothing drawn. */
+export const isEmptyBody = (bodyType: PageBodyType, content: string): boolean => {
+  if (bodyType === 'doc') return content.trim() === '';
+  if (bodyType === 'drawing') return isEmptyDrawing(readDrawingContent(content));
+  return readSheetContent(content).data.every((row) => row.every((cell) => cell.trim() === ''));
+};
 
-const asBodyType = (value: string): PageBodyType => (value === 'sheet' ? 'sheet' : 'doc');
+export const asBodyType = (value: string): PageBodyType => (value === 'sheet' || value === 'drawing' ? value : 'doc');
+
+const BODY_NAMES: Readonly<Record<PageBodyType, string>> = { doc: 'document', sheet: 'spreadsheet', drawing: 'drawing' };
+
+/**
+ * Refuses markdown whose `drawing` blocks don't each name a drawing page that
+ * exists, naming the block's line, so an embed never shows nothing.
+ */
+export const checkDrawingBlocks = async (reg: Pick<Registry, 'prisma'>, markdown: string): Promise<Result<void>> => {
+  const blocks = extractDrawingBlocks(markdown);
+  if (blocks.length === 0) return ok(undefined);
+  const ids = [...new Set(blocks.flatMap((b) => (b.pageId ? [b.pageId] : [])))];
+  const rows = ids.length === 0 ? [] : await reg.prisma.page.findMany({ where: { id: { in: ids } }, select: { id: true, bodyType: true } });
+  const types = new Map(rows.map((r) => [r.id, r.bodyType]));
+  const problems = blocks.flatMap((block) => {
+    if (!block.pageId) return [`drawing block at line ${block.line}: its body must be a drawing page's path, like /app/wiki/<pageId>`];
+    const type = types.get(block.pageId);
+    if (type === undefined) return [`drawing block at line ${block.line}: page ${block.pageId} not found`];
+    if (type !== 'drawing') return [`drawing block at line ${block.line}: page ${block.pageId} is a ${BODY_NAMES[asBodyType(type)]}, not a drawing`];
+    return [];
+  });
+  return problems.length > 0 ? err(new Error(problems.join('\n'))) : ok(undefined);
+};
 
 // ----- Row mapping -----
 
@@ -145,6 +177,10 @@ export const createPage = async (
   const bodyType = input.bodyType ?? 'doc';
   const content = prepareContent(bodyType, input.content ?? '');
   if (!content.ok) return err(content.error);
+  if (bodyType === 'doc') {
+    const drawings = await checkDrawingBlocks(reg, content.value);
+    if (!drawings.ok) return err(drawings.error);
+  }
 
   if (input.parentId) {
     const parent = await checkParent(reg, null, input.parentId);
@@ -191,13 +227,16 @@ export const updatePage = async (
   const currentType = asBodyType(existing.bodyType);
   const bodyType = input.bodyType ?? currentType;
   if (bodyType !== currentType && !isEmptyBody(currentType, existing.content)) {
-    const was = currentType === 'doc' ? 'a document' : 'a spreadsheet';
-    return err(new Error(`This page already has content as ${was}, so it can't become a ${bodyType === 'doc' ? 'document' : 'spreadsheet'}. Clear its content first, or create a new page.`));
+    return err(new Error(`This page already has content as a ${BODY_NAMES[currentType]}, so it can't become a ${BODY_NAMES[bodyType]}. Clear its content first, or create a new page.`));
   }
   let content: string | undefined;
   if (input.content !== undefined || bodyType !== currentType) {
     const prepared = prepareContent(bodyType, input.content ?? '');
     if (!prepared.ok) return err(prepared.error);
+    if (bodyType === 'doc') {
+      const drawings = await checkDrawingBlocks(reg, prepared.value);
+      if (!drawings.ok) return err(drawings.error);
+    }
     // Images shown from another doc's or page's folder get a copy here, so deleting that one can't lose them.
     content = bodyType === 'doc' ? await adoptForeignImages(reg, `pages/${id}`, prepared.value) : prepared.value;
   }
@@ -217,7 +256,7 @@ export const updatePage = async (
       ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
     }
   });
-  // A sheet links nothing and shows no images, so switching to one clears the page's mentions.
+  // A sheet or drawing links nothing and shows no images, so switching to one clears the page's mentions.
   if (content !== undefined) {
     await syncMentions(reg, { entityType: 'PAGE', entityId: id }, bodyType === 'doc' ? content : '');
     await tidyEditorImages(reg, `pages/${id}`, bodyType === 'doc' ? content : '');
