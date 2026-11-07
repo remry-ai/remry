@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A sync's state, kept short: a coloured dot and when (green: current; amber: over a week old,
-  // a source skipped, or never synced; red: the last sync failed). The full story is the tooltip.
+  // A sync's state, kept short: a dot and when (grey: current; soft amber: over a week old,
+  // a source skipped, or never synced; soft red: the last sync failed). The full story is the tooltip.
   import type { SyncTone } from '../last-sync';
 
   interface Props {
@@ -27,14 +27,15 @@
     gap: var(--sp-1);
     white-space: nowrap;
   }
+  // Quiet on purpose: a current sync is a plain grey dot, and only an amber or red one,
+  // softened, asks to be looked at.
   .dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex: none;
-    background: var(--text-3);
-    &.ok { background: var(--success); }
-    &.warning { background: var(--warning); }
-    &.error { background: var(--danger); }
+    background: var(--border-strong);
+    &.warning { background: color-mix(in srgb, var(--warning) 55%, transparent); }
+    &.error { background: color-mix(in srgb, var(--danger) 60%, transparent); }
   }
 </style>
