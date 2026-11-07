@@ -8,14 +8,13 @@
   // $shared/utils/drawing). A skeleton Claude wrote is laid out and expanded
   // when it opens, and the first edit saves it as a scene. Its menu opens and
   // saves .excalidraw files (on this computer), and "Share link" uploads an
-  // encrypted copy to excalidraw.com, after saying so (onShare).
+  // encrypted copy to excalidraw.com (onShare) and shows the link in its place.
   import { onMount } from 'svelte';
   import '@excalidraw/excalidraw/index.css';
   import type { Root } from 'react-dom/client';
   import type { ExcalidrawElement } from '@excalidraw/excalidraw/element/types';
   import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
   import { isSkeleton, readDrawingContent, type DrawingScene as StoredScene } from '$shared/utils/drawing';
-  import Field from '$lib/ui/Field.svelte';
   import { errorMessage } from '$lib/ui/submit';
   import { loadExcalidraw, toScene, type ExcalidrawModule } from './excalidraw';
 
@@ -98,8 +97,8 @@
     if (error) throw new Error(error);
   };
 
-  // Share link: say what it does, then upload and show the link.
-  let share = $state<'closed' | 'confirm' | 'working' | 'done'>('closed');
+  // Share link: upload at once, then show the link, with Copy, where the button was.
+  let share = $state<'idle' | 'working' | 'done'>('idle');
   let shareUrl = $state('');
   let shareError = $state('');
   let copied = $state(false);
@@ -114,7 +113,7 @@
       share = 'done';
     } catch (e) {
       shareError = errorMessage(e);
-      share = 'confirm';
+      share = 'idle';
     }
   };
 
@@ -124,7 +123,7 @@
       copied = true;
       setTimeout(() => { copied = false; }, 1500);
     } catch {
-      shareError = 'Copying was blocked; select the link and copy it instead.';
+      shareError = 'Copying was blocked; select the link and copy it.';
     }
   };
 
@@ -254,35 +253,16 @@
       {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves. Done closes the editor.{/if}
     </p>
     <span class="drawing-actions">
-      {#if onShare}
-        <button type="button" class="btn ghost sm" disabled={status === 'loading'} onclick={() => { share = share === 'closed' ? 'confirm' : 'closed'; shareError = ''; }} aria-expanded={share !== 'closed'}>Share link</button>
+      {#if shareError}<span class="inline-error text-xs" role="alert">{shareError}</span>{/if}
+      {#if onShare && share === 'done'}
+        <input type="text" class="sm share-url" readonly value={shareUrl} aria-label="Share link" onfocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
+        <button type="button" class="btn ghost sm" onclick={copyLink}>{copied ? 'Copied' : 'Copy'}</button>
+      {:else if onShare}
+        <button type="button" class="btn ghost sm" disabled={status === 'loading' || share === 'working'} aria-busy={share === 'working'} onclick={createLink}>{share === 'working' ? 'Sharing…' : 'Share link'}</button>
       {/if}
       <button type="button" class="btn primary sm" onclick={handleDone} disabled={closing} aria-busy={closing}>{closing ? 'Saving…' : 'Done'}</button>
     </span>
   </div>
-  {#if share === 'confirm' || share === 'working'}
-    <div class="card compact share-panel">
-      <p class="text-sm">A share link uploads an encrypted copy of this drawing to <strong>excalidraw.com</strong>. Anyone with the link can open it there (the key is in the link, so Excalidraw can't read it), and it stays there: Remry can't take it down. It's a snapshot; later changes need a new link.</p>
-      <div class="toolbar">
-        <button type="button" class="btn primary sm" onclick={createLink} disabled={share === 'working'} aria-busy={share === 'working'}>{share === 'working' ? 'Creating…' : 'Create link'}</button>
-        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }} disabled={share === 'working'}>Cancel</button>
-      </div>
-      {#if shareError}<p class="form-error" role="alert">{shareError}</p>{/if}
-    </div>
-  {:else if share === 'done'}
-    <div class="card compact share-panel">
-      <Field label="Share link" hint="Anyone with this link can open the drawing on excalidraw.com.">
-        {#snippet children({ id })}
-          <input {id} type="text" class="sm" readonly value={shareUrl} onfocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
-        {/snippet}
-      </Field>
-      <div class="toolbar">
-        <button type="button" class="btn primary sm" onclick={copyLink}>{copied ? 'Copied' : 'Copy link'}</button>
-        <button type="button" class="btn ghost sm" onclick={() => { share = 'closed'; }}>Close</button>
-      </div>
-      {#if shareError}<p class="form-error" role="alert">{shareError}</p>{/if}
-    </div>
-  {/if}
   <div class="drawing-canvas" bind:this={host}></div>
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
 </div>
@@ -312,11 +292,7 @@
     gap: var(--sp-1);
   }
 
-  .share-panel {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-  }
+  .share-url { width: 22em; }
 
   .drawing-toolbar {
     display: flex;
