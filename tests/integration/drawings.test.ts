@@ -11,6 +11,10 @@ import { listRelationsForEntity } from '../../src/api/relation/operations';
 import { convertEntity } from '../../src/api/convert/operations';
 import { searchNotebook } from '../../src/api/search/operations';
 import { drawingBlock } from '../../src/shared/types/drawing-blocks';
+import { importShareLink, shareDrawing } from '../../src/api/drawing/operations';
+import { encryptScene } from '../../src/shared/drawing/excalidraw-link';
+import type { ExcalidrawBackend } from '../../src/shared/drawing/excalidraw-backend.server';
+import { ok, err } from '../../src/shared/utils/result';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
 const reg = getRegistry(TEST_NOTEBOOK);
@@ -122,5 +126,82 @@ describe('converting', () => {
     const tree = await convertEntity(reg, { entityType: 'PAGE', id: parent.value.id, to: 'PROJECT' });
     expect(!tree.ok && tree.error.message).toMatch(/Drawing pages stay pages, so "Network map"/);
     expect((await getPage(reg, drawing)).ok).toBe(true);
+  });
+});
+
+// A stand-in for excalidraw.com's storage: what Remry uploads, by id.
+const fakeExcalidraw = (): ExcalidrawBackend & { readonly stored: Map<string, Uint8Array> } => {
+  const stored = new Map<string, Uint8Array>();
+  return {
+    stored,
+    post: async (payload) => {
+      const id = `id${stored.size + 1}`;
+      stored.set(id, payload);
+      return ok(id);
+    },
+    get: async (id) => {
+      const bytes = stored.get(id);
+      return bytes ? ok(bytes) : err(new Error('excalidraw.com has no drawing for that link'));
+    }
+  };
+};
+
+describe('share links', () => {
+  const scene = { version: 1, elements: [{ id: 'r1', type: 'rectangle', x: 0, y: 0, width: 100, height: 50 }, { id: 't1', type: 'text', text: 'Shared box', originalText: 'Shared box' }] };
+
+  it('upload an encrypted copy and import it back into a new page or an empty one', async () => {
+    const backend = fakeExcalidraw();
+    const id = await createDrawing('To share', scene);
+    const shared = await shareDrawing(reg, backend, id);
+    if (!shared.ok) throw shared.error;
+    expect(shared.value.url).toMatch(/^https:\/\/excalidraw\.com\/#json=id1,[A-Za-z0-9_-]{22}$/);
+    // Excalidraw gets only ciphertext.
+    expect(new TextDecoder().decode(backend.stored.get('id1'))).not.toContain('Shared box');
+
+    const imported = await importShareLink(reg, backend, { url: shared.value.url, title: 'Imported' });
+    if (!imported.ok) throw imported.error;
+    expect(imported.value).toMatchObject({ elements: 2, imagesLeftOut: 0 });
+    const page = await getPage(reg, imported.value.id);
+    expect(page.ok && page.value.bodyType).toBe('drawing');
+    expect(page.ok && JSON.parse(page.value.content).elements.map((e: { id: string }) => e.id)).toEqual(['r1', 't1']);
+    expect(await indexedBody(imported.value.id)).toBe('Shared box');
+
+    const empty = await createPage(reg, { title: 'Empty canvas', bodyType: 'drawing' });
+    if (!empty.ok) throw empty.error;
+    expect((await importShareLink(reg, backend, { url: shared.value.url, pageId: empty.value.id })).ok).toBe(true);
+    const full = await importShareLink(reg, backend, { url: shared.value.url, pageId: empty.value.id });
+    expect(!full.ok && full.error.message).toMatch(/already has a drawing\. Pass replace: true/);
+    expect((await importShareLink(reg, backend, { url: shared.value.url, pageId: empty.value.id, replace: true })).ok).toBe(true);
+  });
+
+  it('refuse what they cannot share or read, before any request', async () => {
+    const backend = fakeExcalidraw();
+    const skeletonPage = await createDrawing('Never opened');
+    const notOpened = await shareDrawing(reg, backend, skeletonPage);
+    expect(!notOpened.ok && notOpened.error.message).toMatch(/hasn't been opened in the app yet/);
+    const blank = await createPage(reg, { title: 'Blank', bodyType: 'drawing' });
+    if (!blank.ok) throw blank.error;
+    expect(!(await shareDrawing(reg, backend, blank.value.id)).ok).toBe(true);
+    const doc = await createPage(reg, { title: 'Just text', content: 'hello' });
+    if (!doc.ok) throw doc.error;
+    const notDrawing = await shareDrawing(reg, backend, doc.value.id);
+    expect(!notDrawing.ok && notDrawing.error.message).toMatch(/isn't a drawing page/);
+    expect(backend.stored.size).toBe(0);
+
+    const room = await importShareLink(reg, backend, { url: 'https://excalidraw.com/#room=abc,def', title: 'X' });
+    expect(!room.ok && room.error.message).toMatch(/live-collaboration/);
+    const noWhere = await importShareLink(reg, backend, { url: 'https://excalidraw.com/#json=id9,gTleNQIdt1vGTjnqe9rZyA' });
+    expect(!noWhere.ok && noWhere.error.message).toMatch(/Say where the drawing goes/);
+    const gone = await importShareLink(reg, backend, { url: 'https://excalidraw.com/#json=id9,gTleNQIdt1vGTjnqe9rZyA', title: 'X' });
+    expect(!gone.ok && gone.error.message).toMatch(/no drawing for that link/);
+  });
+
+  it('say how many pictures a shared drawing had, which a drawing leaves out', async () => {
+    const backend = fakeExcalidraw();
+    const file = { type: 'excalidraw', version: 2, elements: [{ id: 'i1', type: 'image', fileId: 'f' }, { id: 'e1', type: 'ellipse' }], files: { f: {} } };
+    const { payload, key } = await encryptScene(JSON.stringify(file));
+    const id = (await backend.post(payload)).ok ? 'id1' : '';
+    const imported = await importShareLink(reg, backend, { url: `https://excalidraw.com/#json=${id},${key}`, title: 'With a photo' });
+    expect(imported.ok && imported.value).toMatchObject({ elements: 1, imagesLeftOut: 1 });
   });
 });

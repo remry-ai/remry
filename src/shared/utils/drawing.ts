@@ -135,9 +135,11 @@ const skeletonSchema = z
   });
 
 // A scene is Excalidraw's: each element needs an id and a type; the rest is kept as written.
+// An `.excalidraw` file, or a drawing from a share link, is one too (`"type": "excalidraw",
+// "version": 2`, with `source` and `files`).
 const sceneSchema = z
   .object({
-    version: z.literal(1).default(1),
+    version: z.number().int().min(1).max(10).default(1),
     elements: z.array(z.object({ id: z.string().min(1), type: z.string().min(1) }).passthrough()).max(DRAWING_LIMITS.elements),
     appState: z
       .object({ viewBackgroundColor: color.optional(), gridSize: z.number().nullable().optional() })
@@ -186,12 +188,41 @@ export const parseDrawingContent = (input: unknown): Result<DrawingContent> => {
   if ('elements' in value) {
     const parsed = sceneSchema.safeParse(value);
     if (!parsed.success) return err(new Error(`drawing content: ${issuesText(parsed.error)}`));
-    const elements = parsed.data.elements.filter((el) => el.isDeleted !== true);
+    // Pictures live in `files`, which a drawing doesn't keep, so image elements go too.
+    const elements = parsed.data.elements.filter((el) => el.isDeleted !== true && el.type !== 'image');
     const appState = parsed.data.appState;
     return ok({ version: 1, elements, ...(appState && Object.keys(appState).length > 0 && { appState }) });
   }
   return err(new Error(`drawing content: needs "skeleton" (shapes, labels and arrows) or "elements" (an Excalidraw scene), like ${EXAMPLE}`));
 };
+
+/** How many pictures a scene (an object or its JSON) holds, which a drawing in Remry leaves out. */
+export const countImages = (input: unknown): number => {
+  let value = input;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return 0;
+    }
+  }
+  const elements = (value as { readonly elements?: unknown } | null)?.elements;
+  return Array.isArray(elements) ? elements.filter((el) => (el as { readonly type?: unknown; readonly isDeleted?: unknown } | null)?.type === 'image' && (el as { readonly isDeleted?: unknown }).isDeleted !== true).length : 0;
+};
+
+/**
+ * A scene as an `.excalidraw` file: what excalidraw.com opens from a share
+ * link, and what "Save to file" writes.
+ */
+export const toExcalidrawFile = (scene: DrawingScene): string =>
+  JSON.stringify({
+    type: 'excalidraw',
+    version: 2,
+    source: 'remry',
+    elements: scene.elements,
+    appState: { viewBackgroundColor: scene.appState?.viewBackgroundColor ?? '#ffffff', gridSize: null },
+    files: {}
+  });
 
 /** Reads a stored drawing; anything unreadable (never written by the app) reads as an empty one. */
 export const readDrawingContent = (raw: string): DrawingContent => {
