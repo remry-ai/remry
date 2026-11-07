@@ -313,12 +313,13 @@
       <!-- The save state as a dot: grey with nothing to save yet, amber while saving, green once saved, red when a save failed. The words are its tooltip and for screen readers. -->
       <span class="save-dot {error ? 'failed' : status}" title={saveLabel} role="status"><span class="sr-only">{saveLabel}</span></span>
     {/if}
-    <HelpPopover label="Formulas">
+    <HelpPopover label="Formulas" placement="above">
       <p>Start a cell with <code>=</code> for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>, <code>="Total: "&amp;B6</code>.</p>
-      <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter after its name.</p>
+      <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter in the header's top-left corner.</p>
       <p>Use <code>+ - * / ^</code>, <code>%</code>, <code>&amp;</code> to join text, and <code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code> to compare. Functions: {FORMULA_FUNCTIONS.join(', ')}.</p>
       <p>A formula that fails shows its error in red: <code>#NAME?</code> (no such function), <code>#DIV/0!</code>, <code>#VALUE!</code> (text where a number goes), <code>#CYCLE!</code> (a cell that refers back to itself), <code>#ERROR!</code> (one that can't be read). Select it to see why.</p>
       <p>Right-click a row or column to add or remove one; double-click a header to rename it.</p>
+      <p>More in <a href="https://bossanova.uk/jspreadsheet/docs/formulas" target="_blank" rel="noreferrer">Jspreadsheet's formula docs ↗</a>; only the functions above work here.</p>
     </HelpPopover>
     {#if selectedFormula}
       <span class="formula-line"><strong>{selectedFormula.cell}</strong> <code>{selectedFormula.formula}</code>

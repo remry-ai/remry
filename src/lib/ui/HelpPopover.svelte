@@ -83,6 +83,9 @@
     left: 0;
     z-index: var(--z-nav);
     width: min(420px, 90vw);
+    // Long help scrolls inside it rather than running under the top bar.
+    max-height: min(24rem, 60vh);
+    overflow-y: auto;
     padding: var(--sp-3);
     display: flex;
     flex-direction: column;
