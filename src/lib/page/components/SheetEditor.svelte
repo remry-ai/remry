@@ -453,7 +453,23 @@
 </div>
 
 <style lang="scss">
-  .sheet-editor { min-width: 0; }
+  // The grid and the controls around it aren't text to select: the library makes its cells
+  // unselectable, and in WebKit (the desktop app) a double-click in the selectable space
+  // beside them selected the whole window. What's worth copying stays selectable: the
+  // selected cell's formula, the help, and the cell and rename editors.
+  .sheet-editor,
+  .sheet-body {
+    min-width: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .formula-line,
+  .sheet-body :global(.help-panel),
+  .sheet-grid :global(.editor),
+  .rename-column {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 
   // Full screen: the window's height for the grid, with a bar naming the sheet above it.
   .sheet-body.full-screen {
