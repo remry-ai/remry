@@ -1,8 +1,8 @@
 <script lang="ts">
   // A wiki page's spreadsheet body (bodyType 'sheet'), edited in place with
   // Jspreadsheet CE: typed cells, paste from Excel or Sheets, basic formulas
-  // (=SUM(B2:B5)), resizable and renameable columns, right-click to add or
-  // remove rows and columns. Every change saves itself after a short pause, as
+  // (=SUM(B2:B5)), resizable columns, renamed in a box of our own (below),
+  // right-click to add or remove rows and columns. Every change saves itself after a short pause, as
   // the sheet's JSON with the values the grid showed (see $shared/utils/sheet).
   import { onMount } from 'svelte';
   import 'jsuites/dist/jsuites.css';
@@ -80,6 +80,48 @@
     sheet.openEditor(cell, false, event);
   };
 
+  // Renaming a column. The library's own rename asks with prompt(), which the desktop app's
+  // window can't show (it has no handler for browser dialogs), and then resets the title to
+  // its letter; a slow second click on a header did the same. So it's off
+  // (allowRenameColumn: false), and a box of ours opens over the header instead: from the
+  // right-click menu's "Rename column", or a double-click on the header.
+  interface Renaming {
+    readonly x: number;
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+    readonly height: number;
+  }
+  let renaming = $state<Renaming | null>(null);
+  let renameDraft = $state('');
+
+  const startRename = (x: number) => {
+    const header = worksheet?.headers[x];
+    if (!worksheet || !editable || !header) return;
+    const box = header.getBoundingClientRect();
+    const origin = host.getBoundingClientRect();
+    renameDraft = header.textContent ?? '';
+    renaming = { x, left: box.left - origin.left, top: box.top - origin.top, width: box.width, height: box.height };
+  };
+
+  const commitRename = () => {
+    const current = renaming;
+    renaming = null;
+    const name = renameDraft.trim();
+    const header = current ? worksheet?.headers[current.x] : undefined;
+    // setHeader fires onchangeheader, which saves.
+    if (current && worksheet && name && name !== header?.textContent) worksheet.setHeader(current.x, name);
+  };
+
+  // Keys typed in the box are its own: the grid's listeners on the document never see them.
+  const handleRenameKeydown = (e: KeyboardEvent) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+    else if (e.key === 'Escape') { e.preventDefault(); renaming = null; }
+  };
+
+  const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
+
   // Saves run one after another, so an older snapshot never lands after a newer one.
   const schedule = () => {
     if (!editable) return;
@@ -105,11 +147,19 @@
           allowComments: false,
           tableOverflow: true,
           tableHeight: '520px',
-          columnSorting: false
+          columnSorting: false,
+          // Renamed in a box of ours (startRename), never through prompt().
+          allowRenameColumn: false
         }],
-        // The library's "About" entry links to its website; Remry links nowhere.
-        contextMenu: (_sheet, _x, _y, _e, items) => {
+        // The library's "About" entry links to its website; Remry links nowhere. A header's
+        // menu gets "Rename column" after its column items.
+        contextMenu: (_sheet, x, _y, _e, items, role) => {
           const kept = items.filter((item) => item.title !== 'About');
+          const column = x === null || x === undefined ? NaN : Number(x);
+          if (role === 'header' && editable && Number.isInteger(column)) {
+            const after = kept.findIndex((item) => item.title === 'Delete selected columns');
+            kept.splice(after >= 0 ? after + 1 : 0, 0, { title: 'Rename column', onclick: () => startRename(column) });
+          }
           while (kept.length > 0 && kept[kept.length - 1]!.type === 'line') kept.pop();
           return kept;
         },
@@ -130,7 +180,18 @@
       worksheet = instance ?? null;
       const onKey = (event: KeyboardEvent) => enterToEdit(lib, event);
       window.addEventListener('keydown', onKey, true);
-      removeKeys = () => window.removeEventListener('keydown', onKey, true);
+      // A double-click on a column header renames it.
+      const onDoubleClick = (event: MouseEvent) => {
+        const header = (event.target as HTMLElement | null)?.closest<HTMLElement>('thead td[data-x]');
+        if (!header || !host.contains(header)) return;
+        event.preventDefault();
+        startRename(Number(header.dataset.x));
+      };
+      host.addEventListener('dblclick', onDoubleClick);
+      removeKeys = () => {
+        window.removeEventListener('keydown', onKey, true);
+        host.removeEventListener('dblclick', onDoubleClick);
+      };
     })();
 
     return () => {
@@ -152,7 +213,20 @@
 </script>
 
 <div class="sheet-editor">
-  <div class="sheet-grid" bind:this={host}></div>
+  <div class="sheet-frame">
+    <div class="sheet-grid" bind:this={host}></div>
+    {#if renaming}
+      <input
+        class="sm rename-column"
+        style="--left: {renaming.left}px; --top: {renaming.top}px; --width: {renaming.width}px; --height: {renaming.height}px"
+        bind:value={renameDraft}
+        onkeydown={handleRenameKeydown}
+        onblur={commitRename}
+        use:focusOnMount
+        aria-label="Column name"
+      />
+    {/if}
+  </div>
   <p class="sheet-status text-xs muted" aria-live="polite">
     {#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Enter or double-click edits a cell; start it with = for a formula, like =SUM(B1:B5). Right-click to add or remove rows and columns; double-click a column header to rename it.{/if}
   </p>
@@ -161,6 +235,17 @@
 
 <style lang="scss">
   .sheet-editor { min-width: 0; }
+
+  // The rename box sits over the header it renames (its offset within the frame).
+  .sheet-frame { position: relative; }
+  .rename-column {
+    position: absolute;
+    left: var(--left);
+    top: var(--top);
+    width: max(var(--width), 8em);
+    height: var(--height);
+    z-index: var(--z-sticky);
+  }
 
   // The grid wears the app's tokens (jspreadsheet.themes.css reads these).
   .sheet-grid {
