@@ -7,7 +7,8 @@
   // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
   // with `target`, a sync still running when the page opens shows as running until it ends.
   import { assistantName } from '$lib/stores/assistant';
-  import { lastSyncLine, type LastSyncView } from '../last-sync';
+  import { syncStatus, type LastSyncView } from '../last-sync';
+  import SyncStatus from './SyncStatus.svelte';
   import { syncRunning, waitForSync } from '../sync-now';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
@@ -48,7 +49,8 @@
 
   const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, onRefresh }: Props = $props();
 
-  const syncLine = $derived(lastSync ? lastSyncLine(lastSync) : null);
+  // Shown once it has sources: a dot and when, with the details in the tooltip.
+  const status = $derived(links.length > 0 || lastSync ? syncStatus(lastSync) : null);
 
   // svelte-ignore state_referenced_locally
   let editing = $state(creating);
@@ -120,13 +122,11 @@
 
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
-    <span class="badge accent">Sync</span>
-    <span class="text-xs text-2">
-      {#if creating}Say what Claude should take from each source; add the sources below.
-      {:else if syncing}{$assistantName} is reading the sources and rewriting this…
-      {:else if empty}Nothing written yet: choose Sync now, or ask Claude to write it from its sources.
-      {:else}Claude rewrites this from its sources, following the prompt.{/if}
-    </span>
+    <span class="badge accent" title="Claude rewrites this from its sources, following the prompt.">Sync</span>
+    {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
+    {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
+    {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
+    {:else if status}<SyncStatus {...status} />{/if}
     {#if onSyncNow && !editing && !creating}
       <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}</button>
     {/if}
@@ -151,12 +151,6 @@
     </form>
   {:else}
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
-  {/if}
-
-  {#if syncLine && !creating && !syncing}
-    <p class="text-xs last-sync" class:text-2={syncLine.tone === 'ok'} class:form-error={syncLine.tone === 'error'} class:warning={syncLine.tone === 'warning'} title={syncLine.title}>{syncLine.text}</p>
-  {:else if !syncLine && !creating && !empty && !syncing && links.length > 0}
-    <p class="text-xs text-2 last-sync">Not synced from its sources yet.</p>
   {/if}
 
   {#if syncNotice && showNotice}
@@ -188,5 +182,4 @@
     font-weight: 600;
   }
   .warning { color: var(--warning); margin: 0; }
-  .last-sync { margin: 0; }
 </style>

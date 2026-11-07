@@ -52,10 +52,3 @@ export const syncNeed = (lastSync: LastSync | null, sources: readonly SyncSource
   if (sources.some((s) => !s.isFile) && isSyncStale(lastSync.at, now)) return 'stale';
   return null;
 };
-
-/** A few words for each need, for a badge or a row. */
-export const SYNC_NEED_LABELS: Readonly<Record<SyncNeed, string>> = {
-  never: 'Not synced yet',
-  failed: 'Last sync failed',
-  stale: 'Out of date'
-};

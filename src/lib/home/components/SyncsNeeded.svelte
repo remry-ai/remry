@@ -2,9 +2,9 @@
   // Sync docs and pages that want syncing: the last sync failed, it never ran, or it's over a
   // week old (sync.needed). Hidden when there are none, so it only shows when there's something to do.
   import EntityRow from '$lib/ui/EntityRow.svelte';
-  import { SYNC_NEED_LABELS } from '$shared/utils/sync-state';
+  import SyncStatus from '$lib/link/components/SyncStatus.svelte';
+  import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
-  import { timeAgo } from '$lib/home/utils';
 
   interface SyncNeeded {
     readonly entityType: 'DOC' | 'PAGE';
@@ -13,7 +13,7 @@
     readonly path: string;
     readonly on: { readonly label: string; readonly path: string } | null;
     readonly need: SyncNeed;
-    readonly lastSync: { readonly at: Date | string; readonly message: string | null } | null;
+    readonly lastSync: LastSyncView | null;
   }
 
   interface Props {
@@ -26,10 +26,7 @@
   const SHOWN = 8;
   const shown = $derived(syncs.slice(0, SHOWN));
 
-  const detail = (s: SyncNeeded): string => {
-    const where = s.on ? `On ${s.on.label}` : 'Wiki page';
-    return s.lastSync ? `${where} · ${timeAgo(s.lastSync.at)}` : where;
-  };
+  const statusOf = (s: SyncNeeded) => ({ ...syncStatus(s.lastSync), tone: syncNeedTone(s.need) });
 </script>
 
 {#if syncs.length > 0}
@@ -40,8 +37,8 @@
     <ul class="list divided">
       {#each shown as s (`${s.entityType}:${s.id}`)}
         <EntityRow href={s.path} label={s.title} wrap>
-          <span class="meta">{detail(s)}</span>
-          <span class="badge" class:danger={s.need === 'failed'} class:warning={s.need !== 'failed'} title={s.need === 'failed' && s.lastSync?.message ? s.lastSync.message : undefined}>{SYNC_NEED_LABELS[s.need]}</span>
+          {#if s.on}<span class="meta">{s.on.label}</span>{/if}
+          <SyncStatus {...statusOf(s)} />
         </EntityRow>
       {/each}
     </ul>
