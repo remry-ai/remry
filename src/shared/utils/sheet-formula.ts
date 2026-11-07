@@ -12,6 +12,7 @@
 // A cell past the sheet's edge is empty, as in Excel. Pure.
 
 import { columnLetter, type SheetRows } from './sheet';
+import { applyFormat, formatWithCode, type SheetFormat } from './sheet-format';
 
 export const FORMULA_ERRORS = {
   syntax: '#ERROR!',
@@ -269,7 +270,20 @@ const FUNCTIONS: Readonly<Record<string, Fn>> = {
   },
   UPPER: (args) => { const t = needArgs('UPPER', args, 1, 1) ?? toText(args[0]!); return isError(t) ? t : t.toUpperCase(); },
   LOWER: (args) => { const t = needArgs('LOWER', args, 1, 1) ?? toText(args[0]!); return isError(t) ? t : t.toLowerCase(); },
-  TRIM: (args) => { const t = needArgs('TRIM', args, 1, 1) ?? toText(args[0]!); return isError(t) ? t : t.trim().replace(/\s+/g, ' '); }
+  TRIM: (args) => { const t = needArgs('TRIM', args, 1, 1) ?? toText(args[0]!); return isError(t) ? t : t.trim().replace(/\s+/g, ' '); },
+  // TEXT(B2, "$#,##0.00"): a number in a format code (./sheet-format). Text that isn't a number comes back as it is.
+  TEXT: (args) => {
+    const wrong = needArgs('TEXT', args, 2, 2);
+    if (wrong) return wrong;
+    const v = scalarOf(args[0]!);
+    if (isError(v)) return v;
+    const code = toText(args[1]!);
+    if (isError(code)) return code;
+    const n = typeof v === 'number' ? v : typeof v === 'boolean' ? null : v === '' ? 0 : parseCellNumber(v);
+    if (n === null) return formatValue(v);
+    const out = formatWithCode(n, code);
+    return typeof out === 'string' ? out : new FormulaError(FORMULA_ERRORS.value, out.error);
+  }
 };
 
 const ALIASES: Readonly<Record<string, string>> = { AVG: 'AVERAGE', CONCATENATE: 'CONCAT' };
@@ -445,8 +459,12 @@ export interface EvaluatedSheet {
   readonly problems: readonly FormulaProblem[];
 }
 
-/** Works out every formula in a sheet's cells, each once, following references between them. */
-export const evaluateSheet = (data: SheetRows): EvaluatedSheet => {
+/**
+ * Works out every formula in a sheet's cells, each once, following references between them.
+ * With `formats` (each column's, by index), a number shows in its column's format: typed
+ * (1200 as $1,200.00) or a formula's result. Text, and a TEXT result, shows as it is.
+ */
+export const evaluateSheet = (data: SheetRows, formats: readonly (SheetFormat | undefined)[] = []): EvaluatedSheet => {
   const results = new Map<string, Scalar | FormulaError | null>();
   const inProgress = new Set<string>();
 
@@ -473,13 +491,18 @@ export const evaluateSheet = (data: SheetRows): EvaluatedSheet => {
 
   const problems: FormulaProblem[] = [];
   const values = data.map((row, y) => row.map((raw, x) => {
-    if (!raw.startsWith('=')) return raw;
+    const format = formats[x];
+    if (!raw.startsWith('=')) {
+      const n = format ? parseCellNumber(raw) : null;
+      return n === null || !format ? raw : applyFormat(n, format);
+    }
     const v = cell(x, y);
     if (isError(v)) {
       problems.push({ cell: cellName(x, y), x, y, code: v.code, message: v.message });
       return v.code;
     }
-    return v === null ? '' : formatValue(v);
+    if (v === null) return '';
+    return typeof v === 'number' && format ? applyFormat(v, format) : formatValue(v);
   }));
   return { values, problems };
 };

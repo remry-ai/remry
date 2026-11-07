@@ -16,7 +16,8 @@
   import 'jspreadsheet-ce/dist/jspreadsheet.themes.css';
   import type jspreadsheet from 'jspreadsheet-ce';
   import { columnLetter, normaliseFormula, readSheetContent, type SheetContent } from '$shared/utils/sheet';
-  import { cellName, evaluateSheet, FORMULA_FUNCTIONS, type FormulaProblem } from '$shared/utils/sheet-formula';
+  import { cellName, evaluateSheet, FORMULA_FUNCTIONS, parseCellNumber, type FormulaProblem } from '$shared/utils/sheet-formula';
+  import { formatExample, MAX_DECIMALS, type SheetFormat } from '$shared/utils/sheet-format';
   import HelpPopover from '$lib/ui/HelpPopover.svelte';
 
   interface Props {
@@ -39,16 +40,24 @@
 
   const text = (value: unknown): string => (value === null || value === undefined ? '' : String(value));
 
+  // Each column's number format lives on the library's own column options, which it moves,
+  // inserts and deletes along with the column, so a format stays with its column. Not as
+  // `format`: the library reads that one itself, as a mask, and fails on ours.
+  type FormattedColumn = { remryFormat?: SheetFormat };
+  const columnFormats = (sheet: jspreadsheet.WorksheetInstance): (SheetFormat | undefined)[] =>
+    sheet.headers.map((_, i) => (sheet.options.columns?.[i] as FormattedColumn | undefined)?.remryFormat);
+
   // What the grid holds now: raw cells (formulas included) and what each cell shows.
   const snapshot = (sheet: jspreadsheet.WorksheetInstance): SheetContent => {
     const data = sheet.getData(false, false).map((row) => row.map(text));
     // The server works the values out again on save; these are the same results.
-    const shown = evaluateSheet(data).values;
+    const formats = columnFormats(sheet);
+    const shown = evaluateSheet(data, formats).values;
     const headers = sheet.getHeaders(true) as string[];
     const widths = sheet.getWidth() as (number | string)[];
     const columns = headers.map((title, i) => {
       const width = Math.round(Number(widths[i]));
-      return { title: title === columnLetter(i) ? '' : text(title), ...(width >= 20 && width <= 2000 && { width }) };
+      return { title: title === columnLetter(i) ? '' : text(title), ...(width >= 20 && width <= 2000 && { width }), ...(formats[i] && { format: formats[i] }) };
     });
     return { version: 1, columns, data, values: shown };
   };
@@ -132,6 +141,48 @@
 
   const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
 
+  // ----- Number formats -----
+  // The header's menu sets a column's format ("Format column"): what its numbers show as.
+  const FORMAT_CHOICES: readonly { readonly name: string; readonly format: SheetFormat | undefined }[] = [
+    { name: 'As typed', format: undefined },
+    { name: 'Number', format: { type: 'number', decimals: 2 } },
+    { name: 'Whole number', format: { type: 'number', decimals: 0 } },
+    { name: 'Dollars', format: { type: 'currency', decimals: 2, symbol: '$' } },
+    { name: 'Euros', format: { type: 'currency', decimals: 2, symbol: '€' } },
+    { name: 'Pounds', format: { type: 'currency', decimals: 2, symbol: '£' } },
+    { name: 'Yen', format: { type: 'currency', decimals: 0, symbol: '¥' } },
+    { name: 'Percent', format: { type: 'percent', decimals: 0 } }
+  ];
+
+  const sameKind = (a: SheetFormat | undefined, b: SheetFormat | undefined): boolean =>
+    a === b || (!!a && !!b && a.type === b.type && a.symbol === b.symbol && (a.type !== 'number' || (a.decimals === 0) === (b.decimals === 0)));
+
+  const setFormat = (x: number, format: SheetFormat | undefined) => {
+    const column = worksheet?.options.columns?.[x] as FormattedColumn | undefined;
+    if (!column) return;
+    if (format) column.remryFormat = format;
+    else delete column.remryFormat;
+    schedule();
+  };
+
+  const formatMenu = (x: number): jspreadsheet.ContextMenuItem[] => {
+    const current = (worksheet?.options.columns?.[x] as FormattedColumn | undefined)?.remryFormat;
+    const step = (by: number) => {
+      if (!current) return;
+      const decimals = Math.min(MAX_DECIMALS, Math.max(0, current.decimals + by));
+      if (decimals !== current.decimals) setFormat(x, { ...current, decimals });
+    };
+    return [
+      ...FORMAT_CHOICES.map((choice) => ({
+        title: `${sameKind(choice.format, current) ? '✓ ' : ''}${choice.name}${choice.format ? ` (${formatExample(choice.format)})` : ''}`,
+        onclick: () => setFormat(x, choice.format)
+      })),
+      { type: 'line', title: '' },
+      { title: 'More decimals', disabled: !current || current.decimals >= MAX_DECIMALS, onclick: () => step(1) },
+      { title: 'Fewer decimals', disabled: !current || current.decimals <= 0, onclick: () => step(-1) }
+    ];
+  };
+
   // ----- Formulas -----
   let problems = $state<readonly FormulaProblem[]>([]);
   let selected = $state<{ readonly x: number; readonly y: number } | null>(null);
@@ -142,16 +193,22 @@
     const sheet = worksheet;
     if (!sheet) return;
     const data = sheet.getData(false, false).map((row) => row.map(text));
-    const evaluated = evaluateSheet(data);
+    const formats = columnFormats(sheet);
+    const evaluated = evaluateSheet(data, formats);
     const failed = new Map(evaluated.problems.map((p) => [p.cell, p]));
     data.forEach((row, y) => row.forEach((raw, x) => {
       const element = sheet.records[y]?.[x]?.element;
       if (!element) return;
+      const shown = evaluated.values[y]![x]!;
+      // A number in a formatted column, typed or worked out, lines up on the right.
+      element.classList.toggle('formatted-cell', !!formats[x] && parseCellNumber(shown) !== null);
       if (!raw.startsWith('=')) {
         if (element.classList.contains('formula-cell')) {
           element.classList.remove('formula-cell', 'formula-error');
           element.removeAttribute('title');
         }
+        // A typed number in its column's format ($1,200.00); the cell keeps what was typed.
+        if (element.textContent !== shown) element.textContent = shown;
         return;
       }
       const problem = failed.get(cellName(x, y));
@@ -187,7 +244,7 @@
     const rows = data ?? sheet.getData(false, false).map((row) => row.map(text));
     const raw = rows[at.y]?.[at.x] ?? '';
     if (!raw.startsWith('=')) { selectedFormula = null; return; }
-    const evaluated = values && failed ? { values, failed } : (() => { const e = evaluateSheet(rows); return { values: e.values, failed: new Map(e.problems.map((p) => [p.cell, p])) }; })();
+    const evaluated = values && failed ? { values, failed } : (() => { const e = evaluateSheet(rows, columnFormats(sheet)); return { values: e.values, failed: new Map(e.problems.map((p) => [p.cell, p])) }; })();
     const cell = cellName(at.x, at.y);
     selectedFormula = { cell, formula: raw, result: evaluated.values[at.y]?.[at.x] ?? '', problem: evaluated.failed.get(cell) ?? null };
   };
@@ -220,7 +277,7 @@
         onselection: (_sheet, x1, y1, x2, y2) => handleSelection(x1, y1, x2, y2),
         worksheets: [{
           data: sheet.data.map((row) => [...row]),
-          columns: sheet.columns.map((c, i) => ({ title: c.title || columnLetter(i), width: c.width ?? 120, type: 'text' as const })),
+          columns: sheet.columns.map((c, i) => ({ title: c.title || columnLetter(i), width: c.width ?? 120, type: 'text' as const, ...(c.format && { remryFormat: c.format }) })),
           minDimensions: [sheet.columns.length, Math.max(sheet.data.length, 1)],
           editable,
           allowComments: false,
@@ -231,13 +288,13 @@
           allowRenameColumn: false
         }],
         // The library's "About" entry links to its website; Remry links nowhere. A header's
-        // menu gets "Rename column" after its column items.
+        // menu gets "Rename column" and "Format column" after its column items.
         contextMenu: (_sheet, x, _y, _e, items, role) => {
           const kept = items.filter((item) => item.title !== 'About');
           const column = x === null || x === undefined ? NaN : Number(x);
           if (role === 'header' && editable && Number.isInteger(column)) {
             const after = kept.findIndex((item) => item.title === 'Delete selected columns');
-            kept.splice(after >= 0 ? after + 1 : 0, 0, { title: 'Rename column', onclick: () => startRename(column) });
+            kept.splice(after >= 0 ? after + 1 : 0, 0, { title: 'Rename column', onclick: () => startRename(column) }, { title: 'Format column', submenu: formatMenu(column) });
           }
           while (kept.length > 0 && kept[kept.length - 1]!.type === 'line') kept.pop();
           return kept;
@@ -318,6 +375,8 @@
       <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter in the header's top-left corner.</p>
       <p>Use <code>+ - * / ^</code>, <code>%</code>, <code>&amp;</code> to join text, and <code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code> to compare. Functions: {FORMULA_FUNCTIONS.join(', ')}.</p>
       <p>A formula that fails shows its error in red: <code>#NAME?</code> (no such function), <code>#DIV/0!</code>, <code>#VALUE!</code> (text where a number goes), <code>#CYCLE!</code> (a cell that refers back to itself), <code>#ERROR!</code> (one that can't be read). Select it to see why.</p>
+      <p><code>TEXT(B2,"$#,##0.00")</code> writes a number as text in a format code: <code>0</code> a digit, <code>#</code> one only when needed, <code>,</code> thousands, <code>.</code> decimals, <code>%</code> a percent; other symbols and <code>"quoted words"</code> show as written.</p>
+      <p>To show a whole column as money or a percent, right-click its header and choose Format column. It changes only how numbers look: formulas still use what was typed, and <code>$1,200</code>, <code>1200</code> and <code>12%</code> all read as numbers.</p>
       <p>Right-click a row or column to add or remove one; double-click a header to rename it.</p>
       <p>More in <a href="https://bossanova.uk/jspreadsheet/docs/formulas" target="_blank" rel="noreferrer">Jspreadsheet's formula docs ↗</a>; only the functions above work here.</p>
     </HelpPopover>
@@ -405,6 +464,12 @@
     &.failed { background: var(--danger); opacity: 1; }
   }
   .formula-problem { color: var(--danger); }
+  // Numbers in a formatted column line up on the right, in even-width figures (over the
+  // library's inline text-align, hence !important).
+  .sheet-grid :global(tbody td.formatted-cell) {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+  }
   // Column headers in bold; a renamed one shows its formula letter in its top-left corner
   // (the header cell is sticky, so it already positions the letter).
   .sheet-grid :global(thead td) { font-weight: 600; }

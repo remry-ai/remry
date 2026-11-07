@@ -3,12 +3,15 @@
 // is what each cell shows, its formula worked out (./sheet-formula), filled in
 // whenever a sheet is read or saved, so print, search and Claude read results
 // without evaluating formulas, and a sheet written from the CLI or MCP has its
-// results at once. A `values` given with the sheet is ignored. Shared by the
+// results at once. A `values` given with the sheet is ignored. A column's
+// `format` (./sheet-format: number, currency or percent) is how its numbers
+// show in `values`; formulas still read what was typed. Shared by the
 // server (validation) and the client (the editor and the print view).
 
 import { z } from 'zod';
 import { ok, err, type Result } from './result';
 import { evaluateSheet } from './sheet-formula';
+import { CURRENCY_SYMBOLS, MAX_DECIMALS, SHEET_FORMAT_TYPES, type SheetFormat } from './sheet-format';
 
 export const SHEET_LIMITS = { rows: 2000, columns: 100, cell: 10_000, title: 60 } as const;
 
@@ -16,6 +19,8 @@ export interface SheetColumn {
   readonly title: string;
   /** Pixels, as the grid last drew it. */
   readonly width?: number;
+  /** How its numbers show: $1,234.50, 12.5%. Left out, as typed. */
+  readonly format?: SheetFormat;
 }
 
 export type SheetRows = readonly (readonly string[])[];
@@ -31,11 +36,19 @@ const cell = z.union([z.string().max(SHEET_LIMITS.cell), z.number(), z.boolean()
 
 const rows = z.array(z.array(cell).max(SHEET_LIMITS.columns)).max(SHEET_LIMITS.rows);
 
+const formatSchema = z
+  .object({
+    type: z.enum(SHEET_FORMAT_TYPES),
+    decimals: z.number().int().min(0).max(MAX_DECIMALS),
+    symbol: z.enum(CURRENCY_SYMBOLS).optional()
+  })
+  .strict();
+
 const sheetSchema = z
   .object({
     version: z.literal(1).default(1),
     columns: z
-      .array(z.object({ title: z.string().max(SHEET_LIMITS.title), width: z.number().int().min(20).max(2000).optional() }).strict())
+      .array(z.object({ title: z.string().max(SHEET_LIMITS.title), width: z.number().int().min(20).max(2000).optional(), format: formatSchema.optional() }).strict())
       .min(1, 'needs at least one column')
       .max(SHEET_LIMITS.columns),
     data: rows,
@@ -82,6 +95,10 @@ export const normaliseFormula = (value: string): string => {
   return value.split('"').map((part, i) => (i % 2 === 0 ? part.toUpperCase() : part)).join('"');
 };
 
+// A currency without a symbol is in dollars; any other format keeps none.
+const sheetFormat = (f: SheetFormat): SheetFormat =>
+  f.type === 'currency' ? { type: f.type, decimals: f.decimals, symbol: f.symbol ?? '$' } : { type: f.type, decimals: f.decimals };
+
 const padRows = (input: SheetRows, width: number): SheetRows =>
   input.map((row) => (row.length >= width ? row.slice(0, width) : [...row, ...Array.from({ length: width - row.length }, () => '')]));
 
@@ -103,7 +120,8 @@ export const parseSheetContent = (input: unknown): Result<SheetContent> => {
   }
   const width = parsed.data.columns.length;
   const data = padRows(parsed.data.data, width).map((row) => row.map(normaliseFormula));
-  return ok({ version: 1, columns: parsed.data.columns, data, values: evaluateSheet(data).values });
+  const columns = parsed.data.columns.map((c): SheetColumn => ({ ...c, ...(c.format && { format: sheetFormat(c.format) }) }));
+  return ok({ version: 1, columns, data, values: evaluateSheet(data, columns.map((c) => c.format)).values });
 };
 
 /** Reads a stored sheet; anything unreadable (never written by the app) reads as an empty one. */
