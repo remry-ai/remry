@@ -1,7 +1,7 @@
 <script lang="ts">
   // A drawing page's editor: Excalidraw (a React component, mounted here with
   // createRoot) over the whole window, opened from the page's picture
-  // (DrawingImage) and closed with Done. It sits on <body>, like ZoomViewer, so
+  // (DrawingImage) and closed with × (the standard close button). It sits on <body>, like ZoomViewer, so
   // nothing on the page draws over it. Esc stays with Excalidraw (deselect,
   // leave a tool) and never closes it, so an edit isn't lost. Every change
   // saves itself after a short pause as the scene's JSON (see
@@ -27,7 +27,7 @@
     readonly title?: string;
     /** Uploads the saved drawing and returns its share link; without it, no Share link button. */
     readonly onShare?: () => Promise<string>;
-    /** Done: called once any change still waiting has saved. */
+    /** Close (×): called once any change still waiting has saved. */
     readonly onClose: () => void;
   }
 
@@ -127,8 +127,8 @@
     }
   };
 
-  // Done: wait for the save, so the page's picture shows what was drawn.
-  const handleDone = async () => {
+  // Close: wait for the save, so the page's picture shows what was drawn.
+  const handleClose = async () => {
     closing = true;
     try {
       await saveNow();
@@ -250,7 +250,7 @@
   <div class="drawing-toolbar">
     <span class="drawing-title truncate">{title}</span>
     <p class="drawing-status text-xs muted" aria-live="polite">
-      {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves. Done closes the editor.{/if}
+      {#if status === 'loading'}Loading the drawing…{:else if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if closing}Saving…{:else if editable}Changes save themselves.{/if}
     </p>
     <span class="drawing-actions">
       {#if shareError}<span class="inline-error text-xs" role="alert">{shareError}</span>{/if}
@@ -260,7 +260,7 @@
       {:else if onShare}
         <button type="button" class="btn ghost sm" disabled={status === 'loading' || share === 'working'} aria-busy={share === 'working'} onclick={createLink}>{share === 'working' ? 'Sharing…' : 'Share link'}</button>
       {/if}
-      <button type="button" class="btn primary sm" onclick={handleDone} disabled={closing} aria-busy={closing}>{closing ? 'Saving…' : 'Done'}</button>
+      <button type="button" class="btn icon sm" onclick={handleClose} disabled={closing} aria-busy={closing} aria-label="Close" title="Close">&times;</button>
     </span>
   </div>
   <div class="drawing-canvas" bind:this={host}></div>
