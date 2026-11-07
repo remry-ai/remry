@@ -389,14 +389,19 @@
   }
   .sheet-saved { white-space: nowrap; }
   .formula-problem { color: var(--danger); }
-  // Column headers in bold; a renamed one shows its formula letter after its title.
+  // Column headers in bold; a renamed one shows its formula letter in its top-right corner
+  // (the header cell is sticky, so it already positions the letter).
   .sheet-grid :global(thead td) { font-weight: 600; }
   .sheet-grid :global(thead td[data-letter])::after {
     content: attr(data-letter);
-    margin-left: var(--sp-1);
+    position: absolute;
+    top: 1px;
+    right: var(--sp-1);
     font-weight: 400;
     font-size: var(--fs-xs);
+    line-height: 1;
     color: var(--text-3);
+    pointer-events: none;
   }
   // A formula cell's result, and one that fails, told apart in the grid.
   .sheet-grid :global(td.formula-error) { color: var(--danger); }
