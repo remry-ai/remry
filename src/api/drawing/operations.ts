@@ -13,7 +13,7 @@ import { countImages, isEmptyDrawing, isSkeleton, parseDrawingContent, readDrawi
 import { decryptScene, encryptScene, parseShareLink, shareLinkProblem, shareLinkUrl } from '$shared/drawing/excalidraw-link';
 import type { ExcalidrawBackend } from '$shared/drawing/excalidraw-backend.server';
 import { createPage, updatePage } from '$api/page/operations';
-import { isEmptyBody } from '$api/_body';
+import { isEmptyBody } from '$shared/utils/body';
 
 type Reg = Pick<Registry, 'prisma' | 'storage' | 'uuid' | 'logger' | 'now'>;
 

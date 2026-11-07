@@ -5,7 +5,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Menu from '$lib/ui/Menu.svelte';
   import { errorMessage } from '$lib/ui/submit';
-  import { BODY_LABELS, isGridOrDrawing, type BodyType, type GridOrDrawing } from '$shared/types/body-types';
+  import { BODY_LABELS, BODY_TYPES, isGridOrDrawing, type BodyType } from '$shared/types/body-types';
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
   import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
@@ -28,9 +28,8 @@
     readonly docs: readonly Doc[];
     readonly activeDocId: string | null;
     readonly onSelect: (id: string) => void;
-    readonly onStartAdd: () => void;
-    /** Adds an empty spreadsheet or drawing doc and opens it. Without it, + adds a document only. */
-    readonly onAddOfType?: (bodyType: GridOrDrawing) => Promise<void>;
+    /** Adds an empty doc of that type and opens it; without it (archived), no "+". */
+    readonly onAdd?: (bodyType: BodyType) => Promise<void>;
     readonly onRemove: (id: string) => Promise<void>;
     readonly onReorder: (docIds: readonly string[]) => Promise<void>;
   }
@@ -39,8 +38,7 @@
     docs,
     activeDocId,
     onSelect,
-    onStartAdd,
-    onAddOfType,
+    onAdd,
     onRemove,
     onReorder,
   }: Props = $props();
@@ -68,27 +66,18 @@
     onSelect(id);
   };
 
-  const startAdd = () => {
-    expanded = false;
-    onStartAdd();
-  };
-
   let addError = $state('');
-  const addOfType = async (bodyType: GridOrDrawing) => {
+  const add = async (bodyType: BodyType) => {
     addError = '';
     expanded = false;
     try {
-      await onAddOfType?.(bodyType);
+      await onAdd?.(bodyType);
     } catch (e: unknown) {
       addError = errorMessage(e);
     }
   };
 
-  const addItems = $derived([
-    { label: BODY_LABELS.doc, onSelect: startAdd },
-    { label: BODY_LABELS.sheet, onSelect: () => { void addOfType('sheet'); } },
-    { label: BODY_LABELS.drawing, onSelect: () => { void addOfType('drawing'); } }
-  ]);
+  const addItems = BODY_TYPES.map((type) => ({ label: BODY_LABELS[type], onSelect: () => { void add(type); } }));
 
   const moveUp = async (index: number) => {
     if (index <= 0) return;
@@ -113,12 +102,10 @@
       </DisclosureButton>
     </h4>
     {#if needingSync > 0}<span class="to-sync"><SyncStatus tone="warning" text={String(needingSync)} title="{needingSync} sync doc{needingSync === 1 ? '' : 's'} failed, never synced, or last synced over a week ago" /></span>{/if}
-    {#if onAddOfType}
+    {#if onAdd}
       <Menu label="Add doc" items={addItems} align="end">
         {#snippet trigger()}<span aria-hidden="true">+</span><span class="sr-only">Add doc</span>{/snippet}
       </Menu>
-    {:else}
-      <button type="button" class="btn icon sm" onclick={startAdd} title="Add doc" aria-label="Add doc">+</button>
     {/if}
   </div>
   {#if addError}<p class="form-error" role="alert">{addError}</p>{/if}

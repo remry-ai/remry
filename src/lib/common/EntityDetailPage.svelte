@@ -14,10 +14,11 @@
   import { page } from '$app/state';
   import DocEditor from '$lib/common/DocEditor.svelte';
   import DocBodyCard from '$lib/doc/DocBodyCard.svelte';
-  import { BODY_LABELS, isGridOrDrawing, type BodyType, type GridOrDrawing } from '$shared/types/body-types';
+  import { BODY_LABELS, isGridOrDrawing, type BodyType } from '$shared/types/body-types';
+  import { isEmptyBody } from '$shared/utils/body';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import { printUrl } from '$lib/doc/print-options';
-  import { DOC_PARAM, NEW_DOC, openDocUrl, closeDocUrl } from '$lib/doc/doc-url';
+  import { DOC_PARAM, openDocUrl, closeDocUrl } from '$lib/doc/doc-url';
   import NoteEditor from '$lib/common/NoteEditor.svelte';
   import Popup from '$lib/common/Popup.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
@@ -155,22 +156,17 @@
   setContext(PEEKS_CONTEXT, true);
 
   // ----- Center pane state -----
-  // The open doc lives in the URL (`?doc=<id>`, or `?doc=new` for a draft) and
+  // The open doc lives in the URL (`?doc=<id>`) and
   // takes the pane over everything else. Notes and todos open in popups (`?popup=note`,
   // with `&note=<id>` to edit one; the app's `?popup=todo`, with `&todo=<id>`), so the page
   // and an open doc stay in view.
-  let newDocTitleDraft = $state('Untitled');
 
   const docParam = $derived(page.url.searchParams.get(DOC_PARAM));
-  const newDocOpen = $derived(docParam === NEW_DOC);
+  const activeDoc = $derived(docParam ? docs.find((d) => d.id === docParam) ?? null : null);
 
-  const activeDoc = $derived(
-    docParam && docParam !== NEW_DOC ? docs.find((d) => d.id === docParam) ?? null : null,
-  );
-
-  // A doc that's gone (deleted, or a stale link) closes.
+  // A doc that's gone (deleted, or a stale link such as an old `?doc=new`) closes.
   $effect(() => {
-    if (docParam && docParam !== NEW_DOC && !activeDoc) void closeDocUrl({ replace: true });
+    if (docParam && !activeDoc) void closeDocUrl({ replace: true });
   });
 
   // The open doc's links: the sources Claude writes it from, one line under its title.
@@ -220,29 +216,25 @@
   const activeDocId = $derived(activeDoc?.id ?? null);
 
   // A doc fills the centre pane, so the metadata above it gives way.
-  const docOpen = $derived(activeDoc !== null || newDocOpen);
+  const docOpen = $derived(activeDoc !== null);
 
   const openDoc = (id: string) => { newDocId = null; void openDocUrl(id); };
   // Close a floating drawer so the editor in the center pane is reachable.
   const openNote = (id: string) => { activeDrawer.set(null); void openPopup(NOTE_POPUP, { [NOTE_PARAM]: id }); };
   const openNewNote = () => { activeDrawer.set(null); void openPopup(NOTE_POPUP); };
   const closeNotePopup = (invalidate = false) => closePopup({ invalidate, clear: [NOTE_PARAM] });
-  const openNewDoc = () => {
-    newDocTitleDraft = 'Untitled';
-    draftDocId = null;
-    openDoc(NEW_DOC);
-  };
   // From the right panel: the app's todo popup (CreateTodoPopup), which takes this page's entity
   // for a new one. A floating panel closes first, so it doesn't sit over the popup.
   const openNewTodo = () => { activeDrawer.set(null); void openPopup('todo'); };
   const openEditTodo = (id: string) => { activeDrawer.set(null); void openPopup('todo', { todo: id }); };
-  const closeDoc = () => { void closeDocUrl(); };
 
-  // A spreadsheet or drawing doc is made at once, empty, and opens; it's renamed in place.
-  // The new doc opens with its title selected to type over, as a new document's does.
+  // Every type of doc is added the same way: made at once, empty, as "Untitled <type>", and
+  // opened with its title selected to type over. Closed untouched (still empty, still that
+  // title), it's deleted again, so trying "+" leaves nothing behind.
   let newDocId = $state<string | null>(null);
-  const handleAddBodyDoc = async (bodyType: GridOrDrawing) => {
-    await docHandlers.handleAddDoc(`Untitled ${BODY_LABELS[bodyType].toLowerCase()}`, bodyType, (id) => { newDocId = id; });
+  const untitled = (bodyType: BodyType): string => `Untitled ${BODY_LABELS[bodyType].toLowerCase()}`;
+  const handleAddDoc = async (bodyType: BodyType) => {
+    await docHandlers.handleAddDoc(untitled(bodyType), bodyType, (id) => { newDocId = id; });
   };
 
   const activeBodyType = $derived<BodyType>(activeDoc?.bodyType ?? 'doc');
@@ -262,11 +254,14 @@
     return (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ docId: id }))).url;
   };
 
-  // Closes a spreadsheet or drawing doc, then reloads, so reopening it shows what was saved.
-  // In that order: a reload started alongside the navigation cancelled it, and × did nothing.
-  const closeBodyDoc = async (): Promise<void> => {
+  // Closes the open doc, of any type, then reloads, so reopening it shows what was saved. In
+  // that order: a reload started alongside the navigation cancelled it, and × did nothing.
+  const closeDoc = async (): Promise<void> => {
+    const doc = activeDoc;
+    const untouched = doc !== null && doc.id === newDocId && doc.title === untitled(doc.bodyType ?? 'doc') && isEmptyBody(doc.bodyType ?? 'doc', doc.content);
     newDocId = null;
     await closeDocUrl();
+    if (untouched) await docHandlers.handleRemoveDoc(doc.id).catch(() => undefined);
     await invalidateAll();
   };
 
@@ -335,35 +330,6 @@
     await closeNotePopup(true);
   };
 
-  // A new doc exists on the server only once it's saved, but an image needs the doc's id to
-  // upload to. So the first image (or the save) creates it, without opening it: the draft's
-  // editor, which holds the images still to upload, stays put. The save then fills it in and
-  // opens it; closing the draft unsaved deletes it again.
-  let draftDocId: string | null = null;
-  const ensureDraftDoc = async (): Promise<string> => {
-    draftDocId ??= await docHandlers.handleCreateDraftDoc(newDocTitleDraft);
-    return draftDocId;
-  };
-  const handleUploadDraftImage = async (file: File): Promise<string> =>
-    docHandlers.handleUploadImageTo(await ensureDraftDoc(), file);
-
-  const handleCreateDoc = async (content: string) => {
-    const id = await ensureDraftDoc();
-    draftDocId = null;
-    await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, content);
-  };
-
-  const closeNewDoc = async () => {
-    const id = draftDocId;
-    draftDocId = null;
-    closeDoc();
-    if (id) await docHandlers.handleDiscardDraftDoc(id).catch(() => undefined);
-  };
-
-  const handleDraftDocTitle = async (title: string) => {
-    newDocTitleDraft = title;
-  };
-
   // ----- Writing a doc from a file link (the local Claude Code CLI, run by the server) -----
   interface PdfJob {
     readonly docId: string;
@@ -427,16 +393,6 @@
   const refreshSyncDoc = async (id: string) => {
     await invalidateAll();
     await loadDocLinks(id);
-  };
-
-  // "+ Add a file" on a new doc: saves it, uploads the file as its link and writes it from that.
-  const handleCreateDocFromFile = async (file: File) => {
-    const id = await ensureDraftDoc();
-    draftDocId = null;
-    await docHandlers.handleFinishDraftDoc(id, newDocTitleDraft, '');
-    const linkId = await uploadFileLink('DOC', id, file);
-    await loadDocLinks(id);
-    void runFileConversion(id, linkId);
   };
 
   // ----- Edit popup -----
@@ -546,8 +502,7 @@
           {docs}
           {activeDocId}
           onSelect={openDoc}
-          onStartAdd={openNewDoc}
-          onAddOfType={archivedAt ? undefined : handleAddBodyDoc}
+          onAdd={archivedAt ? undefined : handleAddDoc}
           onRemove={docHandlers.handleRemoveDoc}
           onReorder={docHandlers.handleReorderDocs}
         />
@@ -564,7 +519,7 @@
         editable={!archivedAt}
         onSave={handleSaveBody}
         onSaveTitle={docHandlers.handleSaveTitle}
-        onClose={closeBodyDoc}
+        onClose={closeDoc}
         onDrawingClosed={invalidateAll}
         onShare={handleShareDocDrawing}
         onImportLink={handleImportDocDrawing}
@@ -590,19 +545,9 @@
         sources={docLinks.length > 0 || activeDoc.prompt || !archivedAt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
+        autoEditTitle={activeDoc.id === newDocId}
       />
       {/key}
-    {:else if newDocOpen}
-      <DocEditor
-        title={newDocTitleDraft}
-        content=""
-        onSave={handleCreateDoc}
-        onSaveTitle={handleDraftDocTitle}
-        onUploadImage={handleUploadDraftImage}
-        sources={newDocSources}
-        onClose={closeNewDoc}
-        autoEditTitle
-      />
     {:else}
       <div class="overview">
         {@render renderOverview({ openEdit })}
@@ -629,10 +574,6 @@
   <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} />
 {/snippet}
 
-<!-- A doc not saved yet can't take links, but a source file makes it, and Claude converts it. -->
-{#snippet newDocSources()}
-  <SourceLinks links={[]} onUploadFile={handleCreateDocFromFile} />
-{/snippet}
 
 <Popup id={NOTE_POPUP} title={editingNoteId ? 'Edit note' : 'New note'} size="lg" clearParams={[NOTE_PARAM]}>
   {#if editingNoteId && !editingNote}

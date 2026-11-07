@@ -3,12 +3,14 @@
   import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
-  import ProBadge from '$lib/ui/ProBadge.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import type { ChartBranding } from '$shared/types/branding';
   import { blobUrlsIn, replaceLostImages } from '$lib/doc/lost-images';
   import { imageFilesIn, insertImages } from '$lib/doc/pasted-images';
+  import DocTitle from '$lib/doc/DocTitle.svelte';
+  import DocBar from '$lib/doc/DocBar.svelte';
+  import { isEmptyBody } from '$shared/utils/body';
 
   interface ConvertNotice {
     readonly tone: 'warning' | 'error';
@@ -46,39 +48,6 @@
   }
 
   const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
-
-  let editingTitle = $state(autoEditTitle);
-  let titleDraft = $state(title);
-
-  const startEditingTitle = () => {
-    if (!onSaveTitle) return;
-    titleDraft = title;
-    editingTitle = true;
-  };
-
-  const commitTitle = async () => {
-    editingTitle = false;
-    const trimmed = titleDraft.trim();
-    if (!trimmed || trimmed === title || !onSaveTitle) return;
-    error = '';
-    try {
-      await onSaveTitle(trimmed);
-    } catch (e: unknown) {
-      error = messageOf(e);
-    }
-  };
-
-  const cancelTitle = () => {
-    editingTitle = false;
-    titleDraft = title;
-  };
-
-  const handleTitleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
-    else if (e.key === 'Escape') { e.preventDefault(); cancelTitle(); }
-  };
-
-  const focusOnMount = (node: HTMLInputElement) => { node.focus(); node.select(); };
 
   const pendingImages = new Map<string, File>();
   // blob: addresses already in the content as loaded: saved by an earlier tab, so their
@@ -172,10 +141,11 @@
     return true;
   };
 
-  const handleTitlePaste = (e: ClipboardEvent) => {
-    if (!pasteImagesIntoBody(e)) return;
-    void commitTitle();
+  // DocTitle saves the title once a paste is taken.
+  const handleTitlePaste = (e: ClipboardEvent): boolean => {
+    if (!pasteImagesIntoBody(e)) return false;
     if (mode === 'preview') mode = 'editor';
+    return true;
   };
 
   const handleTextareaPaste = (e: ClipboardEvent) => {
@@ -210,33 +180,6 @@
     if (!error) await goto(exportHref);
   };
 
-  // The bar shows the title on a row above the tabs once it sticks, so a long doc scrolled
-  // down still says which one it is. The row is pulled up over what's above the bar (hidden,
-  // so nothing jumps when it shows); the bar is stuck once it has moved down from there.
-  let sentinelEl = $state<HTMLDivElement>();
-  let stickyEl = $state<HTMLDivElement>();
-  let titleRowEl = $state<HTMLDivElement>();
-  let stuck = $state(false);
-  $effect(() => {
-    if (!showTitle || !sentinelEl || !stickyEl || !titleRowEl) return;
-    const sentinel = sentinelEl, sticky = stickyEl, row = titleRowEl;
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      stuck = sticky.getBoundingClientRect().top > sentinel.getBoundingClientRect().top - row.offsetHeight + 1;
-    };
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
-    measure();
-    // Capture: the page scrolls in the window or in a layout column, depending on its width.
-    window.addEventListener('scroll', schedule, { capture: true, passive: true });
-    window.addEventListener('resize', schedule, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', schedule, { capture: true });
-      window.removeEventListener('resize', schedule);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  });
-
   const setMode = async (next: typeof mode) => {
     const leaving = mode === 'write' || mode === 'editor';
     const entering = next === 'preview';
@@ -248,25 +191,13 @@
 
 <section class="card doc-card">
   {#if showTitle}
-  <div class="doc-header">
-    <span class="badge selected">Doc</span>
-    {#if editingTitle}
-      <input
-        class="title-input"
-        bind:value={titleDraft}
-        onblur={commitTitle}
-        onkeydown={handleTitleKeydown}
-        onpaste={handleTitlePaste}
-        use:focusOnMount
-        aria-label="Document title"
-      />
-    {:else}
-      <h2 class:editable={!!onSaveTitle} ondblclick={startEditingTitle} title={onSaveTitle ? 'Double-click to rename' : undefined}>{title}</h2>
-    {/if}
-    {#if hasSourceFile && onConvert && !converting && !content.trim()}
-      <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}</button>
-    {/if}
-  </div>
+    <DocTitle {title} bodyType="doc" {onSaveTitle} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
+      {#snippet after()}
+        {#if hasSourceFile && onConvert && !converting && !content.trim()}
+          <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}</button>
+        {/if}
+      {/snippet}
+    </DocTitle>
   {/if}
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
@@ -277,36 +208,23 @@
     <div class="status" aria-busy="true">Loading…</div>
   {:else}
     <div class="doc-editor doc-text" class:with-title={showTitle}>
-      <div class="doc-sentinel" bind:this={sentinelEl}></div>
       <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
-      <div class="doc-sticky" class:stuck bind:this={stickyEl}>
-      {#if showTitle}
-        <div class="doc-sticky-title" bind:this={titleRowEl} aria-hidden={!stuck}><span class="badge selected">Doc</span><span class="truncate">{title}</span></div>
-      {/if}
-      <div class="doc-bar">
-        <div class="tabs scroll">
+      <DocBar {title} bodyType="doc" {showTitle} exportHref={isEmptyBody('doc', content) ? undefined : exportHref} onExport={handleExport} {onClose}>
+        {#snippet tabs()}
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
           <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
           <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
-          {#if exportHref && content.trim()}
-            <a class="tab divided" href={exportHref} onclick={handleExport}>Export PDF <ProBadge /></a>
-          {/if}
-        </div>
-        <div class="doc-actions">
+        {/snippet}
+        {#snippet actions()}
           {#if mode === 'preview'}
             <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
             <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
-          {/if}
-          {#if mode !== 'preview'}
+          {:else}
             {#if isDirty}<span class="unsaved text-xs">● Unsaved</span>{/if}
             <button type="button" class="btn primary sm" onclick={handleSave} disabled={saving || !isDirty} aria-busy={saving}>{saving ? 'Saving…' : 'Save'}</button>
           {/if}
-          {#if onClose}
-            <button type="button" class="btn icon sm" onclick={onClose} aria-label="Close" title="Close">&times;</button>
-          {/if}
-        </div>
-      </div>
-      </div>
+        {/snippet}
+      </DocBar>
       {#if mode === 'write'}
         <textarea class="doc-textarea" bind:value={draft} onpaste={handleTextareaPaste} rows={20} placeholder="Write in markdown..."></textarea>
       {:else if mode === 'editor'}
@@ -328,23 +246,6 @@
     flex-direction: column;
     gap: var(--sp-3);
   }
-  .doc-header {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    h2 {
-      flex: 1;
-      min-width: 0;
-      margin: 0;
-      font-size: var(--fs-base);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      &.editable { cursor: text; }
-    }
-  }
-  // A field like any other (--font-text); only its width is its own.
-  .title-input { flex: 1; }
   // Tucked under the title: the card's gap is too loose for a line that belongs to it.
   .doc-sources { margin-top: calc(-1 * var(--sp-1)); }
   .doc-editor {
@@ -357,50 +258,6 @@
     --doc-title-h: 0px;
     &.with-title { --doc-title-h: var(--control-h); }
     :global(.md-editor-container) { --sticky-top: calc(var(--doc-sticky) + var(--doc-title-h) + var(--doc-bar-h)); }
-  }
-  .doc-sentinel { height: 0; }
-  // Stays in view while a long doc scrolls, above the editor's sticky toolbar. The title row
-  // overlaps what's above it until the bar sticks, so it lets clicks through while hidden.
-  .doc-sticky {
-    position: sticky;
-    top: var(--doc-sticky);
-    z-index: calc(var(--z-sticky) + 1);
-    margin-top: calc(-1 * var(--doc-title-h));
-    margin-bottom: var(--sp-2);
-    pointer-events: none;
-    > * { pointer-events: auto; }
-  }
-  .doc-sticky-title {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    height: var(--doc-title-h);
-    min-width: 0;
-    font-weight: 600;
-    background: var(--surface);
-    visibility: hidden;
-    pointer-events: none;
-  }
-  .stuck .doc-sticky-title {
-    visibility: visible;
-    pointer-events: auto;
-  }
-  .doc-bar {
-    display: flex;
-    align-items: flex-end;
-    height: var(--doc-bar-h);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    .tabs { flex: 1; align-self: stretch; align-items: flex-end; border-bottom: none; }
-  }
-  // Spaced off the tabs, which scroll under it on a phone, so the buttons aren't crowded.
-  .doc-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    padding-left: var(--sp-3);
-    padding-bottom: var(--sp-1);
   }
   .doc-textarea {
     width: 100%;

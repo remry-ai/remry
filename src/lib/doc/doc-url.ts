@@ -2,11 +2,10 @@ import { get } from 'svelte/store';
 import { page } from '$app/stores';
 import { goto } from '$app/navigation';
 
-// The doc open in an entity page's centre pane is URL-driven: `?doc=<id>`, or
-// `?doc=new` for a draft. Opening one pushes a history entry, so Back closes it.
+// The doc open in an entity page's centre pane is URL-driven: `?doc=<id>`. Opening
+// one pushes a history entry, so Back closes it.
 
 export const DOC_PARAM = 'doc';
-export const NEW_DOC = 'new';
 
 export interface DocUrlOptions {
   /** Replace the current history entry instead of pushing one. */

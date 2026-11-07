@@ -19,7 +19,7 @@ import { findProjectNamed } from '$api/_duplicates';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { createPage, deletePage } from '$api/page/operations';
 import { asBodyType } from '$shared/types/body-types';
-import { isEmptyBody } from '$api/_body';
+import { isEmptyBody } from '$shared/utils/body';
 import { createProject } from '$api/project/operations';
 import { addDoc, updateDoc, DOC_HOLDERS } from '$api/attached/doc/operations';
 import { addNote } from '$api/attached/note/operations';

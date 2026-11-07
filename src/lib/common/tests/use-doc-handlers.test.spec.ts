@@ -138,51 +138,27 @@ describe('createDocHandlers images', () => {
   });
 });
 
-describe('createDocHandlers: a new doc with images', () => {
+describe('createDocHandlers: adding a doc', () => {
   beforeEach(() => {
     invalidateAll.mockClear();
   });
 
-  const setup = () => {
-    const add = vi.fn().mockResolvedValue({ ok: true, value: { id: 'doc_draft' } });
-    const update = vi.fn().mockResolvedValue({ ok: true, value: { id: 'doc_draft' } });
-    const remove = vi.fn().mockResolvedValue({ ok: true, value: undefined });
-    const uploadImage = vi.fn().mockResolvedValue({ ok: true, value: { key: 'docs/doc_draft/image-1.png' } });
-    const setActiveDocId = vi.fn();
-    const handlers = createDocHandlers(
-      { add: { mutate: add }, update: { mutate: update }, remove: { mutate: remove }, reorder: { mutate: vi.fn() }, uploadImage: { mutate: uploadImage } },
-      'PROJECT',
-      'proj_1',
-      () => null,
-      setActiveDocId,
-    );
-    return { handlers, add, update, remove, uploadImage, setActiveDocId };
-  };
-
-  it('creates the draft without opening it, so its editor stays put', async () => {
-    const { handlers, add, setActiveDocId } = setup();
-    expect(await handlers.handleCreateDraftDoc('Plan')).toBe('doc_draft');
-    expect(add).toHaveBeenCalledWith({ entityType: 'PROJECT', entityId: 'proj_1', title: 'Plan' });
-    expect(setActiveDocId).not.toHaveBeenCalled();
-  });
-
-  it('uploads an image to the draft by its id, though no doc is open', async () => {
-    const { handlers, uploadImage } = setup();
-    const file = new File([new Uint8Array([1, 2, 3])], 'shot.png', { type: 'image/png' });
-    expect(await handlers.handleUploadImageTo('doc_draft', file)).toBe('docs/doc_draft/image-1.png');
-    expect(uploadImage).toHaveBeenCalledWith({ docId: 'doc_draft', contentType: 'image/png', dataBase64: 'AQID' });
-  });
-
-  it('finishes the draft with its title and text, then opens it', async () => {
-    const { handlers, update, setActiveDocId } = setup();
-    await handlers.handleFinishDraftDoc('doc_draft', 'Plan v2', '![a](storage://docs/doc_draft/image-1.png)');
-    expect(update).toHaveBeenCalledWith({ id: 'doc_draft', title: 'Plan v2', content: '![a](storage://docs/doc_draft/image-1.png)' });
-    expect(setActiveDocId).toHaveBeenCalledWith('doc_draft');
-  });
-
-  it('discards a draft closed unsaved', async () => {
-    const { handlers, remove } = setup();
-    await handlers.handleDiscardDraftDoc('doc_draft');
-    expect(remove).toHaveBeenCalledWith({ id: 'doc_draft' });
+  it('adds any type the same way: made at once, its id handed over, then opened', async () => {
+    for (const bodyType of ['doc', 'sheet', 'drawing'] as const) {
+      const add = vi.fn().mockResolvedValue({ ok: true, value: { id: `doc_${bodyType}` } });
+      const order: string[] = [];
+      const setActiveDocId = vi.fn(() => { order.push('open'); });
+      const handlers = createDocHandlers(
+        { add: { mutate: add }, update: { mutate: vi.fn() }, remove: { mutate: vi.fn() }, reorder: { mutate: vi.fn() } },
+        'PROJECT',
+        'proj_1',
+        () => null,
+        setActiveDocId,
+      );
+      await handlers.handleAddDoc(`Untitled ${bodyType}`, bodyType, (id) => { order.push(`new ${id}`); });
+      expect(add).toHaveBeenCalledWith({ entityType: 'PROJECT', entityId: 'proj_1', title: `Untitled ${bodyType}`, bodyType });
+      expect(order).toEqual([`new doc_${bodyType}`, 'open']);
+      expect(setActiveDocId).toHaveBeenCalledWith(`doc_${bodyType}`);
+    }
   });
 });

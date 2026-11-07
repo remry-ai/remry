@@ -3,8 +3,8 @@ import { submitOrThrow } from '$lib/ui/submit';
 import { fileUrl } from '$shared/utils/files';
 import type { BodyType } from '$shared/types/body-types';
 
-// Handlers throw the API's error message; DocEditor, DocsManager's
-// ConfirmButton and EntityDetailPage's create flow catch and show it.
+// Handlers throw the API's error message; DocEditor, DocsManager and its
+// ConfirmButton catch and show it.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface DocTrpc {
@@ -40,15 +40,6 @@ export const fileToBase64 = async (file: File): Promise<string> => {
 export interface DocHandlers {
   /** Adds a doc and opens it: a document, or a spreadsheet or drawing (bodyType). `beforeOpen` gets its id first. */
   readonly handleAddDoc: (title: string, bodyType?: BodyType, beforeOpen?: (id: string) => void) => Promise<void>;
-  /**
-   * A new doc's steps before it opens: create it on the server without opening it (so the draft's
-   * editor stays put while its images upload to it), then finish it (title and text, then open it),
-   * or discard it if the draft is closed unsaved.
-   */
-  readonly handleCreateDraftDoc: (title: string) => Promise<string>;
-  readonly handleFinishDraftDoc: (docId: string, title: string, content: string) => Promise<void>;
-  readonly handleDiscardDraftDoc: (docId: string) => Promise<void>;
-  readonly handleUploadImageTo: (docId: string, file: File) => Promise<string>;
   readonly handleSaveDoc: (content: string) => Promise<void>;
   readonly handleSaveTitle: (title: string) => Promise<void>;
   readonly handleRemoveDoc: (id: string) => Promise<void>;
@@ -70,24 +61,6 @@ export const createDocHandlers = (
     await invalidateAll();
     await setActiveDocId(doc.id);
   },
-
-  handleCreateDraftDoc: async (title: string): Promise<string> => {
-    const doc = await submitOrThrow(() => docTrpc.add.mutate({ entityType, entityId, title }));
-    return doc.id as string;
-  },
-
-  handleFinishDraftDoc: async (docId: string, title: string, content: string) => {
-    await submitOrThrow(() => docTrpc.update.mutate({ id: docId, title, ...(content ? { content } : {}) }));
-    await invalidateAll();
-    await setActiveDocId(docId);
-  },
-
-  handleDiscardDraftDoc: async (docId: string) => {
-    await submitOrThrow(() => docTrpc.remove.mutate({ id: docId }));
-    await invalidateAll();
-  },
-
-  handleUploadImageTo: async (docId: string, file: File): Promise<string> => uploadImageTo(docTrpc, docId, file),
 
   handleSaveDoc: async (content: string) => {
     const docId = getActiveDocId();
