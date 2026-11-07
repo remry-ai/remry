@@ -79,15 +79,8 @@ the chart shows the pace you need, and a goal that trails it is flagged "Behind 
 > **You:** We pay Datadog $40k a year for 40 seats; it renews in March. Platform uses it for
 > alerting.
 
-Pages are markdown, spreadsheets or drawings. A page's details go in a list at the top. Anything can
-link to anything, and mentioning a project in a page adds a "Mentioned in" link to the project.
-
-- **Spreadsheets** for many records of one shape: formulas, number and currency formats, and a
-  full-screen view.
-- **Drawings** are [Excalidraw](https://excalidraw.com), built in. Ask Claude for an architecture
-  diagram or a flowchart and it lays out the shapes and arrows; open the drawing to edit it full
-  screen. Open `.excalidraw` files and Excalidraw links, and share one as a link (encrypted, only
-  when you ask). Each notebook has 3 free; Remry Pro removes the limit.
+A page's details go in a list at the top. Anything can link to anything, and mentioning a project in
+a page adds a "Mentioned in" link to the project.
 
 ![The Datadog page: vendor, cost and renewal in a list, with Platform linked to it](docs/images/wiki-page.png)
 
@@ -101,6 +94,26 @@ discrepancies: "Launch date. PRD: 12 Nov. Linear: 30 Oct." This is a sync doc. I
 and a prompt saying what to take from each, so each source shows when it was last synced, and next
 time Claude rewrites it the same way, or tells you what changed if you've edited it since. With
 Remry Pro, **Sync now** has your Claude Code refresh it from the app.
+
+![A sync doc on the New checkout project: its prompt, three synced sources (a Notion PRD, a Linear project and a pricing sheet), Sync now, and the brief ending in a list of discrepancies](docs/images/sync-brief.png)
+
+### Spreadsheets and drawings, built in
+
+> **You:** Put our software in a sheet: owner, seats, annual cost and cost per seat.
+
+Any wiki page or doc can be a spreadsheet, for many records of one shape: formulas, number and
+currency formats, and a full-screen view. Ask what you spend and Claude reads the totals back.
+
+![A Software spreadsheet: tools, owners, seats, annual cost and a per-seat formula, with a total row](docs/images/sheet.png)
+
+> **You:** Draw the checkout architecture.
+
+Or a drawing: [Excalidraw](https://excalidraw.com), built in. Claude lays out the shapes and arrows;
+open the drawing to move things around, full screen. Open `.excalidraw` files and Excalidraw links,
+and share one as a link (encrypted, only when you ask). Each notebook has 3 free drawings; Remry Pro
+removes the limit.
+
+![A hand-drawn Excalidraw diagram of the checkout architecture: web and mobile, API gateway, checkout service, payments, fraud scoring, orders DB and Stripe](docs/images/drawing.png)
 
 ### Writing up the quarter
 
