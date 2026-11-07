@@ -260,6 +260,13 @@
     return (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ docId: id }))).url;
   };
 
+  // Closes a spreadsheet or drawing doc, then reloads, so reopening it shows what was saved.
+  // In that order: a reload started alongside the navigation cancelled it, and × did nothing.
+  const closeBodyDoc = async (): Promise<void> => {
+    await closeDocUrl();
+    await invalidateAll();
+  };
+
   // A spreadsheet or drawing saves itself as it's edited; the page reloads only when it closes.
   const handleSaveBody = async (content: string) => {
     const id = activeDoc?.id;
@@ -553,7 +560,7 @@
         editable={!archivedAt}
         onSave={handleSaveBody}
         onSaveTitle={docHandlers.handleSaveTitle}
-        onClose={() => { closeDoc(); void invalidateAll(); }}
+        onClose={closeBodyDoc}
         onDrawingClosed={invalidateAll}
         onShare={handleShareDocDrawing}
         onImportLink={handleImportDocDrawing}
