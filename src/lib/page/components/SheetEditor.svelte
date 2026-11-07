@@ -102,6 +102,7 @@
     readonly height: number;
   }
   let renaming = $state<Renaming | null>(null);
+  const saveLabel = $derived(error ? `Not saved: ${error}` : status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Changes save themselves');
   let renameDraft = $state('');
 
   const startRename = (x: number) => {
@@ -308,7 +309,10 @@
   </div>
   <!-- The save state first, then formula help on a click, then the selected formula or the ones that fail. -->
   <div class="sheet-status text-xs">
-    <span class="sheet-saved muted" aria-live="polite">{#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{:else if editable}Changes save themselves{/if}</span>
+    {#if editable}
+      <!-- The save state as a dot: grey with nothing to save yet, amber while saving, green once saved, red when a save failed. The words are its tooltip and for screen readers. -->
+      <span class="save-dot {error ? 'failed' : status}" title={saveLabel} role="status"><span class="sr-only">{saveLabel}</span></span>
+    {/if}
     <HelpPopover label="Formulas">
       <p>Start a cell with <code>=</code> for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>, <code>="Total: "&amp;B6</code>.</p>
       <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter after its name.</p>
@@ -387,7 +391,18 @@
     min-height: 1.4em;
     p { margin: 0; }
   }
-  .sheet-saved { white-space: nowrap; }
+  .save-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-full);
+    background: var(--text-3);
+    opacity: 0.5;
+    transition: background-color var(--ease), opacity var(--ease);
+    &.saving { background: var(--warning); opacity: 1; }
+    &.saved { background: var(--success); opacity: 1; }
+    &.failed { background: var(--danger); opacity: 1; }
+  }
   .formula-problem { color: var(--danger); }
   // Column headers in bold; a renamed one shows its formula letter in its top-left corner
   // (the header cell is sticky, so it already positions the letter).
