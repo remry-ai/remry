@@ -12,7 +12,7 @@ export const FREE_DRAWINGS = 3;
 /** A feature's name, as "<name> is part of Remry Pro" says it. */
 export const PRO_FEATURE_LABELS: Readonly<Record<ProFeature, string>> = {
   ai: 'AI assist',
-  sync: 'Sync now',
+  sync: 'Sync docs',
   drawings: `More than ${FREE_DRAWINGS} drawings`,
   branding: 'Branding',
   'other-devices': 'Opening Remry on other devices'
@@ -21,7 +21,7 @@ export const PRO_FEATURE_LABELS: Readonly<Record<ProFeature, string>> = {
 /** What each feature covers, for the License page. */
 export const PRO_FEATURE_DETAILS: Readonly<Record<ProFeature, string>> = {
   ai: 'Chat about a page, /ask in the finder, and Convert with Claude',
-  sync: 'Rewriting a sync doc from its sources with one click',
+  sync: 'Docs and pages kept in step with their sources, and Sync now to rewrite one in a click',
   drawings: `Free notebooks hold ${FREE_DRAWINGS} drawings each`,
   branding: 'Your colours, logo and letterhead, in the app and in PDFs',
   'other-devices': 'Your phone or another computer on your tailnet'

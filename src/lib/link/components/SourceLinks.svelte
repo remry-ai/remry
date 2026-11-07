@@ -4,6 +4,7 @@
   // synced yet" for one added by hand, which Claude reads on its next refresh).
   // With onAdd, an "Add link" button at the end opens the add-link form (AddLinkForm), which
   // with onUploadFile also uploads a file as a link, shown in the line like the others.
+  import ProIcon from '$lib/ui/ProIcon.svelte';
   import { timeAgo } from '$lib/home/utils';
   import AddLinkForm from './AddLinkForm.svelte';
   import { linkLabel, linkSource } from '../source';
@@ -76,7 +77,7 @@
       <li><button type="button" class="btn link muted" onclick={() => { adding = true; }}>{onAdd ? '+ Add link' : '+ Add a file'}</button></li>
     {/if}
     {#if onMakeSync && !adding}
-      <li><button type="button" class="btn link muted" onclick={onMakeSync} title="Claude keeps it in step with its sources, following a prompt you write">{makeSyncLabel}</button></li>
+      <li><button type="button" class="btn link muted" onclick={onMakeSync} title="Claude keeps it in step with its sources, following a prompt you write">{makeSyncLabel}<ProIcon /></button></li>
     {/if}
   </ul>
 

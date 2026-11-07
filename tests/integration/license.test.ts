@@ -33,7 +33,7 @@ describe('license', () => {
     expect((await api.search.recall({ entityType: 'PERSON', entityId: 'person_alice' })).ok).toBe(true);
 
     const sync = await api.sync.now({ entityType: 'DOC', id: 'doc_none' });
-    expect(!sync.ok && sync.error.message).toBe(`Sync now is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
+    expect(!sync.ok && sync.error.message).toBe(`Sync docs is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
     const branding = await api.branding.create({ name: 'Acme' });
     expect(!branding.ok && branding.error.message).toContain('Branding is part of Remry Pro');
 

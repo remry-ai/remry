@@ -47,6 +47,29 @@ export const drawingGated = async <T>(
   return canAddDrawing(used, status) ? run() : err(new Error(drawingLimitMessage(used, status)));
 };
 
+/** Whether a prompt change makes a sync doc of one that isn't (pure): editing or clearing an existing prompt doesn't. */
+export const startsSync = (current: string | null | undefined, next: string | null | undefined): boolean =>
+  typeof next === 'string' && next.trim() !== '' && !(current ?? '').trim();
+
+/** Whether setting `prompt` on this doc or page makes it a sync doc (it has no prompt yet). */
+export const makesSyncDoc = async (
+  reg: Pick<Registry, 'prisma'>,
+  entityType: 'DOC' | 'PAGE',
+  id: string,
+  prompt: string | null | undefined
+): Promise<boolean> => {
+  if (!startsSync(null, prompt)) return false;
+  const row = entityType === 'DOC'
+    ? await reg.prisma.doc.findUnique({ where: { id }, select: { prompt: true } })
+    : await reg.prisma.page.findUnique({ where: { id }, select: { prompt: true } });
+  // A missing row makes nothing; the operation says it's not found.
+  return row !== null && startsSync(row.prompt, prompt);
+};
+
+/** Runs `run`, gated as Sync docs (Remry Pro) only when it makes a new sync doc or page. */
+export const syncDocGated = <T>(ctx: Pick<Context, 'license'>, makes: boolean, run: () => Promise<Result<T>>): Promise<Result<T>> =>
+  makes ? gated(ctx, 'sync', run) : run();
+
 /** Whether setting `bodyType` on this doc or page turns it into a drawing (it isn't one yet). */
 export const becomesDrawing = async (
   reg: Pick<Registry, 'prisma'>,

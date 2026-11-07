@@ -13,7 +13,7 @@ templates, no plugins.
 > **Get it:** [Mac (Apple silicon)](https://github.com/remry-ai/remry/releases/latest/download/Remry-macos-arm64.dmg) ·
 > [Windows](https://github.com/remry-ai/remry/releases/latest/download/Remry-windows-x64-setup.exe),
 > then connect Claude with [docs/INSTALL.md](docs/INSTALL.md).
-> Remry is free; [Remry Pro](#remry-pro) adds AI assist in the app, Sync now, unlimited drawings, branding and opening it on other devices.
+> Remry is free; [Remry Pro](#remry-pro) adds sync docs, AI assist in the app, unlimited drawings, branding and opening it on other devices.
 > More at [remry.ai](https://remry.ai).
 
 ![A tour: telling Claude about a new hire, a note and a todo on her page, a blocked project, the projects timeline and a peek, a goal check-in, a wiki page, and a doc with charts](docs/images/demo.gif)
@@ -94,8 +94,8 @@ sources disagree: "Launch date. PRD: 12 Nov. Linear: 30 Oct."
 
 This is a sync doc. It keeps its sources and a prompt saying what to take from each, and each
 source shows when it was last read. Ask Claude to refresh it and it rewrites it the same way. If
-you've edited it since, Claude tells you what changed instead of overwriting your edits. With Remry
-Pro, **Sync now** refreshes it from the app.
+you've edited it since, Claude tells you what changed instead of overwriting your edits. Sync docs
+are part of Remry Pro, and **Sync now** refreshes one from the app.
 
 ![A sync doc on the New checkout project: its prompt, three synced sources (a Notion PRD, a Linear project and a pricing sheet), Sync now, and the brief ending in a list of discrepancies](docs/images/sync-brief.png)
 
@@ -227,12 +227,13 @@ Remry is free. **Remry Pro** is a yearly license that adds:
 
 - **AI assist in the app:** the Chat tab, `/ask` in the finder, and Convert with Claude, all run
   by your own Claude Code (or Copilot).
-- **Sync now:** rewrite a sync doc from its sources with one click.
+- **Sync docs:** briefs and pages kept in step with their sources (Notion, Linear, files), and
+  **Sync now** to rewrite one with a click.
 - **Unlimited drawings:** each notebook has 3 free; Pro removes the limit.
 - **Branding:** your organisation's colours and icon, on screen and in PDFs.
 - **Other devices:** open Remry on your phone or another computer over Tailscale.
 
-Full-text search, spreadsheets, PDF export and everything you do through Claude stay free.
+Full-text search, spreadsheets, PDF export and everything else you do through Claude stay free.
 
 It costs **$40 USD a year** ($50 CAD). That's the founding price, locked in while you renew; it goes
 to $60 USD / $80 CAD later. **[Buy Remry Pro →](https://buy.stripe.com/bJefZg54rbNLa0H1sb0Jq01)**

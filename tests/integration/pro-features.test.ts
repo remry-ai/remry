@@ -14,6 +14,7 @@ import { createNotebookContext } from '../../src/shared/trpc/context.server';
 import { resolveCurrentNotebook } from '../../src/shared/notebooks/current.server';
 import { getRegistry } from '../../src/shared/registry.server';
 import { countDrawings } from '../../src/api/_license';
+import { addDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { testLicenseKey } from '../license-test-key';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
@@ -40,6 +41,10 @@ interface Outcome {
 const idOf = (outcome: Outcome): string => {
   if (!outcome.ok) throw new Error(outcome.error?.message);
   return (outcome.value as { id: string }).id;
+};
+const value = <T>(result: { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: Error }): T => {
+  if (!result.ok) throw result.error;
+  return result.value;
 };
 const refusal = (outcome: Outcome): string => (outcome.ok ? '(it ran)' : outcome.error?.message ?? '');
 
@@ -120,9 +125,35 @@ describe('without a license', () => {
       .toMatch(/^AI assist is part of Remry Pro\./);
     expect(refusal(await api.chat.ask({ question: 'Who is Alice?' }))).toMatch(/^AI assist is part of Remry Pro\./);
     expect(refusal(await api.link.convert({ id: 'link_none' }))).toMatch(/^AI assist is part of Remry Pro\./);
-    expect(refusal(await api.sync.now({ entityType: 'PAGE', id: 'page_none' }))).toMatch(/^Sync now is part of Remry Pro\./);
+    expect(refusal(await api.sync.now({ entityType: 'PAGE', id: 'page_none' }))).toMatch(/^Sync docs is part of Remry Pro\./);
     // Re-read (saving a file's text) stays free: it fails here only because the link doesn't exist.
     expect(refusal(await api.link.transcribe({ id: 'link_none' }))).not.toContain('Remry Pro');
+  });
+
+  it('locks making a sync doc or page, but keeps an existing one\'s prompt editable', async () => {
+    withoutLicense();
+    const api = await caller();
+    const SYNC = /^Sync docs is part of Remry Pro\./;
+    const doc = idOf(await api.doc.add({ entityType: 'PERSON', entityId: 'person_alice', title: 'Brief' }));
+    expect(refusal(await api.doc.update({ id: doc, prompt: 'Scope and dates.' }))).toMatch(SYNC);
+    expect(refusal(await api.doc.update({ id: doc, title: 'Brief, v2', prompt: 'Scope.' }))).toMatch(SYNC);
+    const page = idOf(await api.page.create({ title: 'Vendors' }));
+    expect(refusal(await api.page.update({ id: page, prompt: 'Pricing only.' }))).toMatch(SYNC);
+    // Nothing was written: not the prompt, and not the title sent with it.
+    const after = await api.doc.get({ id: doc });
+    expect(after.ok && [after.value.prompt, after.value.title]).toEqual([null, 'Brief']);
+    // Everything else stays free: a blank prompt, clearing one, other changes.
+    expect((await api.doc.update({ id: doc, prompt: '  ' })).ok).toBe(true);
+    expect((await api.doc.update({ id: doc, prompt: null })).ok).toBe(true);
+    expect((await api.doc.update({ id: doc, content: '# Brief' })).ok).toBe(true);
+
+    // A sync doc made before (with a license, or by an older Remry) keeps its prompt editable, and clearable.
+    const synced = value(await addDoc(reg, 'PERSON', 'person_bob', { title: 'Bob brief' }));
+    value(await updateDoc(reg, synced.id, { prompt: 'Goals only.' }));
+    expect((await api.doc.update({ id: synced.id, prompt: 'Goals and dates.' })).ok).toBe(true);
+    expect((await api.doc.update({ id: synced.id, prompt: null })).ok).toBe(true);
+    // Once cleared, it's an ordinary doc: a new prompt makes a sync doc again.
+    expect(refusal(await api.doc.update({ id: synced.id, prompt: 'Goals.' }))).toMatch(SYNC);
   });
 
   it('locks opening the app to other devices, but turning it off always works', async () => {
@@ -145,6 +176,15 @@ describe('with a license', () => {
     const blankDoc = idOf(await api.doc.add({ entityType: 'PERSON', entityId: 'person_bob', title: 'Pro blank' }));
     expect((await api.doc.update({ id: blankDoc, bodyType: 'drawing' })).ok).toBe(true);
     expect(await countDrawings(reg)).toBe(before + 4);
+  });
+
+  it('makes sync docs and pages', async () => {
+    withLicense();
+    const api = await caller();
+    const doc = idOf(await api.doc.add({ entityType: 'PERSON', entityId: 'person_carol', title: 'Carol brief' }));
+    expect((await api.doc.update({ id: doc, prompt: 'Scope and dates.' })).ok).toBe(true);
+    const page = idOf(await api.page.create({ title: 'Pro vendors' }));
+    expect((await api.page.update({ id: page, prompt: 'Pricing only.' })).ok).toBe(true);
   });
 
   it('opens the AI, sync and other-devices gates (each then does its own checks)', async () => {

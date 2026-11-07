@@ -6,7 +6,7 @@ import { setArchived } from '$api/_archive';
 import { createPage, deletePage, getPage, listPages, updatePage, uploadPageImage } from './operations';
 
 import { EDITOR_IMAGE_TYPES, MAX_IMAGE_BASE64_CHARS } from '$api/_images';
-import { becomesDrawing, drawingGated } from '$api/_license';
+import { becomesDrawing, drawingGated, makesSyncDoc, syncDocGated } from '$api/_license';
 
 // doc: content is markdown. sheet: content is JSON, {"columns":[{"title":"Item"},{"title":"Cost"}],"data":[["Rent","1200"],["Total","=SUM(B1:B1)"]]};
 // cells are strings, and a cell starting with = is a formula the app evaluates. drawing: content is
@@ -48,8 +48,14 @@ export const pageRouter = router({
       content: z.string().optional(),
       prompt: z.string().max(2000).nullable().optional()
     }))
-    .mutation(async ({ ctx, input: { id, ...data } }) =>
-      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'PAGE', id, data.bodyType), () => updatePage(ctx.reg, id, data))),
+    // A new drawing past the free ones, or a first prompt (a new sync page), is Remry Pro.
+    .mutation(async ({ ctx, input: { id, ...data } }) => {
+      const [drawing, sync] = await Promise.all([
+        becomesDrawing(ctx.reg, 'PAGE', id, data.bodyType),
+        makesSyncDoc(ctx.reg, 'PAGE', id, data.prompt)
+      ]);
+      return drawingGated(ctx, ctx.reg, drawing, () => syncDocGated(ctx, sync, () => updatePage(ctx.reg, id, data)));
+    }),
 
   uploadImage: procedure
     .meta({ description: "Uploads an image to a wiki page and returns its key and the markdown to put in the content (then page.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })

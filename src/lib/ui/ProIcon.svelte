@@ -38,4 +38,9 @@
     vertical-align: middle;
     line-height: 0;
   }
+  // Buttons and menu items already space their children (their own gap), so it adds none there.
+  :global(.btn) > .pro-icon,
+  :global(.menu-item) > .pro-icon {
+    margin-inline-start: 0;
+  }
 </style>

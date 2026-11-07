@@ -10,6 +10,9 @@
   import { assistantName } from '$lib/stores/assistant';
   import { syncStatus, type LastSyncView } from '../last-sync';
   import SyncStatus from './SyncStatus.svelte';
+  import ProLock from '$lib/ui/ProLock.svelte';
+  import { page as appPage } from '$app/state';
+  import { isProActive, lockedMessage, NO_LICENSE, type LicenseStatus } from '$shared/types/license';
   import { syncRunning, waitForSync } from '../sync-now';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
@@ -51,6 +54,11 @@
   const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
+  // Making a sync doc (its first prompt) is Remry Pro: without it, "Make sync doc" shows why instead of the prompt box.
+  // An existing sync doc's prompt stays editable.
+  const license = $derived((appPage.data?.license as LicenseStatus | undefined) ?? NO_LICENSE);
+  const creatingLocked = $derived(creating && !isProActive(license));
+
   const status = $derived(links.length > 0 || lastSync ? syncStatus(lastSync) : null);
 
   // svelte-ignore state_referenced_locally
@@ -124,7 +132,8 @@
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
     <span class="badge accent" title="Claude rewrites this from its sources, following the prompt.">Sync</span>
-    {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
+    {#if creatingLocked}<!-- The lock below says why. -->
+    {:else if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
     {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
@@ -136,7 +145,11 @@
     {/if}
   </div>
 
-  {#if editing}
+  {#if creatingLocked}
+    <ProLock title="Sync docs" message={lockedMessage('sync', license, 'app')} compact>
+      <button type="button" class="btn ghost sm" onclick={cancel}>Cancel</button>
+    </ProLock>
+  {:else if editing}
     <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void save(); }}>
       <Field label="Prompt" hint={creating ? 'For example: PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.' : 'Empty makes it an ordinary doc'}>
         {#snippet children({ id })}

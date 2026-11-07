@@ -4,7 +4,7 @@ import { BODY_TYPES } from '$shared/types/body-types';
 import { router, procedure } from '$shared/trpc/init';
 import { listDocs, listDocTitles, getDoc, addDoc, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
-import { becomesDrawing, drawingGated } from '$api/_license';
+import { becomesDrawing, drawingGated, makesSyncDoc, syncDocGated } from '$api/_license';
 
 export const docRouter = router({
   list: procedure
@@ -42,8 +42,14 @@ export const docRouter = router({
       entityType: z.enum(ENTITY_TYPES).optional(),
       entityId: z.string().optional()
     }))
-    .mutation(async ({ ctx, input }) =>
-      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType), () => updateDoc(ctx.reg, input.id, input))),
+    // A new drawing past the free ones, or a first prompt (a new sync doc), is Remry Pro.
+    .mutation(async ({ ctx, input }) => {
+      const [drawing, sync] = await Promise.all([
+        becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType),
+        makesSyncDoc(ctx.reg, 'DOC', input.id, input.prompt)
+      ]);
+      return drawingGated(ctx, ctx.reg, drawing, () => syncDocGated(ctx, sync, () => updateDoc(ctx.reg, input.id, input)));
+    }),
 
   remove: procedure
     .input(z.object({ id: z.string() }))
