@@ -17,6 +17,7 @@
   import type jspreadsheet from 'jspreadsheet-ce';
   import { columnLetter, normaliseFormula, readSheetContent, type SheetContent } from '$shared/utils/sheet';
   import { cellName, evaluateSheet, FORMULA_FUNCTIONS, type FormulaProblem } from '$shared/utils/sheet-formula';
+  import HelpPopover from '$lib/ui/HelpPopover.svelte';
 
   interface Props {
     readonly content: string;
@@ -101,6 +102,7 @@
     readonly height: number;
   }
   let renaming = $state<Renaming | null>(null);
+  const saveLabel = $derived(error ? `Not saved: ${error}` : status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Changes save themselves');
   let renameDraft = $state('');
 
   const startRename = (x: number) => {
@@ -160,6 +162,22 @@
     }));
     problems = evaluated.problems;
     describeSelected(data, evaluated.values, failed);
+    markColumnLetters(sheet);
+  };
+
+  // A renamed column still goes by its letter in formulas: the header shows it, small, after
+  // the title (data-letter, drawn by CSS, so the title the library keeps is untouched).
+  const markColumnLetters = (sheet: jspreadsheet.WorksheetInstance) => {
+    sheet.headers.forEach((header, x) => {
+      const letter = columnLetter(x);
+      if ((header.textContent ?? '').trim() !== letter) {
+        header.dataset.letter = letter;
+        header.title = `Column ${letter} in formulas: ${letter}1, ${letter}2… or ${letter}1:${letter}9`;
+      } else if (header.dataset.letter) {
+        delete header.dataset.letter;
+        header.removeAttribute('title');
+      }
+    });
   };
 
   const describeSelected = (data?: string[][], values?: string[][], failed?: Map<string, FormulaProblem>) => {
@@ -289,20 +307,27 @@
       />
     {/if}
   </div>
+  <!-- The save state first, then formula help on a click, then the selected formula or the ones that fail. -->
   <div class="sheet-status text-xs">
-    <p class="sheet-help" aria-live="polite">
-      {#if selectedFormula}
-        <span class="formula-line"><strong>{selectedFormula.cell}</strong> <code>{selectedFormula.formula}</code>
-          {#if selectedFormula.problem}<span class="formula-problem">{selectedFormula.problem.code} {selectedFormula.problem.message}</span>{:else}= <strong>{selectedFormula.result}</strong>{/if}
-        </span>
-      {:else if editable}
-        <span class="muted">Start a cell with = for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>. Functions: {FORMULA_FUNCTIONS.join(', ')}. Right-click a row or column to add or remove one; double-click a header to rename it.</span>
-      {/if}
-      {#if problems.length > 0}
-        <span class="formula-problem">{problems.length === 1 ? '1 formula fails' : `${problems.length} formulas fail`}: {problems.slice(0, 5).map((p) => p.cell).join(', ')}{problems.length > 5 ? '…' : ''}. Select one to see why.</span>
-      {/if}
-    </p>
-    <span class="sheet-saved muted" aria-live="polite">{#if status === 'saving'}Saving…{:else if status === 'saved'}Saved{/if}</span>
+    {#if editable}
+      <!-- The save state as a dot: grey with nothing to save yet, amber while saving, green once saved, red when a save failed. The words are its tooltip and for screen readers. -->
+      <span class="save-dot {error ? 'failed' : status}" title={saveLabel} role="status"><span class="sr-only">{saveLabel}</span></span>
+    {/if}
+    <HelpPopover label="Formulas">
+      <p>Start a cell with <code>=</code> for a formula: <code>=SUM(B1:B5)</code>, <code>=B2*C2</code>, <code>=IF(B2&gt;100,"high","low")</code>, <code>="Total: "&amp;B6</code>.</p>
+      <p>Columns go by their letter (A, B, C…) and rows by their number, so <code>B2</code> is column B, row 2, and <code>B2:B9</code> a range. A renamed column shows its letter after its name.</p>
+      <p>Use <code>+ - * / ^</code>, <code>%</code>, <code>&amp;</code> to join text, and <code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code> to compare. Functions: {FORMULA_FUNCTIONS.join(', ')}.</p>
+      <p>A formula that fails shows its error in red: <code>#NAME?</code> (no such function), <code>#DIV/0!</code>, <code>#VALUE!</code> (text where a number goes), <code>#CYCLE!</code> (a cell that refers back to itself), <code>#ERROR!</code> (one that can't be read). Select it to see why.</p>
+      <p>Right-click a row or column to add or remove one; double-click a header to rename it.</p>
+    </HelpPopover>
+    {#if selectedFormula}
+      <span class="formula-line"><strong>{selectedFormula.cell}</strong> <code>{selectedFormula.formula}</code>
+        {#if selectedFormula.problem}<span class="formula-problem">{selectedFormula.problem.code} {selectedFormula.problem.message}</span>{:else}= <strong>{selectedFormula.result}</strong>{/if}
+      </span>
+    {/if}
+    {#if problems.length > 0}
+      <span class="formula-problem">{problems.length === 1 ? '1 formula fails' : `${problems.length} formulas fail`}: {problems.slice(0, 5).map((p) => p.cell).join(', ')}{problems.length > 5 ? '…' : ''}. Select one to see why.</span>
+    {/if}
   </div>
   {#if error}<p class="form-error">{error}</p>{/if}
 </div>
@@ -334,7 +359,8 @@
       --header_background: var(--surface-2);
       --header_color: var(--text-2);
       --header_background_highlighted: var(--accent-soft);
-      --header_color_highlighted: var(--accent-text);
+      // A selected row's or column's header keeps dark text on its soft highlight.
+      --header_color_highlighted: var(--text);
       --content_background: var(--surface);
       --content_color: var(--text);
       --content_selected: var(--accent-soft);
@@ -355,24 +381,43 @@
     }
   }
 
-  // Help or the selected formula on the left, the save state on the right.
+  // One wrapping row from the left: the save state, Formulas help, the selected formula.
   .sheet-status {
     display: flex;
-    align-items: flex-start;
-    gap: var(--sp-3);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-1) var(--sp-3);
     margin-top: var(--sp-1);
     min-height: 1.4em;
+    p { margin: 0; }
   }
-  .sheet-help {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sp-1) var(--sp-3);
+  .save-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-full);
+    background: var(--text-3);
+    opacity: 0.5;
+    transition: background-color var(--ease), opacity var(--ease);
+    &.saving { background: var(--warning); opacity: 1; }
+    &.saved { background: var(--success); opacity: 1; }
+    &.failed { background: var(--danger); opacity: 1; }
   }
-  .sheet-saved { flex-shrink: 0; white-space: nowrap; }
   .formula-problem { color: var(--danger); }
+  // Column headers in bold; a renamed one shows its formula letter in its top-left corner
+  // (the header cell is sticky, so it already positions the letter).
+  .sheet-grid :global(thead td) { font-weight: 600; }
+  .sheet-grid :global(thead td[data-letter])::after {
+    content: attr(data-letter);
+    position: absolute;
+    top: 1px;
+    left: var(--sp-1);
+    font-weight: 400;
+    font-size: var(--fs-xs);
+    line-height: 1;
+    color: var(--text-3);
+    pointer-events: none;
+  }
   // A formula cell's result, and one that fails, told apart in the grid.
   .sheet-grid :global(td.formula-error) { color: var(--danger); }
 </style>
