@@ -66,3 +66,57 @@ export const chartColors = (branding?: ChartBranding | null): {
     solid: solidRgba(base),
   };
 };
+
+/** A #rrggbb colour mixed with white: `amount` 0 is the colour, 1 is white. */
+export const tint = (hex: string, amount: number): string => {
+  const h = hex.replace('#', '');
+  const mix = (i: number): string => {
+    const c = parseInt(h.slice(i, i + 2), 16);
+    return Math.round(c + (255 - c) * amount).toString(16).padStart(2, '0');
+  };
+  return `#${mix(0)}${mix(2)}${mix(4)}`;
+};
+
+/** The colours diagrams draw with in a branding: outlines and lines, shape fills, text. */
+export interface DiagramColors {
+  readonly stroke: string;
+  readonly fill: string;
+  readonly text: string;
+}
+
+const DIAGRAM_TEXT = '#1e1e1e';
+
+/**
+ * Mermaid diagrams and drawings in the branding's colours: outlines and lines in the colour
+ * charts use (chartBaseColor), shapes filled with a pale tint of it, dark text. Null without a
+ * branding, so diagrams keep their own look.
+ */
+export const diagramColors = (branding?: ChartBranding | null): DiagramColors | null => {
+  if (!branding?.primaryColor && !branding?.accentColor) return null;
+  const stroke = chartBaseColor(branding);
+  return { stroke, fill: tint(stroke, 0.85), text: DIAGRAM_TEXT };
+};
+
+export interface MermaidTheme {
+  readonly theme: 'default' | 'base';
+  readonly themeVariables: Readonly<Record<string, string>>;
+}
+
+/** Mermaid's theme for a branding: its `base` theme in diagramColors, or the default one. */
+export const mermaidTheme = (branding: ChartBranding | null | undefined, fontFamily: string): MermaidTheme => {
+  const colors = diagramColors(branding);
+  if (!colors) return { theme: 'default', themeVariables: { fontFamily } };
+  return {
+    theme: 'base',
+    themeVariables: {
+      fontFamily,
+      primaryColor: colors.fill,
+      primaryBorderColor: colors.stroke,
+      primaryTextColor: colors.text,
+      lineColor: colors.stroke,
+      secondaryColor: tint(colors.stroke, 0.7),
+      tertiaryColor: tint(colors.stroke, 0.93),
+      textColor: colors.text
+    }
+  };
+};

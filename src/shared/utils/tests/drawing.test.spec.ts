@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   arrowBetween,
+  colorSkeleton,
   countImages,
   toExcalidrawFile,
   DRAWING_LIMITS,
@@ -194,5 +195,30 @@ describe('layoutSkeleton', () => {
     expect(placed.every((el) => Number.isFinite(el.x) && Number.isFinite(el.y))).toBe(true);
     const loose = placed.filter((el) => el.type === 'ellipse');
     expect(new Set(loose.map((el) => el.y)).size).toBe(2);
+  });
+});
+
+describe('colorSkeleton', () => {
+  const colors = { stroke: '#1d4ed8', fill: '#dbe4f9' };
+  const content = {
+    version: 1 as const,
+    skeleton: [
+      { type: 'rectangle' as const, id: 'a' },
+      { type: 'ellipse' as const, id: 'b', strokeColor: '#e03131', backgroundColor: '#ffc9c9', fillStyle: 'hachure' as const },
+      { type: 'arrow' as const, start: { id: 'a' }, end: { id: 'b' } },
+      { type: 'text' as const, text: 'Note' }
+    ]
+  };
+
+  it('colours what Claude left uncoloured, and keeps colours it set', () => {
+    const [plain, set, arrow, text] = colorSkeleton(content, colors).skeleton;
+    expect(plain).toMatchObject({ strokeColor: '#1d4ed8', backgroundColor: '#dbe4f9', fillStyle: 'solid' });
+    expect(set).toMatchObject({ strokeColor: '#e03131', backgroundColor: '#ffc9c9', fillStyle: 'hachure' });
+    expect(arrow).toMatchObject({ strokeColor: '#1d4ed8' });
+    expect(text).toEqual({ type: 'text', text: 'Note' });
+  });
+
+  it('leaves a skeleton alone without a branding', () => {
+    expect(colorSkeleton(content, null)).toBe(content);
   });
 });

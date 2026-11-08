@@ -133,7 +133,8 @@ The left drawer (an entity page's sidebar, `common/DetailLayout`) and the right 
 - It's used by `MarkdownRenderer` (docs, pages and notes; a doc's Preview tab and print page colour charts with a branding), `shared/components/milkdown-chart-plugin` (live previews in the editor), the goal progress chart and `doc/export-pdf.ts`.
 - Destroy the charts it returns when content changes or the component unmounts.
 - Charts draw in the branding's accent colour, or its primary colour when the accent is too pale on white (`chartBaseColor` in `$shared/types/branding`).
-- Mermaid diagrams render in `MarkdownRenderer` from `<pre>` blocks starting with a mermaid keyword.
+- Mermaid diagrams render in `MarkdownRenderer` from `<pre>` blocks starting with a mermaid keyword, in the branding's colours (`mermaidTheme`: mermaid's `base` theme from `diagramColors` in `$shared/types/branding`, outlines and lines in `chartBaseColor`, fills a pale `tint` of it; the default theme without a branding), on screen and in PDFs. `MarkdownRenderer`'s `branding` prop left out means the notebook's default branding (`ui/default-branding.ts`, the layout's `chartBranding`, null without Pro); `null` means none (a print page with no branding chosen).
+- Drawings take the same colours: `toScene` (`drawing/excalidraw.ts`) runs a skeleton through `colorSkeleton` (`$shared/utils/drawing`, pure), which outlines and fills shapes and colours arrows Claude left uncoloured. The first edit saves the scene with them.
 - Drawings are never drawn inside markdown: an old ```` ```drawing ```` block becomes a "Drawing ↗" link to its page (`linkDrawingBlocks`, `drawing/drawing-links.ts`), with no fetch and no Excalidraw.
 
 ## Goal periods

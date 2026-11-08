@@ -46,7 +46,9 @@ At the top level, beside `skeleton`, `"layout": "right"` lays the shapes out lef
 
 **Layout.** Leave out `x` and `y` and the app puts shapes in ranks along the arrows: a shape no arrow points at is on top (or at the left), and each other shape sits one rank past the furthest shape pointing at it. Shapes in one rank sit side by side, and shapes no arrow touches go last. Each shape grows to fit its label. Write shapes in the order you want them across a rank. Give `x` and `y` (pixels, y going down) only to place something exactly; positioned shapes keep their place and the rest go after them.
 
-**Good drawings.** Keep labels short (1–4 words; put detail in the page's notes). Use a diamond for a decision and label its arrows ("yes", "no"). Use colour only to mean something (one colour per system, say), and the same colours throughout. About 25 shapes is as many as reads well; split a bigger picture into several drawings.
+**Colours.** Shapes and arrows you give no colour are drawn in the notebook's default branding's colours (outlines and arrows in its chart colour, shapes filled with a pale tint of it), the same as mermaid diagrams and charts; without a branding, Excalidraw's plain black on white. So leave colours out unless one means something.
+
+**Good drawings.** Keep labels short (1–4 words; put detail in the page's notes). Use a diamond for a decision and label its arrows ("yes", "no"). Use colour only to mean something (one colour per system, say), and the same colours throughout; otherwise leave it to the branding. About 25 shapes is as many as reads well; split a bigger picture into several drawings.
 
 ## After the user edits it
 

@@ -4,7 +4,8 @@
   import { mountCharts } from '$lib/chart/chart-render';
   import { linkDrawingBlocks } from '$lib/drawing/drawing-links';
   import { fileUrl } from '$shared/utils/files';
-  import type { ChartBranding } from '$shared/types/branding';
+  import { mermaidTheme, type ChartBranding } from '$shared/types/branding';
+  import { defaultBranding } from '$lib/ui/default-branding';
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
   import type { ZoomSource } from '$lib/ui/zoom';
   import { lostImageNote } from '$lib/doc/lost-images';
@@ -47,13 +48,15 @@
   interface Props {
     readonly content: string;
     readonly placeholder?: string;
-    /** Colours charts with a branding (the doc print page). Read once: wrap in {#key} to change it. */
+    /** Colours charts and mermaid diagrams with a branding (the doc print page; null for none). Left out, the notebook's default branding. Read once: wrap in {#key} to change it. */
     readonly branding?: ChartBranding | null;
     /** Clicking a diagram, an image or a chart opens it in ZoomViewer. Off for the print page. */
     readonly zoomable?: boolean;
   }
 
-  const { content, placeholder = '*No content yet.*', branding = null, zoomable = true }: Props = $props();
+  const { content, placeholder = '*No content yet.*', branding: brandingProp, zoomable = true }: Props = $props();
+  // svelte-ignore state_referenced_locally
+  const branding = brandingProp === undefined ? defaultBranding() : brandingProp;
 
   let container: HTMLDivElement;
   let charts: readonly Chart[] = [];
@@ -121,7 +124,7 @@
     if (mermaidPres.length === 0) return;
 
     const mermaid = (await import('mermaid')).default;
-    mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() } });
+    mermaid.initialize({ startOnLoad: false, fontFamily: textFontFamily(), ...mermaidTheme(branding, textFontFamily()) });
 
     for (const pre of mermaidPres) {
       const source = (pre.textContent ?? '').trim();

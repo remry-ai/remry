@@ -3,7 +3,9 @@
 // without a drawing never load it.
 
 import type { DrawingContent } from '$shared/utils/drawing';
-import { isSkeleton, layoutSkeleton } from '$shared/utils/drawing';
+import { colorSkeleton, isSkeleton, layoutSkeleton } from '$shared/utils/drawing';
+import { diagramColors } from '$shared/types/branding';
+import { defaultBranding } from '$lib/ui/default-branding';
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types';
 import type * as Excalidraw from '@excalidraw/excalidraw';
 import { keepFontsLocal } from './font-sources';
@@ -65,7 +67,9 @@ const loadDrawingFont = (lib: ExcalidrawModule): Promise<void> => {
 export const toScene = async (lib: ExcalidrawModule, content: DrawingContent): Promise<DrawingScene> => {
   if (isSkeleton(content)) {
     await loadDrawingFont(lib);
-    const placed = layoutSkeleton(content.skeleton, content.layout);
+    // Shapes and arrows Claude gave no colour take the notebook's default branding's.
+    const colored = colorSkeleton(content, diagramColors(defaultBranding()));
+    const placed = layoutSkeleton(colored.skeleton, colored.layout);
     // The skeleton's own shape is checked on the server; Excalidraw's type is wider.
     const elements = lib.convertToExcalidrawElements(placed as unknown as Parameters<ExcalidrawModule['convertToExcalidrawElements']>[0], { regenerateIds: false });
     return { elements: lib.getNonDeletedElements(elements) as readonly NonDeleted<ExcalidrawElement>[] };

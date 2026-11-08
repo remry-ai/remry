@@ -78,6 +78,32 @@ export type DrawingContent = DrawingScene | DrawingSkeleton;
 
 export const isSkeleton = (content: DrawingContent): content is DrawingSkeleton => 'skeleton' in content;
 
+const FILLED_SHAPES: ReadonlySet<SkeletonType> = new Set(['rectangle', 'ellipse', 'diamond']);
+
+/**
+ * A skeleton in the branding's colours (`diagramColors` in $shared/types/branding), wherever
+ * Claude gave none: shapes outlined in `stroke` and filled solid with `fill`, arrows and lines
+ * in `stroke`. A colour the skeleton sets is kept.
+ */
+export const colorSkeleton = (
+  content: DrawingSkeleton,
+  colors: { readonly stroke: string; readonly fill: string } | null
+): DrawingSkeleton => {
+  if (!colors) return content;
+  const skeleton = content.skeleton.map((element): SkeletonElement => {
+    if (FILLED_SHAPES.has(element.type)) {
+      return {
+        ...element,
+        strokeColor: element.strokeColor ?? colors.stroke,
+        ...(element.backgroundColor ? {} : { backgroundColor: colors.fill, fillStyle: element.fillStyle ?? 'solid' })
+      };
+    }
+    if (element.type === 'arrow' || element.type === 'line') return { ...element, strokeColor: element.strokeColor ?? colors.stroke };
+    return element;
+  });
+  return { ...content, skeleton };
+};
+
 const text = z.string().max(DRAWING_LIMITS.text);
 const color = z.string().max(40);
 const id = z.string().min(1).max(DRAWING_LIMITS.id);

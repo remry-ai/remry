@@ -7,7 +7,7 @@
 import type { TDocumentDefinitions, TFontContainer } from 'pdfmake/interfaces';
 import { fileUrl } from '$shared/utils/files';
 import { parseChartSpec } from '$shared/types/charts';
-import type { ChartBranding } from '$shared/types/branding';
+import { mermaidTheme, type ChartBranding } from '$shared/types/branding';
 import { renderChart } from '$lib/chart/chart-render';
 import { fontsReady, textFontFamily } from '$lib/ui/text-font';
 import { buildPdfDocument, type PdfBranding } from './pdf-document';
@@ -140,11 +140,11 @@ const drawDiagram = async (mermaid: Mermaid, source: string): Promise<PdfImage |
   }
 };
 
-const drawDiagrams = async (sources: readonly string[]): Promise<Map<string, PdfImage>> => {
+const drawDiagrams = async (sources: readonly string[], branding: ChartBranding | null): Promise<Map<string, PdfImage>> => {
   const drawn = new Map<string, PdfImage>();
   if (sources.length === 0) return drawn;
   const mermaid = (await import('mermaid')).default as unknown as Mermaid;
-  mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() }, htmlLabels: false, flowchart: { htmlLabels: false } });
+  mermaid.initialize({ startOnLoad: false, fontFamily: textFontFamily(), ...mermaidTheme(branding, textFontFamily()), htmlLabels: false, flowchart: { htmlLabels: false } });
   try {
     for (const source of sources) {
       const image = await drawDiagram(mermaid, source);
@@ -152,7 +152,7 @@ const drawDiagrams = async (sources: readonly string[]): Promise<Map<string, Pdf
     }
   } finally {
     // The page's own diagrams keep HTML labels, which wrap long text.
-    mermaid.initialize({ startOnLoad: false, theme: 'default', fontFamily: textFontFamily(), themeVariables: { fontFamily: textFontFamily() }, htmlLabels: true, flowchart: { htmlLabels: true } });
+    mermaid.initialize({ startOnLoad: false, fontFamily: textFontFamily(), ...mermaidTheme(branding, textFontFamily()), htmlLabels: true, flowchart: { htmlLabels: true } });
   }
   return drawn;
 };
@@ -228,7 +228,7 @@ export const downloadPdf = async (input: PdfExportInput): Promise<void> => {
   const [images, charts, diagrams, logo] = await Promise.all([
     drawAll(needed.images, drawImage),
     drawAll(needed.charts, (source) => drawChart(source, input.branding)),
-    drawDiagrams(needed.diagrams),
+    drawDiagrams(needed.diagrams, input.branding),
     logoHref ? drawImage(logoHref) : Promise.resolve(null)
   ]);
   const assets: PdfAssets = { images, charts, diagrams };

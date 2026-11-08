@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_LINK_COLOR, chartBaseColor, contrastOnWhite, linkColor } from '../branding';
+import { DEFAULT_LINK_COLOR, chartBaseColor, contrastOnWhite, diagramColors, linkColor, mermaidTheme, tint } from '../branding';
 
 describe('contrastOnWhite', () => {
   it('matches the WCAG ratio', () => {
@@ -31,5 +31,27 @@ describe('linkColor', () => {
     expect(linkColor({ primaryColor: '#fde68a', accentColor: '#7c3aed' })).toBe('#7c3aed');
     expect(linkColor({ primaryColor: '#fde68a', accentColor: '#e0f2fe' })).toBe(DEFAULT_LINK_COLOR);
     expect(linkColor(null)).toBe(DEFAULT_LINK_COLOR);
+  });
+});
+
+describe('diagram colours', () => {
+  it('tints a colour toward white', () => {
+    expect(tint('#000000', 0)).toBe('#000000');
+    expect(tint('#000000', 1)).toBe('#ffffff');
+    expect(tint('#336699', 0.5)).toBe('#99b3cc');
+  });
+
+  it('draws in the colour charts use, filled with a pale tint, or nothing without a branding', () => {
+    expect(diagramColors(null)).toBeNull();
+    expect(diagramColors({})).toBeNull();
+    const colors = diagramColors({ primaryColor: '#1d4ed8', accentColor: '#f97316' });
+    expect(colors).toEqual({ stroke: '#f97316', fill: tint('#f97316', 0.85), text: '#1e1e1e' });
+  });
+
+  it('gives mermaid its base theme in those colours, or its default theme', () => {
+    expect(mermaidTheme(null, 'Inter')).toEqual({ theme: 'default', themeVariables: { fontFamily: 'Inter' } });
+    const themed = mermaidTheme({ primaryColor: '#1d4ed8' }, 'Inter');
+    expect(themed.theme).toBe('base');
+    expect(themed.themeVariables).toMatchObject({ fontFamily: 'Inter', primaryBorderColor: '#1d4ed8', lineColor: '#1d4ed8', primaryColor: tint('#1d4ed8', 0.85) });
   });
 });
