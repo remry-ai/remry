@@ -1,6 +1,6 @@
 <script lang="ts">
   // An open doc's title row, the same for every type: its tag (Doc, Spreadsheet, Drawing),
-  // the title, whatever the doc adds after it, and a pencil at the far right to rename (Enter or
+  // a pencil to rename, the title, and whatever the doc adds after it (Enter or
   // leaving the box saves, Esc cancels). A doc just made opens with its title selected, to type over.
   import type { Snippet } from 'svelte';
   import { BODY_LABELS, type BodyType } from '$shared/types/body-types';
@@ -60,15 +60,15 @@
 
 <div class="doc-title-row">
   <span class="badge selected">{BODY_LABELS[bodyType]}</span>
+  {#if onSaveTitle && !editing}
+    <button type="button" class="btn icon sm rename" aria-label="Rename {title}" title="Rename" onclick={start}><PencilIcon /></button>
+  {/if}
   {#if editing}
     <input class="title-input" bind:value={draft} onblur={commit} onkeydown={handleKeydown} onpaste={handlePaste} use:focusOnMount aria-label="{BODY_LABELS[bodyType]} title" />
   {:else}
     <h2>{title}</h2>
   {/if}
   {#if after}{@render after()}{/if}
-  {#if onSaveTitle && !editing}
-    <button type="button" class="btn icon sm rename" aria-label="Rename {title}" title="Rename" onclick={start}><PencilIcon /></button>
-  {/if}
 </div>
 {#if error}<p class="form-error" role="alert">{error}</p>{/if}
 
@@ -86,7 +86,6 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .rename { margin-inline-start: auto; }
   }
   // A field like any other (--font-text); only its width is its own.
   .title-input { flex: 1; }

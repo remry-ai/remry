@@ -475,10 +475,10 @@
         </ul>
       </nav>
       <div class="asset-header-row">
-        <div class="asset-header-content">{@render renderAssetHeader()}</div>
         {#if !isArchived}
           <button type="button" class="btn icon sm edit-btn" onclick={openEdit} aria-label="Edit {entityName}" title="Edit"><PencilIcon /></button>
         {/if}
+        <div class="asset-header-content">{@render renderAssetHeader()}</div>
         {#if archivable}
           <button type="button" class="btn sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>
             {archiveBusy ? 'Saving…' : isArchived ? 'Unarchive' : 'Archive'}
