@@ -75,7 +75,7 @@ describe('Menu items marked Pro', () => {
     const target = render(Menu, {
       label: 'Add doc',
       items: [
-        { label: 'Document', onSelect: () => undefined },
+        { label: 'Doc', onSelect: () => undefined },
         { label: 'Drawing', onSelect: () => undefined, hint: '3 of 3 free', pro: true }
       ]
     });

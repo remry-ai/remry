@@ -5,7 +5,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import Menu from '$lib/ui/Menu.svelte';
   import { errorMessage } from '$lib/ui/submit';
-  import { BODY_LABELS, BODY_TYPES, isGridOrDrawing, type BodyType } from '$shared/types/body-types';
+  import { BODY_LABELS, BODY_TYPES, type BodyType } from '$shared/types/body-types';
   import { page } from '$app/state';
   import { drawingMenuMarks, type DrawingAllowanceView } from '$lib/license/drawings';
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
@@ -123,9 +123,7 @@
       <ul class="list doc-list">
         {#each docs as doc, i (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
-            {#if doc.bodyType && isGridOrDrawing(doc.bodyType)}
-              <span class="badge muted">{BODY_LABELS[doc.bodyType]}</span>
-            {/if}
+            <span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span>
             {#if doc.prompt}
               <SyncStatus {...statusOf(doc)} />
               <span class="badge accent" title="Sync doc: Claude keeps it in step with its sources. {doc.prompt}">Sync</span>

@@ -45,7 +45,7 @@ const sourceBlock = (s: SyncSource): string => {
 export const syncPrompt = (input: SyncPromptInput): string =>
   [
     `You are rewriting a sync ${input.kind} in Remry, the user's private notebook: "${input.title}"${input.on ? `, on ${input.on}` : ''}.`,
-    "A sync document is one write-up drawn from its sources, following the user's prompt, which says what to take from each.",
+    "A sync doc is one write-up drawn from its sources, following the user's prompt, which says what to take from each.",
     '',
     'Read every source below. For a link, use the connector for its site (Notion, Linear, Google Drive, Confluence…) if you have one, else fetch it. For an uploaded file, use its text below, or read the file named. Only read: never create, change, comment on or delete anything, anywhere.',
     '',

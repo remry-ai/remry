@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BODY_LABELS, isGridOrDrawing } from '$shared/types/body-types';
+  import { BODY_LABELS } from '$shared/types/body-types';
   import type { PageData } from './$types';
   import Popup from '$lib/common/Popup.svelte';
   import PageHeader from '$lib/ui/PageHeader.svelte';
@@ -51,7 +51,7 @@
 <svelte:head><title>Wiki</title></svelte:head>
 
 <div class="page">
-  <PageHeader title="Wiki" description="Pages for anything worth writing down, as documents, spreadsheets or drawings.">
+  <PageHeader title="Wiki" description="Pages for anything worth writing down, as docs, spreadsheets or drawings.">
     <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add page</button>
   </PageHeader>
 
@@ -85,7 +85,7 @@
                     {:else}
                       <span class="disclosure-spacer"></span>
                     {/if}
-                    <a href={page.path}>{page.title}</a>{#if isGridOrDrawing(page.bodyType)} <span class="badge muted">{BODY_LABELS[page.bodyType]}</span>{/if}{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
+                    <a href={page.path}>{page.title}</a> <span class="badge muted">{BODY_LABELS[page.bodyType]}</span>{#if page.archivedAt} <span class="badge muted">Archived</span>{/if}
                     <span class="row-actions">
                       <button type="button" class="btn icon sm" aria-label="Peek at {page.title}" title="Peek" onclick={() => openPeek(page.id)}><PeekIcon /></button>
                     </span>

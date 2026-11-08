@@ -61,7 +61,7 @@ export const planBodyUpdate = (
   }
   const prompt = input.prompt === undefined ? existing.prompt : input.prompt;
   if (bodyType !== 'doc' && prompt?.trim()) {
-    return err(new Error(`A ${BODY_NAMES[bodyType]} ${holder} can't be a sync ${holder}: only a document's text is rewritten from its sources.`));
+    return err(new Error(`A ${BODY_NAMES[bodyType]} ${holder} can't be a sync ${holder}: only a ${holder === 'doc' ? 'doc' : 'doc page'}'s text is rewritten from its sources.`));
   }
   if (input.content === undefined && !typeChanged) return ok({ bodyType, typeChanged });
   const content = prepareContent(bodyType, input.content ?? '');

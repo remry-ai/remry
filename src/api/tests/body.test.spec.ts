@@ -37,7 +37,7 @@ describe('planBodyUpdate', () => {
       const full = planBodyUpdate(holder, { bodyType: 'sheet', content: sheet, prompt: null }, { bodyType: 'drawing' });
       expect(!full.ok && full.error.message).toBe(`This ${holder} already has content as a spreadsheet, so it can't become a drawing. Clear its content first, or make a new ${holder} (${holder === 'doc' ? 'doc.add' : 'page.create'} --bodyType drawing).`);
       const sync = planBodyUpdate(holder, { bodyType: 'sheet', content: sheet, prompt: null }, { prompt: 'Pull costs' });
-      expect(!sync.ok && sync.error.message).toBe(`A spreadsheet ${holder} can't be a sync ${holder}: only a document's text is rewritten from its sources.`);
+      expect(!sync.ok && sync.error.message).toBe(`A spreadsheet ${holder} can't be a sync ${holder}: only a ${holder === 'doc' ? 'doc' : 'doc page'}'s text is rewritten from its sources.`);
       const toSync = planBodyUpdate(holder, { bodyType: 'doc', content: '', prompt: 'Pull costs' }, { bodyType: 'drawing' });
       expect(toSync.ok).toBe(false);
     }
