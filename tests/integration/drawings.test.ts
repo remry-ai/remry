@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { getRegistry } from '../../src/shared/registry.server';
 import { createPage, getPage, updatePage } from '../../src/api/page/operations';
-import { addDoc, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
+import { addDoc, addDocWithContent, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { recallEntity } from '../../src/api/search/recall';
 import { listRelationsForEntity } from '../../src/api/relation/operations';
 import { convertEntity } from '../../src/api/convert/operations';
@@ -133,6 +133,17 @@ describe('converting', () => {
 });
 
 describe('spreadsheet and drawing docs', () => {
+  it('make a drawing doc with its content in one call, and leave no empty doc when it is refused', async () => {
+    const made = await addDocWithContent(reg, 'PERSON', 'person_alice', { title: 'Flow in one go', bodyType: 'drawing', content: JSON.stringify(skeleton) });
+    if (!made.ok) throw made.error;
+    const doc = await getDoc(reg, made.value.id);
+    expect(doc.ok && JSON.parse(doc.value.content)).toMatchObject({ skeleton: skeleton.skeleton });
+
+    const refused = await addDocWithContent(reg, 'PERSON', 'person_alice', { title: 'Bad flow', bodyType: 'drawing', content: '{"shapes":[]}' });
+    expect(refused.ok).toBe(false);
+    expect(await reg.prisma.doc.count({ where: { title: 'Bad flow' } })).toBe(0);
+  });
+
   it('start empty in their shape, validate, index their text, and change type only while empty', async () => {
     const sheet = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Budget', bodyType: 'sheet' });
     if (!sheet.ok) throw sheet.error;

@@ -13,6 +13,7 @@ import {
   notebookArgumentSchema,
   resultFromOutcome,
   splitNotebookArgument,
+  stringifyTextArguments,
   textResult,
   toolFromProcedure,
   toolName,
@@ -116,6 +117,7 @@ const extraTools: readonly McpTool[] = [
 ];
 
 const procedureByTool = new Map(procedures.map((p) => [toolName(p.name), p.name]));
+const schemaByTool = new Map(procedures.map((p) => [toolName(p.name), p.inputSchema]));
 
 const callExtraTool = async (name: string, args: Readonly<Record<string, unknown>>, notebookName: string | undefined): Promise<ToolResult> => {
   const notebook = await resolveCurrentNotebook({ explicit: notebookName, env: notebookFromEnv(process.env) });
@@ -156,10 +158,11 @@ const callTool = async (name: string, rawArgs: Readonly<Record<string, unknown>>
   if (!procedure) return textResult(`Unknown tool: ${name}`, true);
   // Remry updated while this server ran: the newer version runs the call (cli/newer-install.ts),
   // since it may have migrated the notebook past what this version's queries know.
+  const args = stringifyTextArguments(split.args, schemaByTool.get(name));
   const installed = await installedNow({ standalone: appOwner.standalone, repoDir: REPO }).catch(() => null);
   const outcome = installed && shouldHandOff(pluginManifest.version, installed.version)
-    ? await callInstalled(installed, procedure, split.args, split.notebook)
-    : await callProcedure(procedure, split.args, { notebook: split.notebook });
+    ? await callInstalled(installed, procedure, args, split.notebook)
+    : await callProcedure(procedure, args, { notebook: split.notebook });
   if (outcome.kind !== 'result' || outcome.failed) return resultFromOutcome(outcome);
   // A full link beside each app path (cli/app-links.ts), in the notebook the call used.
   const notebook = await resolveCurrentNotebook({ explicit: split.notebook, env: notebookFromEnv(process.env) });

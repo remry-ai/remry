@@ -151,6 +151,24 @@ export const addDoc = async (
   return ok({ id: doc.id });
 };
 
+/**
+ * Adds a doc and, with `content`, writes it in the same call (checked as doc.update checks it).
+ * Content that's refused leaves no empty doc behind.
+ */
+export const addDocWithContent = async (
+  reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
+  entityType: EntityType,
+  entityId: string,
+  input: { readonly title: string; readonly bodyType?: BodyType; readonly content?: string }
+): Promise<Result<{ readonly id: string }>> => {
+  const added = await addDoc(reg, entityType, entityId, input);
+  if (!added.ok || input.content === undefined || input.content === '') return added;
+  const written = await updateDoc(reg, added.value.id, { content: input.content });
+  if (written.ok) return added;
+  await removeDoc(reg, added.value.id);
+  return err(written.error);
+};
+
 export interface UpdateDocInput {
   readonly title?: string;
   readonly content?: string;

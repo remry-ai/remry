@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROTOCOL_VERSIONS, handleMessage, leaveOutEmpty, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, toolFromProcedure, withAttachment, type McpContext } from '../mcp-protocol';
+import { PROTOCOL_VERSIONS, handleMessage, leaveOutEmpty, notebookArgumentSchema, resultFromOutcome, splitNotebookArgument, stringifyTextArguments, toolFromProcedure, withAttachment, type McpContext } from '../mcp-protocol';
 
 const personCreate = toolFromProcedure({
   name: 'person.create',
@@ -163,5 +163,20 @@ describe('withAttachment', () => {
   it('leaves any other value to the text result', () => {
     expect(withAttachment({ title: 'a.csv', kind: 'text', text: 'a,b' })).toBeNull();
     expect(resultFromOutcome({ kind: 'result', failed: false, result: { ok: true, value: { kind: 'image', attachment: { mimeType: 'image/png', dataBase64: 'AQID' } } } }).content[1]).toEqual({ type: 'image', data: 'AQID', mimeType: 'image/png' });
+  });
+});
+
+describe('stringifyTextArguments', () => {
+  const schema = { type: 'object', properties: { title: { type: 'string' }, content: { type: 'string' }, extensions: { type: 'object' }, tags: { type: 'array' } } };
+
+  it('writes an object or array sent for a string field as its JSON', () => {
+    const skeleton = { skeleton: [{ type: 'rectangle', id: 'a' }] };
+    expect(stringifyTextArguments({ title: 'Flow', content: skeleton }, schema)).toEqual({ title: 'Flow', content: JSON.stringify(skeleton) });
+    expect(stringifyTextArguments({ content: [1, 2] }, schema)).toEqual({ content: '[1,2]' });
+  });
+
+  it('leaves strings, nulls, fields that take objects and unknown fields as they are', () => {
+    const args = { title: 'Flow', content: null, extensions: { org: {} }, tags: ['a'], other: { a: 1 } };
+    expect(stringifyTextArguments(args, schema)).toEqual(args);
   });
 });

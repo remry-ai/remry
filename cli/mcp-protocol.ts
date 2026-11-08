@@ -108,6 +108,28 @@ export const splitNotebookArgument = (args: Readonly<Record<string, unknown>>): 
   return typeof notebook === 'string' ? { notebook, args: rest } : { error: 'notebook must be a notebook id or name' };
 };
 
+/** Whether a JSON Schema property takes a string and never an object or array. */
+const takesTextOnly = (schema: unknown): boolean => {
+  if (!isRecord(schema)) return false;
+  const type = schema['type'];
+  const types = Array.isArray(type) ? type : [type];
+  return types.includes('string') && !types.includes('object') && !types.includes('array');
+};
+
+/**
+ * A spreadsheet's or drawing's content is JSON in a string field, and Claude often sends it as
+ * the object itself. Writes an object or array given for a text-only field as its JSON, so the
+ * call takes it instead of failing with "Expected string, received object".
+ */
+export const stringifyTextArguments = (
+  args: Readonly<Record<string, unknown>>,
+  inputSchema: unknown
+): Readonly<Record<string, unknown>> => {
+  const properties = isRecord(inputSchema) && isRecord(inputSchema['properties']) ? inputSchema['properties'] : {};
+  return Object.fromEntries(Object.entries(args).map(([key, value]) =>
+    value !== null && typeof value === 'object' && takesTextOnly(properties[key]) ? [key, JSON.stringify(value)] : [key, value]));
+};
+
 /** JSON without indentation: every space in a result is a token Claude reads. */
 export const textResult = (value: unknown, isError = false): ToolResult => ({
   content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }],
