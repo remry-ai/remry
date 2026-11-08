@@ -85,7 +85,7 @@ describe('drawing pages', () => {
 
     const id = await createDrawing('Full');
     const convert = await updatePage(reg, id, { bodyType: 'doc' });
-    expect(!convert.ok && convert.error.message).toMatch(/already has content as a drawing, so it can't become a document/);
+    expect(!convert.ok && convert.error.message).toMatch(/already has content as a drawing, so it can't become a doc\b/);
   });
 });
 
