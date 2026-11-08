@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BODY_LABELS } from '$shared/types/body-types';
   // A goal's summary in a side peek: status, owner, period, progress, the latest
   // check-ins, linked projects, sub-goals, open todos and docs. Read-only; Open
   // goes to the full page.
@@ -199,7 +200,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <EntityRow href={docPath('GOAL', goal.id, doc.id)} label={doc.title} />
+            <EntityRow href={docPath('GOAL', goal.id, doc.id)} label={doc.title}><span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span></EntityRow>
           {/each}
         </ul>
       {:else}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BODY_LABELS } from '$shared/types/body-types';
   // A person's summary in a side peek: the fields the notebook's modules add
   // (title and lead, or birthday and how you know them), how they relate to you,
   // their groups and reports, what they own, open todos and docs. Read-only;
@@ -183,7 +184,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <EntityRow href={docPath('PERSON', person.id, doc.id)} label={doc.title} />
+            <EntityRow href={docPath('PERSON', person.id, doc.id)} label={doc.title}><span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span></EntityRow>
           {/each}
         </ul>
       {:else}

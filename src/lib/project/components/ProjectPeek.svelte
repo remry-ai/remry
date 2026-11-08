@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { BODY_LABELS } from '$shared/types/body-types';
   // A project's summary in a side peek: its metadata, description, goals,
   // sub-projects, open todos and docs. Read-only; Open goes to the full page.
   import EntityRow from '$lib/ui/EntityRow.svelte';
@@ -167,7 +168,7 @@
       {#if peeked.docs.length > 0}
         <ul class="list">
           {#each peeked.docs as doc (doc.id)}
-            <EntityRow href={docPath('PROJECT', project.id, doc.id)} label={doc.title} />
+            <EntityRow href={docPath('PROJECT', project.id, doc.id)} label={doc.title}><span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span></EntityRow>
           {/each}
         </ul>
       {:else}
