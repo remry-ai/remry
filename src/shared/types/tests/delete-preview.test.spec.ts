@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { deletePreviewSections, isEmptyPreview, type DeletePreview } from '../delete-preview';
 
-const empty: DeletePreview = { name: 'Atlas', docs: [], todos: [], files: [], links: [], notes: 0, comments: 0, checkIns: 0, children: [], childrenDeleted: false, movesTo: null, owned: [] };
+const empty: DeletePreview = { name: 'Atlas', docs: [], todos: [], files: [], links: [], notes: 0, comments: 0, checkIns: 0, children: [], owned: [] };
 
 describe('deletePreviewSections', () => {
   it('lists nothing for an entity with nothing attached', () => {
@@ -30,23 +30,19 @@ describe('deletePreviewSections', () => {
   });
 
   it('lists sub-projects and sub-pages first among what goes', () => {
-    const sections = deletePreviewSections('PAGE', { ...empty, children: [{ id: 'p1', title: 'Setup' }, { id: 'p2', title: 'Deep' }], childrenDeleted: true, docs: [] });
+    const sections = deletePreviewSections('PAGE', { ...empty, children: [{ id: 'p1', title: 'Setup' }, { id: 'p2', title: 'Deep' }] });
     expect(sections.deleted[0]).toEqual({ heading: '2 sub-pages', items: ['Setup', 'Deep'] });
     expect(sections.kept).toEqual([]);
   });
 
-  it('says where sub-goals move and what loses its owner', () => {
-    const kept = deletePreviewSections('GOAL', {
+  it('lists a goal\'s sub-goals with what goes, and keeps what it owned', () => {
+    const sections = deletePreviewSections('GOAL', {
       ...empty,
       children: [{ id: 'g1', title: 'Latency' }],
-      movesTo: 'Reliability',
+      checkIns: 4,
       owned: [{ type: 'PROJECT', id: 'x', title: 'Launch' }, { type: 'GOAL', id: 'y', title: 'Uptime' }]
-    }).kept;
-    expect(kept).toEqual([
-      { heading: '1 sub-goal moves up to Reliability', items: ['Latency'] },
-      { heading: '2 projects and goals it owns lose their owner', items: ['Launch', 'Uptime'] }
-    ]);
-    expect(deletePreviewSections('GOAL', { ...empty, children: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }] }).kept[0]!.heading)
-      .toBe('2 sub-goals move up to the top level');
+    });
+    expect(sections.deleted).toEqual([{ heading: '1 sub-goal', items: ['Latency'] }, { heading: '4 check-ins', items: [] }]);
+    expect(sections.kept).toEqual([{ heading: '2 projects and goals it owns lose their owner', items: ['Launch', 'Uptime'] }]);
   });
 });

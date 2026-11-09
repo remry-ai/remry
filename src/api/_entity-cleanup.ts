@@ -165,12 +165,12 @@ export const removeFiles = async (
 };
 
 /**
- * A project or page and everything under it, at any depth, the root first. Deleting one deletes
- * its sub-projects or sub-pages with it (goals stay loose: a goal's sub-goals move up).
+ * A project, goal or page and everything under it, at any depth, the root first. Deleting one
+ * deletes its sub-projects, sub-goals or sub-pages with it.
  */
 export const subtreeIds = async (
   reg: Pick<Registry, 'prisma'>,
-  entityType: 'PROJECT' | 'PAGE',
+  entityType: 'PROJECT' | 'GOAL' | 'PAGE',
   rootId: string
 ): Promise<readonly string[]> => {
   const ids = [rootId];
@@ -183,7 +183,9 @@ export const subtreeIds = async (
       const select = { id: true } as const;
       const rows = entityType === 'PROJECT'
         ? await reg.prisma.project.findMany({ where, select })
-        : await reg.prisma.page.findMany({ where, select });
+        : entityType === 'GOAL'
+          ? await reg.prisma.goal.findMany({ where, select })
+          : await reg.prisma.page.findMany({ where, select });
       for (const { id } of rows) {
         if (seen.has(id)) continue;
         seen.add(id);

@@ -6,7 +6,7 @@ import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
 import type { EntityLabels } from '$api/_entity-labels';
-import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
+import { planEntitiesCleanup, removeFiles, subtreeIds } from '$api/_entity-cleanup';
 import { archiveWhere, ensureAllWritable, ensureWritable, ACTIVE } from '$api/_archive';
 
 // ----- Row mapping -----
@@ -252,21 +252,24 @@ export const updateGoal = async (
   return ok({ id });
 };
 
-/** Sub-goals move up to this goal's parent; check-ins, project links and attached items are deleted. */
+/**
+ * Deletes the goal and its sub-goals at any depth, with their check-ins, project links and what's
+ * attached to each. Linked projects are kept.
+ */
 export const deleteGoal = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
-  const existing = await reg.prisma.goal.findUnique({ where: { id }, select: { parentId: true } });
+  const existing = await reg.prisma.goal.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return err(new Error(`Goal ${id} not found`));
 
-  const cleanup = await planEntityCleanup(reg, 'GOAL', id);
+  const ids = [...await subtreeIds(reg, 'GOAL', id)];
+  const cleanup = await planEntitiesCleanup(reg, 'GOAL', ids);
   await reg.prisma.$transaction([
-    reg.prisma.goal.updateMany({ where: { parentId: id }, data: { parentId: existing.parentId } }),
-    reg.prisma.goalCheckIn.deleteMany({ where: { goalId: id } }),
-    reg.prisma.goalProject.deleteMany({ where: { goalId: id } }),
+    reg.prisma.goalCheckIn.deleteMany({ where: { goalId: { in: ids } } }),
+    reg.prisma.goalProject.deleteMany({ where: { goalId: { in: ids } } }),
     ...cleanup.ops,
-    reg.prisma.goal.delete({ where: { id } })
+    reg.prisma.goal.deleteMany({ where: { id: { in: ids } } })
   ]);
   await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });

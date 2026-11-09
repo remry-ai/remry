@@ -21,13 +21,8 @@ export interface DeletePreview {
   readonly notes: number;
   readonly comments: number;
   readonly checkIns: number;
-  /**
-   * Sub-items: a project's sub-projects or a page's sub-pages at any depth, deleted with it
-   * (`childrenDeleted`); or a goal's sub-goals, kept and moved up to `movesTo` (null: the top level).
-   */
+  /** Its sub-projects, sub-goals or sub-pages at any depth, top down: deleted with it. */
   readonly children: readonly NamedItem[];
-  readonly childrenDeleted: boolean;
-  readonly movesTo: string | null;
   /** Kept: projects and goals it owned, left without an owner. */
   readonly owned: readonly (NamedItem & { readonly type: 'PROJECT' | 'GOAL' })[];
 }
@@ -60,11 +55,9 @@ export const deletePreviewSections = (type: PreviewableType, preview: DeletePrev
     items.length > 0 ? [{ heading: count(items.length, one, many), items: items.map((i) => i.title) }] : [];
   const counted = (n: number, one: string): PreviewSection[] => (n > 0 ? [{ heading: count(n, one), items: [] }] : []);
   const [childOne, childMany] = CHILD_WORDS[type];
-  const where = preview.movesTo ?? 'the top level';
-  const children = preview.children.length > 0 && preview.childrenDeleted ? titled(preview.children, childOne, childMany) : [];
   return {
     deleted: [
-      ...children,
+      ...titled(preview.children, childOne, childMany),
       ...titled(preview.docs, 'doc'),
       ...titled(preview.todos, 'todo'),
       ...titled(preview.files, 'file'),
@@ -74,9 +67,6 @@ export const deletePreviewSections = (type: PreviewableType, preview: DeletePrev
       ...counted(preview.checkIns, 'check-in')
     ],
     kept: [
-      ...(preview.children.length > 0 && !preview.childrenDeleted
-        ? [{ heading: `${count(preview.children.length, childOne, childMany)} ${preview.children.length === 1 ? 'moves' : 'move'} up to ${where}`, items: preview.children.map((c) => c.title) }]
-        : []),
       ...(preview.owned.length > 0
         ? [{ heading: `${count(preview.owned.length, 'project or goal', 'projects and goals')} it owns ${preview.owned.length === 1 ? 'loses its' : 'lose their'} owner`, items: preview.owned.map((o) => o.title) }]
         : [])

@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { getRegistry } from '../../src/shared/registry.server';
 import { createProject, deleteProject } from '../../src/api/project/operations';
 import { createPage, deletePage } from '../../src/api/page/operations';
-import { createGoal, addGoalProject } from '../../src/api/goal/operations';
+import { createGoal, addGoalProject, addCheckIn, deleteGoal } from '../../src/api/goal/operations';
 import { addDoc } from '../../src/api/attached/doc/operations';
 import { createTodo } from '../../src/api/attached/todo/operations';
 import { addNote } from '../../src/api/attached/note/operations';
@@ -47,7 +47,6 @@ describe('entity.deletePreview', () => {
     expect(preview.links.map((l) => l.title)).toEqual(['Spec']);
     expect(preview.files.map((f) => f.title)).toEqual(['numbers.csv']);
     expect(preview.children).toEqual([{ id: child.id, title: 'Preview sub-project' }, { id: grandchild.id, title: 'Preview sub-sub-project' }]);
-    expect(preview.childrenDeleted).toBe(true);
     expect(preview.owned).toEqual([]);
 
     value(await deleteProject(reg, project.id));
@@ -77,6 +76,24 @@ describe('entity.deletePreview', () => {
     expect(await reg.prisma.page.count({ where: { id: { in: [page.id, sub.id, subsub.id] } } })).toBe(0);
     expect(await reg.prisma.page.count({ where: { id: { in: [top.id, sibling.id] } } })).toBe(2);
     expect(await reg.prisma.todo.count({ where: { title: 'Preview section todo' } })).toBe(0);
+  });
+
+  it('deletes a goal with its sub-goals at any depth, their check-ins and links, and keeps linked projects', async () => {
+    const goal = value(await createGoal(reg, { title: 'Preview reliability' }));
+    const sub = value(await createGoal(reg, { title: 'Preview latency', parentId: goal.id }));
+    const subsub = value(await createGoal(reg, { title: 'Preview p99', parentId: sub.id }));
+    const project = value(await createProject(reg, { name: 'Preview cache layer' }));
+    value(await addGoalProject(reg, subsub.id, project.id));
+    value(await addCheckIn(reg, { goalId: subsub.id, value: 120 }));
+
+    const preview = value(await previewDelete(reg, 'GOAL', goal.id));
+    expect(preview.children.map((c) => c.title)).toEqual(['Preview latency', 'Preview p99']);
+    expect(preview.checkIns).toBe(1);
+
+    value(await deleteGoal(reg, goal.id));
+    expect(await reg.prisma.goal.count({ where: { id: { in: [goal.id, sub.id, subsub.id] } } })).toBe(0);
+    expect(await reg.prisma.goalCheckIn.count({ where: { goalId: subsub.id } })).toBe(0);
+    expect(await reg.prisma.project.count({ where: { id: project.id } })).toBe(1);
   });
 
   it('is empty for an entity with nothing attached, and refuses one that is gone', async () => {
