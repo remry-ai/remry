@@ -9,7 +9,7 @@
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import type { PageSummary } from '$shared/types/pages';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
-  import { buildTree, flattenTree } from '$shared/utils/hierarchy';
+  import { buildTree, flattenTree, leavesFirst } from '$shared/utils/hierarchy';
   import { page as appPage } from '$app/state';
   import PagePeek from '$lib/page/components/PagePeek.svelte';
   import PeekIcon from '$lib/ui/PeekIcon.svelte';
@@ -33,10 +33,11 @@
   const toggleRow = (id: string) => setCollapsed(toggleId(collapsed, id));
   const parents = $derived(parentIds(pages));
 
-  // Sub-pages whose parent is filtered out show at the top level.
+  // Sub-pages whose parent is filtered out show at the top level. At every level, pages
+  // without sub-pages come first.
   const rows = $derived(
     flattenTree(
-      buildTree(pages, (p) => p.parentId),
+      leavesFirst(buildTree(pages, (p) => p.parentId)),
       (node) => collapsed.has(node.item.id),
     ),
   );

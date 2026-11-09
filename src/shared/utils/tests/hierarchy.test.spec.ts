@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ancestorsOf, buildTree, flattenTree, scopeTree, wouldCreateCycle } from '../hierarchy';
+import { ancestorsOf, buildTree, flattenTree, scopeTree, wouldCreateCycle, leavesFirst, subtreeOf } from '../hierarchy';
 
 const parentsOf = (map: Readonly<Record<string, string | null>>) => (id: string) => map[id];
 
@@ -113,5 +113,37 @@ describe('scopeTree', () => {
   it('drops non-matching children of a match and subtrees with no match', () => {
     const ids = flattenTree(scopeTree(forest, (i) => i.id === 'root' || i.id === 'other')).map((n) => n.item.id);
     expect(ids).toEqual(['root', 'other']);
+  });
+});
+
+describe('leavesFirst', () => {
+  it('puts nodes without children first at each level, keeping order within each set', () => {
+    interface N { readonly item: string; readonly children: readonly N[] }
+    const n = (item: string, children: readonly N[] = []): N => ({ item, children });
+    const sorted = leavesFirst([n('a'), n('b', [n('b1', [n('b1x')]), n('b2')]), n('c'), n('d', [n('d1')])]);
+    expect(sorted.map((x) => x.item)).toEqual(['a', 'c', 'b', 'd']);
+    expect(sorted[2]?.children.map((x) => x.item)).toEqual(['b2', 'b1']);
+  });
+});
+
+describe('subtreeOf', () => {
+  const items = [
+    { id: 'root', parentId: null },
+    { id: 'a', parentId: 'root' },
+    { id: 'a1', parentId: 'a' },
+    { id: 'b', parentId: 'root' },
+    { id: 'other', parentId: null },
+    { id: 'o1', parentId: 'other' }
+  ];
+
+  it('returns the descendants, with the direct children as roots', () => {
+    const forest = subtreeOf(items, 'root', (i) => i.parentId);
+    expect(forest.map((n) => [n.item.id, n.depth])).toEqual([['a', 0], ['b', 0]]);
+    expect(forest[0]?.children.map((n) => [n.item.id, n.depth])).toEqual([['a1', 1]]);
+  });
+
+  it('stops at a loop', () => {
+    const looped = [{ id: 'x', parentId: 'y' }, { id: 'y', parentId: 'x' }, { id: 'z', parentId: 'z' }];
+    expect(subtreeOf(looped, 'root', (i) => i.parentId)).toEqual([]);
   });
 });

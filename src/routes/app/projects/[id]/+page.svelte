@@ -15,7 +15,9 @@
   import Menu from '$lib/ui/Menu.svelte';
   import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '$shared/utils/project-status';
   import { parseOwnerOptionValue } from '$shared/trpc/load-owner-options';
-  import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
+  import { ancestorsOf, flattenTree, leavesFirst, subtreeOf, wouldCreateCycle } from '$shared/utils/hierarchy';
+  import TreeLead from '$lib/ui/TreeLead.svelte';
+  import { toggleId } from '$lib/page/tree-state';
   import type { GoalSummary } from '$shared/types/goals';
   import { model } from '$lib/stores/notebook-model';
   import { loadOpenIds, saveOpenIds, setOpen } from '$lib/project/subprojects-open';
@@ -24,6 +26,7 @@
   interface ProjectOption {
     readonly id: string;
     readonly name: string;
+    readonly status: string | null;
     readonly parentId: string | null;
     readonly archivedAt: Date | null;
   }
@@ -68,6 +71,16 @@
     saveOpenIds(notebookId, openIds);
   };
   const childCounts = $derived(statusCounts(project.children));
+
+  // Opened, sub-projects show as a tree, like the projects list: every level below this one,
+  // projects without sub-projects first. Branches start open; closing one lasts while the page is.
+  let collapsedRows = $state.raw<ReadonlySet<string>>(new Set());
+  const subProjectRows = $derived(
+    flattenTree(
+      leavesFirst(subtreeOf(allProjects.filter((p) => !p.archivedAt), project.id, (p) => p.parentId)),
+      (node) => collapsedRows.has(node.item.id),
+    ),
+  );
   // The add-sub-project form, shown from the add row at the bottom.
   let addingChild = $state(false);
 
@@ -245,10 +258,14 @@
       </div>
       {#if childrenOpen}
         <ul class="list">
-          {#each project.children as child (child.id)}
+          {#each subProjectRows as { item: child, depth, children } (child.id)}
             <EntityRow href="/app/projects/{child.id}" label={child.name}>
+              {#snippet lead()}
+                <TreeLead {depth} hasChildren={children.length > 0} expanded={!collapsedRows.has(child.id)} label={child.name} onToggle={() => (collapsedRows = toggleId(collapsedRows, child.id))} />
+              {/snippet}
               <StatusBadge status={child.status} />
-              {#snippet actions()}<ConfirmButton label="Unlink sub-project" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
+              <!-- Unlinking moves a direct sub-project to the top; deeper ones belong to their own parent. -->
+              {#snippet actions()}{#if depth === 0}<ConfirmButton label="Unlink sub-project" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/if}{/snippet}
             </EntityRow>
           {/each}
         </ul>

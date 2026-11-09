@@ -117,3 +117,39 @@ export const scopeTree = <T>(
     const isMatch = matches(node.item);
     return isMatch || children.length > 0 ? [{ item: node.item, depth: node.depth, context: !isMatch, children }] : [];
   });
+
+/**
+ * The same forest with, at every level, the nodes without children first and
+ * those with children after, keeping the order within each set.
+ */
+export const leavesFirst = <N extends { readonly children: readonly N[] }>(nodes: readonly N[]): readonly N[] => {
+  const sorted = nodes.map((node) => ({ ...node, children: leavesFirst(node.children) }));
+  return [...sorted.filter((node) => node.children.length === 0), ...sorted.filter((node) => node.children.length > 0)];
+};
+
+/**
+ * The descendants of `rootId` as a forest: its children are the roots, at depth 0.
+ * Items outside the subtree are left out; a loop through `rootId` stops there.
+ */
+export const subtreeOf = <T extends { readonly id: string }>(
+  items: readonly T[],
+  rootId: string,
+  getParentId: (item: T) => string | null | undefined
+): readonly TreeNode<T>[] => {
+  const byId = new Map(items.map((item): [string, T] => [item.id, item]));
+  const inSubtree = (item: T): boolean => {
+    const seen = new Set<string>([item.id]);
+    let parentId = getParentId(item);
+    while (parentId) {
+      if (parentId === rootId) return true;
+      if (seen.has(parentId)) return false;
+      seen.add(parentId);
+      parentId = byId.get(parentId) ? getParentId(byId.get(parentId)!) : null;
+    }
+    return false;
+  };
+  return buildTree(
+    items.filter((item) => item.id !== rootId && inSubtree(item)),
+    (item) => (getParentId(item) === rootId ? null : getParentId(item))
+  );
+};
