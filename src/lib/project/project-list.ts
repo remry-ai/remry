@@ -1,6 +1,6 @@
 // The projects list page: filter and grouping by owning group (`?team=`, kept
 // from when only teams owned work), and collapsed rows.
-import { buildTree, scopeTree, type ScopedNode, type TreeNode } from '$shared/utils/hierarchy';
+import { buildTree, leavesFirst, scopeTree, type ScopedNode, type TreeNode } from '$shared/utils/hierarchy';
 import type { EntityOwner } from '$shared/types/owner';
 
 export interface ProjectListItem {
@@ -82,14 +82,8 @@ const countMatches = (nodes: readonly ScopedNode<ProjectListItem>[]): number =>
   nodes.reduce((total, node) => total + (node.context ? 0 : 1) + countMatches(node.children), 0);
 
 const teamGroup = (forest: readonly TreeNode<ProjectListItem>[], team: ProjectTeamOption): ProjectGroup => {
-  const nodes = parentsFirst(scopeTree(forest, (project) => projectTeamKey(project) === team.id));
+  const nodes = leavesFirst(scopeTree(forest, (project) => projectTeamKey(project) === team.id));
   return { key: team.id, label: team.name, path: team.path, nodes, count: countMatches(nodes) };
-};
-
-/** Like a file browser: at each level, projects with sub-projects come before those without, each set keeping its order. */
-export const parentsFirst = <T>(nodes: readonly ScopedNode<T>[]): readonly ScopedNode<T>[] => {
-  const sorted = nodes.map((node) => ({ ...node, children: parentsFirst(node.children) }));
-  return [...sorted.filter((node) => node.children.length > 0), ...sorted.filter((node) => node.children.length === 0)];
 };
 
 /**
@@ -107,7 +101,7 @@ export const projectListGroups = (
     return team ? [teamGroup(forest, team)] : [];
   }
   if (params.groupBy === 'team') return teams.map((team) => teamGroup(forest, team));
-  const nodes = parentsFirst(scopeTree(forest, () => true));
+  const nodes = leavesFirst(scopeTree(forest, () => true));
   return nodes.length > 0 ? [{ key: 'all', label: 'All projects', path: null, nodes, count: projects.length }] : [];
 };
 

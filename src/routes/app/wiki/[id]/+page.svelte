@@ -24,7 +24,10 @@
   import { syncNowAndWait } from '$lib/link/sync-now';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
-  import { ancestorsOf, wouldCreateCycle } from '$shared/utils/hierarchy';
+  import { ancestorsOf, flattenTree, leavesFirst, subtreeOf, wouldCreateCycle } from '$shared/utils/hierarchy';
+  import TreeLead from '$lib/ui/TreeLead.svelte';
+  import { loadCollapsed, saveCollapsed, toggleId } from '$lib/page/tree-state';
+  import { onMount } from 'svelte';
   import { wikiPrintUrl } from '$lib/doc/print-options';
   import { fileToBase64 } from '$lib/common/use-doc-handlers';
   import { fileUrl } from '$shared/utils/files';
@@ -52,6 +55,24 @@
   // Every parent up to the top of the wiki, for the breadcrumb.
   const breadcrumbTrail = $derived(
     ancestorsOf(allPages, wikiPage.id, (p) => p.parentId).map((p) => ({ label: p.title, href: `/app/wiki/${p.id}` })),
+  );
+
+  // Sub-pages as a tree, like the wiki's: every level below this page, pages without sub-pages
+  // first. Collapsed branches are the wiki's own, remembered per notebook in this browser, so
+  // closing one here closes it there too. Read after mounting, so both renders agree.
+  let collapsed = $state.raw<ReadonlySet<string>>(new Set());
+  onMount(() => {
+    collapsed = loadCollapsed(data.notebook.id);
+  });
+  const toggleSubPage = (id: string) => {
+    collapsed = toggleId(collapsed, id);
+    saveCollapsed(data.notebook.id, collapsed);
+  };
+  const subPageRows = $derived(
+    flattenTree(
+      leavesFirst(subtreeOf(allPages.filter((p) => !p.archivedAt), wikiPage.id, (p) => p.parentId)),
+      (node) => collapsed.has(node.item.id),
+    ),
   );
 
   // Held as the page being edited, so moving to another page opens it in preview (the route reuses this component).
@@ -337,9 +358,13 @@
         </div>
         {#if wikiPage.children.length > 0}
           <ul class="list">
-            {#each wikiPage.children as child (child.id)}
+            {#each subPageRows as { item: child, depth, children } (child.id)}
               <EntityRow href={child.path} label={child.title}>
-                {#snippet actions()}<ConfirmButton label="Unlink sub-page" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/snippet}
+                {#snippet lead()}
+                  <TreeLead {depth} hasChildren={children.length > 0} expanded={!collapsed.has(child.id)} label={child.title} onToggle={() => toggleSubPage(child.id)} />
+                {/snippet}
+                <!-- Unlinking moves a direct sub-page to the top; deeper ones belong to their own parent. -->
+                {#snippet actions()}{#if depth === 0}<ConfirmButton label="Unlink sub-page" variant="unlink" onConfirm={() => handleUnlinkChild(child.id)} />{/if}{/snippet}
               </EntityRow>
             {/each}
           </ul>

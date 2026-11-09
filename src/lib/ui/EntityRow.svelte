@@ -21,6 +21,8 @@
     readonly linkClass?: string;
     /** Handles a click on the title (DocsManager opens the doc in place). */
     readonly onclick?: (e: MouseEvent) => void;
+    /** Shown before the title (a tree's indent and chevron). */
+    readonly lead?: Snippet;
     /** Shown between the title and the actions. */
     readonly children?: Snippet;
     /** Small text on a line of its own under the title (a relation's note). */
@@ -29,13 +31,14 @@
     readonly actions?: Snippet;
   }
 
-  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, children, detail, actions }: Props = $props();
+  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, lead, children, detail, actions }: Props = $props();
 
   const peeksShown = getContext<boolean | undefined>(PEEKS_CONTEXT) === true;
   const target = $derived(peeksShown ? (peek === undefined ? peekForHref(href) : peek) : null);
 </script>
 
 <li class="list-row" class:active>
+  {@render lead?.()}
   <span class="grow main">
     <span class="title-line">
       <a class="{wrap ? 'wrap' : 'truncate'} {linkClass}" {href} {onclick}>{label}</a>
