@@ -77,14 +77,14 @@ export const entityRouter = router({
 
   // What a delete takes with it, for the app's confirmation (app-only: Claude reads search.recall).
   deletePreview: procedure
-    .meta({ description: 'What deleting a person, group, project, goal or page takes with it, and what moves up or loses its owner.' })
+    .meta({ description: 'What deleting a person, group, project, goal or page takes with it (sub-projects and sub-pages included), and what moves up or loses its owner.' })
     .input(z.object({ entityType: z.enum(PREVIEWABLE_TYPES), id: z.string() }))
     .query(({ ctx, input }) => previewDelete(ctx.reg, input.entityType, input.id)),
 
   // Deletes for good, with everything attached to it (its notes, docs, todos, links,
   // tags and relations). Prefer archive for anything that may matter later.
   delete: procedure
-    .meta({ description: 'Deletes a person, group, project, goal, page, todo, doc, note or link for good, with everything attached to it. Confirm with the user and take a backup_snapshot first.' })
+    .meta({ description: 'Deletes a person, group, project, goal, page, todo, doc, note or link for good, with everything attached to it; a project or page also takes its sub-projects or sub-pages at any depth (a goal\'s sub-goals move up). Confirm with the user and take a backup_snapshot first.' })
     .input(z.object({ entityType: z.enum(DELETABLE_TYPES), id: z.string() }))
     .mutation(({ ctx, input }) => {
       const owner = ctx.model.procedureOwner(ownPath(input.entityType));

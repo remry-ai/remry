@@ -21,8 +21,12 @@ export interface DeletePreview {
   readonly notes: number;
   readonly comments: number;
   readonly checkIns: number;
-  /** Kept: sub-pages, sub-projects or sub-goals, moved up to `movesTo` (null: the top level). */
+  /**
+   * Sub-items: a project's sub-projects or a page's sub-pages at any depth, deleted with it
+   * (`childrenDeleted`); or a goal's sub-goals, kept and moved up to `movesTo` (null: the top level).
+   */
   readonly children: readonly NamedItem[];
+  readonly childrenDeleted: boolean;
   readonly movesTo: string | null;
   /** Kept: projects and goals it owned, left without an owner. */
   readonly owned: readonly (NamedItem & { readonly type: 'PROJECT' | 'GOAL' })[];
@@ -57,8 +61,10 @@ export const deletePreviewSections = (type: PreviewableType, preview: DeletePrev
   const counted = (n: number, one: string): PreviewSection[] => (n > 0 ? [{ heading: count(n, one), items: [] }] : []);
   const [childOne, childMany] = CHILD_WORDS[type];
   const where = preview.movesTo ?? 'the top level';
+  const children = preview.children.length > 0 && preview.childrenDeleted ? titled(preview.children, childOne, childMany) : [];
   return {
     deleted: [
+      ...children,
       ...titled(preview.docs, 'doc'),
       ...titled(preview.todos, 'todo'),
       ...titled(preview.files, 'file'),
@@ -68,7 +74,7 @@ export const deletePreviewSections = (type: PreviewableType, preview: DeletePrev
       ...counted(preview.checkIns, 'check-in')
     ],
     kept: [
-      ...(preview.children.length > 0
+      ...(preview.children.length > 0 && !preview.childrenDeleted
         ? [{ heading: `${count(preview.children.length, childOne, childMany)} ${preview.children.length === 1 ? 'moves' : 'move'} up to ${where}`, items: preview.children.map((c) => c.title) }]
         : []),
       ...(preview.owned.length > 0

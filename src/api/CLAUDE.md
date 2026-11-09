@@ -97,9 +97,9 @@ Then call `removeFiles(reg, cleanup)` once the transaction commits. It removes t
 
 Attaching is checked the other way: `ensureAttachable` (`_archive.ts`) refuses to attach a note, doc, todo, link, tag, comment, emoji or report to an id that doesn't exist (or is archived), and `addNote` refuses a reply whose parent is on another entity.
 
-**What a delete takes** is shown before it in the app: `entity.deletePreview` (app-only, `entity/delete-preview.ts`, `previewDelete`) reads the same rows `planEntityCleanup` deletes (`collectAttached`) and returns them by title, with a goal's check-ins, the sub-items that move up and the projects and goals that lose their owner. `tests/integration/delete-preview.test.ts` checks the delete removes what it named.
+**What a delete takes** is shown before it in the app: `entity.deletePreview` (app-only, `entity/delete-preview.ts`, `previewDelete`) reads the same rows `planEntityCleanup` deletes (`collectAttached`) and returns them by title, with a project's sub-projects or a page's sub-pages (and what's attached to them), a goal's check-ins, the sub-goals that move up and the projects and goals that lose their owner. `tests/integration/delete-preview.test.ts` checks the delete removes what it named.
 
-Projects, goals and pages move their children up to their own parent; `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
+Deleting a project or page deletes its sub-projects or sub-pages at any depth, with what's attached to each (`subtreeIds` and `planEntitiesCleanup` in `_entity-cleanup.ts`; a project's are deleted deepest first, since its parent link has no `ON DELETE`). Goals are loosely coupled and kept: a goal's sub-goals move up to its parent, and a deleted project's goal links go. `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
 
 ## Converting
 

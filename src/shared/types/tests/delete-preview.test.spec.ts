@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { deletePreviewSections, isEmptyPreview, type DeletePreview } from '../delete-preview';
 
-const empty: DeletePreview = { name: 'Atlas', docs: [], todos: [], files: [], links: [], notes: 0, comments: 0, checkIns: 0, children: [], movesTo: null, owned: [] };
+const empty: DeletePreview = { name: 'Atlas', docs: [], todos: [], files: [], links: [], notes: 0, comments: 0, checkIns: 0, children: [], childrenDeleted: false, movesTo: null, owned: [] };
 
 describe('deletePreviewSections', () => {
   it('lists nothing for an entity with nothing attached', () => {
@@ -29,18 +29,24 @@ describe('deletePreviewSections', () => {
     expect(isEmptyPreview(sections)).toBe(false);
   });
 
-  it('says where sub-items move and what loses its owner', () => {
-    const kept = deletePreviewSections('PAGE', {
+  it('lists sub-projects and sub-pages first among what goes', () => {
+    const sections = deletePreviewSections('PAGE', { ...empty, children: [{ id: 'p1', title: 'Setup' }, { id: 'p2', title: 'Deep' }], childrenDeleted: true, docs: [] });
+    expect(sections.deleted[0]).toEqual({ heading: '2 sub-pages', items: ['Setup', 'Deep'] });
+    expect(sections.kept).toEqual([]);
+  });
+
+  it('says where sub-goals move and what loses its owner', () => {
+    const kept = deletePreviewSections('GOAL', {
       ...empty,
-      children: [{ id: 'p1', title: 'Setup' }],
-      movesTo: 'Handbook',
+      children: [{ id: 'g1', title: 'Latency' }],
+      movesTo: 'Reliability',
       owned: [{ type: 'PROJECT', id: 'x', title: 'Launch' }, { type: 'GOAL', id: 'y', title: 'Uptime' }]
     }).kept;
     expect(kept).toEqual([
-      { heading: '1 sub-page moves up to Handbook', items: ['Setup'] },
+      { heading: '1 sub-goal moves up to Reliability', items: ['Latency'] },
       { heading: '2 projects and goals it owns lose their owner', items: ['Launch', 'Uptime'] }
     ]);
-    expect(deletePreviewSections('PROJECT', { ...empty, children: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }] }).kept[0]!.heading)
-      .toBe('2 sub-projects move up to the top level');
+    expect(deletePreviewSections('GOAL', { ...empty, children: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }] }).kept[0]!.heading)
+      .toBe('2 sub-goals move up to the top level');
   });
 });

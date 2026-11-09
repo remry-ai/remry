@@ -1,12 +1,12 @@
 // What deleting a person, group, project, goal or page takes with it, for the app's delete
-// confirmation: everything attached to it at any depth (the same rows planEntityCleanup
-// deletes), a goal's check-ins, and what stays: sub-items, which move up to its parent, and
-// projects and goals it owned, which lose their owner.
+// confirmation: a project's sub-projects or a page's sub-pages at any depth, everything attached
+// to it and to them (the same rows planEntityCleanup deletes), a goal's check-ins, and what stays:
+// a goal's sub-goals, which move up to its parent, and goals and projects owned, which lose their owner.
 
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils/result';
 import { fileLinkKey } from '$shared/utils/file-links';
-import { collectAttached } from '$api/_entity-cleanup';
+import { collectAttached, subtreeIds } from '$api/_entity-cleanup';
 import type { DeletePreview, NamedItem, PreviewableType } from '$shared/types/delete-preview';
 
 interface Node {
@@ -40,37 +40,35 @@ const findNode = async (reg: Pick<Registry, 'prisma'>, type: PreviewableType, id
   }
 };
 
-/** Sub-items of a page, project or goal, and the name of the parent they move up to. */
+/**
+ * Sub-items: a project's sub-projects or a page's sub-pages at any depth, deleted with it; or a
+ * goal's sub-goals, which move up to its parent (goals stay loose).
+ */
 const childrenOf = async (
   reg: Pick<Registry, 'prisma'>,
   type: PreviewableType,
   id: string,
   parentId: string | null
-): Promise<{ readonly children: readonly NamedItem[]; readonly movesTo: string | null }> => {
+): Promise<{ readonly subtree: readonly string[]; readonly children: readonly NamedItem[]; readonly childrenDeleted: boolean; readonly movesTo: string | null }> => {
   const p = reg.prisma;
-  const orderBy = { createdAt: 'asc' } as const;
-  if (type === 'PROJECT') {
-    const [children, parent] = await Promise.all([
-      p.project.findMany({ where: { parentId: id }, select: { id: true, name: true }, orderBy }),
-      parentId ? p.project.findUnique({ where: { id: parentId }, select: { name: true } }) : null
-    ]);
-    return { children: children.map((c) => ({ id: c.id, title: c.name })), movesTo: parent?.name ?? null };
+  if (type === 'PROJECT' || type === 'PAGE') {
+    const subtree = await subtreeIds(reg, type, id);
+    const below = subtree.slice(1);
+    const rows = type === 'PROJECT'
+      ? (await p.project.findMany({ where: { id: { in: [...below] } }, select: { id: true, name: true } })).map((r) => ({ id: r.id, title: r.name }))
+      : await p.page.findMany({ where: { id: { in: [...below] } }, select: { id: true, title: true } });
+    // In tree order, top down, as subtreeIds found them.
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return { subtree, children: below.flatMap((c) => byId.get(c) ?? []), childrenDeleted: true, movesTo: null };
   }
   if (type === 'GOAL') {
     const [children, parent] = await Promise.all([
-      p.goal.findMany({ where: { parentId: id }, select: { id: true, title: true }, orderBy }),
+      p.goal.findMany({ where: { parentId: id }, select: { id: true, title: true }, orderBy: { createdAt: 'asc' } }),
       parentId ? p.goal.findUnique({ where: { id: parentId }, select: { title: true } }) : null
     ]);
-    return { children, movesTo: parent?.title ?? null };
+    return { subtree: [id], children, childrenDeleted: false, movesTo: parent?.title ?? null };
   }
-  if (type === 'PAGE') {
-    const [children, parent] = await Promise.all([
-      p.page.findMany({ where: { parentId: id }, select: { id: true, title: true }, orderBy }),
-      parentId ? p.page.findUnique({ where: { id: parentId }, select: { title: true } }) : null
-    ]);
-    return { children, movesTo: parent?.title ?? null };
-  }
-  return { children: [], movesTo: null };
+  return { subtree: [id], children: [], childrenDeleted: false, movesTo: null };
 };
 
 export const previewDelete = async (
@@ -81,14 +79,15 @@ export const previewDelete = async (
   const node = await findNode(reg, entityType, id);
   if (!node) return err(new Error(`No ${entityType.toLowerCase()} with id ${id}`));
   const p = reg.prisma;
-  const { ids } = await collectAttached(reg, [{ entityType, entityId: id }]);
-  const owner = { ownerType: entityType, ownerId: id };
-  const [docs, todos, links, checkIns, family, ownedProjects, ownedGoals] = await Promise.all([
+  const family = await childrenOf(reg, entityType, id, node.parentId);
+  // What's attached to it and to every sub-item deleted with it.
+  const { ids } = await collectAttached(reg, family.subtree.map((entityId) => ({ entityType, entityId })));
+  const owner = { ownerType: entityType, ownerId: { in: [...family.subtree] } };
+  const [docs, todos, links, checkIns, ownedProjects, ownedGoals] = await Promise.all([
     p.doc.findMany({ where: { id: { in: [...ids.DOC] } }, select: { id: true, title: true }, orderBy: { sortOrder: 'asc' } }),
     p.todo.findMany({ where: { id: { in: [...ids.TODO] } }, select: { id: true, title: true }, orderBy: { createdAt: 'asc' } }),
     p.link.findMany({ where: { id: { in: [...ids.LINK] } }, select: { id: true, title: true, url: true }, orderBy: { createdAt: 'asc' } }),
     entityType === 'GOAL' ? p.goalCheckIn.count({ where: { goalId: id } }) : 0,
-    childrenOf(reg, entityType, id, node.parentId),
     p.project.findMany({ where: owner, select: { id: true, name: true } }),
     p.goal.findMany({ where: owner, select: { id: true, title: true } })
   ]);
@@ -103,6 +102,7 @@ export const previewDelete = async (
     comments: ids.COMMENT.length,
     checkIns,
     children: family.children,
+    childrenDeleted: family.childrenDeleted,
     movesTo: family.movesTo,
     owned: [
       ...ownedProjects.map((o) => ({ type: 'PROJECT' as const, id: o.id, title: o.name })),

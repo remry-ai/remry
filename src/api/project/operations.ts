@@ -6,7 +6,7 @@ import { entityPath } from '$shared/utils/entity';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
 import { CLOSED_PROJECT_STATUSES, toProjectStatus, unknownStatusMessage, type ProjectStatus } from '$shared/utils/project-status';
 import { loadOwner, loadOwners, ownerFrom, resolveOwnerInput, type OwnerInput } from '$api/_owners';
-import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
+import { planEntitiesCleanup, removeFiles, subtreeIds } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { duplicateNameError, findProjectNamed } from '$api/_duplicates';
 
@@ -256,20 +256,24 @@ export const updateProject = async (
   return ok({ id });
 };
 
-/** Sub-projects move up to this project's parent; goal links, attached items and relations are deleted. */
+/**
+ * Deletes the project and its sub-projects at any depth, with what's attached to each, their goal
+ * links and relations. Goals are kept: ones they owned lose their owner.
+ */
 export const deleteProject = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
-  const existing = await reg.prisma.project.findFirst({ where: { id } });
+  const existing = await reg.prisma.project.findFirst({ where: { id }, select: { id: true } });
   if (!existing) return err(new Error('Project not found'));
 
-  const cleanup = await planEntityCleanup(reg, 'PROJECT', id);
+  const ids = [...await subtreeIds(reg, 'PROJECT', id)];
+  const cleanup = await planEntitiesCleanup(reg, 'PROJECT', ids);
   await reg.prisma.$transaction([
-    reg.prisma.project.updateMany({ where: { parentId: id }, data: { parentId: existing.parentId } }),
-    reg.prisma.goalProject.deleteMany({ where: { projectId: id } }),
+    reg.prisma.goalProject.deleteMany({ where: { projectId: { in: ids } } }),
     ...cleanup.ops,
-    reg.prisma.project.delete({ where: { id } })
+    // Deepest first, so no row is left pointing at a parent already gone.
+    ...[...ids].reverse().map((projectId) => reg.prisma.project.delete({ where: { id: projectId } }))
   ]);
   await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });

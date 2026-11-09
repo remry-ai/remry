@@ -7,7 +7,7 @@ import { readLastSync } from '$shared/utils/sync-state';
 import { asBodyType } from '$shared/types/body-types';
 import { linkedText, planBodyUpdate, prepareContent } from '$api/_body';
 import { wouldCreateCycle } from '$shared/utils/hierarchy';
-import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
+import { planEntitiesCleanup, removeFiles, subtreeIds } from '$api/_entity-cleanup';
 import { archiveWhere, ensureWritable, ACTIVE } from '$api/_archive';
 import { syncMentions } from '$api/relation/mentions';
 import { adoptForeignImages, storeEditorImage, tidyEditorImages, type StoredImage } from '$api/_images';
@@ -193,19 +193,19 @@ export const updatePage = async (
   return ok({ id });
 };
 
-/** Sub-pages move up to this page's parent; attached items and relations are deleted. */
+/** Deletes the page and its sub-pages at any depth, with what's attached to each and their relations. */
 export const deletePage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now'>,
   id: string
 ): Promise<Result<{ readonly deleted: true }>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { parentId: true } });
+  const existing = await reg.prisma.page.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return err(new Error(`Page ${id} not found`));
 
-  const cleanup = await planEntityCleanup(reg, 'PAGE', id);
+  const ids = await subtreeIds(reg, 'PAGE', id);
+  const cleanup = await planEntitiesCleanup(reg, 'PAGE', ids);
   await reg.prisma.$transaction([
-    reg.prisma.page.updateMany({ where: { parentId: id }, data: { parentId: existing.parentId } }),
     ...cleanup.ops,
-    reg.prisma.page.delete({ where: { id } })
+    reg.prisma.page.deleteMany({ where: { id: { in: [...ids] } } })
   ]);
   await removeFiles(reg, cleanup);
   return ok({ deleted: true as const });

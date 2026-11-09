@@ -163,3 +163,45 @@ export const removeFiles = async (
   }
   await purgeTrash(reg);
 };
+
+/**
+ * A project or page and everything under it, at any depth, the root first. Deleting one deletes
+ * its sub-projects or sub-pages with it (goals stay loose: a goal's sub-goals move up).
+ */
+export const subtreeIds = async (
+  reg: Pick<Registry, 'prisma'>,
+  entityType: 'PROJECT' | 'PAGE',
+  rootId: string
+): Promise<readonly string[]> => {
+  const ids = [rootId];
+  const seen = new Set(ids);
+  let frontier: string[] = [rootId];
+  while (frontier.length > 0) {
+    const next: string[] = [];
+    for (const batch of inBatches(frontier)) {
+      const where = { parentId: { in: batch } };
+      const select = { id: true } as const;
+      const rows = entityType === 'PROJECT'
+        ? await reg.prisma.project.findMany({ where, select })
+        : await reg.prisma.page.findMany({ where, select });
+      for (const { id } of rows) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+        next.push(id);
+      }
+    }
+    frontier = next;
+  }
+  return ids;
+};
+
+/** planEntityCleanup for several entities of one type at once (a project and its sub-projects). */
+export const planEntitiesCleanup = async (
+  reg: Pick<Registry, 'prisma'>,
+  entityType: EntityType,
+  ids: readonly string[]
+): Promise<EntityCleanup> => {
+  const plans = await Promise.all(ids.map((id) => planEntityCleanup(reg, entityType, id)));
+  return { ops: plans.flatMap((p) => p.ops), folders: plans.flatMap((p) => p.folders) };
+};
