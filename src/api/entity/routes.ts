@@ -19,6 +19,8 @@ import { removeDoc } from '$api/attached/doc/operations';
 import { removeNote } from '$api/attached/note/operations';
 import { removeLink } from '$api/attached/link/operations';
 import { CONVERT_FROM, CONVERT_TO, convertEntity } from '$api/convert/operations';
+import { previewDelete } from './delete-preview';
+import { PREVIEWABLE_TYPES } from '$shared/types/delete-preview';
 
 export const DELETABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'TODO', 'DOC', 'NOTE', 'LINK'] as const;
 export type DeletableType = (typeof DELETABLE_TYPES)[number];
@@ -72,6 +74,12 @@ export const entityRouter = router({
       allowDuplicate: z.boolean().optional().describe('To PROJECT: create it even though a project has its name')
     }))
     .mutation(({ ctx, input }) => convertEntity(ctx.reg, input)),
+
+  // What a delete takes with it, for the app's confirmation (app-only: Claude reads search.recall).
+  deletePreview: procedure
+    .meta({ description: 'What deleting a person, group, project, goal or page takes with it, and what moves up or loses its owner.' })
+    .input(z.object({ entityType: z.enum(PREVIEWABLE_TYPES), id: z.string() }))
+    .query(({ ctx, input }) => previewDelete(ctx.reg, input.entityType, input.id)),
 
   // Deletes for good, with everything attached to it (its notes, docs, todos, links,
   // tags and relations). Prefer archive for anything that may matter later.

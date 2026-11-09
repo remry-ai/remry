@@ -2,7 +2,7 @@
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
-  import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
+  import DeleteEntityButton from '$lib/common/DeleteEntityButton.svelte';
   import GroupedOptions from '$lib/ui/GroupedOptions.svelte';
   import { submit } from '$lib/ui/submit';
   import { GOAL_STATUSES, type GoalStatus } from '$shared/types/enums';
@@ -172,7 +172,7 @@
       <button type="button" class="btn ghost" onclick={onCancel}>Cancel</button>
     {/if}
     {#if isEdit && onDelete}
-      <span class="ml-auto"><ConfirmButton label="Delete" confirmLabel="Delete goal" variant="button" onConfirm={onDelete} /></span>
+      <span class="ml-auto"><DeleteEntityButton entityType="GOAL" entityId={initial.id!} confirmLabel="Delete goal" onConfirm={onDelete} /></span>
     {/if}
   </div>
 </form>

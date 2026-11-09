@@ -97,7 +97,9 @@ Then call `removeFiles(reg, cleanup)` once the transaction commits. It removes t
 
 Attaching is checked the other way: `ensureAttachable` (`_archive.ts`) refuses to attach a note, doc, todo, link, tag, comment, emoji or report to an id that doesn't exist (or is archived), and `addNote` refuses a reply whose parent is on another entity.
 
-Goals and pages move their children up to their own parent; `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
+**What a delete takes** is shown before it in the app: `entity.deletePreview` (app-only, `entity/delete-preview.ts`, `previewDelete`) reads the same rows `planEntityCleanup` deletes (`collectAttached`) and returns them by title, with a goal's check-ins, the sub-items that move up and the projects and goals that lose their owner. `tests/integration/delete-preview.test.ts` checks the delete removes what it named.
+
+Projects, goals and pages move their children up to their own parent; `wouldCreateCycle` (`$shared/utils/hierarchy`) rejects a parent change that would make a loop for projects, goals and pages.
 
 ## Converting
 

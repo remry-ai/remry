@@ -23,6 +23,8 @@ export const APP_ONLY: ReadonlySet<string> = new Set([
   // entity.archive and entity.delete do these for every type.
   ...['person', 'group', 'project', 'goal', 'page'].flatMap((type) => [`${type}.archive`, `${type}.unarchive`, `${type}.delete`]),
   'todo.delete', 'doc.remove', 'note.remove', 'link.remove',
+  // The app's delete confirmation; Claude sees what's attached with search.recall.
+  'entity.deletePreview',
   // The app's own views: reactions and the home graph.
   'emoji.list', 'emoji.toggle', 'home.graph',
   // The ⌘K finder's list of every doc; Claude finds docs with doc.list on an entity or search.query.

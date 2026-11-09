@@ -4,7 +4,7 @@
   // share link, which the server fetches and decrypts (drawing.importLink).
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
-  import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
+  import DeleteEntityButton from '$lib/common/DeleteEntityButton.svelte';
   import { submit } from '$lib/ui/submit';
   import { BODY_LABELS, BODY_TYPES, type BodyType } from '$shared/types/body-types';
   import { page } from '$app/state';
@@ -108,7 +108,7 @@
       <button type="button" class="btn ghost" onclick={onCancel}>Cancel</button>
     {/if}
     {#if isEdit && onDelete}
-      <span class="ml-auto"><ConfirmButton label="Delete" confirmLabel="Delete page" variant="button" onConfirm={onDelete} /></span>
+      <span class="ml-auto"><DeleteEntityButton entityType="PAGE" entityId={initial.id!} confirmLabel="Delete page" onConfirm={onDelete} /></span>
     {/if}
   </div>
 </form>

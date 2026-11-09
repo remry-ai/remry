@@ -3,7 +3,7 @@
   // modules add (org: title, lead; personal: how we know them, birthday).
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
-  import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
+  import DeleteEntityButton from '$lib/common/DeleteEntityButton.svelte';
   import { submit } from '$lib/ui/submit';
   import { model } from '$lib/stores/notebook-model';
   import { fieldRaw } from '$lib/person/fields';
@@ -125,7 +125,7 @@
       <button type="button" class="btn ghost" onclick={onCancel}>Cancel</button>
     {/if}
     {#if isEdit && onDelete}
-      <span class="ml-auto"><ConfirmButton label="Delete" confirmLabel="Delete person" variant="button" onConfirm={onDelete} /></span>
+      <span class="ml-auto"><DeleteEntityButton entityType="PERSON" entityId={initial.id!} confirmLabel="Delete person" onConfirm={onDelete} /></span>
     {/if}
   </div>
 </form>

@@ -3,7 +3,7 @@
   import { trpc } from '$shared/trpc/client';
   import Field from '$lib/ui/Field.svelte';
   import MarkdownEditor from '$lib/common/MarkdownEditor.svelte';
-  import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
+  import DeleteEntityButton from '$lib/common/DeleteEntityButton.svelte';
   import { submit } from '$lib/ui/submit';
   import type { GroupKindDefinition } from '$shared/types/groups';
 
@@ -100,7 +100,7 @@
       <button type="button" class="btn ghost" onclick={onCancel}>Cancel</button>
     {/if}
     {#if isEdit && onDelete}
-      <span class="ml-auto"><ConfirmButton label="Delete" confirmLabel="Delete {kindName}" variant="button" onConfirm={onDelete} /></span>
+      <span class="ml-auto"><DeleteEntityButton entityType="GROUP" entityId={initial.id!} confirmLabel="Delete {kindName}" onConfirm={onDelete} /></span>
     {/if}
   </div>
 </form>

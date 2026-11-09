@@ -61,7 +61,7 @@ const refBatches = (refs: readonly Ref[]): { readonly entityType: string; readon
  * tags, a doc's links, replies to a note. Each pass looks for what's attached to
  * the rows the last pass found, until a pass finds nothing new.
  */
-const collectAttached = async (
+export const collectAttached = async (
   reg: Pick<Registry, 'prisma'>,
   roots: readonly Ref[]
 ): Promise<{ readonly ids: Readonly<Record<AttachedType, readonly string[]>> }> => {
