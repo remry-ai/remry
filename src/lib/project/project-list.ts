@@ -1,6 +1,6 @@
 // The projects list page: filter and grouping by owning group (`?team=`, kept
 // from when only teams owned work), and collapsed rows.
-import { buildTree, leavesFirst, scopeTree, type ScopedNode, type TreeNode } from '$shared/utils/hierarchy';
+import { buildTree, leavesFirst, scopeTree, sortForest, type ScopedNode, type TreeNode } from '$shared/utils/hierarchy';
 import type { EntityOwner } from '$shared/types/owner';
 
 export interface ProjectListItem {
@@ -25,6 +25,10 @@ export const TEAM_NONE = 'none';
 export const PROJECT_GROUPINGS = ['none', 'team'] as const;
 export type ProjectGrouping = (typeof PROJECT_GROUPINGS)[number];
 
+/** `?sort=`: by name (the default, as the list loads) or by start date. */
+export const PROJECT_SORTS = ['name', 'start'] as const;
+export type ProjectSort = (typeof PROJECT_SORTS)[number];
+
 export interface ProjectTeamOption {
   readonly id: string;
   readonly name: string;
@@ -35,6 +39,7 @@ export interface ProjectListParams {
   /** A team id, `TEAM_NONE`, or null for every team. */
   readonly team: string | null;
   readonly groupBy: ProjectGrouping;
+  readonly sort: ProjectSort;
 }
 
 export interface ProjectGroup {
@@ -65,24 +70,51 @@ export const projectTeamOptions = (projects: readonly ProjectListItem[]): readon
   return hasNone ? [...sorted, { id: TEAM_NONE, name: 'No group', path: null }] : sorted;
 };
 
-/** Reads `?team=` and `?group=`. A team that owns none of the listed projects means every team. */
+/** A project's start as YYYY-MM-DD, or null. */
+const startDay = (project: Pick<ProjectListItem, 'startDate'>): string | null => {
+  const start = project.startDate;
+  if (!start) return null;
+  return (typeof start === 'string' ? start : start.toISOString()).slice(0, 10);
+};
+
+/** Earliest start first; no start date last; then by name. */
+export const compareByStart = (a: Pick<ProjectListItem, 'startDate' | 'name'>, b: Pick<ProjectListItem, 'startDate' | 'name'>): number => {
+  const [sa, sb] = [startDay(a), startDay(b)];
+  if (sa !== sb) {
+    if (sa === null) return 1;
+    if (sb === null) return -1;
+    return sa < sb ? -1 : 1;
+  }
+  return a.name.localeCompare(b.name);
+};
+
+/**
+ * A level's order: projects without sub-projects first, then those with them (leavesFirst),
+ * each set by name as loaded or, with `sort: 'start'`, by start date.
+ */
+const ordered = (nodes: readonly ScopedNode<ProjectListItem>[], sort: ProjectSort): readonly ScopedNode<ProjectListItem>[] =>
+  leavesFirst(sort === 'start' ? sortForest(nodes, (a, b) => compareByStart(a.item, b.item)) : nodes);
+
+/** Reads `?team=`, `?group=` and `?sort=`. A team that owns none of the listed projects means every team. */
 export const parseProjectListParams = (
   searchParams: URLSearchParams,
   teams: readonly ProjectTeamOption[]
 ): ProjectListParams => {
   const team = searchParams.get('team');
   const group = searchParams.get('group');
+  const sort = searchParams.get('sort');
   return {
     team: team !== null && teams.some((option) => option.id === team) ? team : null,
-    groupBy: (PROJECT_GROUPINGS as readonly string[]).includes(group ?? '') ? (group as ProjectGrouping) : 'none'
+    groupBy: (PROJECT_GROUPINGS as readonly string[]).includes(group ?? '') ? (group as ProjectGrouping) : 'none',
+    sort: (PROJECT_SORTS as readonly string[]).includes(sort ?? '') ? (sort as ProjectSort) : 'name'
   };
 };
 
 const countMatches = (nodes: readonly ScopedNode<ProjectListItem>[]): number =>
   nodes.reduce((total, node) => total + (node.context ? 0 : 1) + countMatches(node.children), 0);
 
-const teamGroup = (forest: readonly TreeNode<ProjectListItem>[], team: ProjectTeamOption): ProjectGroup => {
-  const nodes = leavesFirst(scopeTree(forest, (project) => projectTeamKey(project) === team.id));
+const teamGroup = (forest: readonly TreeNode<ProjectListItem>[], team: ProjectTeamOption, sort: ProjectSort): ProjectGroup => {
+  const nodes = ordered(scopeTree(forest, (project) => projectTeamKey(project) === team.id), sort);
   return { key: team.id, label: team.name, path: team.path, nodes, count: countMatches(nodes) };
 };
 
@@ -98,10 +130,10 @@ export const projectListGroups = (
   const forest = buildTree(projects, (project) => project.parentId);
   if (params.team !== null) {
     const team = teams.find((option) => option.id === params.team);
-    return team ? [teamGroup(forest, team)] : [];
+    return team ? [teamGroup(forest, team, params.sort)] : [];
   }
-  if (params.groupBy === 'team') return teams.map((team) => teamGroup(forest, team));
-  const nodes = leavesFirst(scopeTree(forest, () => true));
+  if (params.groupBy === 'team') return teams.map((team) => teamGroup(forest, team, params.sort));
+  const nodes = ordered(scopeTree(forest, () => true), params.sort);
   return nodes.length > 0 ? [{ key: 'all', label: 'All projects', path: null, nodes, count: projects.length }] : [];
 };
 

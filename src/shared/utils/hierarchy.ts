@@ -118,6 +118,12 @@ export const scopeTree = <T>(
     return isMatch || children.length > 0 ? [{ item: node.item, depth: node.depth, context: !isMatch, children }] : [];
   });
 
+/** The same forest with each level sorted by `compare` (stable, so equal nodes keep their order). */
+export const sortForest = <N extends { readonly children: readonly N[] }>(
+  nodes: readonly N[],
+  compare: (a: N, b: N) => number
+): readonly N[] => [...nodes].map((node) => ({ ...node, children: sortForest(node.children, compare) })).sort(compare);
+
 /**
  * The same forest with, at every level, the nodes without children first and
  * those with children after, keeping the order within each set.

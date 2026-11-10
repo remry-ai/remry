@@ -7,6 +7,7 @@ import {
   parseProjectListParams,
   projectListGroups,
   projectTeamOptions,
+  compareByStart,
   type ProjectGroup,
   type ProjectListItem
 } from '../project-list';
@@ -65,11 +66,11 @@ describe('projectTeamOptions', () => {
 
 describe('parseProjectListParams', () => {
   it('reads the team and grouping', () => {
-    expect(params('team=pps&group=team')).toEqual({ team: 'pps', groupBy: 'team' });
+    expect(params('team=pps&group=team')).toEqual({ team: 'pps', groupBy: 'team', sort: 'name' });
   });
 
   it('ignores an unknown team or grouping', () => {
-    expect(params('team=gone&group=colour')).toEqual({ team: null, groupBy: 'none' });
+    expect(params('team=gone&group=colour')).toEqual({ team: null, groupBy: 'none', sort: 'name' });
   });
 });
 
@@ -135,5 +136,46 @@ describe('collapsing rows', () => {
     const toggled = new Set(['orchestration']);
     const visible = flattenTree(onlyGroup('').nodes, (n) => isRowCollapsed(n.item.id, 'collapsed', toggled));
     expect(visible.map((n) => n.item.id)).toEqual(['solo', 'exchange', 'orchestration', 'orchestration-m1']);
+  });
+});
+
+describe('sort by start date', () => {
+  const dated = (id: string, parentId: string | null, startDate: string | null): ProjectListItem => ({ ...project(id, parentId, null), startDate });
+  const list: readonly ProjectListItem[] = [
+    dated('a-late', null, '2026-09-01'),
+    dated('b-undated', null, null),
+    dated('c-early-parent', null, '2026-01-15'),
+    dated('c-child-late', 'c-early-parent', '2026-05-01'),
+    dated('c-child-early', 'c-early-parent', '2026-02-01'),
+    dated('d-early', null, '2026-03-01'),
+    dated('e-late-parent', null, '2026-04-01'),
+    dated('e-child', 'e-late-parent', null)
+  ];
+  const ids = (query: string) => {
+    const opts = projectTeamOptions(list);
+    const [group] = projectListGroups(list, parseProjectListParams(new URLSearchParams(query), opts), opts);
+    return flattenTree(group?.nodes ?? []).map((n) => n.item.id);
+  };
+
+  it('reads ?sort=start, and anything else as by name', () => {
+    expect(parseProjectListParams(new URLSearchParams('sort=start'), []).sort).toBe('start');
+    expect(parseProjectListParams(new URLSearchParams('sort=colour'), []).sort).toBe('name');
+  });
+
+  it('keeps projects without sub-projects first, each set by start date, undated last', () => {
+    expect(ids('sort=start')).toEqual([
+      'd-early', 'a-late', 'b-undated',
+      'c-early-parent', 'c-child-early', 'c-child-late',
+      'e-late-parent', 'e-child'
+    ]);
+  });
+
+  it('leaves the order as loaded without it', () => {
+    expect(ids('')).toEqual(['a-late', 'b-undated', 'd-early', 'c-early-parent', 'c-child-late', 'c-child-early', 'e-late-parent', 'e-child']);
+  });
+
+  it('compares dates given as Date or string, then names', () => {
+    expect(compareByStart({ name: 'b', startDate: new Date('2026-01-01T00:00:00Z') }, { name: 'a', startDate: '2026-01-01' })).toBeGreaterThan(0);
+    expect(compareByStart({ name: 'a', startDate: null }, { name: 'b', startDate: '2026-01-01' })).toBeGreaterThan(0);
   });
 });

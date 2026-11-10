@@ -38,6 +38,10 @@
     { id: 'table', name: 'Table' },
     { id: 'map', name: 'Map' }
   ];
+  const SORT_OPTIONS = [
+    { id: 'name', name: 'Sort by name' },
+    { id: 'start', name: 'Sort by start date' }
+  ];
   const GROUPING_OPTIONS = [
     { id: 'none', name: 'No grouping' },
     { id: 'team', name: 'Group by team' }
@@ -130,6 +134,9 @@
       {#if !isMap}
         <ParamSelect param="group" options={GROUPING_OPTIONS} defaultValue="none" ariaLabel="Group projects" />
       {/if}
+    {/if}
+    {#if !isMap}
+      <ParamSelect param="sort" options={SORT_OPTIONS} defaultValue="name" ariaLabel="Sort projects" />
     {/if}
     <span class="spacer"></span>
     {#if hasNesting && !isMap}
