@@ -7,6 +7,8 @@
   import ArchiveFilter from '$lib/ui/ArchiveFilter.svelte';
   import ParamSelect from '$lib/ui/ParamSelect.svelte';
   import ParamToggle from '$lib/ui/ParamToggle.svelte';
+  import Menu, { type MenuItem } from '$lib/ui/Menu.svelte';
+  import { goto } from '$app/navigation';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import ProjectForm from '$lib/project/components/ProjectForm.svelte';
   import DependencyMap from '$lib/project/components/DependencyMap.svelte';
@@ -37,14 +39,6 @@
   const VIEW_OPTIONS = [
     { id: 'table', name: 'Table' },
     { id: 'map', name: 'Map' }
-  ];
-  const SORT_OPTIONS = [
-    { id: 'name', name: 'Sort by name' },
-    { id: 'start', name: 'Sort by start date' }
-  ];
-  const GROUPING_OPTIONS = [
-    { id: 'none', name: 'No grouping' },
-    { id: 'team', name: 'Group by team' }
   ];
 
   const { data } = $props<{ data: PageData }>();
@@ -100,6 +94,28 @@
     }))
   );
   const hasNesting = $derived(groups.some((group) => group.nodes.some((node) => node.children.length > 0)));
+  // One button for both: Expand all while any parent row is folded, else Collapse all.
+  const anyCollapsed = $derived(groups.some((group) =>
+    flattenTree(group.nodes, () => false).some((row) => row.children.length > 0 && isRowCollapsed(row.item.id, collapse.base, collapse.toggled))));
+
+  // Sort and grouping share one menu, each in its own query parameter (the default removes it).
+  const setParam = (param: string, value: string, defaultValue: string) => {
+    const url = new URL(page.url);
+    if (value === defaultValue) url.searchParams.delete(param);
+    else url.searchParams.set(param, value);
+    void goto(url, { keepFocus: true, noScroll: true, replaceState: true });
+  };
+  const arrangeItems = $derived<readonly MenuItem[]>([
+    { label: 'Sort by name', current: params.sort === 'name', onSelect: () => setParam('sort', 'name', 'name') },
+    { label: 'Sort by start date', current: params.sort === 'start', onSelect: () => setParam('sort', 'start', 'name') },
+    ...(teams.length > 0
+      ? [
+          { label: 'No grouping', current: params.groupBy === 'none', divided: true, onSelect: () => setParam('group', 'none', 'none') },
+          { label: 'Group by team', current: params.groupBy === 'team', onSelect: () => setParam('group', 'team', 'none') }
+        ]
+      : [])
+  ]);
+  const arrangeLabel = $derived(`${params.sort === 'start' ? 'By start date' : 'By name'}${params.groupBy === 'team' ? ' · by team' : ''}`);
   const grouped = $derived(params.groupBy === 'team');
 
   const isMap = $derived(page.url.searchParams.get('view') === 'map');
@@ -131,17 +147,15 @@
     <ArchiveFilter closedLabel="Done or abandoned" />
     {#if teams.length > 0}
       <ParamSelect param="team" options={teamFilterOptions} defaultValue="" ariaLabel="Filter by team" />
-      {#if !isMap}
-        <ParamSelect param="group" options={GROUPING_OPTIONS} defaultValue="none" ariaLabel="Group projects" />
-      {/if}
     {/if}
     {#if !isMap}
-      <ParamSelect param="sort" options={SORT_OPTIONS} defaultValue="name" ariaLabel="Sort projects" />
+      <Menu label="Sort and group" items={arrangeItems}>
+        {#snippet trigger()}{arrangeLabel}{/snippet}
+      </Menu>
     {/if}
     <span class="spacer"></span>
     {#if hasNesting && !isMap}
-      <button type="button" class="btn sm ghost" onclick={() => setAll('expanded')}>Expand all</button>
-      <button type="button" class="btn sm ghost" onclick={() => setAll('collapsed')}>Collapse all</button>
+      <button type="button" class="btn sm ghost" onclick={() => setAll(anyCollapsed ? 'expanded' : 'collapsed')}>{anyCollapsed ? 'Expand all' : 'Collapse all'}</button>
     {/if}
     <ParamToggle param="view" options={VIEW_OPTIONS} defaultValue="table" ariaLabel="View" />
   </div>
