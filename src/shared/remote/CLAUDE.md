@@ -1,0 +1,9 @@
+# Opening the app on other devices — `src/shared/remote/`
+
+The one opt-in hole in the network boundary (`src/hooks.server.ts`): another device on the user's own tailnet, through `tailscale serve`, which proxies to loopback keeping the Host. Remry Pro to turn on; turning off is always free.
+
+- **The rule** (`allowRequest` in `tailnet.ts`, pure): a request whose hostname isn't loopback gets 403, unless it's exactly the saved `tailnetHost` (`settings.json`), a full `*.ts.net` name, and not marked by Tailscale as Funnel (from the internet). The `x-remry: 1` API header still applies. Never widen it to other hostnames, LAN addresses or `0.0.0.0`.
+- **Setting it:** `remoteAccess.set --hostname <machine>.<tailnet>.ts.net`, or the **Other devices** page (`/app/other-devices`, in the notebook menu), whose Turn on (`--tailscale true`) checks Tailscale is installed, connected and has HTTPS certificates, runs `tailscale serve` unless it already serves the app, and saves the name. Turn off clears it.
+- **The `tailscale` CLI** (`tailscale.server.ts`; parsing in the pure `tailscale.ts`): only `status --json`, `serve status --json`, `serve --bg --yes <port>` (Turn on) and `serve --https=443 off` (Turn off, only when Remry is all it serves there), each with a timeout and `TAILSCALE_BE_CLI=1` (the Mac app's binary otherwise starts as the app), a `tailscale` on PATH before the app's own. The app makes no request itself. Don't run any other `tailscale` command, and never Funnel.
+- **Start at login** (the same page, `remoteAccess.set --startAtLogin`, macOS with the desktop app): writes a LaunchAgent, `dev.jweatherby.remry.app`, that runs `App/current/remry app` at login with no window and no KeepAlive (`src/shared/startup/login-agent.ts`, pure); off removes the file and leaves a running server alone.
+- The desktop app's `open=app` hand-off and the app's stop endpoint stay loopback only.

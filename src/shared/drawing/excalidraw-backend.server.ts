@@ -3,7 +3,7 @@
 // drawing.importLink). It sends or fetches the drawing encrypted
 // (excalidraw-link.ts); the key never leaves this computer except inside the
 // link the user shares. One host, fixed here; a timeout and a size cap on both
-// ways. See CLAUDE.md § Ground rules.
+// ways. See src/lib/drawing/CLAUDE.md.
 
 import { ok, err, type Result } from '$shared/utils/result';
 
