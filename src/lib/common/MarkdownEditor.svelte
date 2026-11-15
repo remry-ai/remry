@@ -222,9 +222,9 @@
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     background: var(--surface);
-    // clip, not hidden: hidden would make this box the scroll container the
-    // toolbar sticks to, and it never scrolls, so the toolbar would scroll away.
-    overflow: clip;
+    // No overflow here at all, not even clip: WebKit (the desktop app's window) let the sticky
+    // toolbar scroll away inside a clipping box. The bar rounds its own top corners instead, and a
+    // wide table scrolls itself (below).
   }
 
   // The toolbar and link field stay in view while a long doc scrolls. A page
@@ -234,6 +234,7 @@
     top: var(--sticky-top, 0);
     z-index: var(--z-sticky);
     background: var(--surface);
+    border-radius: var(--r-md) var(--r-md) 0 0;
   }
 
   .editor-toolbar {
@@ -277,6 +278,7 @@
 
   .md-editor-wrap {
     min-height: 200px;
+    min-width: 0;
 
     :global(.milkdown) {
       padding: var(--sp-2) var(--sp-3);
