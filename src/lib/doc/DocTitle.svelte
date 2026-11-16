@@ -1,6 +1,6 @@
 <script lang="ts">
   // An open doc's title row, the same for every type: its tag (Doc, Spreadsheet, Drawing),
-  // the title, a boxed pencil after it to rename, and whatever the doc adds after it (Enter or
+  // the title, a boxed pencil after it that opens the doc's edit popup (or renames in place), and whatever the doc adds after it (Enter or
   // leaving the box saves, Esc cancels). A doc just made opens with its title selected, to type over.
   import type { Snippet } from 'svelte';
   import { BODY_LABELS, type BodyType } from '$shared/types/body-types';
@@ -15,11 +15,13 @@
     readonly autoEdit?: boolean;
     /** A paste into the title box; true when it took it (a document's images go into its body). */
     readonly onPaste?: (e: ClipboardEvent) => boolean;
+    /** The boxed pencil opens the doc's edit popup (title, Delete). Without it, it renames in place. */
+    readonly onEdit?: () => void;
     /** After the title: a document's "Convert with Claude". */
     readonly after?: Snippet;
   }
 
-  const { title, bodyType, onSaveTitle, autoEdit = false, onPaste, after }: Props = $props();
+  const { title, bodyType, onSaveTitle, autoEdit = false, onPaste, onEdit, after }: Props = $props();
 
   // Read once: a new doc starts with its title in the box.
   // svelte-ignore state_referenced_locally
@@ -64,8 +66,10 @@
     <input class="title-input" bind:value={draft} onblur={commit} onkeydown={handleKeydown} onpaste={handlePaste} use:focusOnMount aria-label="{BODY_LABELS[bodyType]} title" />
   {:else}
     <h2>{title}</h2>
-    {#if onSaveTitle}
-      <button type="button" class="btn icon sm rename" aria-label="Rename {title}" title="Rename" onclick={start}><EditBoxIcon /></button>
+    {#if onEdit}
+      <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit {BODY_LABELS[bodyType].toLowerCase()}" onclick={onEdit}><EditBoxIcon /></button>
+    {:else if onSaveTitle}
+      <button type="button" class="btn icon sm" aria-label="Rename {title}" title="Rename" onclick={start}><EditBoxIcon /></button>
     {/if}
   {/if}
   {#if after}{@render after()}{/if}

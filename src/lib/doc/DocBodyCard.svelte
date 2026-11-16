@@ -31,9 +31,11 @@
     readonly sources?: Snippet;
     /** A doc just made: it opens with its title selected, ready to type over. */
     readonly autoEditTitle?: boolean;
+    /** Opens the doc's edit popup (title, Delete). */
+    readonly onEdit?: () => void;
   }
 
-  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, onImportLink, exportHref, sources, autoEditTitle = false }: Props = $props();
+  const { title, bodyType, content, editable, onSave, onSaveTitle, onClose, onDrawingClosed, onShare, onImportLink, exportHref, sources, autoEditTitle = false, onEdit }: Props = $props();
 
   let drawingOpen = $state(false);
 
@@ -51,7 +53,7 @@
 </script>
 
 <section class="card doc-card">
-  <DocTitle {title} {bodyType} onSaveTitle={editable ? onSaveTitle : undefined} autoEdit={autoEditTitle} />
+  <DocTitle {title} {bodyType} onSaveTitle={editable ? onSaveTitle : undefined} onEdit={editable ? onEdit : undefined} autoEdit={autoEditTitle} />
   {#if sources}<div class="doc-sources">{@render sources()}</div>{/if}
   <div>
     <DocBar {title} {bodyType} exportHref={isEmptyBody(bodyType, content) ? undefined : exportHref} onExport={handleExport} onClose={handleClose}>

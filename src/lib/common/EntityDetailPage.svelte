@@ -36,6 +36,7 @@
   import { rightPanelNotes, rightPanelPage, rightPanelTodos } from '$lib/stores/right-panel';
   import { activeDrawer } from '$lib/stores/drawers';
   import EditBoxIcon from '$lib/ui/EditBoxIcon.svelte';
+  import DocForm from '$lib/doc/DocForm.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
@@ -405,6 +406,20 @@
     await loadDocLinks(id);
   };
 
+  // ----- A doc's edit popup: its title and Delete, as an entity's has -----
+  const DOC_EDIT_POPUP = 'edit-doc';
+  const openDocEdit = () => { void openPopup(DOC_EDIT_POPUP); };
+  const handleDocEditSave = async (title: string) => {
+    await docHandlers.handleSaveTitle(title);
+    await closePopup();
+  };
+  // Deleting closes the doc (handleRemoveDoc), then the popup.
+  const handleDocEditDelete = async (id: string) => {
+    newDocId = null;
+    await docHandlers.handleRemoveDoc(id);
+    await closePopup();
+  };
+
   // ----- Edit popup -----
   const openEdit = () => { openPopup(editPopupId); };
   const handleEditSuccess = () => closePopup({ invalidate: true });
@@ -532,6 +547,7 @@
         onClose={closeDoc}
         onDrawingClosed={invalidateAll}
         onShare={handleShareDocDrawing}
+        onEdit={openDocEdit}
         onImportLink={handleImportDocDrawing}
         exportHref={printUrl(activeDoc.id)}
         sources={docLinks.length > 0 || !archivedAt ? bodySources : undefined}
@@ -556,6 +572,7 @@
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
         autoEditTitle={activeDoc.id === newDocId}
+        onEdit={archivedAt ? undefined : openDocEdit}
       />
       {/key}
     {:else}
@@ -598,6 +615,16 @@
         onClose={() => closeNotePopup()}
       />
     {/key}
+  {/if}
+</Popup>
+
+<Popup id={DOC_EDIT_POPUP} title="Edit {BODY_LABELS[activeDoc?.bodyType ?? 'doc'].toLowerCase()}">
+  {#if activeDoc}
+    {#key activeDoc.id}
+      <DocForm title={activeDoc.title} bodyType={activeDoc.bodyType ?? 'doc'} onSave={handleDocEditSave} onCancel={() => { void closePopup(); }} onDelete={() => handleDocEditDelete(activeDoc.id)} />
+    {/key}
+  {:else}
+    <EmptyState message="Open a doc to edit it." />
   {/if}
 </Popup>
 

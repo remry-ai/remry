@@ -45,11 +45,13 @@
     /** Colours charts in the preview like the exported PDF (the default branding). */
     readonly chartBranding?: ChartBranding | null;
     readonly autoEditTitle?: boolean;
+    /** Opens the doc's edit popup (title, Delete). */
+    readonly onEdit?: () => void;
     /** The tab it opens on: Preview, unless the doc is empty (nothing to preview) or the caller asked to edit. */
     readonly startIn?: 'editor' | 'preview';
   }
 
-  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, startIn, showTitle = true }: Props = $props();
+  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, onEdit, startIn, showTitle = true }: Props = $props();
 
   const pendingImages = new Map<string, File>();
   // blob: addresses already in the content as loaded: saved by an earlier tab, so their
@@ -193,7 +195,7 @@
 
 <section class="card doc-card">
   {#if showTitle}
-    <DocTitle {title} bodyType="doc" {onSaveTitle} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
+    <DocTitle {title} bodyType="doc" {onSaveTitle} {onEdit} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
       {#snippet after()}
         {#if hasSourceFile && onConvert && !converting && !content.trim()}
           <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}<ProIcon /></button>
