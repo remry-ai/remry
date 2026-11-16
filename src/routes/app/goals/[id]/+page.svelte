@@ -323,7 +323,6 @@
   {/snippet}
 
   {#snippet renderAssetHeader()}
-    <span class="asset-h-name">{goal.title}</span>
     <span class={goalStatusBadgeClass(goal.status)}>{GOAL_STATUS_LABELS[goal.status]}</span>
     {#if goal.period}<span class="asset-h-meta">{goal.period}</span>{/if}
   {/snippet}

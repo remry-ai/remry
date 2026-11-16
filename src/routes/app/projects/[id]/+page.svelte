@@ -294,7 +294,6 @@
   {/snippet}
 
   {#snippet renderAssetHeader()}
-    <span class="asset-h-name">{project.name}</span>
     <StatusBadge status={project.status} />
   {/snippet}
 

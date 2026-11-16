@@ -211,7 +211,7 @@
   {:else}
     <div class="doc-editor doc-text" class:with-title={showTitle}>
       <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
-      <DocBar {title} bodyType="doc" {showTitle} exportHref={isEmptyBody('doc', content) ? undefined : exportHref} onExport={handleExport} {onClose}>
+      <DocBar {title} bodyType="doc" {showTitle} exportHref={mode !== 'preview' || isEmptyBody('doc', content) ? undefined : exportHref} onExport={handleExport} {onClose}>
         {#snippet tabs()}
           <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
           <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>

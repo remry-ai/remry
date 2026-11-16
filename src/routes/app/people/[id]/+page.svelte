@@ -157,7 +157,6 @@
 
   {#snippet renderAssetHeader()}
     {@const subtitle = $model.personFields.filter((f) => f.input === 'text').map((f) => fieldText(person.extensions, f)).find(Boolean)}
-    <span class="asset-h-name">{person.name}</span>
     {#if subtitle}<span class="asset-h-meta">{subtitle}</span>{/if}
   {/snippet}
 

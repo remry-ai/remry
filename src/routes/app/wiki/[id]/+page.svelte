@@ -380,10 +380,6 @@
     {/if}
   {/snippet}
 
-  {#snippet renderAssetHeader()}
-    <span class="asset-h-name">{wikiPage.title}</span>
-  {/snippet}
-
   {#snippet renderEditForm({ onSuccess, onCancel })}
     <PageForm initial={wikiPage} {onSuccess} {onCancel} onDelete={handleDelete} />
   {/snippet}

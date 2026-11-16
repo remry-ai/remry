@@ -1,11 +1,11 @@
 <script lang="ts">
   // An open doc's title row, the same for every type: its tag (Doc, Spreadsheet, Drawing),
-  // a pencil to rename, the title, and whatever the doc adds after it (Enter or
+  // the title, a boxed pencil after it to rename, and whatever the doc adds after it (Enter or
   // leaving the box saves, Esc cancels). A doc just made opens with its title selected, to type over.
   import type { Snippet } from 'svelte';
   import { BODY_LABELS, type BodyType } from '$shared/types/body-types';
   import { errorMessage } from '$lib/ui/submit';
-  import PencilIcon from '$lib/ui/PencilIcon.svelte';
+  import EditBoxIcon from '$lib/ui/EditBoxIcon.svelte';
 
   interface Props {
     readonly title: string;
@@ -60,13 +60,13 @@
 
 <div class="doc-title-row">
   <span class="badge selected">{BODY_LABELS[bodyType]}</span>
-  {#if onSaveTitle && !editing}
-    <button type="button" class="btn icon sm rename" aria-label="Rename {title}" title="Rename" onclick={start}><PencilIcon /></button>
-  {/if}
   {#if editing}
     <input class="title-input" bind:value={draft} onblur={commit} onkeydown={handleKeydown} onpaste={handlePaste} use:focusOnMount aria-label="{BODY_LABELS[bodyType]} title" />
   {:else}
     <h2>{title}</h2>
+    {#if onSaveTitle}
+      <button type="button" class="btn icon sm rename" aria-label="Rename {title}" title="Rename" onclick={start}><EditBoxIcon /></button>
+    {/if}
   {/if}
   {#if after}{@render after()}{/if}
 </div>
@@ -77,8 +77,9 @@
     display: flex;
     align-items: center;
     gap: var(--sp-2);
+    // Only as wide as the title, so the rename button sits just after it.
     h2 {
-      flex: 1;
+      flex: 0 1 auto;
       min-width: 0;
       margin: 0;
       font-size: var(--fs-base);

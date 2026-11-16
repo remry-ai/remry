@@ -13,7 +13,7 @@
     /** False when a heading above already names it (a wiki page's): no title row. */
     readonly showTitle?: boolean;
     readonly tabs?: Snippet;
-    /** The print page (Export PDF), shown while the doc has something to print. */
+    /** The print page (Export PDF), shown while the doc has something to print; a document passes it only on Preview. */
     readonly exportHref?: string;
     /** A document saves unsaved changes before it goes there. */
     readonly onExport?: (e: MouseEvent) => void;

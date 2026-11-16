@@ -81,7 +81,6 @@
   {/snippet}
 
   {#snippet renderAssetHeader()}
-    <span class="asset-h-name">{group.name}</span>
     <span class="asset-h-meta">{group.kindName} · {group.members.length} member{group.members.length === 1 ? '' : 's'}</span>
   {/snippet}
 

@@ -35,7 +35,7 @@
   import { createNoteHandlers } from '$lib/common/use-note-handlers';
   import { rightPanelNotes, rightPanelPage, rightPanelTodos } from '$lib/stores/right-panel';
   import { activeDrawer } from '$lib/stores/drawers';
-  import PencilIcon from '$lib/ui/PencilIcon.svelte';
+  import EditBoxIcon from '$lib/ui/EditBoxIcon.svelte';
   import { openPopup, closePopup } from '$lib/ui/popup-url';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
@@ -121,7 +121,8 @@
     readonly renderOverview: Snippet<[OverviewCtx]>;
     /** The entity's label–value metadata. It sits above the docs, under the header. */
     readonly renderMeta?: Snippet<[OverviewCtx]>;
-    readonly renderAssetHeader: Snippet;
+    /** After the name and its edit button: a status, a subtitle. */
+    readonly renderAssetHeader?: Snippet;
     readonly renderEditForm: Snippet<[EditFormCtx]>;
   }
 
@@ -438,7 +439,8 @@
       return;
     }
     window.dispatchEvent(new Event(ARCHIVE_CHANGED_EVENT));
-    await invalidateAll();
+    if (!isArchived) closePopup({ invalidate: true });
+    else await invalidateAll();
   };
 
   const formatArchivedDate = (d: Date | string): string => new Date(d).toLocaleDateString('en-CA');
@@ -474,23 +476,22 @@
           <li><span title={entityName}>{entityName}</span></li>
         </ul>
       </nav>
+      <!-- The name, then the boxed pencil that opens the edit popup (title, details, delete,
+           archive), then what the page adds after it (a status, a subtitle). -->
       <div class="asset-header-row">
+        <span class="asset-h-name">{entityName}</span>
         {#if !isArchived}
-          <button type="button" class="btn icon sm edit-btn" onclick={openEdit} aria-label="Edit {entityName}" title="Edit"><PencilIcon /></button>
+          <button type="button" class="btn icon sm edit-btn" onclick={openEdit} aria-label="Edit {entityName}" title={editPopupTitle}><EditBoxIcon /></button>
         {/if}
-        <div class="asset-header-content">{@render renderAssetHeader()}</div>
-        {#if archivable}
-          <button type="button" class="btn sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>
-            {archiveBusy ? 'Saving…' : isArchived ? 'Unarchive' : 'Archive'}
-          </button>
-        {/if}
+        {#if renderAssetHeader}{@render renderAssetHeader()}{/if}
       </div>
-      {#if archiveError}<p class="inline-error">{archiveError}</p>{/if}
       {#if isArchived && archivedAt}
         <p class="archived-banner">
           <span class="badge warning">Archived</span>
           <span>Archived on {formatArchivedDate(archivedAt)}. It's read-only and hidden from lists; unarchive it to make changes.</span>
+          <button type="button" class="btn sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>{archiveBusy ? 'Saving…' : 'Unarchive'}</button>
         </p>
+        {#if archiveError}<p class="inline-error">{archiveError}</p>{/if}
       {/if}
     </div>
 
@@ -602,6 +603,18 @@
 
 <Popup id={editPopupId} title={editPopupTitle}>
   {@render renderEditForm({ onSuccess: handleEditSuccess, onCancel: handleEditCancel })}
+  <!-- Archiving lives here, beside the form's Delete, rather than on the page; an archived
+       entity has no edit button, so its banner holds Unarchive. -->
+  {#if archivable && !isArchived}
+    <div class="archive-row">
+      <div>
+        <strong>Archive</strong>
+        <p class="text-sm muted">Hide it from lists and make it read-only. You can unarchive it later.</p>
+      </div>
+      <button type="button" class="btn sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>{archiveBusy ? 'Archiving…' : 'Archive'}</button>
+    </div>
+    {#if archiveError}<p class="form-error">{archiveError}</p>{/if}
+  {/if}
 </Popup>
 
 <style lang="scss">
@@ -624,19 +637,25 @@
   .asset-header-row {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
-    .edit-btn { opacity: 0; transition: opacity var(--ease); }
-    &:hover .edit-btn, .edit-btn:focus-visible { opacity: 1; }
-  }
-  .asset-header-content {
-    flex: 1;
-    display: flex;
-    align-items: center;
     flex-wrap: wrap;
     gap: var(--sp-2);
     min-width: 0;
-    :global(.asset-h-name) { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
+    .asset-h-name { min-width: 0; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
     :global(.asset-h-meta) { font-size: var(--fs-md); color: var(--text-2); }
+    .edit-btn { opacity: 0; transition: opacity var(--ease); }
+    &:hover .edit-btn, .edit-btn:focus-visible { opacity: 1; }
+    // A touch screen has no hover.
+    @media (hover: none) { .edit-btn { opacity: 1; } }
+  }
+  .archive-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--border);
+    p { margin: var(--sp-1) 0 0; }
   }
   .archived-banner {
     display: flex;
