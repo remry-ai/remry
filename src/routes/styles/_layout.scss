@@ -45,6 +45,16 @@
   margin-bottom: var(--sp-2);
   h2, h3, h4 { margin: 0; }
   .count { font-weight: 400; color: var(--text-3); margin-left: var(--sp-1); }
+  // Stays in view under a page's sticky header (which sets --sticky-top) while a long section
+  // scrolls: a wiki page's Content heading, with its pencil and Export PDF.
+  &.sticky {
+    position: sticky;
+    top: var(--sticky-top, 0);
+    z-index: var(--z-sticky);
+    padding-block: var(--sp-2);
+    margin-bottom: 0;
+    background: var(--bg);
+  }
 }
 
 .eyebrow {

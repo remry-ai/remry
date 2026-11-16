@@ -287,7 +287,7 @@
     {/if}
     {#if isGridOrDrawing(wikiPage.bodyType)}
       <section class="section">
-        <div class="section-header">
+        <div class="section-header sticky">
           <h4>{BODY_LABELS[wikiPage.bodyType]}</h4>
           <span class="content-actions">
             <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export PDF</a>
@@ -324,7 +324,7 @@
       </section>
     {:else}
       <section class="section">
-        <div class="section-header">
+        <div class="section-header sticky">
           <h4>Content</h4>
           <span class="content-actions">
             {#if wikiPage.content.trim()}
