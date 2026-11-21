@@ -1,7 +1,7 @@
 <script lang="ts">
   // A wiki page's spreadsheet body (bodyType 'sheet'), edited in place with
   // Jspreadsheet CE: typed cells, paste from Excel or Sheets, formulas
-  // (=SUM(B2:B5)), resizable columns, renamed in a box of our own (below),
+  // (=SUM(B2:B5)) that copy and paste with their references moved, as in Excel, resizable columns, renamed in a box of our own (below),
   // right-click to add or remove rows and columns. Every change saves itself after a short pause, as
   // the sheet's JSON (see $shared/utils/sheet).
   //
@@ -17,6 +17,7 @@
   import type jspreadsheet from 'jspreadsheet-ce';
   import { columnLetter, normaliseFormula, readSheetContent, type SheetContent } from '$shared/utils/sheet';
   import { cellName, evaluateSheet, FORMULA_FUNCTIONS, parseCellNumber, type FormulaProblem } from '$shared/utils/sheet-formula';
+  import { pasteCopiedCells, toClipboardText, type CopiedCells } from '$shared/utils/sheet-copy';
   import { formatExample, MAX_DECIMALS, type SheetFormat } from '$shared/utils/sheet-format';
   import HelpPopover from '$lib/ui/HelpPopover.svelte';
   import SaveButton from '$lib/doc/SaveButton.svelte';
@@ -324,6 +325,27 @@
     describeSelected();
   };
 
+  // ----- Copy and paste -----
+  // As in Excel: the clipboard gets what the cells show, and pasting them back into the grid
+  // pastes their formulas, references moved by as far as they moved (B2 copied one row down
+  // is B3; a $ pins the column or row after it). $shared/utils/sheet-copy has the rules.
+  let copied: CopiedCells | null = null;
+
+  const handleCopy = (range: readonly number[], cut: boolean | undefined): string | undefined => {
+    const sheet = worksheet;
+    if (!sheet) return undefined;
+    const [x1, y1, x2, y2] = range.map(Number) as [number, number, number, number];
+    const data = sheet.getData(false, false).map((row) => row.map(text));
+    const values = evaluateSheet(data, columnFormats(sheet)).values;
+    const pick = (rows: readonly (readonly string[])[]) => rows.slice(y1, y2 + 1).map((row) => row.slice(x1, x2 + 1));
+    copied = { x: x1, y: y1, raw: pick(data), shown: pick(values), cut: !!cut };
+    // An empty string would leave the library's own text (innerHTML, so &amp; for &).
+    return toClipboardText(copied.shown) || undefined;
+  };
+
+  const handlePaste = (data: readonly (readonly { readonly value: unknown }[])[], x: number | string, y: number | string): string[][] | undefined =>
+    pasteCopiedCells(data.map((row) => row.map((cell) => text(cell.value))), copied, Number(x), Number(y)) ?? undefined;
+
   // After any change: formulas worked out again, and whether there's something to save.
   const changed = () => {
     showResults();
@@ -369,6 +391,9 @@
         },
         // Typed or pasted =sum(b2:c2) is stored and evaluated as =SUM(B2:C2).
         onbeforechange: (_sheet, _cell, _x, _y, value) => (typeof value === 'string' ? normaliseFormula(value) : value),
+        oncopy: (_sheet, range, _text, cut) => handleCopy(range, cut),
+        // The library takes rows of cells back, though its types say a string.
+        onbeforepaste: (_sheet, data, x, y) => handlePaste(data, x, y) as unknown as string | undefined,
         onafterchanges: changed,
         oninsertrow: changed,
         ondeleterow: changed,
@@ -456,6 +481,7 @@
       <p>A formula that fails shows its error in red: <code>#NAME?</code> (no such function), <code>#DIV/0!</code>, <code>#VALUE!</code> (text where a number goes), <code>#CYCLE!</code> (a cell that refers back to itself), <code>#ERROR!</code> (one that can't be read). Select it to see why.</p>
       <p><code>TEXT(B2,"$#,##0.00")</code> writes a number as text in a format code: <code>0</code> a digit, <code>#</code> one only when needed, <code>,</code> thousands, <code>.</code> decimals, <code>%</code> a percent; other symbols and <code>"quoted words"</code> show as written.</p>
       <p>To show a whole column as money or a percent, right-click its header and choose Format column. It changes only how numbers look: formulas still use what was typed, and <code>$1,200</code>, <code>1200</code> and <code>12%</code> all read as numbers.</p>
+      <p>Copy and paste a formula and its references move with it, as in Excel: <code>=B2*C2</code> pasted one row down is <code>=B3*C3</code>. A <code>$</code> keeps what follows it: <code>$B2</code> keeps column B, <code>B$2</code> row 2, <code>$B$2</code> both. Cut and paste moves a formula as it is, and pasting into another app pastes the results.</p>
       <p>Right-click a row or column to add or remove one; double-click a header to rename it.</p>
       <p>More in <a href="https://bossanova.uk/jspreadsheet/docs/formulas" target="_blank" rel="noreferrer">Jspreadsheet's formula docs ↗</a>; only the functions above work here.</p>
     </HelpPopover>
