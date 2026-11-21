@@ -8,7 +8,7 @@ Run `bun run release:version <x.y.z>`, commit and push to main. After CI passes,
 
 ## CI
 
-`ci.yml`: lint, check, unit and integration tests on every push and pull request, on Linux.
+`ci.yml`: lint, check, unit and integration tests on Linux, only on pushes to main (which release); branches and pull requests don't run it, since the same checks run locally before a push (root `CLAUDE.md` § Commands).
 
 ## Build (`desktop.yml`, each platform on its own runner; Windows doesn't block a release)
 

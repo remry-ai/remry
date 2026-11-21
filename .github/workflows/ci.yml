@@ -2,11 +2,12 @@
 # A successful run on main triggers release.yml.
 name: CI
 
+# Only on main: a push there is a release (release.yml runs after this passes). Branches and pull
+# requests run the same lint, check and tests locally before they're pushed.
 on:
   push:
-    branches: ['**']
+    branches: [main]
     tags-ignore: ['**']
-  pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
