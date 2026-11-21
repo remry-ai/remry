@@ -156,7 +156,7 @@
         <a class="grow wrap" href={row.href} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
         {#if syncing}
           <!-- On a synced entity the sync icon says whether the link is a source (in --sync) or not
-               (grey), and clicking it toggles that; the time beside it is still its last sync. -->
+               (grey), and clicking it toggles that; the last-sync time sits before it, so the icons line up at the right. -->
           <button
             type="button"
             class="meta synced sync-toggle"
@@ -167,11 +167,11 @@
             title={`${row.syncSource ? 'A sync source: the sync doc is written from it. Click to stop.' : 'Not a sync source. Click to sync from it.'}${row.synced ? ` ${row.synced.title}.` : ''}`}
             onclick={() => toggleSource(row.id, !row.syncSource)}
           >
-            {@render syncIcon()}{#if row.synced}<span class:stale={row.synced.stale}>{row.synced.text}</span>{/if}
+            {#if row.synced}<span class:stale={row.synced.stale}>{row.synced.text}</span>{/if}{@render syncIcon()}
           </button>
         {:else if row.synced}
           <span class="meta synced" class:stale={row.synced.stale} title={row.synced.stale ? `${row.synced.title}. More than a week ago: ask Claude to re-sync it.` : row.synced.title}>
-            {@render syncIcon()}{row.synced.text}
+            {row.synced.text}{@render syncIcon()}
           </span>
         {/if}
         {#if !readOnly}
