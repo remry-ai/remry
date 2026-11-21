@@ -64,7 +64,7 @@
   const statusOf = (doc: Doc) => ({ ...syncStatus(doc.lastSync ?? null), tone: syncNeedTone(doc.syncNeed) });
 
   // The header shows the sync doc's dot alone, whenever there is one, so a folded list still says
-  // how its last sync went: green when current, amber when it wants syncing, red when it failed.
+  // how its last sync went: blue when current, amber when it wants syncing, red when it failed.
   const syncDoc = $derived(docs.find((d) => d.prompt) ?? null);
   const headerStatus = $derived(syncDoc ? { ...statusOf(syncDoc), text: '' } : null);
 
@@ -140,17 +140,21 @@
       <ul class="list doc-list">
         {#each docs as doc (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
-            <span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span>
-            {#if doc.prompt}
-              <SyncStatus {...statusOf(doc)} />
-              <span class="badge accent" title="Sync doc: written only from this page's sources, following its prompt. {doc.prompt}">Sync</span>
-            {/if}
+            {#if doc.prompt}<SyncStatus {...statusOf(doc)} />{/if}
             {#snippet actions()}
               {#if !doc.isSync}
                 {@const i = orderOf(doc.id)}
                 <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
                 <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === ordinary.length - 1} title="Move down" aria-label="Move down">↓</button>
                 <ConfirmButton label="Delete doc" variant="delete" onConfirm={() => onRemove(doc.id)} />
+              {/if}
+            {/snippet}
+            <!-- Its type, last, so the types line up down the list: a sync doc's is "Sync". -->
+            {#snippet trailing()}
+              {#if doc.prompt}
+                <span class="badge muted" title="Sync doc: written only from this page's sources, following its prompt. {doc.prompt}">Sync</span>
+              {:else}
+                <span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span>
               {/if}
             {/snippet}
           </EntityRow>

@@ -29,9 +29,11 @@
     readonly detail?: Snippet;
     /** More `.row-actions` after the peek (remove, reorder). */
     readonly actions?: Snippet;
+    /** Last in the row, after the actions, so it lines up down a list whether a row has actions or not (a doc's type). */
+    readonly trailing?: Snippet;
   }
 
-  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, lead, children, detail, actions }: Props = $props();
+  const { href, label, peek, wrap = false, active = false, linkClass = '', onclick, lead, children, detail, actions, trailing }: Props = $props();
 
   const peeksShown = getContext<boolean | undefined>(PEEKS_CONTEXT) === true;
   const target = $derived(peeksShown ? (peek === undefined ? peekForHref(href) : peek) : null);
@@ -48,6 +50,7 @@
   </span>
   {@render children?.()}
   {#if actions}<span class="row-actions">{@render actions()}</span>{/if}
+  {@render trailing?.()}
 </li>
 
 <style lang="scss">

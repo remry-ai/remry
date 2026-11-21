@@ -48,9 +48,9 @@
   --warning: #d97706;
   --warning-soft: #fffbeb;
   // A sync's state, the same wherever it shows (SyncStatus's dot, a source link's sync icon, a
-  // stale sync time): synced and current, wants syncing (never, over a week old, a source
+  // stale sync time): synced and current (blue), wants syncing (never, over a week old, a source
   // skipped), failed. Nothing to sync stays grey (--border-strong).
-  --sync-ok: var(--success);
+  --sync-ok: #2563eb;
   --sync-warning: var(--warning);
   --sync-error: var(--danger);
 

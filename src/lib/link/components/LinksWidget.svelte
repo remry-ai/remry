@@ -7,7 +7,7 @@
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
   // On a synced entity (`syncing`), each link's sync icon is grey when it isn't a source, and for a
-  // source shows its own sync state in the shared sync colours (green synced within a week, amber
+  // source shows its own sync state in the shared sync colours (blue synced within a week, amber
   // never synced or older); clicking it toggles whether it's a source (link.update --syncSource).
   import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
@@ -212,7 +212,7 @@
     font: inherit;
     color: var(--text-3);
     cursor: pointer;
-    // A source's own sync state, in the colours SyncStatus's dot uses: green current, amber due.
+    // A source's own sync state, in the colours SyncStatus's dot uses: blue current, amber due.
     &.ok { color: var(--sync-ok); }
     &.warning { color: var(--sync-warning); }
     &:hover:not(:disabled) { opacity: 0.7; }
