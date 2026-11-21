@@ -5,7 +5,7 @@
 
   interface Props {
     readonly tone: SyncTone;
-    /** When: "2h ago", "12 Oct", or "Not synced". */
+    /** When: "2h ago", "12 Oct", or "Not synced". Empty for the dot alone. */
     readonly text: string;
     /** The full sentence, for the tooltip and screen readers. */
     readonly title: string;
@@ -16,7 +16,7 @@
 
 <span class="sync-status text-xs text-2" {title}>
   <span class="dot {tone}" aria-hidden="true"></span>
-  <span>{text}</span>
+  {#if text}<span>{text}</span>{/if}
   <span class="sr-only">: {title}</span>
 </span>
 

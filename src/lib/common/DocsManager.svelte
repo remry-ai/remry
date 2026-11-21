@@ -60,7 +60,7 @@
 
   const toggle = () => { expanded = !expanded; };
 
-  // Shown in the header too, so a folded list still says some sync docs want syncing.
+  // Shown in the header too, as a dot alone, so a folded list still says its sync doc wants syncing.
   const needingSync = $derived(docs.filter((d) => d.prompt && d.syncNeed).length);
 
   // A sync doc's dot takes its colour from why it wants syncing; the date and details from its last sync.
@@ -125,7 +125,7 @@
         Docs <span class="count">{docs.length}</span>
       </DisclosureButton>
     </h4>
-    {#if needingSync > 0}<span class="to-sync"><SyncStatus tone="warning" text={String(needingSync)} title="{needingSync} sync doc{needingSync === 1 ? '' : 's'} failed, never synced, or last synced over a week ago" /></span>{/if}
+    {#if needingSync > 0}<span class="to-sync"><SyncStatus tone="warning" text="" title="The sync doc wants syncing: its last sync failed, it was never synced, or it was last synced over a week ago" /></span>{/if}
     {#if onAdd}
       <Menu label="Add doc" items={addItems} align="end">
         {#snippet trigger()}<span aria-hidden="true">+</span><span class="sr-only">Add doc</span>{/snippet}
