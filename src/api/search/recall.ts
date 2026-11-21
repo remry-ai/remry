@@ -124,7 +124,7 @@ export const recallEntity = async (
   // The sync doc's last sync and whether it wants one, so Claude can say how current it is before
   // checking its sources (the entity's links marked syncSource, in `links`).
   const syncDocs = isSyncHolder(entityType)
-    ? docs.slice(0, limit).filter((d) => d.syncHolder).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: readLastSync(d) }))
+    ? docs.slice(0, limit).filter((d) => d.syncHolder).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: readLastSync(d), requestedAt: d.syncRequestedAt }))
     : [];
   const syncNeeds = await loadSyncNeeds(reg, syncDocs);
   const lastSyncOf = new Map(syncDocs.map((d) => [d.id, d.lastSync]));

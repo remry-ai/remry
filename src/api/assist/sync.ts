@@ -106,7 +106,7 @@ export const startSyncNow = async (
       const parsed = readSyncReply(reply, links.map((l) => l.id));
       if (!parsed) return err(new Error(NO_SOURCES_BLOCK));
       // Which sources it couldn't read, why, and what to do: kept as the last sync's message.
-      const note = syncReportNote({ assistant, servers: run.servers, sources: reportSources, read: parsed.read.map((r) => r.id), unread: parsed.unread });
+      const note = syncReportNote({ assistant, probe: run.probe, sources: reportSources, read: parsed.read.map((r) => r.id), unread: parsed.unread });
       if (parsed.read.length === 0) return err(new Error(note ?? `${assistant} couldn't read any of the sources, so nothing was changed.`));
       if (parsed.markdown === '') return err(new Error(`${assistant} returned no text, so nothing was changed.`));
       const saved = await saveSyncText(reg, holder, parsed.markdown, parsed.read.map((r) => ({ id: r.id, editedAt: r.editedAt ?? undefined })));
@@ -134,5 +134,5 @@ export const getSyncStatus = (
 export const getSyncConnectors = async (runner: SyncRunner | undefined): Promise<Result<SyncConnectors>> => {
   const llm = await readyLlm(runner, SYNC_RETRY);
   if (!llm.ready) return ok({ ready: false, warning: llm.reply.warning });
-  return ok({ ready: true, assistant: assistantOnComputer(llm.llm.provider), servers: await llm.runner.connectors(llm.llm) });
+  return ok({ ready: true, assistant: assistantOnComputer(llm.llm.provider), probe: await llm.runner.connectors(llm.llm) });
 };

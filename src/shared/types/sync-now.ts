@@ -25,7 +25,7 @@ export interface SyncNowJob {
    * Saves the reply; ok with a note for the user (sources it couldn't read, and what to do), or
    * null. `servers` are the connectors the run had (null when the assistant uses none).
    */
-  readonly onReply: (reply: string, run: { readonly servers: readonly string[] | null }) => Promise<Result<string | null>>;
+  readonly onReply: (reply: string, run: { readonly probe: ConnectorProbe | null }) => Promise<Result<string | null>>;
   /** Called once the job ends, done or failed, to save how it went. */
   readonly onFinish?: (status: SyncNowStatus) => Promise<void>;
 }
@@ -38,15 +38,32 @@ export interface SyncRunner {
   /** A failed or done status is reported once, then it reads as idle. */
   readonly status: (key: string) => SyncNowStatus;
   /**
-   * The assistant's connected MCP servers, which are all a run can read private pages with;
-   * null when it uses none. Listed by its CLI (slow), so kept for a few minutes.
+   * The assistant's MCP servers and connectors as a sync run gets them (the only way it reads
+   * private pages), and how it's signed in; null when it uses none. Found by starting it (slow),
+   * so kept for a few minutes.
    */
-  readonly connectors: (llm: LocatedLlm) => Promise<readonly string[] | null>;
+  readonly connectors: (llm: LocatedLlm) => Promise<ConnectorProbe | null>;
 }
 
-/** What the banner shows before a sync: the assistant that runs it and the connectors it has. */
+/** An MCP server or claude.ai connector as the assistant reports it at start-up. */
+export interface McpServerState {
+  /** "claude.ai Notion", "plugin:productivity:linear", "notion". */
+  readonly name: string;
+  /** `connected`, `needs-auth`, `failed` or `pending`. */
+  readonly status: string;
+}
+
+/** What a sync run would start with: Claude Code's `system/init` event. */
+export interface ConnectorProbe {
+  /** Every server it loaded, Remry's own left out. */
+  readonly servers: readonly McpServerState[];
+  /** How it's signed in: `none` with the user's Claude account (which brings their claude.ai connectors), else the key's source. Null when unknown. */
+  readonly apiKeySource: string | null;
+}
+
+/** What the banner shows before a sync: the assistant that runs it and what it can read with. */
 export type SyncConnectors =
-  | { readonly ready: true; readonly assistant: string; readonly servers: readonly string[] | null }
+  | { readonly ready: true; readonly assistant: string; readonly probe: ConnectorProbe | null }
   | { readonly ready: false; readonly warning: string };
 
 /** A sync doc's or page's last sync, saved so the banner can say when it ran, by what, and how it went. */
@@ -59,5 +76,8 @@ export interface LastSync {
   readonly message: string | null;
 }
 
-/** Why a sync doc or page wants syncing: never synced, its last sync failed, or it's over a week old. */
-export type SyncNeed = 'never' | 'failed' | 'stale';
+/**
+ * Why a sync doc or page wants syncing: the user asked Claude for a sync in the app (`requested`),
+ * it was never synced, its last sync failed, or it's over a week old.
+ */
+export type SyncNeed = 'requested' | 'never' | 'failed' | 'stale';

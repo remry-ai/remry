@@ -53,6 +53,8 @@
     readonly prompt?: string | null;
     /** The entity's sync doc: written only from the entity's sources, so it opens read-only. */
     readonly isSync?: boolean;
+    /** When the user asked Claude to sync it, still waiting (doc.list). */
+    readonly syncRequestedAt?: Date | string | null;
     /** A sync doc's last sync (doc.list). */
     readonly lastSync?: LastSyncView | null;
     /** Why a sync doc wants syncing (doc.list); null when it doesn't. */
@@ -227,6 +229,14 @@
       makingSync = false;
       if (docId) openDoc(docId);
     }
+  };
+
+  // "Ask Claude to sync": the next Claude chat that uses Remry syncs it with its connectors.
+  const handleRequestSync = async (requested: boolean): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    await submitOrThrow(() => trpc().sync.request.mutate({ ...holder, requested }));
+    await invalidateAll();
   };
 
   // A source added from the banner isn't synced yet: the next sync reads it.
@@ -555,7 +565,7 @@
     {#if makingSync}
       <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
     {:else if syncDoc?.prompt}
-      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
+      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if acceptsDocs(entityType)}

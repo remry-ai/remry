@@ -26,7 +26,11 @@
   const SHOWN = 8;
   const shown = $derived(syncs.slice(0, SHOWN));
 
-  const statusOf = (s: SyncNeeded) => ({ ...syncStatus(s.lastSync), tone: syncNeedTone(s.need) });
+  // One the user asked Claude to sync says so; the rest, when they last synced.
+  const statusOf = (s: SyncNeeded) => {
+    const status = { ...syncStatus(s.lastSync), tone: syncNeedTone(s.need) };
+    return s.need === 'requested' ? { ...status, text: 'Requested', title: `Waiting for Claude to sync it. ${status.title}` } : status;
+  };
 </script>
 
 {#if syncs.length > 0}

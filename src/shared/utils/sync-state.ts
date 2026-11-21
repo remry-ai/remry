@@ -44,10 +44,17 @@ export interface SyncSourceKind {
 
 /**
  * Why a sync doc or page wants syncing, or null when it doesn't. One with no sources has nothing to
- * sync from; one whose sources are all uploaded files only needs its first sync.
+ * sync from; one whose sources are all uploaded files only needs its first sync. A sync the user
+ * asked for (`requestedAt`, cleared by a sync) comes first.
  */
-export const syncNeed = (lastSync: LastSync | null, sources: readonly SyncSourceKind[], now: Date): SyncNeed | null => {
+export const syncNeed = (
+  lastSync: LastSync | null,
+  sources: readonly SyncSourceKind[],
+  now: Date,
+  requestedAt: Date | null = null
+): SyncNeed | null => {
   if (sources.length === 0) return null;
+  if (requestedAt) return 'requested';
   if (!lastSync) return 'never';
   if (lastSync.outcome === 'FAILED') return 'failed';
   if (sources.some((s) => !s.isFile) && isSyncStale(lastSync.at, now)) return 'stale';

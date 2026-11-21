@@ -94,6 +94,7 @@ export const getPage = async (
     content: row.content,
     prompt: row.prompt,
     lastSync: readLastSync(row),
+    syncRequestedAt: row.syncRequestedAt,
     parent: row.parent,
     children: row.children.map((child) => ({
       id: child.id,

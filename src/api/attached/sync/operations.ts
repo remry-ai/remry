@@ -31,6 +31,8 @@ export interface SyncView {
   readonly docId: string | null;
   readonly lastSync: LastSync | null;
   readonly syncNeed: SyncNeed | null;
+  /** When the user asked Claude in the app to sync it (sync.request), still waiting; null when not. */
+  readonly requestedAt: Date | null;
   /** Its links marked as sources, newest first. */
   readonly sources: readonly LinkSummary[];
 }
@@ -51,19 +53,20 @@ export const getSync = async (reg: Pick<Registry, 'prisma' | 'now'>, holder: Syn
   if (!links.ok) return err(links.error);
   const sources = links.value.filter((l) => l.syncSource);
   const target = await findSyncTarget(reg, holder);
-  if (!target) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, sources });
+  if (!target) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, sources });
   const row = target.entityType === 'DOC'
     ? await reg.prisma.doc.findUnique({ where: { id: target.id }, select: { prompt: true, ...LAST_SYNC_FIELDS } })
     : await reg.prisma.page.findUnique({ where: { id: target.id }, select: { prompt: true, ...LAST_SYNC_FIELDS } });
-  if (!row) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, sources });
+  if (!row) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, sources });
   const lastSync = readLastSync(row);
-  const needs = await loadSyncNeeds(reg, [{ ...target, holder, lastSync }]);
+  const needs = await loadSyncNeeds(reg, [{ ...target, holder, lastSync, requestedAt: row.syncRequestedAt }]);
   return ok({
     ...holder,
     prompt: row.prompt,
     docId: target.entityType === 'DOC' ? target.id : null,
     lastSync,
     syncNeed: needs.get(syncNeedKey(target.entityType, target.id)) ?? null,
+    requestedAt: row.syncRequestedAt,
     sources
   });
 };
@@ -172,4 +175,31 @@ export const saveSyncText = async (
     for (const source of synced) if (isSource.has(source.id)) await markLinkSynced(reg, source.id, source.editedAt);
   }
   return ok(target);
+};
+
+/**
+ * Asks Claude for a sync (the app's "Ask Claude to sync"), or takes the request back. The app's own
+ * assistant reads only with the connectors it has on this computer; a request waits for the next
+ * Claude chat that uses Remry (Cowork, Claude desktop), which reads with the user's claude.ai
+ * connectors. sync.needed lists it first, as `requested`; a sync that runs clears it.
+ */
+export const requestSync = async (
+  reg: Pick<Registry, 'prisma' | 'now'>,
+  holder: SyncHolderRef,
+  requested: boolean
+): Promise<Result<{ readonly requestedAt: Date | null }>> => {
+  const target = await findSyncTarget(reg, holder);
+  if (!target) return err(new Error('It isn\'t synced: give it a prompt first.'));
+  const writable = await ensureWritable(reg, holder.entityType, holder.entityId);
+  if (!writable.ok) return err(writable.error);
+  const requestedAt = requested ? reg.now() : null;
+  // Asking for a sync isn't an edit: the row keeps its updatedAt.
+  if (target.entityType === 'DOC') {
+    const row = await reg.prisma.doc.findUniqueOrThrow({ where: { id: target.id }, select: { updatedAt: true } });
+    await reg.prisma.doc.update({ where: { id: target.id }, data: { syncRequestedAt: requestedAt, updatedAt: row.updatedAt } });
+  } else {
+    const row = await reg.prisma.page.findUniqueOrThrow({ where: { id: target.id }, select: { updatedAt: true } });
+    await reg.prisma.page.update({ where: { id: target.id }, data: { syncRequestedAt: requestedAt, updatedAt: row.updatedAt } });
+  }
+  return ok({ requestedAt });
 };

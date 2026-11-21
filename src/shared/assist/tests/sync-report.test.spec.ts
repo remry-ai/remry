@@ -1,31 +1,61 @@
 import { describe, it, expect } from 'vitest';
-import { sourceName, syncReportNote } from '../sync-report';
+import { ASK_CLAUDE, connectorReach, sourceName, syncReportNote } from '../sync-report';
 import { missingConnector } from '$shared/utils/link-source';
+import type { ConnectorProbe } from '$shared/types/sync-now';
 
 const sources = [
   { id: 'n', title: 'Notion: Checkout PRD', url: 'https://www.notion.so/acme/Checkout-PRD-0123' },
   { id: 'l', title: 'Linear: Checkout', url: 'https://linear.app/acme/project/checkout' },
   { id: 'f', title: 'Quote.pdf', url: null }
 ];
+const probe = (servers: ConnectorProbe['servers'], apiKeySource: string | null = 'none'): ConnectorProbe => ({ servers, apiKeySource });
 
-describe('syncReportNote', () => {
-  it('is null when every source was read', () => {
-    expect(syncReportNote({ assistant: 'Claude Code', servers: [], sources, read: ['n', 'l', 'f'], unread: [] })).toBeNull();
+describe('connectorReach', () => {
+  it('says nothing when every tool has a connected server', () => {
+    const all = probe([{ name: 'claude.ai Notion', status: 'connected' }, { name: 'claude.ai Linear', status: 'connected' }]);
+    expect(connectorReach('Claude Code', all, sources)).toEqual({ unreachable: [], advice: [] });
   });
 
-  it('says how many it read, each it couldn\'t and why, and names the connectors it lacks', () => {
-    const note = syncReportNote({ assistant: 'Claude Code', servers: ['claude.ai Linear'], sources, read: ['l'], unread: [{ id: 'n', reason: 'needs sign-in' }] });
-    expect(note?.split('\n')).toEqual([
-      'Synced from 1 of 3 sources.',
-      "Couldn't read: Notion: Checkout PRD (needs sign-in); Quote.pdf (not reported).",
-      'Claude Code on this computer has no Notion connector, so it can only open public pages there. Connect it to Claude Code, or ask Claude in Cowork or Claude desktop to sync this: they use your claude.ai connectors.'
+  it('says to sign in a connector that needs it, and how', () => {
+    const reach = connectorReach('Claude Code', probe([{ name: 'claude.ai Notion', status: 'needs-auth' }, { name: 'claude.ai Linear', status: 'connected' }]), sources);
+    expect(reach.unreachable).toEqual(['Notion: Checkout PRD']);
+    expect(reach.advice).toEqual([
+      'claude.ai Notion isn\'t signed in for Claude Code: run claude mcp login "claude.ai Notion" in a terminal, or /mcp in Claude Code.',
+      ASK_CLAUDE
     ]);
   });
 
-  it('points to Cowork when a connector is there but the source still wasn\'t read', () => {
-    const note = syncReportNote({ assistant: 'Claude Code', servers: ['Notion'], sources: sources.slice(0, 1), read: [], unread: [{ id: 'n', reason: 'page not shared' }] });
-    expect(note?.split('\n')[0]).toBe("Claude Code couldn't read any of the sources, so nothing was changed.");
-    expect(note?.split('\n')[2]).toContain('Ask Claude in Cowork or Claude desktop');
+  it('names a connector that failed, and one it doesn\'t have', () => {
+    const reach = connectorReach('Claude Code', probe([{ name: 'claude.ai Linear', status: 'failed' }]), sources);
+    expect(reach.advice[0]).toBe('claude.ai Linear didn\'t connect in Claude Code (failed): check it with /mcp in Claude Code.');
+    expect(reach.advice[1]).toContain('has no Notion connector. Add it at claude.ai');
+  });
+
+  it('says an API key loads no claude.ai connectors', () => {
+    const reach = connectorReach('Claude Code', probe([], 'ANTHROPIC_API_KEY'), sources);
+    expect(reach.unreachable).toEqual(['Notion: Checkout PRD', 'Linear: Checkout']);
+    expect(reach.advice[0]).toBe('Claude Code is signed in with an API key (ANTHROPIC_API_KEY), so it doesn\'t load your claude.ai connectors, Notion or Linear among them. Sign it in with your Claude account (/login in Claude Code) to use them.');
+  });
+});
+
+describe('syncReportNote', () => {
+  it('is null when every source was read', () => {
+    expect(syncReportNote({ assistant: 'Claude Code', probe: null, sources, read: ['n', 'l', 'f'], unread: [] })).toBeNull();
+  });
+
+  it('says how many it read, each it couldn\'t and why, and what to do', () => {
+    const note = syncReportNote({ assistant: 'Claude Code', probe: probe([{ name: 'claude.ai Linear', status: 'connected' }]), sources, read: ['l'], unread: [{ id: 'n', reason: 'needs sign-in' }] });
+    expect(note?.split('\n').slice(0, 2)).toEqual([
+      'Synced from 1 of 3 sources.',
+      "Couldn't read: Notion: Checkout PRD (needs sign-in); Quote.pdf (not reported)."
+    ]);
+    expect(note).toContain('has no Notion connector');
+    expect(note?.split('\n').at(-1)).toBe(ASK_CLAUDE);
+  });
+
+  it('points to asking Claude when nothing explains it', () => {
+    const note = syncReportNote({ assistant: 'Claude Code', probe: probe([{ name: 'Notion', status: 'connected' }]), sources: sources.slice(0, 1), read: [], unread: [{ id: 'n', reason: 'page not shared' }] });
+    expect(note?.split('\n')).toEqual(["Claude Code couldn't read any of the sources, so nothing was changed.", "Couldn't read: Notion: Checkout PRD (page not shared).", ASK_CLAUDE]);
   });
 });
 

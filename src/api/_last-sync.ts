@@ -37,7 +37,7 @@ export interface SyncRecord {
 }
 
 /** The fields to select for `readLastSync`. */
-export const LAST_SYNC_FIELDS = { lastSyncAt: true, lastSyncBy: true, lastSyncOutcome: true, lastSyncMessage: true } as const;
+export const LAST_SYNC_FIELDS = { lastSyncAt: true, lastSyncBy: true, lastSyncOutcome: true, lastSyncMessage: true, syncRequestedAt: true } as const;
 
 /** The last-sync columns to copy when a sync doc becomes a sync page, or back (entity.convert). */
 export const lastSyncColumnsOf = (row: LastSyncColumns): LastSyncColumns => ({
@@ -57,7 +57,11 @@ export const recordSync = async (
   id: string,
   sync: SyncRecord
 ): Promise<void> => {
-  const data = { lastSyncAt: reg.now(), lastSyncBy: sync.by, lastSyncOutcome: sync.outcome, lastSyncMessage: sync.message ?? null };
+  // A sync that ran answers a request for one; a failed one leaves it for the next Claude to try.
+  const data = {
+    lastSyncAt: reg.now(), lastSyncBy: sync.by, lastSyncOutcome: sync.outcome, lastSyncMessage: sync.message ?? null,
+    ...(sync.outcome !== 'FAILED' && { syncRequestedAt: null })
+  };
   if (entityType === 'DOC') {
     const row = await reg.prisma.doc.findUnique({ where: { id }, select: { updatedAt: true } });
     if (row) await reg.prisma.doc.update({ where: { id }, data: { ...data, updatedAt: row.updatedAt } });
@@ -84,6 +88,8 @@ export interface SyncNeedTarget {
   /** Whose sources it's written from: the doc's entity, or the page itself. */
   readonly holder: SyncHolderRef;
   readonly lastSync: LastSync | null;
+  /** When the user asked for a sync in the app, still waiting; null when not. */
+  readonly requestedAt?: Date | null;
 }
 
 const targetKey = (entityType: string, id: string): string => `${entityType}:${id}`;
@@ -108,7 +114,7 @@ export const loadSyncNeeds = async (
   const now = reg.now();
   return new Map(targets.map((t) => [
     targetKey(t.entityType, t.id),
-    syncNeed(t.lastSync, sources.get(targetKey(t.holder.entityType, t.holder.entityId)) ?? [], now)
+    syncNeed(t.lastSync, sources.get(targetKey(t.holder.entityType, t.holder.entityId)) ?? [], now, t.requestedAt ?? null)
   ]));
 };
 
@@ -122,15 +128,19 @@ export interface SyncNeeded {
   readonly path: string;
   /** What a doc is on: its entity's name and page. Null for a wiki page, or a doc whose entity is gone. */
   readonly on: { readonly label: string; readonly path: string } | null;
+  /** The synced entity, for sync.get and sync.save: the doc's entity, or the page. */
+  readonly holder: SyncHolderRef;
   readonly need: SyncNeed;
   readonly lastSync: LastSync | null;
+  /** When the user asked for this sync in the app; null when they didn't. */
+  readonly requestedAt: Date | null;
 }
 
-const NEED_ORDER: Readonly<Record<SyncNeed, number>> = { failed: 0, never: 1, stale: 2 };
+const NEED_ORDER: Readonly<Record<SyncNeed, number>> = { requested: 0, failed: 1, never: 2, stale: 3 };
 
 /**
- * Every sync doc and page that wants syncing, failed ones first, then never synced, then the
- * longest since a sync. Leaves out archived pages, docs on archived entities, and spreadsheets.
+ * Every sync doc and page that wants syncing: ones the user asked for first, then failed, then
+ * never synced, then the longest since a sync. Leaves out archived pages, docs on archived entities, and spreadsheets.
  */
 export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Promise<readonly SyncNeeded[]> => {
   const [docs, pages, archived] = await Promise.all([
@@ -141,9 +151,9 @@ export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Pr
   const activeDocs = docs.filter((d) => !isArchivedRef(archived, d.entityType, d.entityId));
   const targets: SyncNeedTarget[] = [
     ...activeDocs.flatMap((d) => isSyncHolder(d.entityType)
-      ? [{ entityType: 'DOC' as const, id: d.id, holder: { entityType: d.entityType, entityId: d.entityId }, lastSync: readLastSync(d) }]
+      ? [{ entityType: 'DOC' as const, id: d.id, holder: { entityType: d.entityType, entityId: d.entityId }, lastSync: readLastSync(d), requestedAt: d.syncRequestedAt }]
       : []),
-    ...pages.map((p) => ({ entityType: 'PAGE' as const, id: p.id, holder: { entityType: 'PAGE' as const, entityId: p.id }, lastSync: readLastSync(p) }))
+    ...pages.map((p) => ({ entityType: 'PAGE' as const, id: p.id, holder: { entityType: 'PAGE' as const, entityId: p.id }, lastSync: readLastSync(p), requestedAt: p.syncRequestedAt }))
   ];
   const needs = await loadSyncNeeds(reg, targets);
   const labels = await resolveEntityLabels(reg, activeDocs.map((d) => ({ entityType: d.entityType as EntityType, entityId: d.entityId })));
@@ -163,12 +173,16 @@ export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Pr
         title: doc.title,
         path: docPath(holderType, doc.entityId, doc.id),
         on: label ? { label, path: entityPath(holderType, doc.entityId) } : null,
+        holder: t.holder,
         need,
-        lastSync: t.lastSync
+        lastSync: t.lastSync,
+        requestedAt: t.requestedAt ?? null
       }];
     }
     const page = pageById.get(t.id);
-    return page ? [{ entityType: 'PAGE' as const, id: page.id, title: page.title, path: entityPath('PAGE', page.id), on: null, need, lastSync: t.lastSync }] : [];
+    return page
+      ? [{ entityType: 'PAGE' as const, id: page.id, title: page.title, path: entityPath('PAGE', page.id), on: null, holder: t.holder, need, lastSync: t.lastSync, requestedAt: t.requestedAt ?? null }]
+      : [];
   });
   return rows.sort((a, b) =>
     NEED_ORDER[a.need] - NEED_ORDER[b.need]

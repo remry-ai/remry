@@ -23,8 +23,10 @@
   import type { SyncHolderRef } from '$shared/utils/sync-state';
   import { trpc } from '$shared/trpc/client';
   import { fileLinkKey } from '$shared/utils/file-links';
-  import { missingConnector } from '$shared/utils/link-source';
+  import { connectorReach } from '$shared/assist/sync-report';
+  import type { ConnectorProbe } from '$shared/types/sync-now';
   import { onDestroy } from 'svelte';
+  import { timeAgo } from '$lib/home/utils';
 
   interface LinkItem {
     readonly id: string;
@@ -59,11 +61,15 @@
     readonly badge?: boolean;
     /** Shown (SyncSection open): only then does it ask which connectors the assistant has, which takes a few seconds. */
     readonly active?: boolean;
+    /** When the user asked Claude to sync it, still waiting; null when not. */
+    readonly requestedAt?: Date | string | null;
+    /** "Ask Claude to sync" (true) or taking the request back (false): the next Claude chat that uses Remry syncs it with its connectors. */
+    readonly onRequest?: (requested: boolean) => Promise<unknown>;
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, active = true, onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, active = true, requestedAt = null, onRequest, onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
   // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
@@ -91,11 +97,11 @@
   // Sync now runs the assistant installed here (Claude Code), with only its own connectors
   // (`claude mcp list`), not the claude.ai ones Cowork and Claude desktop use. So before a sync,
   // say which sources it has no connector for: it can open those only as public pages.
-  type Reach =
+  type ReachState =
     | { readonly state: 'loading' }
-    | { readonly state: 'ready'; readonly assistant: string; readonly servers: readonly string[] | null }
+    | { readonly state: 'ready'; readonly assistant: string; readonly probe: ConnectorProbe | null }
     | { readonly state: 'unavailable'; readonly warning: string };
-  let reach = $state<Reach | null>(null);
+  let reach = $state<ReachState | null>(null);
   const outsideLinks = $derived(links.filter((l) => fileLinkKey(l.url) === null));
   $effect(() => {
     if (!active || !onSyncNow || outsideLinks.length === 0 || reach) return;
@@ -103,27 +109,25 @@
     void trpc().sync.connectors.query().then((result) => {
       if (!result.ok) { reach = null; return; }
       const value = result.value;
-      reach = value.ready ? { state: 'ready', assistant: value.assistant, servers: value.servers } : { state: 'unavailable', warning: value.warning };
+      reach = value.ready ? { state: 'ready', assistant: value.assistant, probe: value.probe } : { state: 'unavailable', warning: value.warning };
     }).catch(() => { reach = null; });
   });
-  /** Each tool with no connector, and its sources' titles. */
-  const gaps = $derived.by(() => {
-    if (reach?.state !== 'ready') return [];
-    const byTool = new Map<string, string[]>();
-    for (const link of outsideLinks) {
-      const tool = missingConnector(link.url, reach.servers ?? []);
-      if (tool) byTool.set(tool.name, [...(byTool.get(tool.name) ?? []), link.title ?? link.url]);
-    }
-    return [...byTool].map(([tool, titles]) => ({ tool, titles }));
-  });
-  const andList = (items: readonly string[]): string =>
-    items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
-  const reachWarning = (assistant: string, missing: readonly { readonly tool: string; readonly titles: readonly string[] }[]): string => {
-    const titles = missing.flatMap((g) => g.titles).map((t) => `“${t}”`);
-    const tools = andList(missing.map((g) => g.tool)).replace(/ and ([^ ]+)$/, ' or $1');
-    return `${assistant} on this computer has no ${tools} connector, so Sync now can open ${andList(titles)} only if ${titles.length === 1 ? 'it\'s' : 'they\'re'} public. Connect ${missing.length === 1 ? 'it' : 'them'} to ${assistant}, or ask Claude in Cowork or Claude desktop to sync this: they use your claude.ai connectors.`;
-  };
+  /** The sources Sync now can open only if public, why, and what to do. */
+  const gaps = $derived(reach?.state === 'ready' ? connectorReach(reach.assistant, reach.probe, outsideLinks) : null);
   const assistantHere = $derived(reach?.state === 'ready' ? reach.assistant : `${$assistantName} on this computer`);
+
+  // ----- Asking Claude (with the user's connectors) to sync it -----
+  let requesting = $state(false);
+  let requestError = $state('');
+  const request = async (requested: boolean) => {
+    if (!onRequest) return;
+    requesting = true;
+    requestError = '';
+    const outcome = await submit(() => onRequest(requested));
+    requesting = false;
+    if (!outcome.ok) requestError = outcome.error;
+  };
+  const requestedWhen = $derived(requestedAt ? timeAgo(new Date(requestedAt)) : null);
 
   // ----- Running -----
   let elapsed = $state(0);
@@ -201,11 +205,19 @@
     {:else if syncing}<span class="text-xs text-2" aria-live="polite">{assistantHere} is reading {links.length} source{links.length === 1 ? '' : 's'} and rewriting this… {clock(elapsed)}</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
+    {#if onRequest && !editing && !creating}
+      {#if requestedAt}
+        <span class="badge accent ml-auto" title="Waiting for the next Claude chat that uses Remry">Requested {requestedWhen}</span>
+        <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel request</button>
+      {:else}
+        <button type="button" class="btn sm ml-auto" onclick={() => request(true)} disabled={requesting || syncing || links.length === 0} aria-busy={requesting} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'The next Claude chat that uses Remry (Cowork, Claude desktop) syncs it, reading the sources with your claude.ai connectors'}>Ask Claude to sync</button>
+      {/if}
+    {/if}
     {#if onSyncNow && !editing && !creating}
-      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
+      <button type="button" class="btn sm" class:ghost={!!onRequest} class:ml-auto={!onRequest} onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : `${assistantHere} reads each source now, with only the connectors it has here, and rewrites the text from the prompt`}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
     {/if}
     {#if onSave && !editing}
-      <button type="button" class="btn icon sm" class:ml-auto={!onSyncNow} aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
+      <button type="button" class="btn icon sm" class:ml-auto={!onSyncNow && !onRequest} aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
     {/if}
   </div>
 
@@ -233,6 +245,11 @@
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
   {/if}
 
+  {#if requestedAt && !creating}
+    <p class="text-xs text-2 report">Waiting for Claude: the next chat that uses Remry (Cowork, Claude desktop) syncs this with your connectors. Open one and say hi, or ask it to sync this.</p>
+  {/if}
+  {#if requestError}<p class="form-error">{requestError}</p>{/if}
+
   {#if syncNotice && showNotice}
     <p class="text-xs pre-line report" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
   {:else if lastReport && !syncing}
@@ -241,13 +258,15 @@
 
   {#if links.length > 0 || onAddLink || onUploadFile}<SourceLinks {links} onAdd={onAddLink} {onUploadFile} />{/if}
 
-  {#if onSyncNow && !creating}
+  <!-- What Sync now can't reach; not once Claude has been asked, which is what the advice ends with. -->
+  {#if onSyncNow && !creating && !requestedAt}
     {#if reach?.state === 'loading'}
       <p class="text-xs text-2 reach">Checking which connectors {$assistantName} on this computer has…</p>
     {:else if reach?.state === 'unavailable'}
       <p class="text-xs warning reach">{reach.warning}</p>
-    {:else if reach?.state === 'ready' && gaps.length > 0}
-      <p class="text-xs warning reach">{reachWarning(reach.assistant, gaps)}</p>
+    {:else if reach?.state === 'ready' && gaps && gaps.unreachable.length > 0}
+      <p class="text-xs warning reach pre-line">{reach.assistant} on this computer can open {gaps.unreachable.map((n) => `“${n}”`).join(', ')} only if public.
+{gaps.advice.join('\n')}</p>
     {/if}
   {/if}
 </section>

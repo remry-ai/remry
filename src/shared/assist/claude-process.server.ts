@@ -10,6 +10,7 @@ import { cmdCommandLine, findExecutable } from './find-cli';
 import { llmProvider } from './providers/registry';
 import { PROMPT_DIR, PROMPT_FILE, type LlmTask } from './providers/provider';
 import type { LlmProviderId, LocatedLlm } from '$shared/types/llm';
+import type { ConnectorProbe } from '$shared/types/sync-now';
 
 export interface ClaudeRun {
   /** Null when the process was killed (the timeout). */
@@ -104,6 +105,45 @@ export const runLlm = async (llm: LocatedLlm, task: LlmTask, options: LlmRunOpti
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+};
+
+/**
+ * Starts the assistant as a sync run would and reads what it loaded (its servers and connectors,
+ * each with its status, and how it's signed in) from its first event, then stops it before it
+ * asks the model anything. Null when it reports nothing in time (an older CLI), or uses no servers.
+ */
+export const probeLlm = (llm: LocatedLlm, timeoutMs: number): Promise<ConnectorProbe | null> => {
+  const provider = llmProvider(llm.provider);
+  const probeArgs = provider.probeArgs;
+  if (probeArgs === null) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const cmd = command(llm.path, probeArgs);
+    const child = spawn(cmd.file, [...cmd.args], { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'ignore'], windowsVerbatimArguments: cmd.verbatim, windowsHide: true });
+    let buffer = '';
+    let settled = false;
+    const finish = (probe: ConnectorProbe | null): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.kill('SIGTERM');
+      resolve(probe);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    child.stdout?.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString('utf8');
+      let end = buffer.indexOf('\n');
+      while (end !== -1) {
+        const probe = provider.parseProbeLine(buffer.slice(0, end));
+        if (probe) { finish(probe); return; }
+        buffer = buffer.slice(end + 1);
+        end = buffer.indexOf('\n');
+      }
+    });
+    child.on('error', () => finish(null));
+    child.on('close', () => finish(null));
+    child.stdin?.on('error', () => { /* it exited early */ });
+    child.stdin?.end('Reply with: ok');
+  });
 };
 
 /** The connectors the assistant may read with, for sync; none when it lists none. */

@@ -3,6 +3,7 @@
 // file) and how to read its reply. Pure: the runners in `src/shared/assist/*.server.ts` run it.
 // Adding an assistant is one file here and an entry in `registry.ts`.
 
+import type { ConnectorProbe } from '$shared/types/sync-now';
 import type { Result } from '$shared/utils/result';
 import type { LlmProviderId } from '$shared/types/llm';
 
@@ -56,7 +57,11 @@ export interface LlmProvider {
   readonly invocation: (task: LlmTask) => LlmInvocation;
   /** Reads the CLI's stdout into the reply's text, or an error to show the user. */
   readonly parse: (stdout: string, kind: LlmTaskKind) => Result<string>;
-  /** Arguments that list the user's connected MCP servers, for sync; null when it uses none. */
+  /** Arguments that start it as a sync would, to read what it loads (`connectorProbe`); null when it uses no MCP servers. */
+  readonly probeArgs: readonly string[] | null;
+  /** The servers and sign-in from one line of its probe's output, once that line arrives; else null. */
+  readonly parseProbeLine: (line: string) => ConnectorProbe | null;
+  /** Arguments that list its connected MCP servers, when the probe gives nothing (an older CLI); null for none. */
   readonly listServersArgs: readonly string[] | null;
   readonly parseServers: (stdout: string) => readonly string[];
 }

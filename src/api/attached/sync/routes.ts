@@ -7,7 +7,7 @@ import { err, ok, type Result } from '$shared/utils/result';
 import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
 import { getSyncConnectors, getSyncStatus, startSyncNow } from '$api/assist/sync';
-import { getSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
+import { getSync, requestSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
 
 const holder = { entityType: z.enum(SYNC_HOLDERS), entityId: z.string().min(1) };
 
@@ -51,11 +51,17 @@ export const syncRouter = router({
     .input(z.object(holder))
     .query(({ ctx, input }) => getSyncStatus(ctx.syncRunner, ctx.notebook.id, input)),
 
+  // "Ask Claude to sync" in the app: the next Claude chat that uses Remry does it (app-only).
+  request: procedure
+    .input(z.object({ ...holder, requested: z.boolean() }))
+    .mutation(({ ctx, input }) => inModel(ctx, input, () => requestSync(ctx.reg, input, input.requested))),
+
   // The banner's check before Sync now: the assistant it runs and its connectors (app-only).
   connectors: procedure
     .query(({ ctx }) => getSyncConnectors(ctx.syncRunner)),
 
-  // The home page's list of sync docs and pages that want syncing: failed, never synced, or over a week old.
+  // Sync docs and pages that want syncing: the home page's list, and Claude's to-do list.
   needed: procedure
+    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt." })
     .query(async ({ ctx }) => ok(await listSyncsNeeded(ctx.reg)))
 });

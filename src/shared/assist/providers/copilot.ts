@@ -90,6 +90,8 @@ export const copilotProvider: LlmProvider = {
   installHint: 'Install it (`npm install -g @github/copilot`, or `winget install GitHub.Copilot` on Windows) and run `copilot` once to sign in.',
   invocation: copilotInvocation,
   parse: parseCopilotOutput,
+  probeArgs: null,
+  parseProbeLine: () => null,
   listServersArgs: null,
   parseServers: () => []
 };

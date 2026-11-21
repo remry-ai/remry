@@ -2,30 +2,34 @@
 // file converter and the page chat, only the web app's tRPC context holds this; jobs live in memory.
 
 import { existsSync } from 'node:fs';
-import { lastStderrLine, listLlmServers, runLlm } from './claude-process.server';
+import { lastStderrLine, listLlmServers, probeLlm, runLlm } from './claude-process.server';
+import { connectedServers } from './sync-cli';
 import { lookupLlm } from './llm-choice.server';
 import { linkHosts } from './providers/copilot';
 import { llmProvider } from './providers/registry';
 import { ok, err } from '$shared/utils/result';
-import type { SyncNowJob, SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
+import type { ConnectorProbe, SyncNowJob, SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import type { LocatedLlm } from '$shared/types/llm';
 
 // Several sources, each read over the network.
 const TIMEOUT_MS = 15 * 60 * 1000;
 const LIST_TIMEOUT_MS = 2 * 60 * 1000;
+// Starting it as a sync would, up to its first event: servers connect before that.
+const PROBE_TIMEOUT_MS = 60 * 1000;
 
 // `claude mcp list` checks every server, which takes seconds: the banner asks before each sync.
 const CONNECTORS_TTL_MS = 5 * 60 * 1000;
 
-type Connectors = (llm: LocatedLlm) => Promise<readonly string[] | null>;
+type Connectors = (llm: LocatedLlm) => Promise<ConnectorProbe | null>;
 
 const run = async (job: SyncNowJob, connectors: Connectors): Promise<SyncNowStatus> => {
   const provider = llmProvider(job.llm.provider);
   // The user's connected MCP servers and connectors, so the run can be allowed each by name.
-  const servers = await connectors(job.llm);
+  const probe = await connectors(job.llm);
+  const servers = connectedServers(probe);
   const { code, stdout, stderr } = await runLlm(
     job.llm,
-    { kind: 'sync', prompt: job.prompt, servers: servers ?? [], hosts: linkHosts(job.urls) },
+    { kind: 'sync', prompt: job.prompt, servers, hosts: linkHosts(job.urls) },
     { cwd: job.cwd && existsSync(job.cwd) ? job.cwd : null, timeoutMs: TIMEOUT_MS }
   );
   if (stdout.trim() === '') {
@@ -39,25 +43,33 @@ const run = async (job: SyncNowJob, connectors: Connectors): Promise<SyncNowStat
   }
   const reply = provider.parse(stdout, 'sync');
   if (!reply.ok) return { state: 'failed', message: reply.error.message };
-  const saved = await job.onReply(reply.value, { servers });
+  const saved = await job.onReply(reply.value, { probe });
   if (!saved.ok) return { state: 'failed', message: saved.error.message };
   return saved.value ? { state: 'done', message: saved.value } : { state: 'done' };
 };
 
 export const createSyncRunner = (now: () => number = Date.now): SyncRunner => {
   const jobs = new Map<string, SyncNowStatus>();
-  const listed = new Map<string, { readonly at: number; readonly servers: Promise<readonly string[] | null> }>();
+  const listed = new Map<string, { readonly at: number; readonly probe: Promise<ConnectorProbe | null> }>();
   const connectors: Connectors = (llm) => {
-    if (llmProvider(llm.provider).listServersArgs === null) return Promise.resolve(null);
+    const provider = llmProvider(llm.provider);
+    if (provider.probeArgs === null && provider.listServersArgs === null) return Promise.resolve(null);
     const key = `${llm.provider}:${llm.path}`;
     const cached = listed.get(key);
-    if (cached && now() - cached.at < CONNECTORS_TTL_MS) return cached.servers;
-    const servers = listLlmServers(llm, LIST_TIMEOUT_MS).catch(() => {
-      listed.delete(key);
-      return [] as readonly string[];
-    });
-    listed.set(key, { at: now(), servers });
-    return servers;
+    if (cached && now() - cached.at < CONNECTORS_TTL_MS) return cached.probe;
+    // Its start-up event says what a sync run would load, each with its status; an older CLI
+    // without one falls back to its list of connected servers.
+    const probe = probeLlm(llm, PROBE_TIMEOUT_MS)
+      .then(async (found): Promise<ConnectorProbe | null> => found ?? {
+        servers: (await listLlmServers(llm, LIST_TIMEOUT_MS)).map((name) => ({ name, status: 'connected' })),
+        apiKeySource: null
+      })
+      .catch(() => {
+        listed.delete(key);
+        return null;
+      });
+    listed.set(key, { at: now(), probe });
+    return probe;
   };
   return {
     connectors,

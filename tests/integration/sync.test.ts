@@ -11,6 +11,7 @@ import { addDoc, getDoc, listDocs, removeDoc, updateDoc, uploadDocImage } from '
 import { addLink, listLinks, updateLink } from '../../src/api/attached/link/operations';
 import { getSync, saveSyncText, setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { setArchived } from '../../src/api/_archive';
+import { recordSync } from '../../src/api/_last-sync';
 import { appRouter } from '../../src/shared/trpc/router';
 import { createCallerFactory } from '../../src/shared/trpc/init';
 import { createNotebookContext } from '../../src/shared/trpc/context.server';
@@ -123,5 +124,40 @@ describe('a sync doc', () => {
     const page = must(await api.page.create({ title: 'Synced from Cowork' }));
     must(await setSyncPrompt(reg, { entityType: 'PAGE', entityId: page.id }, 'Tiers.'));
     expect((await api.page.update({ id: page.id, content: '# Tiers' })).ok).toBe(true);
+  });
+});
+
+describe('asking Claude to sync', () => {
+  it('lists a requested sync first for Claude, with its holder, until a sync answers it', async () => {
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    const project = must(await createProject(reg, { name: 'Requested sync' }));
+    const holder = { entityType: 'PROJECT' as const, entityId: project.id };
+    const docId = must(await setSyncPrompt(reg, holder, 'Scope.')).docId!;
+    const link = must(await addLink(reg, 'PROJECT', project.id, { url: 'https://www.notion.so/acme/requested', syncSource: true }));
+    const before = must(await getDoc(reg, docId)).updatedAt;
+
+    const asked = await api.sync.request({ ...holder, requested: true });
+    expect(asked.ok && asked.value.requestedAt).toBeInstanceOf(Date);
+    // Asking isn't an edit.
+    expect(must(await getDoc(reg, docId)).updatedAt.getTime()).toBe(before.getTime());
+    const needed = must(await api.sync.needed());
+    expect(needed[0]).toMatchObject({ id: docId, need: 'requested', holder });
+    expect(must(await getSync(reg, holder))).toMatchObject({ syncNeed: 'requested' });
+
+    // A failed sync leaves the request for the next Claude; one that ran answers it.
+    await recordSync(reg, 'DOC', docId, { by: 'APP', outcome: 'FAILED', message: 'Notion not connected.' });
+    expect(must(await getSync(reg, holder)).requestedAt).toBeInstanceOf(Date);
+    must(await api.sync.save({ ...holder, content: '# Scope', syncedLinkIds: [link.id] }));
+    expect(must(await getSync(reg, holder))).toMatchObject({ requestedAt: null, syncNeed: null });
+    expect(must(await api.sync.needed()).some((n) => n.id === docId)).toBe(false);
+
+    // It can be taken back.
+    must(await api.sync.request({ ...holder, requested: true }));
+    must(await api.sync.request({ ...holder, requested: false }));
+    expect(must(await getSync(reg, holder)).requestedAt).toBeNull();
+    const unsynced = await api.sync.request({ entityType: 'PROJECT', entityId: must(await createProject(reg, { name: 'Not synced' })).id, requested: true });
+    expect(!unsynced.ok && unsynced.error.message).toContain('give it a prompt first');
   });
 });

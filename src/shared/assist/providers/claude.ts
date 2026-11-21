@@ -2,7 +2,7 @@
 // convert a file, as an argument), and the user's connected MCP servers for sync.
 
 import { buildChatArgs, buildClaudeArgs, parseChatOutput, parseClaudeOutput } from '../claude-cli';
-import { buildSyncArgs, connectedMcpServers } from '../sync-cli';
+import { buildProbeArgs, buildSyncArgs, connectedMcpServers, parseInitEvent } from '../sync-cli';
 import type { LlmProvider } from './provider';
 
 export const claudeProvider: LlmProvider = {
@@ -17,6 +17,8 @@ export const claudeProvider: LlmProvider = {
     return { args: buildSyncArgs(task.servers), stdin: task.prompt };
   },
   parse: (stdout, kind) => (kind === 'convert' ? parseClaudeOutput(stdout) : parseChatOutput(stdout)),
+  probeArgs: buildProbeArgs(),
+  parseProbeLine: parseInitEvent,
   listServersArgs: ['mcp', 'list'],
   parseServers: connectedMcpServers
 };

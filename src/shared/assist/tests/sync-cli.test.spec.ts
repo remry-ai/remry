@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SYNC_DENIED_TOOLS, buildSyncArgs, connectedMcpServers, mcpServerRule, parseSyncReply, syncPrompt } from '../sync-cli';
+import { SYNC_DENIED_TOOLS, buildProbeArgs, buildSyncArgs, connectedMcpServers, connectedServers, mcpServerRule, parseInitEvent, parseSyncReply, syncPrompt } from '../sync-cli';
 
 describe('syncPrompt', () => {
   it('gives the prompt, the current text and each kind of source', () => {
@@ -81,5 +81,25 @@ describe('parseSyncReply', () => {
     expect(!none.ok && none.error.message).toContain("didn't say which sources");
     const unread = parseSyncReply('Sorry.\n<!-- sources\nl1 unread no Notion access\n-->', ids);
     expect(!unread.ok && unread.error.message).toBe("Claude couldn't read any of the sources (no Notion access), so nothing was changed.");
+  });
+});
+
+describe('parseInitEvent', () => {
+  it('reads the servers and sign-in from the system/init event, leaving out Remry and other events', () => {
+    const init = JSON.stringify({
+      type: 'system', subtype: 'init', apiKeySource: 'none',
+      mcp_servers: [{ name: 'claude.ai Notion', status: 'needs-auth' }, { name: 'plugin:productivity:linear', status: 'connected' }, { name: 'remry', status: 'connected' }]
+    });
+    expect(parseInitEvent(init)).toEqual({ servers: [{ name: 'claude.ai Notion', status: 'needs-auth' }, { name: 'plugin:productivity:linear', status: 'connected' }], apiKeySource: 'none' });
+    expect(connectedServers(parseInitEvent(init))).toEqual(['plugin:productivity:linear']);
+    expect(parseInitEvent(JSON.stringify({ type: 'system', subtype: 'status' }))).toBeNull();
+    expect(parseInitEvent('not json')).toBeNull();
+    expect(connectedServers(null)).toEqual([]);
+  });
+
+  it('starts Claude Code as a sync would, streaming its events', () => {
+    const args = buildProbeArgs();
+    expect(args).toEqual(expect.arrayContaining(['-p', 'stream-json', '--verbose', '--no-session-persistence']));
+    expect(args.slice(args.indexOf('--setting-sources'), args.indexOf('--setting-sources') + 2)).toEqual(['--setting-sources', '']);
   });
 });

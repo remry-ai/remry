@@ -3,6 +3,7 @@
 // parsing. sync-runner.server.ts runs it; the app never calls a model or a source itself.
 
 import { ok, err, type Result } from '$shared/utils/result';
+import type { ConnectorProbe, McpServerState } from '$shared/types/sync-now';
 
 /** Text of one source given inline (a file link's saved text); longer is cut. */
 export const SYNC_INLINE_LIMIT = 100_000;
@@ -77,6 +78,52 @@ export const syncPrompt = (input: SyncPromptInput): string =>
 
 /** Servers the run never gets: Remry's own (it writes nothing to the notebook but the text it returns). */
 const isRemryServer = (name: string): boolean => /remry|wono|working.notes/i.test(name);
+
+/**
+ * Arguments that start Claude Code the way a sync run does (the same settings and session), to
+ * read its `system/init` event: the servers and connectors it loaded and how it's signed in. The
+ * caller stops it once that event arrives, before it asks the model anything.
+ */
+export const buildProbeArgs = (): readonly string[] => [
+  '-p',
+  '--output-format',
+  'stream-json',
+  '--verbose',
+  '--tools',
+  '',
+  '--permission-mode',
+  'dontAsk',
+  '--no-session-persistence',
+  '--setting-sources',
+  ''
+];
+
+/** The servers and sign-in from one line of `stream-json` output, when it's the `system/init` event; else null. */
+export const parseInitEvent = (line: string): ConnectorProbe | null => {
+  let event: unknown;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (typeof event !== 'object' || event === null) return null;
+  const e = event as { type?: unknown; subtype?: unknown; mcp_servers?: unknown; apiKeySource?: unknown };
+  if (e.type !== 'system' || e.subtype !== 'init') return null;
+  const servers = Array.isArray(e.mcp_servers) ? e.mcp_servers : [];
+  return {
+    servers: servers.flatMap((s): McpServerState[] => {
+      const server = s as { name?: unknown; status?: unknown };
+      return typeof server.name === 'string' && !isRemryServer(server.name)
+        ? [{ name: server.name, status: typeof server.status === 'string' ? server.status : 'unknown' }]
+        : [];
+    }),
+    apiKeySource: typeof e.apiKeySource === 'string' ? e.apiKeySource : null
+  };
+};
+
+/** The servers a sync run may use: the connected ones. */
+export const connectedServers = (probe: ConnectorProbe | null): readonly string[] =>
+  probe ? probe.servers.filter((s) => s.status === 'connected').map((s) => s.name) : [];
 
 /**
  * The connected MCP servers in `claude mcp list` output (`<name>: <address> - ✓ Connected`),
