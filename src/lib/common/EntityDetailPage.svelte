@@ -551,6 +551,13 @@
       </div>
     {/if}
 
+    <!-- The sync's controls, apart from the sync doc they write: the doc is only the output. Above the docs. -->
+    {#if makingSync}
+      <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
+    {:else if syncDoc?.prompt}
+      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
+    {/if}
+
     {#if acceptsDocs(entityType)}
       <div class="docs-panel">
         <DocsManager
@@ -563,13 +570,6 @@
           onAddSync={syncHolder && !syncDoc && !archivedAt ? () => { makingSync = true; } : undefined}
         />
       </div>
-    {/if}
-
-    <!-- The sync's controls, apart from the sync doc they write: the doc is only the output. -->
-    {#if makingSync}
-      <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
-    {:else if syncDoc?.prompt}
-      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if activeDoc && isGridOrDrawing(activeBodyType)}
