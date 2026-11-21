@@ -19,7 +19,7 @@
     readonly onEdit?: () => void;
     /** After the title: a document's "Convert with Claude". */
     readonly after?: Snippet;
-    /** An entity's sync doc: its tag reads "Sync", in the accent colour of the Sync badge, not its body type. */
+    /** An entity's sync doc: its tag reads "Sync" in place of its body type, styled like every doc's tag. */
     readonly sync?: boolean;
   }
 
@@ -63,11 +63,8 @@
 </script>
 
 <div class="doc-title-row">
-  {#if sync}
-    <span class="badge accent" title="Written from its sources, following the prompt in the Sync section">Sync</span>
-  {:else}
-    <span class="badge selected">{BODY_LABELS[bodyType]}</span>
-  {/if}
+  <!-- The type's tag; an entity's sync doc says "Sync" in its place, styled the same. -->
+  <span class="badge selected" title={sync ? 'Written from its sources, following the prompt in the Sync section' : undefined}>{sync ? 'Sync' : BODY_LABELS[bodyType]}</span>
   {#if editing}
     <input class="title-input" bind:value={draft} onblur={commit} onkeydown={handleKeydown} onpaste={handlePaste} use:focusOnMount aria-label="{BODY_LABELS[bodyType]} title" />
   {:else}
