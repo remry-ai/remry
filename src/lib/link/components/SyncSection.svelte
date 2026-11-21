@@ -26,7 +26,7 @@
   <div class="section-header">
     <h4>
       <DisclosureButton {expanded} label="Sync" onToggle={() => { expanded = !expanded; }}>
-        Sync <span class="count">{props.links.length}</span>
+        Sync
       </DisclosureButton>
     </h4>
     {#if !expanded && status}<span class="status"><SyncStatus {...status} /></span>{/if}
