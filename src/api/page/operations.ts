@@ -150,19 +150,25 @@ export interface UpdatePageInput {
   readonly bodyType?: PageBodyType;
   readonly parentId?: string | null;
   readonly content?: string;
-  /** Makes it a sync doc, rewritten from its linked sources; null (or blank) clears it. */
-  readonly prompt?: string | null;
 }
+
+/** Why a sync page's content can't be changed by hand, and what to do instead. */
+export const SYNC_PAGE_READ_ONLY = 'This is a sync page: its content is written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null).';
 
 export const updatePage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
   id: string,
-  input: UpdatePageInput
+  input: UpdatePageInput,
+  options: { readonly fromSync?: boolean } = {}
 ): Promise<Result<{ readonly id: string }>> => {
   const existing = await reg.prisma.page.findUnique({ where: { id }, select: { bodyType: true, content: true, prompt: true } });
   if (!existing) return err(new Error(`Page ${id} not found`));
   const writable = await ensureWritable(reg, 'PAGE', id);
   if (!writable.ok) return err(writable.error);
+  // Its title and place in the wiki stay the user's; its body is the sync's.
+  if (existing.prompt && !options.fromSync && (input.content !== undefined || input.bodyType !== undefined)) {
+    return err(new Error(SYNC_PAGE_READ_ONLY));
+  }
 
   const body = planBodyUpdate('page', existing, input);
   if (!body.ok) return err(body.error);
@@ -181,8 +187,7 @@ export const updatePage = async (
       ...(input.title !== undefined && { title: input.title }),
       ...(input.parentId !== undefined && { parentId: input.parentId }),
       ...(typeChanged && { bodyType }),
-      ...(content !== undefined && { content }),
-      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null })
+      ...(content !== undefined && { content })
     }
   });
   // A sheet or drawing links nothing and shows no images, so switching to one clears the page's mentions.
@@ -220,9 +225,10 @@ export const uploadPageImage = async (
   pageId: string,
   dataBase64: string
 ): Promise<Result<StoredImage>> => {
-  const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true } });
+  const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true, prompt: true } });
   if (!existing) return err(new Error(`Page ${pageId} not found`));
   const writable = await ensureWritable(reg, 'PAGE', pageId);
   if (!writable.ok) return err(writable.error);
+  if (existing.prompt) return err(new Error(SYNC_PAGE_READ_ONLY));
   return storeEditorImage(reg, `pages/${pageId}`, dataBase64);
 };

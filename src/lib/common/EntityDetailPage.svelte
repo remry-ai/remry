@@ -41,6 +41,7 @@
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
   import { ARCHIVE_CHANGED_EVENT } from '$shared/utils/archive';
   import { acceptsDocs } from '$shared/utils/entity';
+  import { isSyncHolder } from '$shared/utils/file-links';
 
   interface DocItem {
     readonly id: string;
@@ -50,6 +51,8 @@
     readonly content: string;
     /** Set on a sync doc: what Claude pulls from its sources. */
     readonly prompt?: string | null;
+    /** The entity's sync doc: written only from the entity's sources, so it opens read-only. */
+    readonly isSync?: boolean;
     /** A sync doc's last sync (doc.list). */
     readonly lastSync?: LastSyncView | null;
     /** Why a sync doc wants syncing (doc.list); null when it doesn't. */
@@ -80,6 +83,8 @@
     readonly url: string;
     readonly title: string | null;
     readonly syncedAt: Date | string | null;
+    /** One of the entity's sync sources. */
+    readonly syncSource?: boolean;
   }
 
   interface EditFormCtx {
@@ -109,6 +114,8 @@
     readonly relations?: readonly RelationGroup[];
     /** External links; the sidebar lists them, with their source tool and last sync, and adds one by hand. */
     readonly links?: readonly LinkItem[];
+    /** A wiki page that's synced (or being set up): the sidebar's Links shows and toggles its sources. */
+    readonly synced?: boolean;
     /** After a file is uploaded from the sidebar's Links, with its link's id: true when it writes the page from it (an empty wiki page), which saves the file's text too. */
     readonly onFileLinkUploaded?: (linkId: string) => boolean;
     /** Links between the list and the entity in the breadcrumb, such as a wiki page's parents. */
@@ -139,6 +146,7 @@
     todos,
     relations = [],
     links = [],
+    synced = false,
     onFileLinkUploaded,
     description = null,
     descriptionLabel = undefined,
@@ -200,13 +208,40 @@
     await loadDocLinks(id);
   };
 
-  // The doc "Make sync doc" is open on, until its prompt is saved or cancelled.
-  let makingSyncDoc = $state<string | null>(null);
+  // ----- Syncing the entity (a person, group, project or goal) into its one sync doc -----
+  // Its prompt is on that doc; its sources are the entity's own links marked as sources, which
+  // the sidebar's Links marks and the doc's banner lists. The doc is made by saving a first prompt
+  // ("Sync doc…" in the Docs menu), never by hand, and only a sync writes its text.
+  const syncHolder = $derived.by(() => (isSyncHolder(entityType) ? { entityType, entityId } : null));
+  const syncDoc = $derived(docs.find((d) => d.isSync) ?? null);
+  const syncSources = $derived(links.filter((l) => l.syncSource));
+  // "Sync doc…" is open: the prompt box, until it's saved or cancelled.
+  let makingSync = $state(false);
 
-  const handleSaveDocPrompt = async (prompt: string | null): Promise<void> => {
-    if (!activeDoc) return;
-    const id = activeDoc.id;
-    await submitOrThrow(() => trpc().doc.update.mutate({ id, prompt }));
+  const handleSavePrompt = async (prompt: string | null): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    const { docId } = await submitOrThrow(() => trpc().sync.setPrompt.mutate({ ...holder, prompt }));
+    await invalidateAll();
+    if (makingSync) {
+      makingSync = false;
+      if (docId) openDoc(docId);
+    }
+  };
+
+  // A source added from the banner isn't synced yet: the next sync reads it.
+  const handleAddSource = async (link: { readonly url: string; readonly title?: string }): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    await submitOrThrow(() => trpc().link.add.mutate({ ...holder, ...link, syncSource: true }));
+    await invalidateAll();
+  };
+
+  const handleUploadSource = async (file: File): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    const linkId = await uploadFileLink(holder.entityType, holder.entityId, file, { syncSource: true });
+    transcribeInBackground(linkId);
     await invalidateAll();
   };
 
@@ -390,20 +425,15 @@
 
   const docUploadFile = $derived(archivedAt ? undefined : handleUploadDocFile);
 
-  // "Sync now": the local Claude rewrites the open sync doc from its sources; then reload its text and sources.
+  // "Sync now": the local Claude rewrites the sync doc from the entity's sources; then reload.
   const handleSyncDoc = async () => {
-    const doc = activeDoc;
-    if (!doc) return null;
+    const holder = syncHolder;
+    if (!holder) return null;
     try {
-      return await syncNowAndWait('DOC', doc.id);
+      return await syncNowAndWait(holder);
     } finally {
-      await refreshSyncDoc(doc.id);
+      await invalidateAll();
     }
-  };
-
-  const refreshSyncDoc = async (id: string) => {
-    await invalidateAll();
-    await loadDocLinks(id);
   };
 
   // ----- A doc's edit popup: its title and Delete, as an entity's has -----
@@ -469,7 +499,7 @@
       <RelationsWidget {entityType} {entityId} groups={relations} readOnly={!!archivedAt} selfLabel={entityName} collapsible />
     </div>
     <div class="section">
-      <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} onFileUploaded={onFileLinkUploaded} />
+      <LinksWidget {entityType} {entityId} {links} readOnly={!!archivedAt} onFileUploaded={onFileLinkUploaded} syncing={synced || !!syncDoc || makingSync} />
     </div>
   {/snippet}
 
@@ -530,8 +560,15 @@
           onAdd={archivedAt ? undefined : handleAddDoc}
           onRemove={docHandlers.handleRemoveDoc}
           onReorder={docHandlers.handleReorderDocs}
+          onAddSync={syncHolder && !syncDoc && !archivedAt ? () => { makingSync = true; void closeDocUrl(); } : undefined}
         />
       </div>
+    {/if}
+
+    {#if makingSync && !activeDoc}
+      <section class="card">
+        <SyncPrompt prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
+      </section>
     {/if}
 
     {#if activeDoc && isGridOrDrawing(activeBodyType)}
@@ -559,20 +596,21 @@
       <DocEditor
         title={activeDoc.title}
         content={activeDoc.content}
-        hasSourceFile={!!docFileLink}
+        readOnly={activeDoc.isSync}
+        hasSourceFile={!activeDoc.isSync && !!docFileLink}
         converting={pdfJob?.docId === activeDoc.id && pdfJob.running}
         convertNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}
         onSave={docHandlers.handleSaveDoc}
-        onSaveTitle={docHandlers.handleSaveTitle}
+        onSaveTitle={activeDoc.isSync ? undefined : docHandlers.handleSaveTitle}
         onConvert={handleConvertActiveDoc}
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 || activeDoc.prompt || !archivedAt ? docSources : undefined}
+        sources={docLinks.length > 0 || activeDoc.isSync || !archivedAt ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
         autoEditTitle={activeDoc.id === newDocId}
-        onEdit={archivedAt ? undefined : openDocEdit}
+        onEdit={archivedAt || activeDoc.isSync ? undefined : openDocEdit}
       />
       {/key}
     {:else}
@@ -587,12 +625,11 @@
 <EntityPeek />
 
 {#snippet docSources()}
-  {#if activeDoc?.prompt}
-    <SyncPrompt prompt={activeDoc.prompt} links={docLinks} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSaveDocPrompt} onAddLink={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={activeDoc.lastSync ?? null} target={{ entityType: 'DOC', id: activeDoc.id }} onRefresh={() => refreshSyncDoc(activeDoc.id)} />
-  {:else if makingSyncDoc === activeDoc?.id}
-    <SyncPrompt prompt="" links={docLinks} creating onSave={async (prompt) => { await handleSaveDocPrompt(prompt); makingSyncDoc = null; }} onAddLink={handleAddDocLink} onUploadFile={docUploadFile} onCancel={() => { makingSyncDoc = null; }} />
+  {#if activeDoc?.isSync && activeDoc.prompt}
+    <!-- The entity's sources, not the doc's: the sidebar's Links marks which links they are. -->
+    <SyncPrompt prompt={activeDoc.prompt} links={syncSources} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={activeDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
   {:else}
-    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} onMakeSync={archivedAt ? undefined : () => { makingSyncDoc = activeDoc?.id ?? null; }} />
+    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
   {/if}
 {/snippet}
 

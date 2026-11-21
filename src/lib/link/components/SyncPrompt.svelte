@@ -1,8 +1,9 @@
 <script lang="ts">
-  // The banner on a sync doc or sync wiki page: it says so, shows the prompt
-  // (what Claude pulls from each source when it refreshes the text below) and
-  // the sources. The prompt is editable here; clearing it makes an ordinary doc.
-  // `creating` opens it on an empty prompt, for "Make sync doc"; Cancel leaves it as it was.
+  // The banner on an entity's sync doc or a sync wiki page: it says so, shows the prompt
+  // (what Claude pulls from each source when it refreshes the text below) and the
+  // sources (the entity's links marked as sources). The text itself is read-only: only a
+  // sync writes it. The prompt is editable here; clearing it makes an ordinary doc or page.
+  // `creating` opens it on an empty prompt, for "Sync doc…"; Cancel leaves it as it was.
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
   // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
   // with `target`, a sync still running when the page opens shows as running until it ends.
@@ -19,6 +20,7 @@
   import { errorMessage, submit } from '$lib/ui/submit';
   import type { SyncNowOutcome } from '../sync-now';
   import SourceLinks from './SourceLinks.svelte';
+  import type { SyncHolderRef } from '$shared/utils/sync-state';
 
   interface LinkItem {
     readonly id: string;
@@ -45,16 +47,18 @@
     readonly onSyncNow?: () => Promise<SyncNowOutcome | null>;
     /** Its last sync (doc.get, page.get, doc.list); null when never synced. */
     readonly lastSync?: LastSyncView | null;
-    /** The doc or page, to pick up a sync that's already running when the page opens. */
-    readonly target?: { readonly entityType: 'DOC' | 'PAGE'; readonly id: string };
+    /** The synced entity, to pick up a sync that's already running when the page opens. */
+    readonly target?: SyncHolderRef;
+    /** What it is, in the prompt box's words: "doc" or "page". */
+    readonly noun?: 'doc' | 'page';
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
-  // Making a sync doc (its first prompt) is Remry Pro: without it, "Make sync doc" shows why instead of the prompt box.
+  // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
   // An existing sync doc's prompt stays editable.
   const license = $derived((appPage.data?.license as LicenseStatus | undefined) ?? NO_LICENSE);
   const creatingLocked = $derived(creating && !isProActive(license));
@@ -96,13 +100,13 @@
   // A sync started before the page opened (from another tab, or before a reload) still shows as running.
   $effect(() => {
     if (!target || !onSyncNow) return;
-    const { entityType, id } = target;
+    const holder = { entityType: target.entityType, entityId: target.entityId };
     let live = true;
-    void syncRunning(entityType, id).then((running) => {
+    void syncRunning(holder).then((running) => {
       if (!running || !live || syncing) return;
       void runSync(async () => {
         try {
-          return await waitForSync(entityType, id);
+          return await waitForSync(holder);
         } finally {
           await onRefresh?.();
         }
@@ -132,13 +136,13 @@
 
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
-    <span class="badge accent" title="Claude rewrites this from its sources, following the prompt.">Sync</span>
-    {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below.</span>
+    <span class="badge accent" title="Claude rewrites this from its sources, following the prompt. Only a sync changes the text.">Sync</span>
+    {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below, or mark links as sources.</span>
     {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onSyncNow && !editing && !creating}
-      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
+      <button type="button" class="btn sm ml-auto" onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'Claude reads each source and rewrites the text from the prompt'}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
     {/if}
     {#if onSave && !editing}
       <button type="button" class="btn icon sm" class:ml-auto={!onSyncNow} aria-label="Edit the prompt" title="Edit the prompt" onclick={startEditing}><PencilIcon /></button>
@@ -147,13 +151,13 @@
 
   {#if creatingLocked}
     <!-- What a sync doc is, as the prompt box would say, so the lock isn't the only explanation. -->
-    <p class="text-sm text-2 explain">A sync doc is rewritten by Claude from its sources, following a prompt you write. For example: <em>{PROMPT_EXAMPLE}</em></p>
+    <p class="text-sm text-2 explain">A sync {noun} is rewritten by Claude from its sources, following a prompt you write. For example: <em>{PROMPT_EXAMPLE}</em></p>
     <ProLock title="Sync docs" message={lockedMessage('sync', license, 'app')} compact>
       <button type="button" class="btn ghost sm" onclick={cancel}>Cancel</button>
     </ProLock>
   {:else if editing}
     <form class="form-grid" onsubmit={(e: SubmitEvent) => { e.preventDefault(); void save(); }}>
-      <Field label="Prompt" hint={creating ? `For example: ${PROMPT_EXAMPLE}` : 'Empty makes it an ordinary doc'}>
+      <Field label="Prompt" hint={creating ? `For example: ${PROMPT_EXAMPLE}` : `Empty makes it an ordinary ${noun} you can edit`}>
         {#snippet children({ id })}
           <!-- svelte-ignore a11y_autofocus -->
           <textarea {id} rows="3" maxlength="2000" bind:value={draft} autofocus={creating}></textarea>
@@ -161,7 +165,7 @@
       </Field>
       {#if error}<p class="form-error">{error}</p>{/if}
       <div class="form-actions">
-        <button type="submit" class="btn primary sm" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : creating ? 'Make sync doc' : 'Save'}</button>
+        <button type="submit" class="btn primary sm" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : creating ? `Make sync ${noun}` : 'Save'}</button>
         <button type="button" class="btn ghost sm" onclick={cancel}>Cancel</button>
       </div>
     </form>

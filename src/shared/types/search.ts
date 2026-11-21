@@ -77,8 +77,10 @@ export interface RecallDoc {
   readonly bodyType: 'doc' | 'sheet' | 'drawing';
   /** The start of the content (a spreadsheet's or drawing's text); `doc.get` returns all of it. */
   readonly excerpt: string;
-  /** Set on a sync doc: what to pull from its sources (`docSources`). */
+  /** Set on the entity's sync doc: what to pull from its sources (its links marked `syncSource`). */
   readonly prompt: string | null;
+  /** The entity's one sync doc, written only from its sources (sync.save). */
+  readonly isSync: boolean;
   readonly updatedAt: Date;
   /** A sync doc's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
   readonly lastSync: LastSync | null;
@@ -92,11 +94,8 @@ export interface RecallLink {
   readonly title: string | null;
   /** When the entity was last brought up to date from this source; null for a plain link. */
   readonly syncedAt: Date | null;
-}
-
-/** A link on one of the entity's docs: the sources a doc is written from. */
-export interface RecallDocSource extends RecallLink {
-  readonly docId: string;
+  /** One of the entity's sync sources: its sync doc (or, on a wiki page, its content) is written from these. */
+  readonly syncSource: boolean;
 }
 
 export interface RecallGoal {
@@ -129,8 +128,6 @@ export interface Recall<TEntity = unknown> {
   readonly todos: RecallList<RecallTodo>;
   readonly docs: RecallList<RecallDoc>;
   readonly links: RecallList<RecallLink>;
-  /** Links on the docs listed above (a brief's sources), each with its doc's id. */
-  readonly docSources: RecallList<RecallDocSource>;
   readonly tags: readonly string[];
   /** Relations at either end, including MENTIONS backlinks ("Mentioned in"). */
   readonly relations: readonly RelationGroup[];

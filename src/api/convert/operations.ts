@@ -10,7 +10,8 @@ import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { RELATABLE_TYPES, type EntityType } from '$shared/types/enums';
 import { lastSyncColumnsOf } from '$api/_last-sync';
-import type { LastSyncColumns } from '$shared/utils/sync-state';
+import { syncHolderKey, type LastSyncColumns } from '$shared/utils/sync-state';
+import { syncDocTitle } from '$api/attached/sync/operations';
 import { docPath, entityPath } from '$shared/utils/entity';
 import { ensureAttachable, ensureWritable } from '$api/_archive';
 import { planEntityCleanup, removeFiles } from '$api/_entity-cleanup';
@@ -25,7 +26,7 @@ import { addDoc, updateDoc, DOC_HOLDERS } from '$api/attached/doc/operations';
 import { addNote } from '$api/attached/note/operations';
 import { hasStoredImages, noteFromPage, projectPageContent, titleFromNote } from './content';
 import { bodyMarkdown } from '$shared/utils/body';
-import { hasFileLinks, moveLinks, rehomeAttachments, relinkMentions, type Ref } from './rehome';
+import { hasFileLinks, rehomeAttachments, relinkMentions, type Ref } from './rehome';
 
 type Reg = Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>;
 
@@ -159,10 +160,7 @@ const docToPage = async (
   if (!page.ok) return err(page.error);
   const item: ConvertedItem = { entityType: 'PAGE', id: page.value.id, title: doc.title, path: page.value.path };
   run.created.push(item);
-  await reg.prisma.page.update({
-    where: { id: page.value.id },
-    data: { prompt: doc.prompt, ...lastSyncColumnsOf(doc), ...(placement.sortOrder !== undefined && { sortOrder: placement.sortOrder }) }
-  });
+  if (placement.sortOrder !== undefined) await reg.prisma.page.update({ where: { id: page.value.id }, data: { sortOrder: placement.sortOrder } });
   const to = { entityType: 'PAGE', entityId: page.value.id };
   await rehomeAttachments(reg, { entityType: 'DOC', entityId: doc.id }, to);
   if (placement.relate) await relateToFormerHolder(reg, { entityType: doc.entityType, entityId: doc.entityId }, to);
@@ -182,16 +180,28 @@ const projectToPage = async (reg: Reg, run: Run, projectId: string, parentId: st
   });
   if (!project) return err(new Error(`Project ${projectId} not found`));
   const owner = await loadOwner(reg, project.ownerType, project.ownerId);
-  const content = projectPageContent({
+  const facts = projectPageContent({
     ...project,
     owner: owner?.label ? { label: owner.label, path: owner.path } : null,
     goals: project.goals.map(({ goal }) => ({ label: goal.title, path: entityPath('GOAL', goal.id) }))
   });
+  // A synced project becomes a sync page: its sync doc's text follows the facts, and its prompt,
+  // last sync and sources (the project's links, which move below) come with it.
+  const syncDoc = await reg.prisma.doc.findUnique({ where: { syncHolder: syncHolderKey({ entityType: 'PROJECT', entityId: project.id }) } });
+  const content = syncDoc?.content.trim() ? `${facts.trimEnd()}\n\n${syncDoc.content}` : facts;
 
+  // Its images are copied into the page's folder as it's created.
   const page = await createPage(reg, { title: project.name, content, parentId });
   if (!page.ok) return err(page.error);
   run.created.push({ entityType: 'PAGE', id: page.value.id, title: project.name, path: page.value.path });
-  if (sortOrder !== undefined) await reg.prisma.page.update({ where: { id: page.value.id }, data: { sortOrder } });
+  await reg.prisma.page.update({
+    where: { id: page.value.id },
+    data: { ...(sortOrder !== undefined && { sortOrder }), ...(syncDoc && { prompt: syncDoc.prompt, ...lastSyncColumnsOf(syncDoc) }) }
+  });
+  if (syncDoc) {
+    // What's on the sync doc itself (notes, comments) goes to the page; the doc goes with the project.
+    await rehomeAttachments(reg, { entityType: 'DOC', entityId: syncDoc.id }, { entityType: 'PAGE', entityId: page.value.id });
+  }
 
   // Sub-projects first, then the project's docs, as sub-pages in that order.
   let order = 0;
@@ -199,7 +209,7 @@ const projectToPage = async (reg: Reg, run: Run, projectId: string, parentId: st
     const converted = await projectToPage(reg, run, child.id, page.value.id, order++);
     if (!converted.ok) return converted;
   }
-  const docs = await reg.prisma.doc.findMany({ where: { entityType: 'PROJECT', entityId: project.id }, orderBy: { sortOrder: 'asc' }, select: { id: true } });
+  const docs = await reg.prisma.doc.findMany({ where: { entityType: 'PROJECT', entityId: project.id, syncHolder: null }, orderBy: { sortOrder: 'asc' }, select: { id: true } });
   for (const doc of docs) {
     const converted = await docToPage(reg, run, doc.id, { parentId: page.value.id, sortOrder: order++, relate: false });
     if (!converted.ok) return err(converted.error);
@@ -241,8 +251,12 @@ const convertProjectToPage = async (reg: Reg, input: ConvertInput): Promise<Resu
 // ----- Doc or note → page -----
 
 const convertDocToPage = async (reg: Reg, input: ConvertInput): Promise<Result<ConvertResult>> => {
-  const doc = await reg.prisma.doc.findUnique({ where: { id: input.id }, select: { entityType: true, entityId: true, title: true } });
+  const doc = await reg.prisma.doc.findUnique({ where: { id: input.id }, select: { entityType: true, entityId: true, title: true, syncHolder: true } });
   if (!doc) return err(new Error(`Doc ${input.id} not found. Find its id with doc.list.`));
+  if (doc.syncHolder) {
+    const label = await resolveEntityLabel(reg, doc.entityType as EntityType, doc.entityId);
+    return err(new Error(`"${doc.title}" is ${label ? `${label}'s` : 'its entity\'s'} sync doc, which belongs to it. Convert the ${doc.entityType.toLowerCase()} itself (it becomes a sync page), or clear its prompt first (sync.setPrompt --prompt null), which leaves an ordinary doc to convert.`));
+  }
   const writable = await ensureWritable(reg, doc.entityType, doc.entityId);
   if (!writable.ok) return err(writable.error);
   const parent = await checkPageParent(reg, input.parentId);
@@ -307,16 +321,22 @@ const pageToProject = async (
   run.created.push({ entityType: 'PROJECT', id: created.value.id, title: page.title, path: created.value.path });
   const holder = { entityType: 'PROJECT', entityId: created.value.id };
 
-  // Its text becomes a doc of the same name and type (a spreadsheet stays one); a sync page becomes a sync doc, with its sources.
+  // Its text becomes a doc of the same name and type (a spreadsheet stays one). A sync page's
+  // becomes the project's sync doc, and its links, which move to the project, stay its sources.
   const bodyType = asBodyType(page.bodyType);
-  let docId: string | null = null;
-  if (!isEmptyBody(bodyType, page.content) || page.prompt) {
-    const doc = await addDoc(reg, 'PROJECT', created.value.id, { title: page.title, bodyType });
+  const synced = bodyType === 'doc' && page.prompt ? page.prompt : null;
+  if (!isEmptyBody(bodyType, page.content) || synced) {
+    const doc = await addDoc(reg, 'PROJECT', created.value.id, { title: synced ? syncDocTitle(page.title) : page.title, bodyType });
     if (!doc.ok) return err(doc.error);
-    docId = doc.value.id;
-    const filled = await updateDoc(reg, docId, { content: page.content, prompt: bodyType === 'doc' ? page.prompt : null });
+    const docId = doc.value.id;
+    const filled = await updateDoc(reg, docId, { content: page.content });
     if (!filled.ok) return err(filled.error);
-    await reg.prisma.doc.update({ where: { id: docId }, data: lastSyncColumnsOf(page) });
+    if (synced) {
+      await reg.prisma.doc.update({
+        where: { id: docId },
+        data: { prompt: synced, syncHolder: syncHolderKey({ entityType: 'PROJECT', entityId: created.value.id }), sortOrder: -1, ...lastSyncColumnsOf(page) }
+      });
+    }
     run.created.push({ entityType: 'DOC', id: docId, title: page.title, path: docPath('PROJECT', created.value.id, docId) });
   }
 
@@ -326,10 +346,7 @@ const pageToProject = async (
   }
 
   const from = { entityType: 'PAGE', entityId: page.id };
-  if (page.prompt && docId) {
-    await moveLinks(reg, { entityType: 'PAGE', entityId: page.id }, { entityType: 'DOC', entityId: docId });
-  }
-  await rehomeAttachments(reg, from, holder, { links: !(page.prompt && docId) });
+  await rehomeAttachments(reg, from, holder);
   run.relinked += await relinkMentions(reg, from, entityPath('PAGE', page.id), created.value.path);
   const deleted = await deletePage(reg, page.id);
   if (!deleted.ok) return err(deleted.error);
@@ -420,9 +437,8 @@ const convertPageToDoc = async (reg: Reg, input: ConvertInput): Promise<Result<C
   const doc = await addDoc(reg, on, holder.value.entityId, { title: page.value.title, bodyType: asBodyType(page.value.bodyType) });
   if (!doc.ok) return err(doc.error);
   // Its images are copied into the doc's folder as the text is saved.
-  const filled = await updateDoc(reg, doc.value.id, { content: page.value.content, prompt: page.value.bodyType === 'doc' ? page.value.prompt : null });
+  const filled = await updateDoc(reg, doc.value.id, { content: page.value.content });
   if (!filled.ok) return err(filled.error);
-  await reg.prisma.doc.update({ where: { id: doc.value.id }, data: lastSyncColumnsOf(page.value) });
   const path = docPath(on, holder.value.entityId, doc.value.id);
 
   const from = { entityType: 'PAGE', entityId: page.value.id };
@@ -430,7 +446,9 @@ const convertPageToDoc = async (reg: Reg, input: ConvertInput): Promise<Result<C
   const relinked = await relinkMentions(reg, from, entityPath('PAGE', page.value.id), path);
   const deleted = await deletePage(reg, page.value.id);
   if (!deleted.ok) return err(deleted.error);
-  return finish({ created: [{ entityType: 'DOC', id: doc.value.id, title: page.value.title, path }], relinked, warnings: [] });
+  // A doc isn't synced on its own: only an entity's sync doc is, from the entity's sources.
+  const warnings = page.value.prompt ? [`"${page.value.title}" was a sync page; as a doc it's an ordinary one, so its prompt was dropped and its sources are now plain links on it.`] : [];
+  return finish({ created: [{ entityType: 'DOC', id: doc.value.id, title: page.value.title, path }], relinked, warnings });
 };
 
 const convertPageToNote = async (reg: Reg, input: ConvertInput): Promise<Result<ConvertResult>> => {

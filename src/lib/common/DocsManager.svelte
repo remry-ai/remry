@@ -11,6 +11,7 @@
   import SyncStatus from '$lib/link/components/SyncStatus.svelte';
   import { syncStatus, syncNeedTone, type LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
+  import { hasPro } from '$lib/license/pro';
 
   interface Doc {
     readonly id: string;
@@ -19,6 +20,8 @@
     readonly bodyType?: BodyType;
     /** Set on a sync doc, which gets a badge. */
     readonly prompt?: string | null;
+    /** The entity's sync doc: pinned first, and not moved or deleted here (clearing its prompt makes it an ordinary doc). */
+    readonly isSync?: boolean;
     /** Why a sync doc wants syncing (never synced, failed, over a week old); its badge says so. */
     readonly syncNeed?: SyncNeed | null;
     /** A sync doc's last sync, for its date. */
@@ -34,6 +37,8 @@
     readonly onAdd?: (bodyType: BodyType) => Promise<void>;
     readonly onRemove: (id: string) => Promise<void>;
     readonly onReorder: (docIds: readonly string[]) => Promise<void>;
+    /** Offers "Sync doc…" in the "+" menu, for an entity that can be synced and isn't yet. */
+    readonly onAddSync?: () => void;
   }
 
   const {
@@ -43,6 +48,7 @@
     onAdd,
     onRemove,
     onReorder,
+    onAddSync,
   }: Props = $props();
 
   // Open on arrival, so the page shows what it holds, unless the URL already
@@ -82,25 +88,34 @@
   // Drawings are free up to a number per notebook; the item says how many are used, and wears
   // the Pro icon once they're gone (the server then refuses another, saying why).
   const allowance = $derived(page.data?.drawingAllowance as DrawingAllowanceView | undefined);
-  const addItems = $derived(BODY_TYPES.map((type) => ({
-    label: BODY_LABELS[type],
-    onSelect: () => { void add(type); },
-    ...(type === 'drawing' && allowance ? drawingMenuMarks(allowance) : {})
-  })));
+  // A sync doc isn't written by hand: "Sync doc…" asks for the prompt, and saving it makes the doc.
+  const addItems = $derived([
+    ...BODY_TYPES.map((type) => ({
+      label: BODY_LABELS[type],
+      onSelect: () => { void add(type); },
+      ...(type === 'drawing' && allowance ? drawingMenuMarks(allowance) : {})
+    })),
+    ...(onAddSync ? [{ label: 'Sync doc…', divided: true, pro: !hasPro(page.data ?? {}), onSelect: () => { expanded = false; onAddSync(); } }] : [])
+  ]);
+
+  // The sync doc stays first; the others reorder among themselves.
+  const ordinary = $derived(docs.filter((d) => !d.isSync));
 
   const moveUp = async (index: number) => {
     if (index <= 0) return;
-    const ids = docs.map((d) => d.id);
+    const ids = ordinary.map((d) => d.id);
     [ids[index - 1], ids[index]] = [ids[index]!, ids[index - 1]!];
     await onReorder(ids);
   };
 
   const moveDown = async (index: number) => {
-    if (index >= docs.length - 1) return;
-    const ids = docs.map((d) => d.id);
+    if (index >= ordinary.length - 1) return;
+    const ids = ordinary.map((d) => d.id);
     [ids[index], ids[index + 1]] = [ids[index + 1]!, ids[index]!];
     await onReorder(ids);
   };
+
+  const orderOf = (id: string): number => ordinary.findIndex((d) => d.id === id);
 </script>
 
 <div class="docs-manager">
@@ -121,17 +136,20 @@
   {#if expanded}
     {#if docs.length > 0}
       <ul class="list doc-list">
-        {#each docs as doc, i (doc.id)}
+        {#each docs as doc (doc.id)}
           <EntityRow href="?doc={encodeURIComponent(doc.id)}" label={doc.title} linkClass="doc-title" active={activeDocId === doc.id} onclick={(e) => select(e, doc.id)}>
             <span class="badge muted">{BODY_LABELS[doc.bodyType ?? 'doc']}</span>
             {#if doc.prompt}
               <SyncStatus {...statusOf(doc)} />
-              <span class="badge accent" title="Sync doc: Claude keeps it in step with its sources. {doc.prompt}">Sync</span>
+              <span class="badge accent" title="Sync doc: written only from this page's sources, following its prompt. {doc.prompt}">Sync</span>
             {/if}
             {#snippet actions()}
-              <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
-              <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === docs.length - 1} title="Move down" aria-label="Move down">↓</button>
-              <ConfirmButton label="Delete doc" variant="delete" onConfirm={() => onRemove(doc.id)} />
+              {#if !doc.isSync}
+                {@const i = orderOf(doc.id)}
+                <button type="button" class="btn icon sm" onclick={() => moveUp(i)} disabled={i === 0} title="Move up" aria-label="Move up">↑</button>
+                <button type="button" class="btn icon sm" onclick={() => moveDown(i)} disabled={i === ordinary.length - 1} title="Move down" aria-label="Move down">↓</button>
+                <ConfirmButton label="Delete doc" variant="delete" onConfirm={() => onRemove(doc.id)} />
+              {/if}
             {/snippet}
           </EntityRow>
         {/each}

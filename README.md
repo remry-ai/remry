@@ -92,9 +92,10 @@ a page adds a "Mentioned in" link to the project.
 Claude writes one view of the project, notes where each point came from, and lists where the
 sources disagree: "Launch date. PRD: 12 Nov. Linear: 30 Oct."
 
-This is a sync doc. It keeps its sources and a prompt saying what to take from each, and each
-source shows when it was last read. Ask Claude to refresh it and it rewrites it the same way. If
-you've edited it since, Claude tells you what changed instead of overwriting your edits. Sync docs
+This is a sync doc: the project's one brief, pinned at the top of its docs. The project keeps a
+prompt saying what to take from each source, and which of its links are the sources, each showing
+when it was last read. Ask Claude to refresh it and it rewrites it the same way. Only a sync writes
+it, so it never mixes with your own edits; to change it, change the prompt or the sources. Sync docs
 are part of Remry Pro, and **Sync now** refreshes one from the app.
 
 ![A sync doc on the New checkout project: its prompt, three synced sources (a Notion PRD, a Linear project and a pricing sheet), Sync now, and the brief ending in a list of discrepancies](docs/images/sync-brief.png)

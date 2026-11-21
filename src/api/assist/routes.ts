@@ -5,8 +5,6 @@ import { gated } from '$api/_license';
 import { ASK_LIMITS, CHAT_LIMITS } from '$shared/assist/claude-cli';
 import { askNotebook } from './ask';
 import { sendChat, getChatStatus, getChat, clearChat } from './chat';
-import { getSyncStatus, startSyncNow } from './sync';
-import { listSyncsNeeded } from '$api/_last-sync';
 import { llmChoiceStatus, saveLlm } from '$shared/assist/llm-choice.server';
 import { LLM_PROVIDER_IDS } from '$shared/types/llm';
 import { ok } from '$shared/utils/result';
@@ -45,23 +43,6 @@ export const chatRouter = router({
   clear: procedure
     .input(z.object(entity))
     .mutation(({ ctx, input }) => clearChat(ctx.reg, input))
-});
-
-const syncTarget = { entityType: z.enum(['DOC', 'PAGE']), id: z.string().min(1) };
-
-// Web app only, like chat: a sync doc's or page's "Sync now" (see sync.ts).
-export const syncRouter = router({
-  now: procedure
-    .input(z.object(syncTarget))
-    .mutation(({ ctx, input }) => gated(ctx, 'sync', () => startSyncNow(ctx.reg, ctx.syncRunner, ctx.notebook.id, input.entityType, input.id))),
-
-  status: procedure
-    .input(z.object(syncTarget))
-    .query(({ ctx, input }) => getSyncStatus(ctx.syncRunner, ctx.notebook.id, input.entityType, input.id)),
-
-  // The home page's list of sync docs and pages that want syncing: failed, never synced, or over a week old.
-  needed: procedure
-    .query(async ({ ctx }) => ok(await listSyncsNeeded(ctx.reg)))
 });
 
 // The default assistant the web app runs, for the whole computer (settings.json). Web app only.

@@ -31,7 +31,7 @@ describe('uploadLinkFile', () => {
     expect(result).toEqual({ ok: true, value: { id: 'link_1', url: 'storage://pages/pg1/file-u1.csv' } });
     expect(putObject).toHaveBeenCalledWith('pages/pg1/file-u1.csv', expect.anything(), 'text/plain; charset=utf-8');
     // A text file's saved text is the file itself, so it's searchable and read without opening the file.
-    expect(create).toHaveBeenCalledWith({ data: { entityType: 'PAGE', entityId: 'pg1', url: 'storage://pages/pg1/file-u1.csv', title: 'Budget 2026.csv', text: 'name,amount\nHosting,120\n' } });
+    expect(create).toHaveBeenCalledWith({ data: { entityType: 'PAGE', entityId: 'pg1', url: 'storage://pages/pg1/file-u1.csv', title: 'Budget 2026.csv', text: 'name,amount\nHosting,120\n', syncSource: false } });
   });
 
   it('refuses a file Claude can\'t read, and an entity with no files folder', async () => {

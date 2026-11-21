@@ -6,6 +6,8 @@
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
+  // On a synced entity (`syncing`), a "Source" badge marks the links its sync doc or sync page is
+  // written from, and each row's "Use as source" toggle (link.update --syncSource) changes that.
   import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -31,6 +33,7 @@
     readonly syncedAt: Date | string | null;
     readonly sourceEditedAt?: Date | string | null;
     readonly hasText?: boolean;
+    readonly syncSource?: boolean;
   }
 
   interface Props {
@@ -40,9 +43,16 @@
     readonly readOnly?: boolean;
     /** After a file is uploaded here, with its link's id: true when it writes its page from it (an empty wiki page), which saves the file's text too. */
     readonly onFileUploaded?: (linkId: string) => boolean;
+    /** The entity is synced (or being set up): show which links are its sources, and let each be toggled. */
+    readonly syncing?: boolean;
   }
 
-  const { entityType, entityId, links, readOnly = false, onFileUploaded }: Props = $props();
+  const { entityType, entityId, links, readOnly = false, onFileUploaded, syncing = false }: Props = $props();
+
+  const toggleSource = async (id: string, syncSource: boolean): Promise<void> => {
+    await submitOrThrow(() => trpc().link.update.mutate({ id, syncSource }));
+    await invalidateAll();
+  };
 
   // EntityDetailPage passes its type as a string; anything else can't take a link.
   const linkType = $derived((ENTITY_TYPES as readonly string[]).includes(entityType) ? (entityType as EntityType) : null);
@@ -152,8 +162,13 @@
             </svg>{row.synced.text}
           </span>
         {/if}
+        {#if syncing && row.syncSource}<span class="badge accent source" title="A sync source: the sync doc is written from it">Source</span>{/if}
         {#if !readOnly}
           <span class="row-actions">
+            {#if syncing}
+              <!-- Small, so the row keeps its width: a filled ring for a source, an empty one for a link that isn't. -->
+              <button type="button" class="btn icon sm" onclick={() => toggleSource(row.id, !row.syncSource)} aria-pressed={row.syncSource} aria-label={row.syncSource ? `Stop syncing from ${row.label}` : `Use ${row.label} as a sync source`} title={row.syncSource ? 'Not a source: stop syncing from this link' : 'Use as source: the sync doc is written from it'}>{row.syncSource ? '◉' : '○'}</button>
+            {/if}
             {#if row.readable}
               <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : `Re-read with ${$assistantName}: write its text again`} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
             {/if}
@@ -173,4 +188,5 @@
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
   .stale { color: var(--warning); }
   .notice { margin-top: var(--sp-2); }
+  .source { flex: none; }
 </style>

@@ -4,11 +4,11 @@ import { BODY_TYPES } from '$shared/types/body-types';
 import { router, procedure } from '$shared/trpc/init';
 import { listDocs, listDocTitles, getDoc, addDocWithContent, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
-import { becomesDrawing, drawingGated, makesSyncDoc, syncDocGated } from '$api/_license';
+import { becomesDrawing, drawingGated } from '$api/_license';
 
 export const docRouter = router({
   list: procedure
-    .meta({ description: 'An entity\'s docs (titles, no content).' })
+    .meta({ description: 'An entity\'s docs, its sync doc (isSync) first, with each sync doc\'s prompt, lastSync and syncNeed.' })
     .input(z.object({ entityType: z.enum(ENTITY_TYPES), entityId: z.string() }))
     .query(({ ctx, input }) => listDocs(ctx.reg, input.entityType, input.entityId)),
 
@@ -33,24 +33,18 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => drawingGated(ctx, ctx.reg, input.bodyType === 'drawing', () => addDocWithContent(ctx.reg, input.entityType, input.entityId, input))),
 
   update: procedure
-    .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs), bodyType (only while empty), or prompt (which makes it a sync doc, rewritten from its linked sources; null clears it), or moves it to another entity (entityType + entityId), keeping its images, links and notes.' })
+    .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs) or bodyType (only while empty), or moves it to another entity (entityType + entityId), keeping its images, links and notes. Refused on a sync doc (isSync), which only sync.save writes.' })
     .input(z.object({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       content: z.string().optional(),
       bodyType: z.enum(BODY_TYPES).optional(),
-      prompt: z.string().max(2000).nullable().optional(),
       entityType: z.enum(ENTITY_TYPES).optional(),
       entityId: z.string().optional()
     }))
-    // A new drawing past the free ones, or a first prompt (a new sync doc), is Remry Pro.
-    .mutation(async ({ ctx, input }) => {
-      const [drawing, sync] = await Promise.all([
-        becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType),
-        makesSyncDoc(ctx.reg, 'DOC', input.id, input.prompt)
-      ]);
-      return drawingGated(ctx, ctx.reg, drawing, () => syncDocGated(ctx, sync, () => updateDoc(ctx.reg, input.id, input)));
-    }),
+    // A new drawing past the free ones is Remry Pro.
+    .mutation(async ({ ctx, input }) =>
+      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType), () => updateDoc(ctx.reg, input.id, input))),
 
   remove: procedure
     .input(z.object({ id: z.string() }))

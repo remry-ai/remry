@@ -20,6 +20,7 @@ import { getPage } from '$api/page/operations';
 import { getDoc } from '$api/attached/doc/operations';
 import { LAST_SYNC_FIELDS, loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
 import { readLastSync } from '$shared/utils/sync-state';
+import { isSyncHolder } from '$shared/utils/file-links';
 import { phraseQuery } from './fts-query';
 import { archivedIdList, queryIndex, searchableTypes } from './operations';
 
@@ -93,8 +94,8 @@ export const recallEntity = async (
       take,
       select: { id: true, title: true, description: true, status: true, priority: true, targetDate: true }
     }),
-    p.doc.findMany({ where: attached, orderBy: { sortOrder: 'asc' }, take, select: { id: true, title: true, bodyType: true, content: true, prompt: true, updatedAt: true, ...LAST_SYNC_FIELDS } }),
-    p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true } }),
+    p.doc.findMany({ where: attached, orderBy: [{ syncHolder: { sort: 'desc', nulls: 'last' } }, { sortOrder: 'asc' }], take, select: { id: true, title: true, bodyType: true, content: true, prompt: true, syncHolder: true, updatedAt: true, ...LAST_SYNC_FIELDS } }),
+    p.link.findMany({ where: attached, orderBy: { createdAt: 'asc' }, take, select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true, syncSource: true } }),
     p.tagAttachment.findMany({ where: attached, select: { tag: { select: { name: true } } } }),
     listRelationsForEntity(reg, entityType, entityId),
     owns
@@ -120,19 +121,11 @@ export const recallEntity = async (
   ]);
   const relationGroups = relations.ok ? relations.value : [];
 
-  // The listed docs' own links: the sources a brief or other sync doc is written from.
-  const docIds = docs.slice(0, limit).map((d) => d.id);
-  const docLinks = docIds.length > 0
-    ? await p.link.findMany({
-      where: { entityType: 'DOC', entityId: { in: docIds } },
-      orderBy: { createdAt: 'asc' },
-      take,
-      select: { id: true, url: true, title: true, syncedAt: true, sourceEditedAt: true, entityId: true }
-    })
+  // The sync doc's last sync and whether it wants one, so Claude can say how current it is before
+  // checking its sources (the entity's links marked syncSource, in `links`).
+  const syncDocs = isSyncHolder(entityType)
+    ? docs.slice(0, limit).filter((d) => d.syncHolder).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: readLastSync(d) }))
     : [];
-
-  // A sync doc's last sync and whether it wants one, so Claude can say how current it is before checking.
-  const syncDocs = docs.slice(0, limit).filter((d) => d.prompt).map((d) => ({ entityType: 'DOC' as const, id: d.id, lastSync: readLastSync(d) }));
   const syncNeeds = await loadSyncNeeds(reg, syncDocs);
   const lastSyncOf = new Map(syncDocs.map((d) => [d.id, d.lastSync]));
 
@@ -165,12 +158,12 @@ export const recallEntity = async (
       // A spreadsheet's or drawing's text, not its JSON.
       excerpt: excerpt(bodyMarkdown(d.bodyType, d.content)),
       prompt: d.prompt,
+      isSync: d.syncHolder !== null,
       updatedAt: d.updatedAt,
       lastSync: lastSyncOf.get(d.id) ?? null,
       syncNeed: syncNeeds.get(syncNeedKey('DOC', d.id)) ?? null
     })), limit),
     links: capped(links, limit),
-    docSources: capped(docLinks.map(({ entityId: docId, ...link }) => ({ ...link, docId })), limit),
     tags: tags.map((t) => t.tag.name).sort((a, b) => a.localeCompare(b)),
     relations: relationGroups,
     ownedGoals: capped(goals.map(({ checkIns, ...goal }) => ({ ...goal, latestCheckIn: checkIns[0] ?? null })), limit),

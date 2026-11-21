@@ -27,6 +27,15 @@ const FILE_FOLDERS: Readonly<Partial<Record<string, string>>> = {
 export const FILE_LINK_HOLDERS = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'DOC'] as const;
 export type FileLinkHolder = (typeof FILE_LINK_HOLDERS)[number];
 
+/**
+ * The types that can be synced from sources: a person, group, project or goal (into its one sync
+ * doc) or a wiki page (its own content). The sources are its own links marked `syncSource`.
+ */
+export const SYNC_HOLDERS = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE'] as const;
+export type SyncHolder = (typeof SYNC_HOLDERS)[number];
+
+export const isSyncHolder = (entityType: string): entityType is SyncHolder => (SYNC_HOLDERS as readonly string[]).includes(entityType);
+
 /** The folder an entity keeps its own files in (a doc's or page's images, and files uploaded as links), or null for a type that has none. */
 export const entityFileFolder = (entityType: string, entityId: string): string | null => {
   const folder = FILE_FOLDERS[entityType];

@@ -16,6 +16,7 @@ import { createTodo } from '../../src/api/attached/todo/operations';
 import { attachTag, createTag } from '../../src/api/attached/tag/operations';
 import { setArchived } from '../../src/api/_archive';
 import { searchNotebook, type SearchInput } from '../../src/api/search/operations';
+import { setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { recallEntity } from '../../src/api/search/recall';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
@@ -167,31 +168,33 @@ describe('search.recall', () => {
     expect(recall.unlinkedMentions.items.map((h) => h.entityId)).toEqual([unlinked.value.id]);
   });
 
-  it('returns the entity links with syncedAt, and the links on its docs as docSources', async () => {
+  it('returns the entity links with syncedAt and which are sync sources, and its sync doc first with its prompt', async () => {
     const person = await createPerson(reg, { name: 'Sasha Brief' });
     if (!person.ok) throw new Error('setup failed');
     const id = person.value.id;
+    await addDoc(reg, 'PERSON', id, { title: 'Notes' });
     await addLink(reg, 'PERSON', id, { url: 'https://linear.app/acme/project/checkout', synced: true });
-    const doc = await addDoc(reg, 'PERSON', id, { title: 'Brief' });
-    if (!doc.ok) throw new Error('setup failed');
-    await addLink(reg, 'DOC', doc.value.id, { url: 'https://www.notion.so/acme/Checkout-PRD-0123', title: 'Notion: Checkout PRD', synced: true });
-    await addLink(reg, 'DOC', doc.value.id, { url: 'https://example.com/reference' });
-
-    await updateDoc(reg, doc.value.id, { prompt: '  PRD: scope and dates.  ' });
+    await addLink(reg, 'PERSON', id, { url: 'https://www.notion.so/acme/Checkout-PRD-0123', title: 'Notion: Checkout PRD', synced: true, syncSource: true });
+    const holder = { entityType: 'PERSON' as const, entityId: id };
+    await setSyncPrompt(reg, holder, '  PRD: scope and dates.  ');
 
     const result = await recallEntity(reg, 'PERSON', id);
     if (!result.ok) throw result.error;
-    expect(result.value.docs.items[0]?.prompt).toBe('PRD: scope and dates.');
-    expect(result.value.links.items[0]?.syncedAt).toBeInstanceOf(Date);
-    expect(result.value.docSources.items.map((l) => [l.docId, l.title, l.syncedAt !== null])).toEqual([
-      [doc.value.id, 'Notion: Checkout PRD', true],
-      [doc.value.id, null, false]
+    expect(result.value.docs.items.map((d) => [d.title, d.isSync, d.prompt])).toEqual([
+      ['Sasha Brief brief', true, 'PRD: scope and dates.'],
+      ['Notes', false, null]
+    ]);
+    expect(result.value.links.items.map((l) => [l.url, l.syncedAt instanceof Date, l.syncSource])).toEqual([
+      ['https://linear.app/acme/project/checkout', true, false],
+      ['https://www.notion.so/acme/Checkout-PRD-0123', true, true]
     ]);
 
-    // A blank prompt makes it an ordinary doc again.
-    await updateDoc(reg, doc.value.id, { prompt: ' ' });
+    // Clearing the prompt leaves an ordinary doc, and no sources.
+    await setSyncPrompt(reg, holder, ' ');
     const cleared = await recallEntity(reg, 'PERSON', id);
-    expect(cleared.ok && cleared.value.docs.items[0]?.prompt).toBeNull();
+    if (!cleared.ok) throw cleared.error;
+    expect(cleared.value.docs.items.find((d) => d.title === 'Sasha Brief brief')).toMatchObject({ isSync: false, prompt: null });
+    expect(cleared.value.links.items.every((l) => !l.syncSource)).toBe(true);
   });
 
   it('caps lists and refuses an unknown entity', async () => {

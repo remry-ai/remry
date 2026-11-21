@@ -29,19 +29,20 @@ export const linkRouter = router({
     .query(({ ctx, input }) => findLinks(ctx.reg, input)),
 
   add: procedure
-    .meta({ description: "Attaches a URL to an entity. synced: true marks it as imported from that source now, with sourceEditedAt the source's own last-edited time." })
+    .meta({ description: "Attaches a URL to an entity. synced: true marks it as imported from that source now, with sourceEditedAt the source's own last-edited time. syncSource: true makes it one of the entity's sync sources (a person, group, project, goal or wiki page; see sync.setPrompt)." })
     .input(z.object({
       entityType: entityTypeEnum,
       entityId: z.string(),
       url: z.string().url().max(2000),
       title: z.string().max(200).optional(),
       synced: z.boolean().optional(),
-      sourceEditedAt: z.coerce.date().optional()
+      sourceEditedAt: z.coerce.date().optional(),
+      syncSource: z.boolean().optional()
     }))
     .mutation(async ({ ctx, input }) => {
       const added = await addLink(ctx.reg, input.entityType, input.entityId, input);
       // Called by Claude (the app's own sync marks sources through the operation), so it's Claude's sync.
-      if (added.ok && input.synced) await recordClaudeSync(ctx.reg, input.entityType, input.entityId);
+      if (added.ok && input.synced) await recordClaudeSync(ctx.reg, added.value.id);
       return added;
     }),
 
@@ -51,11 +52,12 @@ export const linkRouter = router({
     .query(({ ctx, input }) => readLinkFile(ctx.reg, input.id, { original: input.original })),
 
   update: procedure
-    .meta({ description: "Renames a link, or saves a file link's text (what you read in its PDF or image) so later reads return that instead of the file; text: null clears it." })
+    .meta({ description: "Renames a link, saves a file link's text (what you read in its PDF or image) so later reads return that instead of the file (text: null clears it), or makes it one of its entity's sync sources (syncSource)." })
     .input(z.object({
       id: z.string(),
       title: z.string().max(200).nullable().optional(),
-      text: z.string().max(MAX_SAVED_TEXT_CHARS).nullable().optional()
+      text: z.string().max(MAX_SAVED_TEXT_CHARS).nullable().optional(),
+      syncSource: z.boolean().optional()
     }))
     .mutation(({ ctx, input }) => updateLink(ctx.reg, input.id, input)),
 
@@ -66,7 +68,8 @@ export const linkRouter = router({
       entityId: z.string(),
       fileName: z.string().max(255).optional(),
       text: z.string().max(MAX_FILE_BASE64_CHARS).optional(),
-      dataBase64: z.string().max(MAX_FILE_BASE64_CHARS).optional()
+      dataBase64: z.string().max(MAX_FILE_BASE64_CHARS).optional(),
+      syncSource: z.boolean().optional()
     }).refine((input) => (input.text === undefined) !== (input.dataBase64 === undefined), {
       message: 'Send one of text (a text file\'s contents) or dataBase64 (any file\'s bytes as base64), not both.',
       path: ['dataBase64']
@@ -74,7 +77,8 @@ export const linkRouter = router({
     .mutation(({ ctx, input }) => uploadLinkFile(
       ctx.reg, input.entityType, input.entityId,
       input.text !== undefined ? { text: input.text } : { dataBase64: input.dataBase64 ?? '' },
-      input.fileName
+      input.fileName,
+      { syncSource: input.syncSource }
     )),
 
   convert: procedure
@@ -95,7 +99,7 @@ export const linkRouter = router({
     .input(z.object({ id: z.string(), sourceEditedAt: z.coerce.date().optional() }))
     .mutation(async ({ ctx, input }) => {
       const marked = await markLinkSynced(ctx.reg, input.id, input.sourceEditedAt);
-      if (marked.ok) await recordClaudeSync(ctx.reg, marked.value.entityType, marked.value.entityId);
+      if (marked.ok) await recordClaudeSync(ctx.reg, marked.value.id);
       return marked;
     }),
 

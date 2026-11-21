@@ -8,6 +8,7 @@ import { createDepartment, createTeam } from './org-helpers';
 import { createProject, deleteProject, getProject, listProjects, updateProject } from '../../src/api/project/operations';
 import { addCheckIn, addGoalProject, createGoal, getGoal, listGoals, updateGoal } from '../../src/api/goal/operations';
 import { createPage, deletePage, getPage, updatePage, uploadPageImage } from '../../src/api/page/operations';
+import { setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { addDoc, getDoc, removeDoc, updateDoc, uploadDocImage } from '../../src/api/attached/doc/operations';
 import { addNote, listNotes } from '../../src/api/attached/note/operations';
 import { addRelation, listRelationsForEntity } from '../../src/api/relation/operations';
@@ -73,12 +74,16 @@ describe('wiki pages and relations', () => {
     const detail = await getPage(reg, page.value.id);
     expect(detail.ok && detail.value.content).toBe('Payments. 5 seats.');
     expect(detail.ok && detail.value.prompt).toBeNull();
-    // A prompt makes the page a sync doc of its linked sources; null clears it.
-    await updatePage(reg, page.value.id, { prompt: 'Contract: renewal date and seats.' });
+    // A prompt makes the page a sync page of its sources, its content written only by a sync; null clears it.
+    const holder = { entityType: 'PAGE' as const, entityId: page.value.id };
+    await setSyncPrompt(reg, holder, 'Contract: renewal date and seats.');
     const synced = await getPage(reg, page.value.id);
     expect(synced.ok && synced.value.prompt).toBe('Contract: renewal date and seats.');
-    await updatePage(reg, page.value.id, { prompt: null });
-    expect((await getPage(reg, page.value.id)).ok).toBe(true);
+    const byHand = await updatePage(reg, page.value.id, { content: 'Edited by hand.' });
+    expect(!byHand.ok && byHand.error.message).toContain('sync page');
+    expect((await updatePage(reg, page.value.id, { title: 'Stripe' })).ok).toBe(true);
+    await setSyncPrompt(reg, holder, null);
+    expect((await updatePage(reg, page.value.id, { content: 'Payments. 5 seats.' })).ok).toBe(true);
 
     const doc = await addDoc(reg, 'PERSON', 'person_bob', { title: 'Payments notes' });
     if (!doc.ok) throw new Error('doc create failed');

@@ -2,6 +2,7 @@
 
 import { SYNC_OUTCOMES, SYNC_RUNNERS, type SyncOutcome, type SyncRunnerKind } from '$shared/types/enums';
 import type { LastSync, SyncNeed } from '$shared/types/sync-now';
+import type { SyncHolder } from './file-links';
 
 /** Days after which a sync reads as out of date; the skill re-syncs past this too. */
 export const SYNC_STALE_DAYS = 7;
@@ -52,3 +53,12 @@ export const syncNeed = (lastSync: LastSync | null, sources: readonly SyncSource
   if (sources.some((s) => !s.isFile) && isSyncStale(lastSync.at, now)) return 'stale';
   return null;
 };
+
+/** An entity that can be synced, and so has sync sources: its sync doc's or page's owner. */
+export interface SyncHolderRef {
+  readonly entityType: SyncHolder;
+  readonly entityId: string;
+}
+
+/** The value of `doc.sync_holder` on the entity's one sync doc: `<ENTITY_TYPE>:<id>`. */
+export const syncHolderKey = (holder: SyncHolderRef): string => `${holder.entityType}:${holder.entityId}`;

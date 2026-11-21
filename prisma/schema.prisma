@@ -141,8 +141,11 @@ model Doc {
   content    String   @default("")
   /// Unused since the doc_sources_to_links migration moved attached PDFs into file links.
   sourceUrl  String?  @map("source_url")
-  /// A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc.
+  /// A sync doc's prompt: what to pull from its entity's source links. Null for an ordinary doc.
   prompt     String?
+  /// "<ENTITY_TYPE>:<entityId>" on the one sync doc of that entity (set with prompt, cleared with it), else null.
+  /// Unique, so an entity has at most one; many nulls are allowed.
+  syncHolder String?  @unique @map("sync_holder")
   /// A sync doc's last sync: when, what ran it (APP or CLAUDE), how it went (OK, PARTIAL, FAILED) and why.
   lastSyncAt      DateTime? @map("last_sync_at")
   lastSyncBy      String?   @map("last_sync_by")
@@ -385,6 +388,8 @@ model Link {
   /// A file link's text, written once (by the app's local Claude, or by Claude) so a read
   /// needn't open the PDF or image again; the original stays for what text can't hold.
   text       String?
+  /// One of its entity's sync sources: the entity's sync doc (or sync page) is written from these.
+  syncSource Boolean  @default(false) @map("sync_source")
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([entityType, entityId])

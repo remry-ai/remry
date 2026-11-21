@@ -12,6 +12,7 @@ import { addDoc, listDocs, updateDoc, uploadDocImage } from '../../src/api/attac
 import { addNote, listNotes } from '../../src/api/attached/note/operations';
 import { createTodo, listTodosForEntity } from '../../src/api/attached/todo/operations';
 import { addLink, listLinks, readLinkFile, uploadLinkFile } from '../../src/api/attached/link/operations';
+import { getSync, saveSyncText, setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { attachTag, createTag } from '../../src/api/attached/tag/operations';
 import { addRelation } from '../../src/api/relation/operations';
 import { TEST_NOTEBOOK } from './test-notebooks';
@@ -34,7 +35,7 @@ describe('entity.convert', () => {
 
     const doc = must(await addDoc(reg, 'PROJECT', project.id, { title: 'Plan' }));
     const image = must(await uploadDocImage(reg, doc.id, PNG));
-    must(await updateDoc(reg, doc.id, { content: `Steps\n\n${image.markdown}`, prompt: 'PRD: scope' }));
+    must(await updateDoc(reg, doc.id, { content: `Steps\n\n${image.markdown}` }));
     must(await addLink(reg, 'DOC', doc.id, { url: 'https://notion.so/plan', synced: true }));
 
     must(await addNote(reg, 'PROJECT', project.id, { content: 'Kicked off' }));
@@ -60,7 +61,7 @@ describe('entity.convert', () => {
     expect(page.children.map((c) => c.title)).toEqual(['Schema work', 'Plan']);
 
     const plan = must(await getPage(reg, page.children[1]!.id));
-    expect(plan.prompt).toBe('PRD: scope');
+    expect(plan.prompt).toBeNull();
     expect(plan.content).toMatch(new RegExp(`storage://pages/${plan.id}/image-`));
     expect(must(await listLinks(reg, 'PAGE', plan.id)).map((l) => l.url)).toEqual(['https://notion.so/plan']);
 
@@ -153,5 +154,51 @@ describe('entity.convert', () => {
     expect(asDoc.path).toBe(`/app/projects/${project.id}?doc=${asDoc.id}`);
     expect(must(await listDocs(reg, 'PROJECT', project.id)).map((d) => d.content)).toEqual(['Restart it.']);
     expect(must(await listPages(reg, {})).some((p) => p.id === wiki.id)).toBe(false);
+  });
+
+  it('carries a sync between a project and a page: prompt, last sync, sources and text', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const project = must(await createProject(reg, { name: 'Synced launch' }));
+    const holder = { entityType: 'PROJECT' as const, entityId: project.id };
+    const { docId } = must(await setSyncPrompt(reg, holder, 'PRD: scope and dates.'));
+    const source = must(await addLink(reg, 'PROJECT', project.id, { url: 'https://notion.so/acme/launch-prd', synced: true, syncSource: true }));
+    must(await addLink(reg, 'PROJECT', project.id, { url: 'https://example.com/press' }));
+    must(await saveSyncText(reg, holder, '## Scope\nCheckout only.'));
+    must(await addDoc(reg, 'PROJECT', project.id, { title: 'Notes' }));
+
+    // The sync doc on its own belongs to the project, so it isn't converted by itself.
+    const alone = await convertEntity(reg, { entityType: 'DOC', id: docId!, to: 'PAGE' });
+    expect(!alone.ok && alone.error.message).toContain('sync doc');
+
+    const page = must(await convertEntity(reg, { entityType: 'PROJECT', id: project.id, to: 'PAGE' }));
+    const synced = must(await getPage(reg, page.id));
+    expect(synced.prompt).toBe('PRD: scope and dates.');
+    expect(synced.content).toContain('Checkout only.');
+    // Only the ordinary doc became a sub-page.
+    expect(synced.children.map((c) => c.title)).toEqual(['Notes']);
+    const pageSync = must(await getSync(reg, { entityType: 'PAGE', entityId: page.id }));
+    expect(pageSync.sources.map((l) => l.id)).toEqual([source.id]);
+
+    // And back: the project gets a sync doc again, with the page's text and the same sources.
+    const back = must(await convertEntity(reg, { entityType: 'PAGE', id: page.id, to: 'PROJECT', allowDuplicate: true }));
+    const projectSync = must(await getSync(reg, { entityType: 'PROJECT', entityId: back.id }));
+    expect(projectSync).toMatchObject({ prompt: 'PRD: scope and dates.' });
+    expect(projectSync.sources.map((l) => l.id)).toEqual([source.id]);
+    const docs = must(await listDocs(reg, 'PROJECT', back.id));
+    expect(docs[0]).toMatchObject({ isSync: true, title: 'Synced launch brief' });
+    expect(docs[0]!.content).toContain('Checkout only.');
+  });
+
+  it('makes a sync page an ordinary doc, its sources plain links, with a warning', async () => {
+    const reg = getRegistry(TEST_NOTEBOOK);
+    const project = must(await createProject(reg, { name: 'Docs home (sync)' }));
+    const page = must(await createPage(reg, { title: 'Vendor pricing', content: '' }));
+    must(await setSyncPrompt(reg, { entityType: 'PAGE', entityId: page.id }, 'Tiers only.'));
+    must(await addLink(reg, 'PAGE', page.id, { url: 'https://notion.so/acme/pricing', syncSource: true }));
+    const doc = must(await convertEntity(reg, { entityType: 'PAGE', id: page.id, to: 'DOC', onType: 'PROJECT', onId: project.id }));
+    expect(doc.warnings[0]).toContain('sync page');
+    const [link] = must(await listLinks(reg, 'DOC', doc.id));
+    expect(link?.syncSource).toBe(false);
+    expect(must(await listDocs(reg, 'PROJECT', project.id)).map((d) => [d.isSync, d.prompt])).toEqual([[false, null]]);
   });
 });

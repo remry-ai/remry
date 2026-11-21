@@ -11,6 +11,7 @@ import { getRegistry } from '$shared/registry.server';
 import type { Registry } from '$shared/registry';
 import { applyMigrations } from './migrate.server';
 import { createWaitingClient, enableWal } from './libsql.server';
+import { adoptStrayFileLinks } from '$api/attached/link/stray-files';
 
 /** Apply migrations and enable WAL. Not memoised: use after replacing the database file. */
 export const migrateDatabase = async (notebookId: string): Promise<void> => {
@@ -32,7 +33,9 @@ export const ensureDatabase = (notebookId: string): Promise<void> => {
   const existing = ready.get(notebookId);
   if (existing) return existing;
   const preparing = ensureLayout()
-    .then(() => migrateDatabase(notebookId));
+    .then(() => migrateDatabase(notebookId))
+    // Files whose link a migration moved to another entity (sync_doc_per_entity) go to that entity's folder.
+    .then(async () => { await adoptStrayFileLinks(getRegistry(notebookId)); });
   ready.set(notebookId, preparing);
   preparing.catch(() => ready.delete(notebookId));
   return preparing;

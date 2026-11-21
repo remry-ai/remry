@@ -7,7 +7,7 @@ import type { EntityType } from '$shared/types/enums';
 import { entityPath } from '$shared/utils/entity';
 import { linkSearchKey, normalizeLinkUrl } from './url';
 import { decodeSourceFile, textSourceFile } from '$api/_uploads';
-import { entityFileFolder, fileLinkKey, fileLinkUrl } from '$shared/utils/file-links';
+import { entityFileFolder, fileLinkKey, fileLinkUrl, isSyncHolder } from '$shared/utils/file-links';
 
 // ----- Types -----
 
@@ -21,6 +21,8 @@ export interface LinkSummary {
   readonly sourceEditedAt: Date | null;
   /** A file link whose text is saved: a read returns that instead of opening the file. */
   readonly hasText: boolean;
+  /** One of its entity's sync sources: the entity's sync doc (or sync page) is written from these. */
+  readonly syncSource: boolean;
   readonly createdAt: Date;
 }
 
@@ -39,7 +41,13 @@ export interface FindLinksInput {
 const FIND_LIMIT = 50;
 
 /** Every column but the saved text, which a list leaves out (it can be a whole PDF's worth). */
-const SUMMARY_SELECT = { id: true, entityType: true, entityId: true, url: true, title: true, syncedAt: true, sourceEditedAt: true, createdAt: true } as const;
+const SUMMARY_SELECT = { id: true, entityType: true, entityId: true, url: true, title: true, syncedAt: true, sourceEditedAt: true, syncSource: true, createdAt: true } as const;
+
+const NOT_A_SYNC_HOLDER = 'Only a person, group, project, goal or wiki page has sync sources: mark a link on one of those.';
+
+/** Refuses `syncSource: true` on an entity that can't have a sync doc or page. */
+const checkSyncSource = (entityType: string, syncSource: boolean | undefined): Result<null> =>
+  syncSource && !isSyncHolder(entityType) ? err(new Error(NOT_A_SYNC_HOLDER)) : ok(null);
 
 /** Which of these links have saved text. */
 const idsWithText = async (reg: Pick<Registry, 'prisma'>, ids: readonly string[]): Promise<ReadonlySet<string>> => {
@@ -68,6 +76,7 @@ export const listLinks = async (
     syncedAt: l.syncedAt,
     sourceEditedAt: l.sourceEditedAt,
     hasText: withText.has(l.id),
+    syncSource: l.syncSource,
     createdAt: l.createdAt
   })));
 };
@@ -111,6 +120,7 @@ export const findLinks = async (
       syncedAt: l.syncedAt,
       sourceEditedAt: l.sourceEditedAt,
       hasText: withText.has(l.id),
+      syncSource: l.syncSource,
       createdAt: l.createdAt,
       entityType,
       entityId: l.entityId,
@@ -125,8 +135,10 @@ export const addLink = async (
   reg: Pick<Registry, 'prisma' | 'now'>,
   entityType: EntityType,
   entityId: string,
-  input: { readonly url: string; readonly title?: string; readonly synced?: boolean; readonly sourceEditedAt?: Date }
+  input: { readonly url: string; readonly title?: string; readonly synced?: boolean; readonly sourceEditedAt?: Date; readonly syncSource?: boolean }
 ): Promise<Result<{ readonly id: string }>> => {
+  const source = checkSyncSource(entityType, input.syncSource);
+  if (!source.ok) return err(source.error);
   // A file link is made only by uploading the file (uploadLinkFile), so it always points into the entity's own folder.
   if (fileLinkKey(input.url)) return err(new Error('A storage:// address is made by uploading the file (link.upload), not added by hand.'));
   const writable = await ensureAttachable(reg, entityType, entityId);
@@ -138,7 +150,8 @@ export const addLink = async (
       url: input.url,
       title: input.title,
       syncedAt: input.synced ? reg.now() : null,
-      sourceEditedAt: input.synced ? input.sourceEditedAt ?? null : null
+      sourceEditedAt: input.synced ? input.sourceEditedAt ?? null : null,
+      syncSource: input.syncSource ?? false
     }
   });
   return ok({ id: link.id });
@@ -167,8 +180,11 @@ export const uploadLinkFile = async (
   entityType: EntityType,
   entityId: string,
   content: UploadContent,
-  fileName?: string
+  fileName?: string,
+  options: { readonly syncSource?: boolean } = {}
 ): Promise<Result<{ readonly id: string; readonly url: string }>> => {
+  const source = checkSyncSource(entityType, options.syncSource);
+  if (!source.ok) return err(source.error);
   const folder = entityFileFolder(entityType, entityId);
   if (!folder) return err(new Error('A file can be uploaded to a person, group, project, goal, wiki page or doc. Add a link to it here instead.'));
   const writable = await ensureAttachable(reg, entityType, entityId);
@@ -181,7 +197,7 @@ export const uploadLinkFile = async (
   const url = fileLinkUrl(key);
   // A text file's saved text is the file itself: searchable at once, with nothing to write later.
   const text = file.value.contentType.startsWith('text/') ? new TextDecoder('utf-8').decode(file.value.bytes) : null;
-  const link = await reg.prisma.link.create({ data: { entityType, entityId, url, title: titleFor(fileName), text } });
+  const link = await reg.prisma.link.create({ data: { entityType, entityId, url, title: titleFor(fileName), text, syncSource: options.syncSource ?? false } });
   return ok({ id: link.id, url });
 };
 
@@ -220,9 +236,11 @@ export interface UpdateLinkInput {
   readonly title?: string | null;
   /** A file link's text (null clears it, so reads open the file again). */
   readonly text?: string | null;
+  /** Makes it one of its entity's sync sources, or not. */
+  readonly syncSource?: boolean;
 }
 
-/** Renames a link, or saves a file link's text so later reads needn't open the file. */
+/** Renames a link, saves a file link's text so later reads needn't open the file, or makes it a sync source. */
 export const updateLink = async (
   reg: Pick<Registry, 'prisma' | 'now'>,
   id: string,
@@ -233,6 +251,8 @@ export const updateLink = async (
   if (input.text !== undefined && input.text !== null && !ownFileKey(existing)) {
     return err(new Error('Only a file uploaded as a link keeps its text. An outside page stays where it is: read it with its own tool.'));
   }
+  const source = checkSyncSource(existing.entityType, input.syncSource);
+  if (!source.ok) return err(source.error);
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
   const text = input.text === undefined ? undefined : input.text?.trim() ? input.text : null;
@@ -240,7 +260,8 @@ export const updateLink = async (
     where: { id },
     data: {
       ...(input.title !== undefined ? { title: input.title?.trim() || null } : {}),
-      ...(text !== undefined ? { text } : {})
+      ...(text !== undefined ? { text } : {}),
+      ...(input.syncSource !== undefined ? { syncSource: input.syncSource } : {})
     }
   });
   return ok({ id });

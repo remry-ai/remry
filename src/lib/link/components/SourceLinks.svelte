@@ -25,12 +25,12 @@
     readonly onAdd?: (link: { readonly url: string; readonly title?: string }) => Promise<unknown>;
     /** Uploads a source file from the add form ("or upload a file"); with no onAdd, the button reads "Add a file". */
     readonly onUploadFile?: (file: File) => Promise<unknown>;
-    /** Offers to make the doc a sync doc (a link after Add link), with this label. */
+    /** Offers to make the page a sync page (a link after Add link), with this label. */
     readonly onMakeSync?: () => void;
     readonly makeSyncLabel?: string;
   }
 
-  const { links, onAdd, onUploadFile, onMakeSync, makeSyncLabel = 'Make sync doc' }: Props = $props();
+  const { links, onAdd, onUploadFile, onMakeSync, makeSyncLabel = 'Make sync page' }: Props = $props();
   const canAdd = $derived(!!onAdd || !!onUploadFile);
 
   const items = $derived(links.map((link) => {

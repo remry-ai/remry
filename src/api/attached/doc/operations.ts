@@ -11,6 +11,7 @@ import { loadSyncNeeds, syncNeedKey } from '$api/_last-sync';
 import { readLastSync } from '$shared/utils/sync-state';
 import type { LastSync, SyncNeed } from '$shared/types/sync-now';
 import { asBodyType, type BodyType } from '$shared/types/body-types';
+import { isSyncHolder } from '$shared/utils/file-links';
 import { linkedText, planBodyUpdate, prepareContent } from '$api/_body';
 
 // ----- Types -----
@@ -21,8 +22,10 @@ export interface DocSummary {
   /** What content holds: markdown, a spreadsheet's JSON or a drawing's JSON. */
   readonly bodyType: BodyType;
   readonly content: string;
-  /** A sync doc's prompt: what to pull from its linked sources. Null for an ordinary doc. */
+  /** A sync doc's prompt: what to pull from its entity's sources. Null for an ordinary doc. */
   readonly prompt: string | null;
+  /** Its entity's one sync doc: written only from the entity's sources (sync.save, Sync now), never by hand. */
+  readonly isSync: boolean;
   /** A sync doc's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
   readonly lastSync: LastSync | null;
   readonly sortOrder: number;
@@ -58,6 +61,7 @@ export const getDoc = async (
     bodyType: asBodyType(doc.bodyType),
     content: doc.content,
     prompt: doc.prompt,
+    isSync: doc.syncHolder !== null,
     lastSync: readLastSync(doc),
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
@@ -78,18 +82,23 @@ export const listDocs = async (
     where: { entityType, entityId },
     orderBy: { sortOrder: 'asc' }
   });
-  const summaries = docs.map((doc) => ({
+  // The sync doc is always first: it belongs to the entity rather than sitting among its docs.
+  const ordered = [...docs.filter((d) => d.syncHolder), ...docs.filter((d) => !d.syncHolder)];
+  const summaries = ordered.map((doc) => ({
     id: doc.id,
     title: doc.title,
     bodyType: asBodyType(doc.bodyType),
     content: doc.content,
     prompt: doc.prompt,
+    isSync: doc.syncHolder !== null,
     lastSync: readLastSync(doc),
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt
   }));
-  const needs = await loadSyncNeeds(reg, summaries.filter((d) => d.prompt).map((d) => ({ entityType: 'DOC' as const, id: d.id, lastSync: d.lastSync })));
+  const needs = isSyncHolder(entityType)
+    ? await loadSyncNeeds(reg, summaries.filter((d) => d.isSync).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: d.lastSync })))
+    : new Map<string, SyncNeed | null>();
   return ok(summaries.map((d) => ({ ...d, syncNeed: needs.get(syncNeedKey('DOC', d.id)) ?? null })));
 };
 
@@ -174,7 +183,6 @@ export interface UpdateDocInput {
   readonly content?: string;
   /** Makes it a document, a spreadsheet or a drawing; only while it's empty. */
   readonly bodyType?: BodyType;
-  readonly prompt?: string | null;
   /** Moves the doc to another entity (both together). It keeps its id, so its images, links, notes and PDF go with it. */
   readonly entityType?: EntityType;
   readonly entityId?: string;
@@ -208,15 +216,33 @@ const moveTarget = async (
   return ok({ entityType: input.entityType, entityId: input.entityId, sortOrder: (last?.sortOrder ?? -1) + 1 });
 };
 
+/** Why a sync doc can't be changed by hand, and what to do instead. */
+export const syncDocReadOnly = async (
+  reg: Pick<Registry, 'prisma'>,
+  doc: { readonly entityType: string; readonly entityId: string }
+): Promise<Error> => {
+  const label = await resolveEntityLabel(reg, doc.entityType as EntityType, doc.entityId);
+  return new Error(`This is ${label ? `${label}'s` : 'its entity\'s'} sync doc, written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null): it stays as an ordinary doc.`);
+};
+
+export interface WriteOptions {
+  /** Written by a sync (saveSyncText), the one way a sync doc's text changes. */
+  readonly fromSync?: boolean;
+}
+
 export const updateDoc = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
   id: string,
-  input: UpdateDocInput
+  input: UpdateDocInput,
+  options: WriteOptions = {}
 ): Promise<Result<{ readonly id: string }>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id } });
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
+  // A sync takes only new text: its title, type and entity stay as they are.
+  const syncWrite = options.fromSync && input.title === undefined && input.bodyType === undefined && input.entityType === undefined && input.entityId === undefined;
+  if (existing.syncHolder && !syncWrite) return err(await syncDocReadOnly(reg, existing));
   const body = planBodyUpdate('doc', existing, input);
   if (!body.ok) return err(body.error);
   const { bodyType, typeChanged } = body.value;
@@ -232,7 +258,6 @@ export const updateDoc = async (
       ...(input.title !== undefined && { title: input.title }),
       ...(content !== undefined && { content }),
       ...(typeChanged && { bodyType }),
-      ...(input.prompt !== undefined && { prompt: input.prompt?.trim() || null }),
       ...(move.value && move.value)
     }
   });
@@ -253,6 +278,9 @@ export const removeDoc = async (
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
+  if (existing.syncHolder) {
+    return err(new Error('This is its entity\'s sync doc. To remove it, clear the entity\'s prompt (sync.setPrompt --prompt null), which leaves it an ordinary doc, then delete that.'));
+  }
 
   const cleanup = await planEntityCleanup(reg, 'DOC', id);
   await reg.prisma.$transaction([...cleanup.ops, reg.prisma.doc.delete({ where: { id } })]);
@@ -288,6 +316,7 @@ export const uploadDocImage = async (
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
+  if (existing.syncHolder) return err(await syncDocReadOnly(reg, existing));
 
   return storeEditorImage(reg, `docs/${docId}`, dataBase64);
 };

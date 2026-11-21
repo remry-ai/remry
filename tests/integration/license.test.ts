@@ -32,7 +32,7 @@ describe('license', () => {
     expect((await api.search.query({ q: 'alice' })).ok).toBe(true);
     expect((await api.search.recall({ entityType: 'PERSON', entityId: 'person_alice' })).ok).toBe(true);
 
-    const sync = await api.sync.now({ entityType: 'DOC', id: 'doc_none' });
+    const sync = await api.sync.now({ entityType: 'PROJECT', entityId: 'project_none' });
     expect(!sync.ok && sync.error.message).toBe(`Sync docs is part of Remry Pro. Buy a license (${REMRY_LINKS.buy}), then add its key in the app (License) or with license.activate.`);
     const branding = await api.branding.create({ name: 'Acme' });
     expect(!branding.ok && branding.error.message).toContain('Branding is part of Remry Pro');
@@ -58,7 +58,7 @@ describe('license', () => {
     expect(settingsJson()).toMatchObject({ defaultNotebook: TEST_NOTEBOOK, licenseKey: expect.stringMatching(/^WN1\./) });
 
     // Past the gate: Sync now gets as far as finding the doc.
-    const sync = await api.sync.now({ entityType: 'DOC', id: 'doc_none' });
+    const sync = await api.sync.now({ entityType: 'PROJECT', entityId: 'project_none' });
     expect(!sync.ok && sync.error.message).not.toContain('Remry Pro');
     const created = await api.branding.create({ name: 'Acme' });
     expect(created.ok).toBe(true);

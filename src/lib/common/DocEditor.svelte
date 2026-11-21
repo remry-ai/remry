@@ -49,9 +49,11 @@
     readonly onEdit?: () => void;
     /** The tab it opens on: Preview, unless the doc is empty (nothing to preview) or the caller asked to edit. */
     readonly startIn?: 'editor' | 'preview';
+    /** Shown only: Preview, no editor tabs, pencil or Save (an entity's sync doc, which only a sync writes). */
+    readonly readOnly?: boolean;
   }
 
-  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, onEdit, startIn, showTitle = true }: Props = $props();
+  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, onEdit, startIn, showTitle = true, readOnly = false }: Props = $props();
 
   const pendingImages = new Map<string, File>();
   // blob: addresses already in the content as loaded: saved by an earlier tab, so their
@@ -78,7 +80,7 @@
   let saved = $state(content);
   let resolving = $state(hasStorageUrls(content));
   // Read once: the tab it opens on.
-  let mode = $state<'write' | 'editor' | 'preview'>(untrack(() => startIn ?? (content.trim() ? 'preview' : 'editor')));
+  let mode = $state<'write' | 'editor' | 'preview'>(untrack(() => (readOnly ? 'preview' : startIn ?? (content.trim() ? 'preview' : 'editor'))));
   let saving = $state(false);
   let error = $state('');
 
@@ -215,12 +217,18 @@
       <!-- Stays in view above the editor's own toolbar: the title once scrolled past it, then the view tabs with the doc's actions at the right end. -->
       <DocBar {title} bodyType="doc" {showTitle} exportHref={mode !== 'preview' || isEmptyBody('doc', content) ? undefined : exportHref} onExport={handleExport} {onClose}>
         {#snippet tabs()}
-          <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
-          <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
-          <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
+          {#if readOnly}
+            <span class="tab active">Preview</span>
+          {:else}
+            <button type="button" class="tab" class:active={mode === 'write'} onclick={() => setMode('write')}>Markdown</button>
+            <button type="button" class="tab" class:active={mode === 'editor'} onclick={() => setMode('editor')}>Editor</button>
+            <button type="button" class="tab" class:active={mode === 'preview'} onclick={() => setMode('preview')}>Preview</button>
+          {/if}
         {/snippet}
         {#snippet actions()}
-          {#if mode === 'preview'}
+          {#if readOnly}
+            <!-- Only a sync writes it. -->
+          {:else if mode === 'preview'}
             <!-- As beside a wiki page's Content heading: the pencil opens the editor. -->
             <button type="button" class="btn icon sm" aria-label="Edit {title}" title="Edit" onclick={() => setMode('editor')}><PencilIcon /></button>
           {:else}

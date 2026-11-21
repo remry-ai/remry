@@ -8,6 +8,7 @@ import { getRegistry } from '../../src/shared/registry.server';
 import { createPage, getPage, updatePage } from '../../src/api/page/operations';
 import { addDoc, addDocWithContent, getDoc, updateDoc } from '../../src/api/attached/doc/operations';
 import { recallEntity } from '../../src/api/search/recall';
+import { setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { listRelationsForEntity } from '../../src/api/relation/operations';
 import { convertEntity } from '../../src/api/convert/operations';
 import { searchNotebook } from '../../src/api/search/operations';
@@ -162,8 +163,11 @@ describe('spreadsheet and drawing docs', () => {
 
     const toDrawing = await updateDoc(reg, sheet.value.id, { bodyType: 'drawing' });
     expect(!toDrawing.ok && toDrawing.error.message).toMatch(/already has content as a spreadsheet, so it can't become a drawing/);
-    const sync = await updateDoc(reg, sheet.value.id, { prompt: 'Pull the costs' });
-    expect(!sync.ok && sync.error.message).toMatch(/can't be a sync doc/);
+    // A spreadsheet page can't be a sync page: only a document's text is rewritten from sources.
+    const sheetPage = await createPage(reg, { title: 'Costs sheet', bodyType: 'sheet' });
+    if (!sheetPage.ok) throw sheetPage.error;
+    const sync = await setSyncPrompt(reg, { entityType: 'PAGE', entityId: sheetPage.value.id }, 'Pull the costs');
+    expect(!sync.ok && sync.error.message).toMatch(/spreadsheet page can't be synced/);
 
     const doc = await addDoc(reg, 'PERSON', 'person_alice', { title: 'Sketch' });
     if (!doc.ok) throw doc.error;

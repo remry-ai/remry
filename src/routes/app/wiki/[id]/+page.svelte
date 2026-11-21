@@ -83,8 +83,11 @@
   const isDocument = $derived(wikiPage.bodyType === 'doc');
 
   // Saving while editing doesn't reload the page, so the editor keeps its state; closing does.
-  // A sync page's sources are its links: synced ones, and ones added by hand that Claude reads next.
+  // The page's links, on one line; a sync page's sources are those marked as sources (the
+  // sidebar's Links toggles them), and only a sync writes its content.
   const sourceLinks = $derived(data.links ?? []);
+  const syncSources = $derived(sourceLinks.filter((l: { readonly syncSource?: boolean }) => l.syncSource));
+  const holder = $derived({ entityType: 'PAGE' as const, entityId: wikiPage.id });
 
   // "Make sync page": a document page only (a spreadsheet's rows aren't rewritten from sources).
   let makingSync = $state(false);
@@ -94,6 +97,18 @@
   const handleAddLink = async (link: { readonly url: string; readonly title?: string }) => {
     await submitOrThrow(() => trpc().link.add.mutate({ entityType: 'PAGE', entityId: wikiPage.id, ...link }));
     await invalidateAll();
+  };
+
+  // From the sync banner: a new source, read on the next sync.
+  const handleAddSource = async (link: { readonly url: string; readonly title?: string }) => {
+    await submitOrThrow(() => trpc().link.add.mutate({ ...holder, ...link, syncSource: true }));
+    await invalidateAll();
+  };
+
+  const handleUploadSyncSource = async (file: File): Promise<void> => {
+    const linkId = await uploadFileLink('PAGE', wikiPage.id, file, { syncSource: true });
+    await invalidateAll();
+    transcribeInBackground(linkId);
   };
 
   // Files uploaded from Add link's "or upload a file" are links like any other, pointing at the
@@ -132,7 +147,7 @@
   // "Sync now": the local Claude rewrites the page from its sources.
   const handleSyncNow = async () => {
     try {
-      return await syncNowAndWait('PAGE', wikiPage.id);
+      return await syncNowAndWait(holder);
     } finally {
       await invalidateAll();
     }
@@ -141,7 +156,7 @@
   const uploadSource = $derived(!wikiPage.archivedAt && isDocument ? handleUploadSource : undefined);
 
   const handleSavePrompt = async (prompt: string | null) => {
-    await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, prompt }));
+    await submitOrThrow(() => trpc().sync.setPrompt.mutate({ ...holder, prompt }));
     await invalidateAll();
   };
 
@@ -269,8 +284,9 @@
   {todos}
   {relations}
   links={data.links}
+  synced={!!wikiPage.prompt || makingSync}
   onFileLinkUploaded={(linkId) => {
-    if (wikiPage.content.trim() || !isDocument) return false;
+    if (wikiPage.content.trim() || !isDocument || wikiPage.prompt) return false;
     void handleConvert(linkId);
     return true;
   }}
@@ -278,9 +294,9 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt prompt={wikiPage.prompt} links={sourceLinks} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} lastSync={wikiPage.lastSync} target={{ entityType: 'PAGE', id: wikiPage.id }} onRefresh={invalidateAll} />
+      <SyncPrompt noun="page" prompt={wikiPage.prompt} links={syncSources} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddSource} onUploadFile={wikiPage.archivedAt ? undefined : handleUploadSyncSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} lastSync={wikiPage.lastSync} target={holder} onRefresh={invalidateAll} />
     {:else if makingSync}
-      <SyncPrompt prompt="" links={sourceLinks} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddLink} onUploadFile={uploadSource} onCancel={() => { makingSync = false; }} />
+      <SyncPrompt noun="page" prompt="" links={syncSources} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddSource} onUploadFile={handleUploadSyncSource} onCancel={() => { makingSync = false; }} />
     {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}
       <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
       <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />
@@ -303,7 +319,7 @@
           <BodyView bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} editable={!wikiPage.archivedAt} onSave={handleSaveContent} onShare={handleShareDrawing} onImportLink={handleImportDrawing} onDrawingClosed={invalidateAll} bind:drawingOpen sheetControl={sheet} />
         {/key}
       </section>
-    {:else if editing}
+    {:else if editing && !wikiPage.prompt}
       <!-- A section, so it keeps the Content section's gap below the sync banner or links line. -->
       <section class="section">
       <DocEditor
@@ -329,10 +345,13 @@
           <span class="content-actions">
             {#if wikiPage.content.trim()}
               <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF</a>
-            {:else if fileLink && !converting && !wikiPage.archivedAt && isDocument}
+            {:else if fileLink && !converting && !wikiPage.archivedAt && isDocument && !wikiPage.prompt}
               <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}<ProIcon /></button>
             {/if}
-            <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={startEditing}><PencilIcon /></button>
+            <!-- A sync page's content is written only by a sync. -->
+            {#if !wikiPage.prompt}
+              <button type="button" class="btn icon sm" aria-label="Edit the content of {wikiPage.title}" title="Edit content" onclick={startEditing}><PencilIcon /></button>
+            {/if}
           </span>
         </div>
         {#if convertNotice}<p class={convertNotice.tone === 'error' ? 'form-error' : 'form-warning'} role="alert">{convertNotice.message}</p>{/if}
@@ -340,6 +359,8 @@
           <p class="text-sm muted" aria-busy="true">Converting the file with {$assistantName}… This can take a minute or two.</p>
         {:else if wikiPage.content.trim()}
           <div class="doc-text"><MarkdownRenderer content={wikiPage.content} /></div>
+        {:else if wikiPage.prompt}
+          <EmptyState message="Nothing synced yet." />
         {:else}
           <EmptyState message="This page is empty.">
             <button type="button" class="btn sm" onclick={startEditing}>Write it</button>

@@ -1,12 +1,11 @@
-// "Sync now" on a sync doc or sync wiki page, in the web app: the local Claude Code CLI reads
-// each source (an outside link with the user's own connectors or web fetch, an uploaded file from
+// "Sync now" on an entity's sync doc or a sync wiki page, in the web app: the local Claude Code
+// CLI reads each of the entity's sources (an outside link with the user's own connectors or web fetch, an uploaded file from
 // its saved text or the file) and rewrites the text from the prompt; the app then saves it and
 // marks each source it read as synced, with the source's own last-edited time. The runner comes
 // from the HTTP tRPC context; the CLI and MCP have none, since there Claude syncs it itself.
 
 import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
-import type { EntityType } from '$shared/types/enums';
 import { ensureWritable } from '$api/_archive';
 import { resolveEntityLabels } from '$api/_entity-labels';
 import { parseSyncReply, syncPrompt, type SyncSource } from '$shared/assist/sync-cli';
@@ -15,17 +14,17 @@ import type { SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
 import { entityTypeLabel } from '$shared/utils/entity';
 import { requireDocument } from '$api/_body';
-import { updateDoc } from '$api/attached/doc/operations';
-import { updatePage } from '$api/page/operations';
-import { markLinkSynced } from '$api/attached/link/operations';
+import { saveSyncText } from '$api/attached/sync/operations';
 import { readyLlm } from './llm';
-import { recordSync, type SyncTarget } from '$api/_last-sync';
+import { findSyncTarget, recordSync } from '$api/_last-sync';
+import type { SyncHolderRef } from '$shared/utils/sync-state';
 
 export const SYNC_RETRY = 'choose Sync now again, or ask Claude in a chat to sync it.';
 
 type SyncReg = Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>;
 
-export const syncJobKey = (notebookId: string, entityType: SyncTarget, id: string): string => `${notebookId}/SYNC:${entityType}:${id}`;
+/** One job per synced entity. */
+export const syncJobKey = (notebookId: string, holder: SyncHolderRef): string => `${notebookId}/SYNC:${holder.entityType}:${holder.entityId}`;
 
 interface Target {
   readonly title: string;
@@ -34,45 +33,49 @@ interface Target {
   readonly on: string | null;
 }
 
-const loadTarget = async (reg: SyncReg, entityType: SyncTarget, id: string): Promise<Result<Target>> => {
-  if (entityType === 'PAGE') {
-    const page = await reg.prisma.page.findUnique({ where: { id }, select: { title: true, content: true, prompt: true, bodyType: true } });
+const NOT_SYNCED = 'Only a synced entity can be synced: give it a prompt first.';
+
+const loadTarget = async (reg: SyncReg, holder: SyncHolderRef): Promise<Result<Target & { readonly kind: 'DOC' | 'PAGE'; readonly id: string }>> => {
+  const target = await findSyncTarget(reg, holder);
+  if (!target) return err(new Error(NOT_SYNCED));
+  if (target.entityType === 'PAGE') {
+    const page = await reg.prisma.page.findUnique({ where: { id: target.id }, select: { title: true, content: true, prompt: true, bodyType: true } });
     if (!page) return err(new Error('Page not found'));
     const document = requireDocument('page', page.bodyType, 'synced');
     if (!document.ok) return err(document.error);
-    if (!page.prompt?.trim()) return err(new Error('Only a sync page can be synced: give it a prompt first.'));
-    return ok({ title: page.title, content: page.content, prompt: page.prompt, on: null });
+    if (!page.prompt?.trim()) return err(new Error(NOT_SYNCED));
+    return ok({ kind: 'PAGE', id: target.id, title: page.title, content: page.content, prompt: page.prompt, on: null });
   }
-  const doc = await reg.prisma.doc.findUnique({ where: { id }, select: { title: true, content: true, prompt: true, bodyType: true, entityType: true, entityId: true } });
+  const doc = await reg.prisma.doc.findUnique({ where: { id: target.id }, select: { title: true, content: true, prompt: true, bodyType: true } });
   if (!doc) return err(new Error('Doc not found'));
   const document = requireDocument('doc', doc.bodyType, 'synced');
   if (!document.ok) return err(document.error);
-  if (!doc.prompt?.trim()) return err(new Error('Only a sync doc can be synced: give it a prompt first.'));
-  const parentType = doc.entityType as EntityType;
-  const labels = await resolveEntityLabels(reg, [{ entityType: parentType, entityId: doc.entityId }]);
-  const parent = labels.labelOf(parentType, doc.entityId);
-  return ok({ title: doc.title, content: doc.content, prompt: doc.prompt, on: parent ? `the ${entityTypeLabel(parentType).toLowerCase()} ${parent}` : null });
+  if (!doc.prompt?.trim()) return err(new Error(NOT_SYNCED));
+  const labels = await resolveEntityLabels(reg, [{ entityType: holder.entityType, entityId: holder.entityId }]);
+  const parent = labels.labelOf(holder.entityType, holder.entityId);
+  return ok({ kind: 'DOC', id: target.id, title: doc.title, content: doc.content, prompt: doc.prompt, on: parent ? `the ${entityTypeLabel(holder.entityType).toLowerCase()} ${parent}` : null });
 };
 
-/** Starts rewriting the doc or page from its sources in the background; poll `getSyncStatus`. */
+/** Starts rewriting the entity's sync doc or page from its sources in the background; poll `getSyncStatus`. */
 export const startSyncNow = async (
   reg: SyncReg,
   runner: SyncRunner | undefined,
   notebookId: string,
-  entityType: SyncTarget,
-  id: string
+  holder: SyncHolderRef
 ): Promise<Result<ConvertPdfResult>> => {
-  const target = await loadTarget(reg, entityType, id);
+  const target = await loadTarget(reg, holder);
   if (!target.ok) return err(target.error);
-  const writable = await ensureWritable(reg, entityType, id);
+  const writable = await ensureWritable(reg, holder.entityType, holder.entityId);
   if (!writable.ok) return err(writable.error);
-  const links = await reg.prisma.link.findMany({ where: { entityType, entityId: id }, orderBy: { createdAt: 'asc' } });
-  if (links.length === 0) return err(new Error('Add a source first: a link or a file, with "+ Add link".'));
+  const links = await reg.prisma.link.findMany({ where: { entityType: holder.entityType, entityId: holder.entityId, syncSource: true }, orderBy: { createdAt: 'asc' } });
+  if (links.length === 0) return err(new Error('Choose a source first: add a link or a file as a source, or mark one of its links as a source.'));
+  const { kind, id } = target.value;
 
   const llm = await readyLlm(runner, SYNC_RETRY);
   if (!llm.ready) return ok(llm.reply);
 
-  const folder = entityFileFolder(entityType, id);
+  // Files uploaded as sources live in the entity's folder, where the run starts.
+  const folder = entityFileFolder(holder.entityType, holder.entityId);
   const sources: SyncSource[] = links.map((l) => {
     const key = fileLinkKey(l.url);
     const own = key && folder && key.startsWith(`${folder}/`) ? key.slice(folder.length + 1) : null;
@@ -88,25 +91,22 @@ export const startSyncNow = async (
   const titleOf = new Map(links.map((l) => [l.id, l.title ?? l.url]));
 
   const started = llm.runner.start({
-    key: syncJobKey(notebookId, entityType, id),
+    key: syncJobKey(notebookId, holder),
     llm: llm.llm,
     urls: sources.flatMap((s) => (s.url ? [s.url] : [])),
     cwd: folder ? reg.storage.pathFor(folder) : null,
-    prompt: syncPrompt({ kind: entityType === 'DOC' ? 'doc' : 'wiki page', ...target.value, sources }),
+    prompt: syncPrompt({ kind: kind === 'DOC' ? 'doc' : 'wiki page', title: target.value.title, content: target.value.content, prompt: target.value.prompt, on: target.value.on, sources }),
     onReply: async (reply) => {
       const parsed = parseSyncReply(reply, links.map((l) => l.id));
       if (!parsed.ok) return err(parsed.error);
-      const saved = entityType === 'DOC'
-        ? await updateDoc(reg, id, { content: parsed.value.markdown })
-        : await updatePage(reg, id, { content: parsed.value.markdown });
+      const saved = await saveSyncText(reg, holder, parsed.value.markdown, parsed.value.read.map((r) => ({ id: r.id, editedAt: r.editedAt ?? undefined })));
       if (!saved.ok) return err(saved.error);
-      for (const source of parsed.value.read) await markLinkSynced(reg, source.id, source.editedAt ?? undefined);
       if (parsed.value.unread.length === 0) return ok(null);
       return ok(`Synced, except: ${parsed.value.unread.map((u) => `${titleOf.get(u.id) ?? 'a source'} (${u.reason})`).join('; ')}.`);
     },
     onFinish: async (status) => {
-      if (status.state === 'failed') await recordSync(reg, entityType, id, { by: 'APP', outcome: 'FAILED', message: status.message ?? 'Sync failed.' });
-      else if (status.state === 'done') await recordSync(reg, entityType, id, { by: 'APP', outcome: status.message ? 'PARTIAL' : 'OK', message: status.message ?? null });
+      if (status.state === 'failed') await recordSync(reg, kind, id, { by: 'APP', outcome: 'FAILED', message: status.message ?? 'Sync failed.' });
+      else if (status.state === 'done') await recordSync(reg, kind, id, { by: 'APP', outcome: status.message ? 'PARTIAL' : 'OK', message: status.message ?? null });
     }
   });
   return started.ok ? ok({ started: true }) : err(started.error);
@@ -115,6 +115,5 @@ export const startSyncNow = async (
 export const getSyncStatus = (
   runner: SyncRunner | undefined,
   notebookId: string,
-  entityType: SyncTarget,
-  id: string
-): Result<SyncNowStatus> => ok(runner ? runner.status(syncJobKey(notebookId, entityType, id)) : { state: 'idle' });
+  holder: SyncHolderRef
+): Result<SyncNowStatus> => ok(runner ? runner.status(syncJobKey(notebookId, holder)) : { state: 'idle' });

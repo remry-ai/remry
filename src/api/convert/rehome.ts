@@ -6,7 +6,7 @@ import type { Registry } from '$shared/registry';
 import type { RelatableType } from '$shared/types/enums';
 import { syncMentions } from '$api/relation/mentions';
 import { relinkContent } from './content';
-import { entityFileFolder, fileLinkKey, fileLinkUrl } from '$shared/utils/file-links';
+import { entityFileFolder, fileLinkKey, fileLinkUrl, isSyncHolder } from '$shared/utils/file-links';
 
 export interface Ref {
   readonly entityType: string;
@@ -21,9 +21,29 @@ export interface RehomeOptions {
 }
 
 /**
- * Moves `from`'s links onto `to`. A file uploaded as a link lives in `from`'s folder, which goes
- * with `from`, so it's copied into `to`'s folder and its link pointed there. `to` must keep files
- * when `from` has any (`hasFileLinks`): a note doesn't.
+ * Copies a file link's file into `toFolder`, keeping its name, and points the link at the copy.
+ * Returns the old key once it's copied (the caller decides whether the original goes), or null
+ * when the link isn't a file link or its file is gone.
+ */
+export const copyFileLink = async (
+  reg: Pick<Registry, 'prisma' | 'storage'>,
+  link: { readonly id: string; readonly url: string },
+  toFolder: string
+): Promise<string | null> => {
+  const key = fileLinkKey(link.url);
+  const stored = key ? await reg.storage.readObject(key) : null;
+  if (!key || !stored) return null;
+  const moved = `${toFolder}/${key.slice(key.lastIndexOf('/') + 1)}`;
+  if (moved === key) return null;
+  await reg.storage.putObject(moved, stored.bytes, stored.contentType);
+  await reg.prisma.link.update({ where: { id: link.id }, data: { url: fileLinkUrl(moved) } });
+  return key;
+};
+
+/**
+ * Moves `from`'s links onto `to`, each keeping whether it's a sync source (when `to` can have any). A file uploaded as a
+ * link lives in `from`'s folder, which goes with `from`, so it's copied into `to`'s folder and its
+ * link pointed there. `to` must keep files when `from` has any (`hasFileLinks`): a note doesn't.
  */
 export const moveLinks = async (reg: Pick<Registry, 'prisma' | 'storage'>, from: Ref, to: Ref): Promise<void> => {
   const p = reg.prisma;
@@ -32,16 +52,13 @@ export const moveLinks = async (reg: Pick<Registry, 'prisma' | 'storage'>, from:
   const files = fromFolder
     ? await p.link.findMany({ where: { entityType: from.entityType, entityId: from.entityId, url: { startsWith: fileLinkUrl(`${fromFolder}/`) } }, select: { id: true, url: true } })
     : [];
-  await p.link.updateMany({ where: { entityType: from.entityType, entityId: from.entityId }, data: { entityType: to.entityType, entityId: to.entityId } });
+  // Only an entity that can be synced has sync sources: on a doc or note they're plain links.
+  await p.link.updateMany({
+    where: { entityType: from.entityType, entityId: from.entityId },
+    data: { entityType: to.entityType, entityId: to.entityId, ...(!isSyncHolder(to.entityType) && { syncSource: false }) }
+  });
   if (!fromFolder || !toFolder) return;
-  for (const file of files) {
-    const key = fileLinkKey(file.url);
-    const stored = key ? await reg.storage.readObject(key) : null;
-    if (!key || !stored) continue;
-    const moved = `${toFolder}/${key.slice(fromFolder.length + 1)}`;
-    await reg.storage.putObject(moved, stored.bytes, stored.contentType);
-    await p.link.update({ where: { id: file.id }, data: { url: fileLinkUrl(moved) } });
-  }
+  for (const file of files) await copyFileLink(reg, file, toFolder);
 };
 
 /** Whether files are uploaded as links on it (which only an entity with a files folder can take). */

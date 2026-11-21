@@ -11,9 +11,9 @@ import { fileLinkKey, type FileLinkHolder } from '$shared/utils/file-links';
 
 
 /** Uploads the file as a link on the entity; returns the new link's id. */
-export const uploadFileLink = async (entityType: FileLinkHolder, entityId: string, file: File): Promise<string> => {
+export const uploadFileLink = async (entityType: FileLinkHolder, entityId: string, file: File, options: { readonly syncSource?: boolean } = {}): Promise<string> => {
   const dataBase64 = await fileToBase64(file);
-  const { id } = await submitOrThrow(() => trpc().link.upload.mutate({ entityType, entityId, fileName: file.name, dataBase64 }));
+  const { id } = await submitOrThrow(() => trpc().link.upload.mutate({ entityType, entityId, fileName: file.name, dataBase64, ...options }));
   return id;
 };
 
