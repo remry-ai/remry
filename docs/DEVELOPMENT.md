@@ -126,8 +126,8 @@ app's installed binary, or a clone.
 `scripts/release/plan.ts` skips a version that's already released, and fails if `plugin/` changed
 since the last release without a new version.
 
-- **CI** (`.github/workflows/ci.yml`): lint, `check`, unit and integration tests on every push and
-  PR, on Linux.
+- **CI** (`.github/workflows/ci.yml`): lint, `check`, unit and integration tests on Linux, only on
+  pushes to main. Branches and PRs don't run it: run the same checks locally before you push.
 - **Build** (`desktop.yml`, which you can also run by hand from the Actions tab to try a build):
   `bun run release:build` compiles `cli/standalone.ts` and the built UI into one `remry` binary
   with Bun embedded (`dist/app/`), `bun run release:smoke` installs and exercises it,
