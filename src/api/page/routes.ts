@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ARCHIVE_FILTERS } from '$shared/types/enums';
 import { PAGE_BODY_TYPES } from '$shared/types/pages';
 import { router, procedure } from '$shared/trpc/init';
+import { refusingPrompt } from '$api/attached/sync/moved-prompt';
 import { setArchived } from '$api/_archive';
 import { createPage, deletePage, getPage, listPages, updatePage, uploadPageImage } from './operations';
 
@@ -40,7 +41,7 @@ export const pageRouter = router({
 
   update: procedure
     .meta({ description: 'Changes a page\'s title, parent or content. A sync page\'s content (it has a prompt) is refused: only sync.save writes it.' })
-    .input(z.object({
+    .input(refusingPrompt({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       bodyType: bodyType.optional(),

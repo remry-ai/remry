@@ -153,7 +153,7 @@ export interface UpdatePageInput {
 }
 
 /** Why a sync page's content can't be changed by hand, and what to do instead. */
-export const SYNC_PAGE_READ_ONLY = 'This is a sync page: its content is written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null).';
+export const SYNC_PAGE_READ_ONLY = 'This is a sync page: its content is written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null). If this session has no sync tools, Remry was updated while it ran: start a new Claude session.';
 
 export const updatePage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,

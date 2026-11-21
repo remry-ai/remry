@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ENTITY_TYPES } from '$shared/types/enums';
 import { BODY_TYPES } from '$shared/types/body-types';
 import { router, procedure } from '$shared/trpc/init';
+import { refusingPrompt } from '$api/attached/sync/moved-prompt';
 import { listDocs, listDocTitles, getDoc, addDocWithContent, updateDoc, removeDoc, reorderDocs, uploadDocImage, DOC_IMAGE_TYPES } from './operations';
 import { MAX_IMAGE_BASE64_CHARS } from '$api/_images';
 import { becomesDrawing, drawingGated } from '$api/_license';
@@ -34,7 +35,7 @@ export const docRouter = router({
 
   update: procedure
     .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs) or bodyType (only while empty), or moves it to another entity (entityType + entityId), keeping its images, links and notes. Refused on a sync doc (isSync), which only sync.save writes.' })
-    .input(z.object({
+    .input(refusingPrompt({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
       content: z.string().optional(),

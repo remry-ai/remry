@@ -222,7 +222,7 @@ export const syncDocReadOnly = async (
   doc: { readonly entityType: string; readonly entityId: string }
 ): Promise<Error> => {
   const label = await resolveEntityLabel(reg, doc.entityType as EntityType, doc.entityId);
-  return new Error(`This is ${label ? `${label}'s` : 'its entity\'s'} sync doc, written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null): it stays as an ordinary doc.`);
+  return new Error(`This is ${label ? `${label}'s` : 'its entity\'s'} sync doc, written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null): it stays as an ordinary doc. If this session has no sync tools, Remry was updated while it ran: start a new Claude session.`);
 };
 
 export interface WriteOptions {

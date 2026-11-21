@@ -11,6 +11,10 @@ import { addDoc, getDoc, listDocs, removeDoc, updateDoc, uploadDocImage } from '
 import { addLink, listLinks, updateLink } from '../../src/api/attached/link/operations';
 import { getSync, saveSyncText, setSyncPrompt } from '../../src/api/attached/sync/operations';
 import { setArchived } from '../../src/api/_archive';
+import { appRouter } from '../../src/shared/trpc/router';
+import { createCallerFactory } from '../../src/shared/trpc/init';
+import { createNotebookContext } from '../../src/shared/trpc/context.server';
+import { resolveCurrentNotebook } from '../../src/shared/notebooks/current.server';
 import { TEST_NOTEBOOK } from './test-notebooks';
 
 const reg = getRegistry(TEST_NOTEBOOK);
@@ -86,5 +90,21 @@ describe('a sync doc', () => {
     const onProject = must(await addLink(reg, 'PROJECT', live.id, { url: 'https://example.com/c' }));
     must(await updateLink(reg, onProject.id, { syncSource: true }));
     expect(must(await listLinks(reg, 'PROJECT', live.id)).map((l) => l.syncSource)).toEqual([true]);
+  });
+
+  it('refuses a prompt on doc.update or page.update, saying where it went, for a session that started before the update', async () => {
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    const project = must(await createProject(reg, { name: 'Stale session' }));
+    const doc = must(await addDoc(reg, 'PROJECT', project.id, { title: 'Plan' }));
+    // As an older session's tool sends it; without the check, Zod would drop the key and report success.
+    const stale = { id: doc.id, prompt: 'Scope.' } as unknown as Parameters<typeof api.doc.update>[0];
+    await expect(api.doc.update(stale)).rejects.toThrow(/sync\.setPrompt/);
+    const page = must(await api.page.create({ title: 'Stale page' }));
+    await expect(api.page.update({ id: page.id, prompt: null } as unknown as Parameters<typeof api.page.update>[0])).rejects.toThrow(/start a new Claude session/);
+    // Everything else is as before.
+    expect((await api.doc.update({ id: doc.id, title: 'Plan v2' })).ok).toBe(true);
+    expect(must(await getDoc(reg, doc.id)).title).toBe('Plan v2');
   });
 });
