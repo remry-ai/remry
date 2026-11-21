@@ -12,7 +12,7 @@ import { NO_SOURCES_BLOCK, readSyncReply, syncPrompt, type SyncSource } from '$s
 import { syncReportNote } from '$shared/assist/sync-report';
 import { llmProvider } from '$shared/assist/providers/registry';
 import type { ConvertPdfResult } from '$shared/types/pdf-conversion';
-import type { SyncConnectors, SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
+import type { SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
 import { entityTypeLabel } from '$shared/utils/entity';
 import { requireDocument } from '$api/_body';
@@ -126,13 +126,3 @@ export const getSyncStatus = (
   notebookId: string,
   holder: SyncHolderRef
 ): Result<SyncNowStatus> => ok(runner ? runner.status(syncJobKey(notebookId, holder)) : { state: 'idle' });
-
-/**
- * The assistant Sync now would run and the connectors it has, for the banner to say before a
- * sync which sources it can only open as public pages.
- */
-export const getSyncConnectors = async (runner: SyncRunner | undefined): Promise<Result<SyncConnectors>> => {
-  const llm = await readyLlm(runner, SYNC_RETRY);
-  if (!llm.ready) return ok({ ready: false, warning: llm.reply.warning });
-  return ok({ ready: true, assistant: assistantOnComputer(llm.llm.provider), probe: await llm.runner.connectors(llm.llm) });
-};

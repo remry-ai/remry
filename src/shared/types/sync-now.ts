@@ -61,10 +61,6 @@ export interface ConnectorProbe {
   readonly apiKeySource: string | null;
 }
 
-/** What the banner shows before a sync: the assistant that runs it and what it can read with. */
-export type SyncConnectors =
-  | { readonly ready: true; readonly assistant: string; readonly probe: ConnectorProbe | null }
-  | { readonly ready: false; readonly warning: string };
 
 /** A sync doc's or page's last sync, saved so the banner can say when it ran, by what, and how it went. */
 export interface LastSync {

@@ -8,7 +8,7 @@ The app never calls a model. These features run the user's own AI assistant CLI 
 | Re-read | `link.transcribe` | Read tool only: save a file link's text |
 | Chat tab | `chat.send` | No tools: discuss the open page (its visible text and the conversation). Saved per entity in `page_chat` until Clear or delete |
 | `/ask` | `chat.ask` | No tools: answer from the notebook's search hits, linking them. Nothing saved |
-| Sync now | `sync.now` | The most reach, which the user approved: Read, WebFetch, and the MCP servers and claude.ai connectors a run loads and connects (read from Claude Code's start-up event, `probeLlm`; each allowed by name, never Remry's own), in `dontAsk` mode, with connector tools named for writing denied (`SYNC_DENIED_TOOLS`) and a prompt that says only read. The app's main button is "Ask Claude to sync" (`sync.request`), which runs nothing: a Claude chat with the user's connectors does it |
+| Sync now | `sync.now` | The most reach, which the user approved: Read, WebFetch, and the MCP servers and claude.ai connectors a run loads and connects (read from Claude Code's start-up event, `probeLlm`; each allowed by name, never Remry's own), in `dontAsk` mode, with connector tools named for writing denied (`SYNC_DENIED_TOOLS`) and a prompt that says only read. The app's main button is "Trigger sync" (`sync.request`), which runs nothing: a Claude chat with the user's connectors does it |
 
 With Copilot, the same features run under tighter rules: shell and writes denied, GitHub's built-in MCP server off, none of the user's Copilot MCP servers, and a sync may fetch only its own links' hosts (`--allow-url`).
 

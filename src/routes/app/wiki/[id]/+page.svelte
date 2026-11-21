@@ -155,7 +155,12 @@
 
   const uploadSource = $derived(!wikiPage.archivedAt && isDocument ? handleUploadSource : undefined);
 
-  // "Ask Claude to sync": the next Claude chat that uses Remry syncs it with its connectors.
+  const handleClearSyncError = async () => {
+    await submitOrThrow(() => trpc().sync.clearError.mutate(holder));
+    await invalidateAll();
+  };
+
+  // "Trigger sync": the next Claude chat that uses Remry syncs it with its connectors.
   const handleRequestSync = async (requested: boolean) => {
     await submitOrThrow(() => trpc().sync.request.mutate({ ...holder, requested }));
     await invalidateAll();
@@ -300,7 +305,7 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncSection noun="page" prompt={wikiPage.prompt} links={syncSources} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddSource} onUploadFile={wikiPage.archivedAt ? undefined : handleUploadSyncSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} requestedAt={wikiPage.syncRequestedAt} onRequest={wikiPage.archivedAt ? undefined : handleRequestSync} lastSync={wikiPage.lastSync} target={holder} onRefresh={invalidateAll} />
+      <SyncSection noun="page" prompt={wikiPage.prompt} links={syncSources} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddSource} onUploadFile={wikiPage.archivedAt ? undefined : handleUploadSyncSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} requestedAt={wikiPage.syncRequestedAt} onRequest={wikiPage.archivedAt ? undefined : handleRequestSync} onClearError={handleClearSyncError} lastSync={wikiPage.lastSync} target={holder} onRefresh={invalidateAll} />
     {:else if makingSync}
       <SyncSection noun="page" prompt="" links={syncSources} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddSource} onUploadFile={handleUploadSyncSource} onCancel={() => { makingSync = false; }} />
     {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}

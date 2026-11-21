@@ -26,7 +26,7 @@ export const sourceName = (source: Pick<ReportSource, 'title' | 'url'>): string 
 const orList = (items: readonly string[]): string =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`;
 
-export const ASK_CLAUDE = 'Or choose Ask Claude to sync: the next Claude chat that uses Remry (Cowork, Claude desktop) syncs it with your claude.ai connectors.';
+export const ASK_CLAUDE = 'Or choose Trigger sync: the next Claude chat that uses Remry (Cowork, Claude desktop) syncs it with your claude.ai connectors.';
 
 export interface Reach {
   /** The sources it can open only if they're public, by name. */

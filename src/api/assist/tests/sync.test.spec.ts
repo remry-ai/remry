@@ -85,6 +85,6 @@ describe('startSyncNow', () => {
     expect(message).toContain("couldn't read any of the sources, so nothing was changed.");
     expect(message).toContain('Notion: Pricing (needs sign-in)');
     expect(message).toContain('Claude Code has no Notion connector');
-    expect(message).toContain('Ask Claude to sync');
+    expect(message).toContain('Trigger sync');
   });
 });

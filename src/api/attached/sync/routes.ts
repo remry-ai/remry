@@ -6,8 +6,8 @@ import type { SyncHolderRef } from '$shared/utils/sync-state';
 import { err, ok, type Result } from '$shared/utils/result';
 import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
-import { getSyncConnectors, getSyncStatus, startSyncNow } from '$api/assist/sync';
-import { getSync, requestSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
+import { getSyncStatus, startSyncNow } from '$api/assist/sync';
+import { clearSyncError, getSync, requestSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
 
 const holder = { entityType: z.enum(SYNC_HOLDERS), entityId: z.string().min(1) };
 
@@ -51,14 +51,15 @@ export const syncRouter = router({
     .input(z.object(holder))
     .query(({ ctx, input }) => getSyncStatus(ctx.syncRunner, ctx.notebook.id, input)),
 
-  // "Ask Claude to sync" in the app: the next Claude chat that uses Remry does it (app-only).
+  // "Trigger sync" in the app: the next Claude chat that uses Remry does it (app-only).
   request: procedure
     .input(z.object({ ...holder, requested: z.boolean() }))
     .mutation(({ ctx, input }) => inModel(ctx, input, () => requestSync(ctx.reg, input, input.requested))),
 
-  // The banner's check before Sync now: the assistant it runs and its connectors (app-only).
-  connectors: procedure
-    .query(({ ctx }) => getSyncConnectors(ctx.syncRunner)),
+  // The banner's × on a failed sync's error (app-only).
+  clearError: procedure
+    .input(z.object(holder))
+    .mutation(({ ctx, input }) => inModel(ctx, input, () => clearSyncError(ctx.reg, input))),
 
   // Sync docs and pages that want syncing: the home page's list, and Claude's to-do list.
   needed: procedure

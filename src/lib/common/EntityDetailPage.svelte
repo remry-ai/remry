@@ -231,7 +231,15 @@
     }
   };
 
-  // "Ask Claude to sync": the next Claude chat that uses Remry syncs it with its connectors.
+  // The × on a failed sync's error.
+  const handleClearSyncError = async (): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    await submitOrThrow(() => trpc().sync.clearError.mutate(holder));
+    await invalidateAll();
+  };
+
+  // "Trigger sync": the next Claude chat that uses Remry syncs it with its connectors.
   const handleRequestSync = async (requested: boolean): Promise<void> => {
     const holder = syncHolder;
     if (!holder) return;
@@ -565,7 +573,7 @@
     {#if makingSync}
       <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
     {:else if syncDoc?.prompt}
-      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
+      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} onClearError={handleClearSyncError} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if acceptsDocs(entityType)}

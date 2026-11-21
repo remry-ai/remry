@@ -153,6 +153,11 @@ describe('asking Claude to sync', () => {
     expect(must(await getSync(reg, holder))).toMatchObject({ requestedAt: null, syncNeed: null });
     expect(must(await api.sync.needed()).some((n) => n.id === docId)).toBe(false);
 
+    // A failed sync's error can be dismissed in the app: the message goes, the failure stays.
+    await recordSync(reg, 'DOC', docId, { by: 'APP', outcome: 'FAILED', message: "Claude Code couldn't read any of the sources." });
+    expect((await api.sync.clearError(holder)).ok).toBe(true);
+    expect(must(await getSync(reg, holder)).lastSync).toMatchObject({ outcome: 'FAILED', message: null });
+
     // It can be taken back.
     must(await api.sync.request({ ...holder, requested: true }));
     must(await api.sync.request({ ...holder, requested: false }));

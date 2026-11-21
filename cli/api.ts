@@ -18,7 +18,7 @@ import { closeRegistries } from '$shared/registry.server';
 export const APP_ONLY: ReadonlySet<string> = new Set([
   'trpcMeta.list',
   // These run the Claude Code CLI for the web app; from the CLI or MCP, Claude reads the PDF (or the page) itself.
-  'link.convert', 'link.conversion', 'link.transcribe', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask', 'sync.now', 'sync.status', 'sync.connectors', 'sync.request',
+  'link.convert', 'link.conversion', 'link.transcribe', 'chat.get', 'chat.send', 'chat.status', 'chat.clear', 'chat.ask', 'sync.now', 'sync.status', 'sync.request', 'sync.clearError',
   // search.recall gives Claude the same: a sync doc's prompt, lastSync and syncNeed, and the sources (syncSource).
   'sync.get',
   'llm.available', 'llm.setDefault',

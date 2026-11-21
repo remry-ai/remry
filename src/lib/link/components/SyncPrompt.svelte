@@ -21,10 +21,6 @@
   import type { SyncNowOutcome } from '../sync-now';
   import SourceLinks from './SourceLinks.svelte';
   import type { SyncHolderRef } from '$shared/utils/sync-state';
-  import { trpc } from '$shared/trpc/client';
-  import { fileLinkKey } from '$shared/utils/file-links';
-  import { connectorReach } from '$shared/assist/sync-report';
-  import type { ConnectorProbe } from '$shared/types/sync-now';
   import { onDestroy } from 'svelte';
   import { timeAgo } from '$lib/home/utils';
 
@@ -59,17 +55,17 @@
     readonly noun?: 'doc' | 'page';
     /** The "Sync" badge at its start; SyncSection's heading says it instead. */
     readonly badge?: boolean;
-    /** Shown (SyncSection open): only then does it ask which connectors the assistant has, which takes a few seconds. */
-    readonly active?: boolean;
     /** When the user asked Claude to sync it, still waiting; null when not. */
     readonly requestedAt?: Date | string | null;
-    /** "Ask Claude to sync" (true) or taking the request back (false): the next Claude chat that uses Remry syncs it with its connectors. */
+    /** "Trigger sync" (true) or taking it back (false): the next Claude chat that uses Remry syncs it with its connectors. */
     readonly onRequest?: (requested: boolean) => Promise<unknown>;
+    /** Dismisses the last sync's error (its message; the dot stays red until a sync runs). */
+    readonly onClearError?: () => Promise<unknown>;
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, active = true, requestedAt = null, onRequest, onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, requestedAt = null, onRequest, onClearError, onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
   // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
@@ -93,30 +89,9 @@
   let noticeFor = $state<string | null>(null);
   const showNotice = $derived(syncNotice !== null && noticeFor === String(lastSync?.at ?? null));
 
-  // ----- What the assistant on this computer can read -----
-  // Sync now runs the assistant installed here (Claude Code), with only its own connectors
-  // (`claude mcp list`), not the claude.ai ones Cowork and Claude desktop use. So before a sync,
-  // say which sources it has no connector for: it can open those only as public pages.
-  type ReachState =
-    | { readonly state: 'loading' }
-    | { readonly state: 'ready'; readonly assistant: string; readonly probe: ConnectorProbe | null }
-    | { readonly state: 'unavailable'; readonly warning: string };
-  let reach = $state<ReachState | null>(null);
-  const outsideLinks = $derived(links.filter((l) => fileLinkKey(l.url) === null));
-  $effect(() => {
-    if (!active || !onSyncNow || outsideLinks.length === 0 || reach) return;
-    reach = { state: 'loading' };
-    void trpc().sync.connectors.query().then((result) => {
-      if (!result.ok) { reach = null; return; }
-      const value = result.value;
-      reach = value.ready ? { state: 'ready', assistant: value.assistant, probe: value.probe } : { state: 'unavailable', warning: value.warning };
-    }).catch(() => { reach = null; });
-  });
-  /** The sources Sync now can open only if public, why, and what to do. */
-  const gaps = $derived(reach?.state === 'ready' ? connectorReach(reach.assistant, reach.probe, outsideLinks) : null);
-  const assistantHere = $derived(reach?.state === 'ready' ? reach.assistant : `${$assistantName} on this computer`);
+  const assistantHere = $derived(`${$assistantName} on this computer`);
 
-  // ----- Asking Claude (with the user's connectors) to sync it -----
+  // ----- Triggering a sync, by Claude with the user's connectors -----
   let requesting = $state(false);
   let requestError = $state('');
   const request = async (requested: boolean) => {
@@ -136,8 +111,19 @@
   onDestroy(stopTicker);
   const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-  // The last sync's report (sources it couldn't read, and what to do), kept until the next sync.
-  const lastReport = $derived(lastSync && lastSync.outcome !== 'OK' && lastSync.message ? { tone: lastSync.outcome === 'FAILED' ? 'error' : 'warning', message: lastSync.message } : null);
+  // Only an error shows, in one line (its first), with the whole story in the tooltip, until
+  // dismissed: this run's, else the last sync's if it failed. A partial sync's note is only in
+  // the status's tooltip.
+  const failure = $derived.by((): string | null => {
+    if (syncNotice && showNotice) return syncNotice.tone === 'done' ? null : syncNotice.message;
+    return !syncing && lastSync?.outcome === 'FAILED' && lastSync.message ? lastSync.message : null;
+  });
+  const conciseError = (message: string): string =>
+    (message.split('\n')[0] ?? message).replace(/,? so nothing was changed\.?$/i, '.').trim();
+  const dismissError = async () => {
+    syncNotice = null;
+    if (lastSync?.outcome === 'FAILED' && lastSync.message) await submit(async () => onClearError?.());
+  };
 
   const runSync = async (sync: () => Promise<SyncNowOutcome | null>) => {
     const before = String(lastSync?.at ?? null);
@@ -207,10 +193,10 @@
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onRequest && !editing && !creating}
       {#if requestedAt}
-        <span class="badge accent ml-auto" title="Waiting for the next Claude chat that uses Remry">Requested {requestedWhen}</span>
-        <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel request</button>
+        <span class="badge accent ml-auto" title="Waiting for the next Claude chat that uses Remry (Cowork, Claude desktop), which syncs it with your connectors">Sync triggered {requestedWhen}</span>
+        <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel</button>
       {:else}
-        <button type="button" class="btn sm ml-auto" onclick={() => request(true)} disabled={requesting || syncing || links.length === 0} aria-busy={requesting} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'The next Claude chat that uses Remry (Cowork, Claude desktop) syncs it, reading the sources with your claude.ai connectors'}>Ask Claude to sync</button>
+        <button type="button" class="btn sm ml-auto" onclick={() => request(true)} disabled={requesting || syncing || links.length === 0} aria-busy={requesting} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'The next Claude chat that uses Remry (Cowork, Claude desktop) syncs it, reading the sources with your claude.ai connectors'}>Trigger sync</button>
       {/if}
     {/if}
     {#if onSyncNow && !editing && !creating}
@@ -245,30 +231,17 @@
     <p class="prompt pre-line"><span class="label">Prompt</span> {prompt}</p>
   {/if}
 
-  {#if requestedAt && !creating}
-    <p class="text-xs text-2 report">Waiting for Claude: the next chat that uses Remry (Cowork, Claude desktop) syncs this with your connectors. Open one and say hi, or ask it to sync this.</p>
-  {/if}
   {#if requestError}<p class="form-error">{requestError}</p>{/if}
 
-  {#if syncNotice && showNotice}
-    <p class="text-xs pre-line report" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
-  {:else if lastReport && !syncing}
-    <p class="text-xs pre-line report" class:form-error={lastReport.tone === 'error'} class:warning={lastReport.tone === 'warning'}>{lastReport.message}</p>
+  {#if failure}
+    <p class="text-xs error-line" role="alert" title={failure}>
+      <span class="form-error">{conciseError(failure)}</span>
+      <button type="button" class="btn icon sm" aria-label="Dismiss" title="Dismiss" onclick={dismissError}>×</button>
+    </p>
   {/if}
 
   {#if links.length > 0 || onAddLink || onUploadFile}<SourceLinks {links} onAdd={onAddLink} {onUploadFile} />{/if}
 
-  <!-- What Sync now can't reach; not once Claude has been asked, which is what the advice ends with. -->
-  {#if onSyncNow && !creating && !requestedAt}
-    {#if reach?.state === 'loading'}
-      <p class="text-xs text-2 reach">Checking which connectors {$assistantName} on this computer has…</p>
-    {:else if reach?.state === 'unavailable'}
-      <p class="text-xs warning reach">{reach.warning}</p>
-    {:else if reach?.state === 'ready' && gaps && gaps.unreachable.length > 0}
-      <p class="text-xs warning reach pre-line">{reach.assistant} on this computer can open {gaps.unreachable.map((n) => `“${n}”`).join(', ')} only if public.
-{gaps.advice.join('\n')}</p>
-    {/if}
-  {/if}
 </section>
 
 <style lang="scss">
@@ -292,7 +265,7 @@
   .label {
     font-weight: 600;
   }
-  .warning { color: var(--warning); margin: 0; }
-  .report, .reach { margin: 0; }
+  .error-line { display: flex; align-items: center; gap: var(--sp-1); margin: 0; }
+  .error-line .form-error { margin: 0; }
   .explain { margin: 0; }
 </style>

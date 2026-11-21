@@ -178,7 +178,7 @@ export const saveSyncText = async (
 };
 
 /**
- * Asks Claude for a sync (the app's "Ask Claude to sync"), or takes the request back. The app's own
+ * Asks Claude for a sync (the app's "Trigger sync"), or takes the request back. The app's own
  * assistant reads only with the connectors it has on this computer; a request waits for the next
  * Claude chat that uses Remry (Cowork, Claude desktop), which reads with the user's claude.ai
  * connectors. sync.needed lists it first, as `requested`; a sync that runs clears it.
@@ -202,4 +202,21 @@ export const requestSync = async (
     await reg.prisma.page.update({ where: { id: target.id }, data: { syncRequestedAt: requestedAt, updatedAt: row.updatedAt } });
   }
   return ok({ requestedAt });
+};
+
+/**
+ * Dismisses the last sync's error in the app: its message goes, and the outcome stays FAILED, so
+ * the dot stays red until a sync runs. Keeps `updatedAt`. Nothing to do when the last sync didn't fail.
+ */
+export const clearSyncError = async (reg: Pick<Registry, 'prisma'>, holder: SyncHolderRef): Promise<Result<{ readonly cleared: boolean }>> => {
+  const target = await findSyncTarget(reg, holder);
+  if (!target) return ok({ cleared: false });
+  const where = { id: target.id, lastSyncOutcome: 'FAILED', lastSyncMessage: { not: null } };
+  const cleared = target.entityType === 'DOC'
+    ? await reg.prisma.doc.findFirst({ where, select: { updatedAt: true } })
+    : await reg.prisma.page.findFirst({ where, select: { updatedAt: true } });
+  if (!cleared) return ok({ cleared: false });
+  if (target.entityType === 'DOC') await reg.prisma.doc.update({ where: { id: target.id }, data: { lastSyncMessage: null, updatedAt: cleared.updatedAt } });
+  else await reg.prisma.page.update({ where: { id: target.id }, data: { lastSyncMessage: null, updatedAt: cleared.updatedAt } });
+  return ok({ cleared: true });
 };
