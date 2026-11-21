@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { syncNeedTone, syncStatus } from '../last-sync';
+import { linkSyncTone, syncNeedTone, syncStatus } from '../last-sync';
 
 const now = new Date('2026-09-30T12:00:00Z');
 
@@ -32,5 +32,14 @@ describe('syncStatus', () => {
 describe('syncNeedTone', () => {
   it('is red for a failure, amber for any other need, green otherwise', () => {
     expect([syncNeedTone('failed'), syncNeedTone('stale'), syncNeedTone('never'), syncNeedTone(null)]).toEqual(['error', 'warning', 'warning', 'ok']);
+  });
+});
+
+describe('linkSyncTone', () => {
+  it('is ok for a source synced within the week, else warning', () => {
+    const now = new Date('2026-10-10T12:00:00Z');
+    expect(linkSyncTone('2026-10-09T12:00:00Z', now)).toBe('ok');
+    expect(linkSyncTone(new Date('2026-09-30T12:00:00Z'), now)).toBe('warning');
+    expect(linkSyncTone(null, now)).toBe('warning');
   });
 });

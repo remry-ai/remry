@@ -6,8 +6,9 @@
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
-  // On a synced entity (`syncing`), every row's sync icon is in the sync dot's amber for a link its sync doc or
-  // sync page is written from and grey for one that isn't; clicking it toggles that (link.update --syncSource).
+  // On a synced entity (`syncing`), each link's sync icon is grey when it isn't a source, and for a
+  // source shows its own sync state in the shared sync colours (green synced within a week, amber
+  // never synced or older); clicking it toggles whether it's a source (link.update --syncSource).
   import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -20,6 +21,7 @@
   import { timeAgo } from '$lib/home/utils';
   import { linkLabel, linkSource } from '$shared/utils/link-source';
   import { isSyncStale } from '$shared/utils/sync-state';
+  import { linkSyncTone } from '../last-sync';
   import { FILE_LINK_HOLDERS, fileLinkKey, linkHref, type FileLinkHolder } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';
   import { onMount } from 'svelte';
@@ -106,6 +108,8 @@
     return {
       ...link,
       href: linkHref(link.url),
+      // A sync source's own state, in the shared sync colours: current, or wanting a sync.
+      tone: link.syncSource ? linkSyncTone(link.syncedAt) : null,
       isFile,
       readable,
       source,
@@ -155,16 +159,15 @@
         <SourceIcon source={row.source} file={row.isFile} />
         <a class="grow wrap" href={row.href} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
         {#if syncing}
-          <!-- On a synced entity the sync icon says whether the link is a source (in the sync dot's amber) or not
+          <!-- On a synced entity the sync icon says whether the link is a source (coloured by its own sync state) or not
                (grey), and clicking it toggles that; the last-sync time sits before it, so the icons line up at the right. -->
           <button
             type="button"
-            class="meta synced sync-toggle"
-            class:source={row.syncSource}
+            class="meta synced sync-toggle {row.tone ?? ''}"
             disabled={readOnly}
             aria-pressed={row.syncSource}
             aria-label={row.syncSource ? `${row.label} is a sync source; stop syncing from it` : `Use ${row.label} as a sync source`}
-            title={`${row.syncSource ? 'A sync source: the sync doc is written from it. Click to stop.' : 'Not a sync source. Click to sync from it.'}${row.synced ? ` ${row.synced.title}.` : ''}`}
+            title={`${row.syncSource ? `A sync source${row.tone === 'ok' ? ', synced' : row.synced ? ', due a sync' : ', not synced yet'}: the sync doc is written from it. Click to stop.` : 'Not a sync source. Click to sync from it.'}${row.synced ? ` ${row.synced.title}.` : ''}`}
             onclick={() => toggleSource(row.id, !row.syncSource)}
           >
             {#if row.synced}<span class:stale={row.synced.stale}>{row.synced.text}</span>{/if}{@render syncIcon()}
@@ -200,7 +203,7 @@
 <style lang="scss">
   .add-link { margin-bottom: var(--sp-2); }
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
-  .stale { color: var(--warning); }
+  .stale { color: var(--sync-warning); }
   .notice { margin-top: var(--sp-2); }
   .sync-toggle {
     padding: 0;
@@ -209,13 +212,14 @@
     font: inherit;
     color: var(--text-3);
     cursor: pointer;
-    // The sync dot's amber (SyncStatus), so a source reads as part of the sync.
-    &.source { color: color-mix(in srgb, var(--warning) 55%, transparent); }
+    // A source's own sync state, in the colours SyncStatus's dot uses: green current, amber due.
+    &.ok { color: var(--sync-ok); }
+    &.warning { color: var(--sync-warning); }
     &:hover:not(:disabled) { opacity: 0.7; }
     &:disabled { cursor: default; }
     &:focus-visible { box-shadow: var(--focus); border-radius: var(--r-sm); }
-    // The time keeps its own colour: muted, or the warning colour once it's over a week old.
+    // The time stays muted beside a coloured icon; on a link that isn't a source, it warns once stale.
     span { color: var(--text-3); }
-    .stale { color: var(--warning); }
+    .stale { color: var(--sync-warning); }
   }
 </style>

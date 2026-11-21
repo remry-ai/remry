@@ -52,3 +52,11 @@ export const syncStatus = (sync: LastSyncView | null, now: Date = new Date()): S
 /** The tone for a list row that only knows why it wants syncing (null: it doesn't). */
 export const syncNeedTone = (need: SyncNeed | null | undefined): SyncTone =>
   need === 'failed' ? 'error' : need ? 'warning' : 'ok';
+
+/**
+ * One source link's own state, by when it was last synced: current (`ok`), or wanting a sync
+ * (`warning`: never synced, or over a week ago). A link that failed has no failure of its own (that's
+ * on the sync doc), so it stays `warning` until it's read.
+ */
+export const linkSyncTone = (syncedAt: Date | string | null, now: Date = new Date()): SyncTone =>
+  !syncedAt || isSyncStale(syncedAt, now) ? 'warning' : 'ok';

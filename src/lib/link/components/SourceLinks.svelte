@@ -113,5 +113,5 @@
     &:hover { color: var(--accent); }
   }
   .synced { color: var(--text-3); white-space: nowrap; }
-  .stale { color: var(--warning); }
+  .stale { color: var(--sync-warning); }
 </style>
