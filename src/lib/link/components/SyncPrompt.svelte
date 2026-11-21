@@ -51,11 +51,13 @@
     readonly target?: SyncHolderRef;
     /** What it is, in the prompt box's words: "doc" or "page". */
     readonly noun?: 'doc' | 'page';
+    /** The "Sync" badge at its start; SyncSection's heading says it instead. */
+    readonly badge?: boolean;
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
   // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
@@ -136,7 +138,7 @@
 
 <section class="sync-doc" aria-label="Sync prompt">
   <div class="head">
-    <span class="badge accent" title="Claude rewrites this from its sources, following the prompt. Only a sync changes the text.">Sync</span>
+    {#if badge}<span class="badge accent" title="Claude rewrites this from its sources, following the prompt. Only a sync changes the text.">Sync</span>{/if}
     {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below, or mark links as sources.</span>
     {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>

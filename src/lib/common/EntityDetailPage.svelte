@@ -27,7 +27,7 @@
   import LinksWidget from '$lib/link/components/LinksWidget.svelte';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { convertFileLinkAndWait, newestFileLink, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
-  import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
+  import SyncSection from '$lib/link/components/SyncSection.svelte';
   import { syncNowAndWait } from '$lib/link/sync-now';
   import type { LastSyncView } from '$lib/link/last-sync';
   import type { SyncNeed } from '$shared/types/sync-now';
@@ -560,15 +560,16 @@
           onAdd={archivedAt ? undefined : handleAddDoc}
           onRemove={docHandlers.handleRemoveDoc}
           onReorder={docHandlers.handleReorderDocs}
-          onAddSync={syncHolder && !syncDoc && !archivedAt ? () => { makingSync = true; void closeDocUrl(); } : undefined}
+          onAddSync={syncHolder && !syncDoc && !archivedAt ? () => { makingSync = true; } : undefined}
         />
       </div>
     {/if}
 
-    {#if makingSync && !activeDoc}
-      <section class="card">
-        <SyncPrompt prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
-      </section>
+    <!-- The sync's controls, apart from the sync doc they write: the doc is only the output. -->
+    {#if makingSync}
+      <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
+    {:else if syncDoc?.prompt}
+      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if activeDoc && isGridOrDrawing(activeBodyType)}
@@ -606,7 +607,7 @@
         onUploadImage={docHandlers.handleUploadImage}
         onResolveImages={docHandlers.handleResolveImages}
         onClose={closeDoc}
-        sources={docLinks.length > 0 || activeDoc.isSync || !archivedAt ? docSources : undefined}
+        sources={!activeDoc.isSync && (docLinks.length > 0 || !archivedAt) ? docSources : undefined}
         exportHref={printUrl(activeDoc.id)}
         chartBranding={page.data.chartBranding ?? null}
         autoEditTitle={activeDoc.id === newDocId}
@@ -624,13 +625,9 @@
 <!-- A row's peek button (?peek=<TYPE>:<id>) shows the item in the right panel's Peek tab. -->
 <EntityPeek />
 
+<!-- An ordinary doc's own links; a sync doc has none (its sources are the entity's, in the Sync section). -->
 {#snippet docSources()}
-  {#if activeDoc?.isSync && activeDoc.prompt}
-    <!-- The entity's sources, not the doc's: the sidebar's Links marks which links they are. -->
-    <SyncPrompt prompt={activeDoc.prompt} links={syncSources} empty={!activeDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} lastSync={activeDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
-  {:else}
-    <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
-  {/if}
+  <SourceLinks links={docLinks} onAdd={archivedAt ? undefined : handleAddDocLink} onUploadFile={docUploadFile} />
 {/snippet}
 
 <!-- A spreadsheet or drawing doc takes links, but isn't synced or written from a file. -->

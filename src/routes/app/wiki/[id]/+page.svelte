@@ -20,7 +20,7 @@
   import ConfirmButton from '$lib/ui/ConfirmButton.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
-  import SyncPrompt from '$lib/link/components/SyncPrompt.svelte';
+  import SyncSection from '$lib/link/components/SyncSection.svelte';
   import { syncNowAndWait } from '$lib/link/sync-now';
   import SourceLinks from '$lib/link/components/SourceLinks.svelte';
   import { errorMessage, submit, submitOrThrow } from '$lib/ui/submit';
@@ -294,9 +294,9 @@
 >
   {#snippet renderOverview()}
     {#if wikiPage.prompt}
-      <SyncPrompt noun="page" prompt={wikiPage.prompt} links={syncSources} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddSource} onUploadFile={wikiPage.archivedAt ? undefined : handleUploadSyncSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} lastSync={wikiPage.lastSync} target={holder} onRefresh={invalidateAll} />
+      <SyncSection noun="page" prompt={wikiPage.prompt} links={syncSources} empty={!wikiPage.content.trim()} onSave={wikiPage.archivedAt ? undefined : handleSavePrompt} onAddLink={wikiPage.archivedAt ? undefined : handleAddSource} onUploadFile={wikiPage.archivedAt ? undefined : handleUploadSyncSource} onSyncNow={wikiPage.archivedAt ? undefined : handleSyncNow} lastSync={wikiPage.lastSync} target={holder} onRefresh={invalidateAll} />
     {:else if makingSync}
-      <SyncPrompt noun="page" prompt="" links={syncSources} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddSource} onUploadFile={handleUploadSyncSource} onCancel={() => { makingSync = false; }} />
+      <SyncSection noun="page" prompt="" links={syncSources} creating onSave={async (prompt) => { await handleSavePrompt(prompt); makingSync = false; }} onAddLink={handleAddSource} onUploadFile={handleUploadSyncSource} onCancel={() => { makingSync = false; }} />
     {:else if sourceLinks.length > 0 || !wikiPage.archivedAt}
       <!-- Not a sync page: its links on one line all the same, as on a doc, with Add link and Make sync page. -->
       <SourceLinks links={sourceLinks} onAdd={wikiPage.archivedAt ? undefined : handleAddLink} onUploadFile={uploadSource} onMakeSync={canMakeSync ? () => { makingSync = true; } : undefined} makeSyncLabel="Make sync page" />

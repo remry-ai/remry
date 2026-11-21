@@ -6,8 +6,8 @@
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
-  // On a synced entity (`syncing`), a "Source" badge marks the links its sync doc or sync page is
-  // written from, and each row's "Use as source" toggle (link.update --syncSource) changes that.
+  // On a synced entity (`syncing`), every row's sync icon is in --sync for a link its sync doc or
+  // sync page is written from and grey for one that isn't; clicking it toggles that (link.update --syncSource).
   import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
@@ -154,21 +154,28 @@
       <li class="list-row">
         <SourceIcon source={row.source} file={row.isFile} />
         <a class="grow wrap" href={row.href} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
-        {#if row.synced}
+        {#if syncing}
+          <!-- On a synced entity the sync icon says whether the link is a source (in --sync) or not
+               (grey), and clicking it toggles that; the time beside it is still its last sync. -->
+          <button
+            type="button"
+            class="meta synced sync-toggle"
+            class:source={row.syncSource}
+            disabled={readOnly}
+            aria-pressed={row.syncSource}
+            aria-label={row.syncSource ? `${row.label} is a sync source; stop syncing from it` : `Use ${row.label} as a sync source`}
+            title={`${row.syncSource ? 'A sync source: the sync doc is written from it. Click to stop.' : 'Not a sync source. Click to sync from it.'}${row.synced ? ` ${row.synced.title}.` : ''}`}
+            onclick={() => toggleSource(row.id, !row.syncSource)}
+          >
+            {@render syncIcon()}{#if row.synced}<span class:stale={row.synced.stale}>{row.synced.text}</span>{/if}
+          </button>
+        {:else if row.synced}
           <span class="meta synced" class:stale={row.synced.stale} title={row.synced.stale ? `${row.synced.title}. More than a week ago: ask Claude to re-sync it.` : row.synced.title}>
-            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Synced">
-              <path d="M13.5 6.5A5.5 5.5 0 0 0 3.3 4.4M2.5 9.5a5.5 5.5 0 0 0 10.2 2.1" />
-              <path d="M3 1.8v2.8h2.8M13 14.2v-2.8h-2.8" />
-            </svg>{row.synced.text}
+            {@render syncIcon()}{row.synced.text}
           </span>
         {/if}
-        {#if syncing && row.syncSource}<span class="badge accent source" title="A sync source: the sync doc is written from it">Source</span>{/if}
         {#if !readOnly}
           <span class="row-actions">
-            {#if syncing}
-              <!-- Small, so the row keeps its width: a filled ring for a source, an empty one for a link that isn't. -->
-              <button type="button" class="btn icon sm" onclick={() => toggleSource(row.id, !row.syncSource)} aria-pressed={row.syncSource} aria-label={row.syncSource ? `Stop syncing from ${row.label}` : `Use ${row.label} as a sync source`} title={row.syncSource ? 'Not a source: stop syncing from this link' : 'Use as source: the sync doc is written from it'}>{row.syncSource ? '◉' : '○'}</button>
-            {/if}
             {#if row.readable}
               <button type="button" class="btn icon sm" onclick={() => handleReread(row.id)} disabled={rereading !== null} title={rereading === row.id ? 'Reading…' : `Re-read with ${$assistantName}: write its text again`} aria-label="Re-read {row.label}">{rereading === row.id ? '…' : '↻'}</button>
             {/if}
@@ -183,10 +190,31 @@
   {/if}
 </div>
 
+{#snippet syncIcon()}
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M13.5 6.5A5.5 5.5 0 0 0 3.3 4.4M2.5 9.5a5.5 5.5 0 0 0 10.2 2.1" />
+    <path d="M3 1.8v2.8h2.8M13 14.2v-2.8h-2.8" />
+  </svg>
+{/snippet}
+
 <style lang="scss">
   .add-link { margin-bottom: var(--sp-2); }
   .synced { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; flex: none; }
   .stale { color: var(--warning); }
   .notice { margin-top: var(--sp-2); }
-  .source { flex: none; }
+  .sync-toggle {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--text-3);
+    cursor: pointer;
+    &.source { color: var(--sync); }
+    &:hover:not(:disabled) { opacity: 0.7; }
+    &:disabled { cursor: default; }
+    &:focus-visible { box-shadow: var(--focus); border-radius: var(--r-sm); }
+    // The time keeps its own colour: muted, or the warning colour once it's over a week old.
+    span { color: var(--text-3); }
+    .stale { color: var(--warning); }
+  }
 </style>
