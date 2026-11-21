@@ -19,6 +19,7 @@
 
 - Run against real SQLite in `./data/test` (`APP_ENV=test`). `setup.ts` **refuses to run** unless the data dir resolves to `./data/test`, so it can never wipe the real notebook.
 - Before each file, `setup.ts` deletes `./data/test` and calls `ensureDatabase(TEST_NOTEBOOK)`, so the real layout code creates the default notebook `notebook` and the real migrator builds its database. It then adds an empty second notebook, `other`, and seeds three people in the first: `person_alice`, `person_bob`, `person_carol`.
+- Setup, like each test, has 30s (`hookTimeout`, `testTimeout`): migrating a fresh database took up to about 10s on a slow CI runner.
 - Call operations with `getRegistry(TEST_NOTEBOOK)` (ids in `tests/integration/test-notebooks.ts`). Tests run single-fork and share the notebooks within a file.
 - Coverage:
   - `health`

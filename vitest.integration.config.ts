@@ -10,6 +10,8 @@ export default defineConfig({
     // integration tests run sequentially — they share a real DB
     pool: 'forks',
     poolOptions: { forks: { singleFork: true } },
-    testTimeout: 30_000
+    testTimeout: 30_000,
+    // setup.ts migrates a fresh database before each file, which took up to ~10s on a slow CI runner.
+    hookTimeout: 30_000
   }
 });
