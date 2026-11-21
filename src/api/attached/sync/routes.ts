@@ -61,7 +61,7 @@ export const syncRouter = router({
     .input(z.object(holder))
     .mutation(({ ctx, input }) => inModel(ctx, input, () => clearSyncError(ctx.reg, input))),
 
-  // Sync docs and pages that want syncing: the home page's list, and Claude's to-do list.
+  // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure
     .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt." })
     .query(async ({ ctx }) => ok(await listSyncsNeeded(ctx.reg)))

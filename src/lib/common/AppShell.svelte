@@ -122,9 +122,6 @@
     <main>
       {@render children()}
     </main>
-    <footer class="site-footer">
-      Made in Toronto, Canada · By <a href="https://jweatherby.dev" target="_blank" rel="noopener">JW.dev</a>
-    </footer>
   </div>
 </div>
 
@@ -289,13 +286,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .site-footer {
-    padding: var(--sp-1) var(--sp-5);
-    text-align: center;
-    font-size: var(--fs-sm);
-    color: var(--text-3);
-    a { color: inherit; }
+    // Room below the last thing on a page, where the footer was.
+    padding-bottom: var(--sp-10);
   }
 </style>

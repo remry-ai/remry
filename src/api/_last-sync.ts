@@ -1,6 +1,6 @@
 // A sync doc's or page's last sync: saved when the app's Sync now finishes (or fails) and when
 // Claude marks one of its entity's sources synced, so the banner can say when it ran, by what and
-// how it went; and which sync docs and pages want syncing, for the home page and a docs list.
+// how it went; and which sync docs and pages want syncing, for a docs list and Claude's sync.needed.
 // A sync doc's sources are its entity's links marked `syncSource`; a sync page's, its own.
 
 import type { Registry } from '$shared/registry';
