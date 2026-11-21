@@ -6,7 +6,7 @@
   // link (storage://…, a file icon, opening from the files route; removing it deletes the file).
   // After an upload the local Claude saves a PDF's or image's text on the link, so Claude reads that
   // instead of the file; a file's "Re-read" button writes it again.
-  // On a synced entity (`syncing`), every row's sync icon is in the selected colour (as the sync doc's "Sync" tag; the branding's colour when branded) for a link its sync doc or
+  // On a synced entity (`syncing`), every row's sync icon is in the sync dot's amber for a link its sync doc or
   // sync page is written from and grey for one that isn't; clicking it toggles that (link.update --syncSource).
   import { assistantName } from '$lib/stores/assistant';
   import { invalidateAll } from '$app/navigation';
@@ -155,7 +155,7 @@
         <SourceIcon source={row.source} file={row.isFile} />
         <a class="grow wrap" href={row.href} target="_blank" rel="noopener noreferrer" title={row.tooltip}>{row.label}</a>
         {#if syncing}
-          <!-- On a synced entity the sync icon says whether the link is a source (in the sync doc's tag colour) or not
+          <!-- On a synced entity the sync icon says whether the link is a source (in the sync dot's amber) or not
                (grey), and clicking it toggles that; the last-sync time sits before it, so the icons line up at the right. -->
           <button
             type="button"
@@ -209,8 +209,8 @@
     font: inherit;
     color: var(--text-3);
     cursor: pointer;
-    // The sync doc's "Sync" tag colour, so a source reads as part of it.
-    &.source { color: var(--selected); }
+    // The sync dot's amber (SyncStatus), so a source reads as part of the sync.
+    &.source { color: color-mix(in srgb, var(--warning) 55%, transparent); }
     &:hover:not(:disabled) { opacity: 0.7; }
     &:disabled { cursor: default; }
     &:focus-visible { box-shadow: var(--focus); border-radius: var(--r-sm); }
