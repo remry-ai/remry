@@ -40,7 +40,7 @@ export const pageRouter = router({
     .mutation(({ ctx, input }) => drawingGated(ctx, ctx.reg, input.bodyType === 'drawing', () => createPage(ctx.reg, input))),
 
   update: procedure
-    .meta({ description: 'Changes a page\'s title, parent or content. A sync page\'s content (it has a prompt) is refused: only sync.save writes it.' })
+    .meta({ description: 'Changes a page\'s title, parent or content. A sync page\'s content (it has a prompt) is written from its sources (or with sync.save, which also records the sync).' })
     .input(refusingPrompt({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -50,7 +50,7 @@ export const pageRouter = router({
     }))
     // A new drawing past the free ones is Remry Pro.
     .mutation(async ({ ctx, input: { id, ...data } }) =>
-      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'PAGE', id, data.bodyType), () => updatePage(ctx.reg, id, data))),
+      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'PAGE', id, data.bodyType), () => updatePage(ctx.reg, id, data, { fromSync: ctx.surface === 'tool' }))),
 
   uploadImage: procedure
     .meta({ description: "Uploads an image to a wiki page and returns its key and the markdown to put in the content (then page.update). dataBase64 is the file's bytes as base64 (a data: URL is fine); the bytes decide PNG, JPEG, GIF or WebP." })
@@ -60,7 +60,7 @@ export const pageRouter = router({
       contentType: z.enum(EDITOR_IMAGE_TYPES).optional(),
       dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => uploadPageImage(ctx.reg, input.pageId, input.dataBase64)),
+    .mutation(({ ctx, input }) => uploadPageImage(ctx.reg, input.pageId, input.dataBase64, { fromSync: ctx.surface === 'tool' })),
 
   archive: procedure
     .input(z.object({ id: z.string() }))

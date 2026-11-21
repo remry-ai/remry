@@ -21,6 +21,10 @@
   import type { SyncNowOutcome } from '../sync-now';
   import SourceLinks from './SourceLinks.svelte';
   import type { SyncHolderRef } from '$shared/utils/sync-state';
+  import { trpc } from '$shared/trpc/client';
+  import { fileLinkKey } from '$shared/utils/file-links';
+  import { missingConnector } from '$shared/utils/link-source';
+  import { onDestroy } from 'svelte';
 
   interface LinkItem {
     readonly id: string;
@@ -53,11 +57,13 @@
     readonly noun?: 'doc' | 'page';
     /** The "Sync" badge at its start; SyncSection's heading says it instead. */
     readonly badge?: boolean;
+    /** Shown (SyncSection open): only then does it ask which connectors the assistant has, which takes a few seconds. */
+    readonly active?: boolean;
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, active = true, onRefresh }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
   // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
@@ -81,8 +87,59 @@
   let noticeFor = $state<string | null>(null);
   const showNotice = $derived(syncNotice !== null && noticeFor === String(lastSync?.at ?? null));
 
+  // ----- What the assistant on this computer can read -----
+  // Sync now runs the assistant installed here (Claude Code), with only its own connectors
+  // (`claude mcp list`), not the claude.ai ones Cowork and Claude desktop use. So before a sync,
+  // say which sources it has no connector for: it can open those only as public pages.
+  type Reach =
+    | { readonly state: 'loading' }
+    | { readonly state: 'ready'; readonly assistant: string; readonly servers: readonly string[] | null }
+    | { readonly state: 'unavailable'; readonly warning: string };
+  let reach = $state<Reach | null>(null);
+  const outsideLinks = $derived(links.filter((l) => fileLinkKey(l.url) === null));
+  $effect(() => {
+    if (!active || !onSyncNow || outsideLinks.length === 0 || reach) return;
+    reach = { state: 'loading' };
+    void trpc().sync.connectors.query().then((result) => {
+      if (!result.ok) { reach = null; return; }
+      const value = result.value;
+      reach = value.ready ? { state: 'ready', assistant: value.assistant, servers: value.servers } : { state: 'unavailable', warning: value.warning };
+    }).catch(() => { reach = null; });
+  });
+  /** Each tool with no connector, and its sources' titles. */
+  const gaps = $derived.by(() => {
+    if (reach?.state !== 'ready') return [];
+    const byTool = new Map<string, string[]>();
+    for (const link of outsideLinks) {
+      const tool = missingConnector(link.url, reach.servers ?? []);
+      if (tool) byTool.set(tool.name, [...(byTool.get(tool.name) ?? []), link.title ?? link.url]);
+    }
+    return [...byTool].map(([tool, titles]) => ({ tool, titles }));
+  });
+  const andList = (items: readonly string[]): string =>
+    items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+  const reachWarning = (assistant: string, missing: readonly { readonly tool: string; readonly titles: readonly string[] }[]): string => {
+    const titles = missing.flatMap((g) => g.titles).map((t) => `“${t}”`);
+    const tools = andList(missing.map((g) => g.tool)).replace(/ and ([^ ]+)$/, ' or $1');
+    return `${assistant} on this computer has no ${tools} connector, so Sync now can open ${andList(titles)} only if ${titles.length === 1 ? 'it\'s' : 'they\'re'} public. Connect ${missing.length === 1 ? 'it' : 'them'} to ${assistant}, or ask Claude in Cowork or Claude desktop to sync this: they use your claude.ai connectors.`;
+  };
+  const assistantHere = $derived(reach?.state === 'ready' ? reach.assistant : `${$assistantName} on this computer`);
+
+  // ----- Running -----
+  let elapsed = $state(0);
+  let ticker: ReturnType<typeof setInterval> | null = null;
+  const stopTicker = () => { if (ticker) clearInterval(ticker); ticker = null; };
+  onDestroy(stopTicker);
+  const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+  // The last sync's report (sources it couldn't read, and what to do), kept until the next sync.
+  const lastReport = $derived(lastSync && lastSync.outcome !== 'OK' && lastSync.message ? { tone: lastSync.outcome === 'FAILED' ? 'error' : 'warning', message: lastSync.message } : null);
+
   const runSync = async (sync: () => Promise<SyncNowOutcome | null>) => {
     const before = String(lastSync?.at ?? null);
+    elapsed = 0;
+    stopTicker();
+    ticker = setInterval(() => { elapsed += 1; }, 1000);
     syncing = true;
     syncNotice = null;
     try {
@@ -92,6 +149,7 @@
     } finally {
       noticeFor = before;
       syncing = false;
+      stopTicker();
     }
   };
 
@@ -140,7 +198,7 @@
   <div class="head">
     {#if badge}<span class="badge accent" title="Claude rewrites this from its sources, following the prompt. Only a sync changes the text.">Sync</span>{/if}
     {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below, or mark links as sources.</span>
-    {:else if syncing}<span class="text-xs text-2">{$assistantName} is reading the sources and rewriting this…</span>
+    {:else if syncing}<span class="text-xs text-2" aria-live="polite">{assistantHere} is reading {links.length} source{links.length === 1 ? '' : 's'} and rewriting this… {clock(elapsed)}</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onSyncNow && !editing && !creating}
@@ -176,10 +234,22 @@
   {/if}
 
   {#if syncNotice && showNotice}
-    <p class="text-xs" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
+    <p class="text-xs pre-line report" class:form-error={syncNotice.tone === 'error'} class:warning={syncNotice.tone === 'warning'} role="status">{syncNotice.message}</p>
+  {:else if lastReport && !syncing}
+    <p class="text-xs pre-line report" class:form-error={lastReport.tone === 'error'} class:warning={lastReport.tone === 'warning'}>{lastReport.message}</p>
   {/if}
 
   {#if links.length > 0 || onAddLink || onUploadFile}<SourceLinks {links} onAdd={onAddLink} {onUploadFile} />{/if}
+
+  {#if onSyncNow && !creating}
+    {#if reach?.state === 'loading'}
+      <p class="text-xs text-2 reach">Checking which connectors {$assistantName} on this computer has…</p>
+    {:else if reach?.state === 'unavailable'}
+      <p class="text-xs warning reach">{reach.warning}</p>
+    {:else if reach?.state === 'ready' && gaps.length > 0}
+      <p class="text-xs warning reach">{reachWarning(reach.assistant, gaps)}</p>
+    {/if}
+  {/if}
 </section>
 
 <style lang="scss">
@@ -204,5 +274,6 @@
     font-weight: 600;
   }
   .warning { color: var(--warning); margin: 0; }
+  .report, .reach { margin: 0; }
   .explain { margin: 0; }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
   // 16px icon for a link: a page for a file uploaded as a link, the tool's letter mark when
   // linkSource knows the address, otherwise a chain. Decorative; the row names it in its title.
-  import type { LinkSource } from '../source';
+  import type { LinkSource } from '$shared/utils/link-source';
 
   // small: 12px, for a line of small text (a doc's sources).
   const { source, small = false, file = false }: { readonly source: LinkSource | null; readonly small?: boolean; readonly file?: boolean } = $props();

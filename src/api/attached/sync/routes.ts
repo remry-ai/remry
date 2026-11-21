@@ -6,7 +6,7 @@ import type { SyncHolderRef } from '$shared/utils/sync-state';
 import { err, ok, type Result } from '$shared/utils/result';
 import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
-import { getSyncStatus, startSyncNow } from '$api/assist/sync';
+import { getSyncConnectors, getSyncStatus, startSyncNow } from '$api/assist/sync';
 import { getSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
 
 const holder = { entityType: z.enum(SYNC_HOLDERS), entityId: z.string().min(1) };
@@ -50,6 +50,10 @@ export const syncRouter = router({
   status: procedure
     .input(z.object(holder))
     .query(({ ctx, input }) => getSyncStatus(ctx.syncRunner, ctx.notebook.id, input)),
+
+  // The banner's check before Sync now: the assistant it runs and its connectors (app-only).
+  connectors: procedure
+    .query(({ ctx }) => getSyncConnectors(ctx.syncRunner)),
 
   // The home page's list of sync docs and pages that want syncing: failed, never synced, or over a week old.
   needed: procedure

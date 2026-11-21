@@ -41,8 +41,8 @@ export const syncStatus = (sync: LastSyncView | null, now: Date = new Date()): S
   }
   const synced = `Last synced${by}${exact}`;
   if (sync.outcome === 'PARTIAL' && sync.message) {
-    // The message is the sync's own "Synced, except: …".
-    return { tone: 'warning', text: when, title: `${synced}, ${sync.message.replace(/^Synced,\s*/i, '')}` };
+    // The message is the sync's own report: how many it read, what it couldn't and why, what to do.
+    return { tone: 'warning', text: when, title: `${synced}. ${sync.message.replace(/^Synced,\s*except:\s*/i, "Couldn't read: ")}` };
   }
   return isSyncStale(at, now)
     ? { tone: 'warning', text: when, title: `${synced}. Over a week ago.` }

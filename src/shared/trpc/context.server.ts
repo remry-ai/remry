@@ -27,6 +27,11 @@ export interface Context {
   /** What the notebook is made of: the core plus its profile's modules. */
   readonly model: NotebookModel;
   readonly notebooks: NotebookStore;
+  /**
+   * Who's calling: the web app's own pages (`app`), or Claude through the CLI or MCP server
+   * (`tool`). A sync doc's text is read-only in the app's editor but Claude's tools write it.
+   */
+  readonly surface: 'app' | 'tool';
   /** The Remry Pro license on this computer, checked when called (see src/api/_license.ts). */
   readonly license: () => Promise<LicenseStatus>;
   readonly pdfConverter?: PdfConverter;
@@ -40,12 +45,14 @@ export const createNotebookContext = async (notebook: NotebookInfo): Promise<Con
   notebook,
   model: notebookModel(notebook.profile),
   notebooks: getNotebookStore(),
+  surface: 'tool',
   license: () => currentLicense()
 });
 
 /** `event.locals.notebook` is set by notebookHandle in hooks.server.ts. */
 export const createContext = async (opts: { readonly event: RequestEvent }): Promise<Context> => ({
   ...(await createNotebookContext(opts.event.locals.notebook)),
+  surface: 'app',
   pdfConverter: getPdfConverter(),
   pageChat: getPageChat(),
   syncRunner: getSyncRunner()

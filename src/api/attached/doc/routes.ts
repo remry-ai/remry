@@ -34,7 +34,7 @@ export const docRouter = router({
     .mutation(({ ctx, input }) => drawingGated(ctx, ctx.reg, input.bodyType === 'drawing', () => addDocWithContent(ctx.reg, input.entityType, input.entityId, input))),
 
   update: procedure
-    .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs) or bodyType (only while empty), or moves it to another entity (entityType + entityId), keeping its images, links and notes. Refused on a sync doc (isSync), which only sync.save writes.' })
+    .meta({ description: 'Changes a doc\'s title, content (markdown, where fenced chart and mermaid blocks render; a sheet\'s or drawing\'s JSON for those docs) or bodyType (only while empty), or moves it to another entity (entityType + entityId), keeping its images, links and notes. On a sync doc (isSync), only its content: write it from its sources (or with sync.save, which also records the sync).' })
     .input(refusingPrompt({
       id: z.string(),
       title: z.string().min(1).max(200).optional(),
@@ -45,7 +45,7 @@ export const docRouter = router({
     }))
     // A new drawing past the free ones is Remry Pro.
     .mutation(async ({ ctx, input }) =>
-      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType), () => updateDoc(ctx.reg, input.id, input))),
+      drawingGated(ctx, ctx.reg, await becomesDrawing(ctx.reg, 'DOC', input.id, input.bodyType), () => updateDoc(ctx.reg, input.id, input, { fromSync: ctx.surface === 'tool' }))),
 
   remove: procedure
     .input(z.object({ id: z.string() }))
@@ -68,5 +68,5 @@ export const docRouter = router({
       contentType: z.enum(DOC_IMAGE_TYPES).optional(),
       dataBase64: z.string().max(MAX_IMAGE_BASE64_CHARS)
     }))
-    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.dataBase64))
+    .mutation(({ ctx, input }) => uploadDocImage(ctx.reg, input.docId, input.dataBase64, { fromSync: ctx.surface === 'tool' }))
 });

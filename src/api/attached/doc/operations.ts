@@ -222,11 +222,14 @@ export const syncDocReadOnly = async (
   doc: { readonly entityType: string; readonly entityId: string }
 ): Promise<Error> => {
   const label = await resolveEntityLabel(reg, doc.entityType as EntityType, doc.entityId);
-  return new Error(`This is ${label ? `${label}'s` : 'its entity\'s'} sync doc, written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null): it stays as an ordinary doc. If this session has no sync tools, Remry was updated while it ran: start a new Claude session.`);
+  return new Error(`This is ${label ? `${label}'s` : 'its entity\'s'} sync doc: only a sync or Claude writes it, not the editor. Change what it pulls with its prompt (sync.setPrompt) or its sources, sync it, or ask Claude to rewrite it. Its title and place stay as they are. To edit it by hand, clear its prompt: it stays as an ordinary doc.`);
 };
 
 export interface WriteOptions {
-  /** Written by a sync (saveSyncText), the one way a sync doc's text changes. */
+  /**
+   * Written by a sync (saveSyncText) or by Claude through its tools (the CLI and MCP server, a
+   * `tool` surface): the only writers of a sync doc's text and images. The app's editor isn't one.
+   */
   readonly fromSync?: boolean;
 }
 
@@ -310,13 +313,14 @@ export type DocImageType = EditorImageType;
 export const uploadDocImage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid'>,
   docId: string,
-  dataBase64: string
+  dataBase64: string,
+  options: WriteOptions = {}
 ): Promise<Result<StoredImage>> => {
   const existing = await reg.prisma.doc.findUnique({ where: { id: docId } });
   if (!existing) return err(new Error('Doc not found'));
   const writable = await ensureWritable(reg, existing.entityType, existing.entityId);
   if (!writable.ok) return err(writable.error);
-  if (existing.syncHolder) return err(await syncDocReadOnly(reg, existing));
+  if (existing.syncHolder && !options.fromSync) return err(await syncDocReadOnly(reg, existing));
 
   return storeEditorImage(reg, `docs/${docId}`, dataBase64);
 };

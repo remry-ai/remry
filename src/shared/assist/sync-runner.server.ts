@@ -8,18 +8,24 @@ import { linkHosts } from './providers/copilot';
 import { llmProvider } from './providers/registry';
 import { ok, err } from '$shared/utils/result';
 import type { SyncNowJob, SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
+import type { LocatedLlm } from '$shared/types/llm';
 
 // Several sources, each read over the network.
 const TIMEOUT_MS = 15 * 60 * 1000;
 const LIST_TIMEOUT_MS = 2 * 60 * 1000;
 
-const run = async (job: SyncNowJob): Promise<SyncNowStatus> => {
+// `claude mcp list` checks every server, which takes seconds: the banner asks before each sync.
+const CONNECTORS_TTL_MS = 5 * 60 * 1000;
+
+type Connectors = (llm: LocatedLlm) => Promise<readonly string[] | null>;
+
+const run = async (job: SyncNowJob, connectors: Connectors): Promise<SyncNowStatus> => {
   const provider = llmProvider(job.llm.provider);
   // The user's connected MCP servers and connectors, so the run can be allowed each by name.
-  const servers = await listLlmServers(job.llm, LIST_TIMEOUT_MS);
+  const servers = await connectors(job.llm);
   const { code, stdout, stderr } = await runLlm(
     job.llm,
-    { kind: 'sync', prompt: job.prompt, servers, hosts: linkHosts(job.urls) },
+    { kind: 'sync', prompt: job.prompt, servers: servers ?? [], hosts: linkHosts(job.urls) },
     { cwd: job.cwd && existsSync(job.cwd) ? job.cwd : null, timeoutMs: TIMEOUT_MS }
   );
   if (stdout.trim() === '') {
@@ -33,19 +39,33 @@ const run = async (job: SyncNowJob): Promise<SyncNowStatus> => {
   }
   const reply = provider.parse(stdout, 'sync');
   if (!reply.ok) return { state: 'failed', message: reply.error.message };
-  const saved = await job.onReply(reply.value);
+  const saved = await job.onReply(reply.value, { servers });
   if (!saved.ok) return { state: 'failed', message: saved.error.message };
   return saved.value ? { state: 'done', message: saved.value } : { state: 'done' };
 };
 
-export const createSyncRunner = (): SyncRunner => {
+export const createSyncRunner = (now: () => number = Date.now): SyncRunner => {
   const jobs = new Map<string, SyncNowStatus>();
+  const listed = new Map<string, { readonly at: number; readonly servers: Promise<readonly string[] | null> }>();
+  const connectors: Connectors = (llm) => {
+    if (llmProvider(llm.provider).listServersArgs === null) return Promise.resolve(null);
+    const key = `${llm.provider}:${llm.path}`;
+    const cached = listed.get(key);
+    if (cached && now() - cached.at < CONNECTORS_TTL_MS) return cached.servers;
+    const servers = listLlmServers(llm, LIST_TIMEOUT_MS).catch(() => {
+      listed.delete(key);
+      return [] as readonly string[];
+    });
+    listed.set(key, { at: now(), servers });
+    return servers;
+  };
   return {
+    connectors,
     locate: lookupLlm,
     start: (job) => {
       if (jobs.get(job.key)?.state === 'running') return err(new Error(`${llmProvider(job.llm.provider).name} is already syncing this.`));
       jobs.set(job.key, { state: 'running' });
-      run(job)
+      run(job, connectors)
         .catch((error: unknown): SyncNowStatus => ({
           state: 'failed',
           message: `Couldn't run ${llmProvider(job.llm.provider).name}: ${error instanceof Error ? error.message : String(error)}`

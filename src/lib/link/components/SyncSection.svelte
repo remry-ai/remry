@@ -10,7 +10,7 @@
   import SyncStatus from './SyncStatus.svelte';
   import { syncStatus } from '../last-sync';
 
-  type Props = Omit<ComponentProps<typeof SyncPrompt>, 'badge'>;
+  type Props = Omit<ComponentProps<typeof SyncPrompt>, 'badge' | 'active'>;
 
   const props: Props = $props();
 
@@ -32,7 +32,7 @@
     {#if !expanded && status}<span class="status"><SyncStatus {...status} /></span>{/if}
   </div>
   <div hidden={!expanded}>
-    <SyncPrompt {...props} badge={false} />
+    <SyncPrompt {...props} badge={false} active={expanded} />
   </div>
 </section>
 

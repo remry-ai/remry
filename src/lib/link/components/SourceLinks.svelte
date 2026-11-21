@@ -7,7 +7,7 @@
   import ProIcon from '$lib/ui/ProIcon.svelte';
   import { timeAgo } from '$lib/home/utils';
   import AddLinkForm from './AddLinkForm.svelte';
-  import { linkLabel, linkSource } from '../source';
+  import { linkLabel, linkSource } from '$shared/utils/link-source';
   import { isSyncStale } from '$shared/utils/sync-state';
   import { fileLinkKey, linkHref } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';

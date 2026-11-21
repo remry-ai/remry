@@ -13,9 +13,12 @@ describe('syncStatus', () => {
   });
 
   it('keeps a partial sync\'s skipped sources and a failure\'s reason in the tooltip', () => {
-    const partial = syncStatus({ at: '2026-09-30T10:00:00Z', by: 'APP', outcome: 'PARTIAL', message: 'Synced, except: Quote.pdf (blank scan).' }, now);
+    const partial = syncStatus({ at: '2026-09-30T10:00:00Z', by: 'APP', outcome: 'PARTIAL', message: "Synced from 1 of 2 sources.\nCouldn't read: Quote.pdf (blank scan)." }, now);
     expect(partial).toMatchObject({ tone: 'warning', text: '2h ago' });
-    expect(partial.title).toMatch(/, except: Quote\.pdf \(blank scan\)\.$/);
+    expect(partial.title).toMatch(/\. Synced from 1 of 2 sources\.\nCouldn't read: Quote\.pdf \(blank scan\)\.$/);
+    // A note saved before the report said more reads the same way.
+    const older = syncStatus({ at: '2026-09-30T10:00:00Z', by: 'APP', outcome: 'PARTIAL', message: 'Synced, except: Quote.pdf (blank scan).' }, now);
+    expect(older.title).toMatch(/\. Couldn't read: Quote\.pdf \(blank scan\)\.$/);
     const failed = syncStatus({ at: '2026-09-30T10:00:00Z', by: 'APP', outcome: 'FAILED', message: 'Claude Code exited without a reply.' }, now);
     expect(failed).toMatchObject({ tone: 'error', text: '2h ago' });
     expect(failed.title).toMatch(/^Last sync failed by Sync now .+: Claude Code exited without a reply\.$/);

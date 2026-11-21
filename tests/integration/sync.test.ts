@@ -50,7 +50,7 @@ describe('a sync doc', () => {
     const holder = { entityType: 'PROJECT' as const, entityId: project.id };
     const docId = must(await setSyncPrompt(reg, holder, 'Scope.')).docId!;
 
-    expect(refusal(await updateDoc(reg, docId, { content: 'By hand' }))).toContain('sync.save');
+    expect(refusal(await updateDoc(reg, docId, { content: 'By hand' }))).toContain('not the editor');
     expect(refusal(await updateDoc(reg, docId, { title: 'Renamed' }))).toContain('sync doc');
     expect(refusal(await updateDoc(reg, docId, { entityType: 'PROJECT', entityId: other.id }))).toContain('sync doc');
     expect(refusal(await uploadDocImage(reg, docId, PNG))).toContain('sync doc');
@@ -106,5 +106,22 @@ describe('a sync doc', () => {
     // Everything else is as before.
     expect((await api.doc.update({ id: doc.id, title: 'Plan v2' })).ok).toBe(true);
     expect(must(await getDoc(reg, doc.id)).title).toBe('Plan v2');
+  });
+
+  it('takes its text from Claude\'s tools (the CLI and MCP), though not a new title or a move', async () => {
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    const project = must(await createProject(reg, { name: 'Written by Cowork' }));
+    const docId = must(await setSyncPrompt(reg, { entityType: 'PROJECT', entityId: project.id }, 'Scope.')).docId!;
+    expect((await api.doc.update({ id: docId, content: '## Scope\nFrom Cowork.' })).ok).toBe(true);
+    expect(must(await getDoc(reg, docId)).content).toBe('## Scope\nFrom Cowork.');
+    expect((await api.doc.uploadImage({ docId, dataBase64: PNG })).ok).toBe(true);
+    const renamed = await api.doc.update({ id: docId, title: 'Renamed' });
+    expect(!renamed.ok && renamed.error.message).toContain('sync doc');
+
+    const page = must(await api.page.create({ title: 'Synced from Cowork' }));
+    must(await setSyncPrompt(reg, { entityType: 'PAGE', entityId: page.id }, 'Tiers.'));
+    expect((await api.page.update({ id: page.id, content: '# Tiers' })).ok).toBe(true);
   });
 });

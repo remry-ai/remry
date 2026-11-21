@@ -8,9 +8,11 @@ import type { Registry } from '$shared/registry';
 import { ok, err, type Result } from '$shared/utils';
 import { ensureWritable } from '$api/_archive';
 import { resolveEntityLabels } from '$api/_entity-labels';
-import { parseSyncReply, syncPrompt, type SyncSource } from '$shared/assist/sync-cli';
+import { NO_SOURCES_BLOCK, readSyncReply, syncPrompt, type SyncSource } from '$shared/assist/sync-cli';
+import { syncReportNote } from '$shared/assist/sync-report';
+import { llmProvider } from '$shared/assist/providers/registry';
 import type { ConvertPdfResult } from '$shared/types/pdf-conversion';
-import type { SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
+import type { SyncConnectors, SyncNowStatus, SyncRunner } from '$shared/types/sync-now';
 import { entityFileFolder, fileLinkKey } from '$shared/utils/file-links';
 import { entityTypeLabel } from '$shared/utils/entity';
 import { requireDocument } from '$api/_body';
@@ -18,6 +20,9 @@ import { saveSyncText } from '$api/attached/sync/operations';
 import { readyLlm } from './llm';
 import { findSyncTarget, recordSync } from '$api/_last-sync';
 import type { SyncHolderRef } from '$shared/utils/sync-state';
+
+/** The assistant named as the program on this computer ("Claude Code"), apart from Claude in Cowork or the desktop app. */
+const assistantOnComputer = (provider: Parameters<typeof llmProvider>[0]): string => llmProvider(provider).product.replace(/ CLI$/, '');
 
 export const SYNC_RETRY = 'choose Sync now again, or ask Claude in a chat to sync it.';
 
@@ -88,7 +93,8 @@ export const startSyncNow = async (
       sourceEditedAt: l.sourceEditedAt
     };
   });
-  const titleOf = new Map(links.map((l) => [l.id, l.title ?? l.url]));
+  const assistant = assistantOnComputer(llm.llm.provider);
+  const reportSources = sources.map((s) => ({ id: s.id, title: s.title, url: s.url }));
 
   const started = llm.runner.start({
     key: syncJobKey(notebookId, holder),
@@ -96,13 +102,16 @@ export const startSyncNow = async (
     urls: sources.flatMap((s) => (s.url ? [s.url] : [])),
     cwd: folder ? reg.storage.pathFor(folder) : null,
     prompt: syncPrompt({ kind: kind === 'DOC' ? 'doc' : 'wiki page', title: target.value.title, content: target.value.content, prompt: target.value.prompt, on: target.value.on, sources }),
-    onReply: async (reply) => {
-      const parsed = parseSyncReply(reply, links.map((l) => l.id));
-      if (!parsed.ok) return err(parsed.error);
-      const saved = await saveSyncText(reg, holder, parsed.value.markdown, parsed.value.read.map((r) => ({ id: r.id, editedAt: r.editedAt ?? undefined })));
+    onReply: async (reply, run) => {
+      const parsed = readSyncReply(reply, links.map((l) => l.id));
+      if (!parsed) return err(new Error(NO_SOURCES_BLOCK));
+      // Which sources it couldn't read, why, and what to do: kept as the last sync's message.
+      const note = syncReportNote({ assistant, servers: run.servers, sources: reportSources, read: parsed.read.map((r) => r.id), unread: parsed.unread });
+      if (parsed.read.length === 0) return err(new Error(note ?? `${assistant} couldn't read any of the sources, so nothing was changed.`));
+      if (parsed.markdown === '') return err(new Error(`${assistant} returned no text, so nothing was changed.`));
+      const saved = await saveSyncText(reg, holder, parsed.markdown, parsed.read.map((r) => ({ id: r.id, editedAt: r.editedAt ?? undefined })));
       if (!saved.ok) return err(saved.error);
-      if (parsed.value.unread.length === 0) return ok(null);
-      return ok(`Synced, except: ${parsed.value.unread.map((u) => `${titleOf.get(u.id) ?? 'a source'} (${u.reason})`).join('; ')}.`);
+      return ok(note);
     },
     onFinish: async (status) => {
       if (status.state === 'failed') await recordSync(reg, kind, id, { by: 'APP', outcome: 'FAILED', message: status.message ?? 'Sync failed.' });
@@ -117,3 +126,13 @@ export const getSyncStatus = (
   notebookId: string,
   holder: SyncHolderRef
 ): Result<SyncNowStatus> => ok(runner ? runner.status(syncJobKey(notebookId, holder)) : { state: 'idle' });
+
+/**
+ * The assistant Sync now would run and the connectors it has, for the banner to say before a
+ * sync which sources it can only open as public pages.
+ */
+export const getSyncConnectors = async (runner: SyncRunner | undefined): Promise<Result<SyncConnectors>> => {
+  const llm = await readyLlm(runner, SYNC_RETRY);
+  if (!llm.ready) return ok({ ready: false, warning: llm.reply.warning });
+  return ok({ ready: true, assistant: assistantOnComputer(llm.llm.provider), servers: await llm.runner.connectors(llm.llm) });
+};

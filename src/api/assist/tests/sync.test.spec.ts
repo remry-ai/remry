@@ -24,7 +24,7 @@ const links = [
 
 const setup = (overrides: { page?: object | null; links?: object[] } = {}) => {
   const jobs: SyncNowJob[] = [];
-  const runner: SyncRunner = { locate: fakeLookup('/usr/local/bin/claude'), start: (job) => { jobs.push(job); return { ok: true, value: undefined }; }, status: vi.fn() };
+  const runner: SyncRunner = { locate: fakeLookup('/usr/local/bin/claude'), start: (job) => { jobs.push(job); return { ok: true, value: undefined }; }, status: vi.fn(), connectors: vi.fn().mockResolvedValue(['claude.ai Linear']) };
   const reg = createTestRegistry({
     prisma: {
       page: { findUnique: vi.fn().mockResolvedValue(overrides.page === undefined ? { id: 'pg1', ...page } : overrides.page) },
@@ -47,8 +47,8 @@ describe('startSyncNow', () => {
   it('saves the text and marks what it read synced, saying what it couldn\'t read', async () => {
     const { reg, runner, jobs } = setup();
     await startSyncNow(reg, runner, 'work', holder);
-    const saved = await jobs[0]!.onReply('# New\n<!-- sources\nl1 read 2026-10-28T16:30:00Z\nl2 unread blank scan\n-->');
-    expect(saved).toEqual({ ok: true, value: 'Synced, except: Quote.pdf (blank scan).' });
+    const saved = await jobs[0]!.onReply('# New\n<!-- sources\nl1 read 2026-10-28T16:30:00Z\nl2 unread blank scan\n-->', { servers: ['claude.ai Linear'] });
+    expect(saved.ok && saved.value?.split('\n').slice(0, 2)).toEqual(['Synced from 1 of 2 sources.', "Couldn't read: Quote.pdf (blank scan)."]);
     // Only what it read is marked synced.
     expect(saveSyncText).toHaveBeenLastCalledWith(reg, holder, '# New', [{ id: 'l1', editedAt: new Date('2026-10-28T16:30:00Z') }]);
   });
@@ -75,5 +75,16 @@ describe('startSyncNow', () => {
     const noClaude = setup();
     const warned = await startSyncNow(noClaude.reg, { ...noClaude.runner, locate: fakeLookup(null) }, 'work', holder);
     expect(warned.ok && !warned.value.started).toBe(true);
+  });
+
+  it('names the tools it has no connector for, and changes nothing when it read none', async () => {
+    const { reg, runner, jobs } = setup();
+    await startSyncNow(reg, runner, 'work', holder);
+    const failed = await jobs[0]!.onReply('Sorry.\n<!-- sources\nl1 unread needs sign-in\nl2 unread blank scan\n-->', { servers: ['claude.ai Linear'] });
+    const message = !failed.ok ? failed.error.message : '';
+    expect(message).toContain("couldn't read any of the sources, so nothing was changed.");
+    expect(message).toContain('Notion: Pricing (needs sign-in)');
+    expect(message).toContain('Claude Code on this computer has no Notion connector');
+    expect(message).toContain('ask Claude in Cowork or Claude desktop');
   });
 });

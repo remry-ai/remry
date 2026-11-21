@@ -147,11 +147,11 @@ export interface SyncReply {
 const BLOCK = /<!--\s*sources\s*\n([\s\S]*?)-->\s*$/;
 const FENCED = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/;
 
-/** Splits Claude's reply into the new text and which sources it read; only ids it was given count. */
-export const parseSyncReply = (reply: string, sourceIds: readonly string[]): Result<SyncReply> => {
+/** The reply's text and its sources block, or null without the block. Only ids it was given count. */
+export const readSyncReply = (reply: string, sourceIds: readonly string[]): SyncReply | null => {
   const trimmed = reply.trim();
   const match = BLOCK.exec(trimmed);
-  if (!match) return err(new Error("Claude's reply didn't say which sources it read, so nothing was changed."));
+  if (!match) return null;
   const known = new Set(sourceIds);
   const read: { id: string; editedAt: Date | null }[] = [];
   const unread: { id: string; reason: string }[] = [];
@@ -166,11 +166,19 @@ export const parseSyncReply = (reply: string, sourceIds: readonly string[]): Res
     }
   }
   const body = trimmed.slice(0, match.index).trim();
-  const markdown = (FENCED.exec(body)?.[1] ?? body).trim();
-  if (read.length === 0) {
-    const why = unread.map((u) => u.reason).join('; ');
+  return { markdown: (FENCED.exec(body)?.[1] ?? body).trim(), read, unread };
+};
+
+export const NO_SOURCES_BLOCK = "Claude's reply didn't say which sources it read, so nothing was changed.";
+
+/** Splits Claude's reply into the new text and which sources it read; only ids it was given count. */
+export const parseSyncReply = (reply: string, sourceIds: readonly string[]): Result<SyncReply> => {
+  const parsed = readSyncReply(reply, sourceIds);
+  if (!parsed) return err(new Error(NO_SOURCES_BLOCK));
+  if (parsed.read.length === 0) {
+    const why = parsed.unread.map((u) => u.reason).join('; ');
     return err(new Error(`Claude couldn't read any of the sources${why ? ` (${why})` : ''}, so nothing was changed.`));
   }
-  if (markdown === '') return err(new Error('Claude returned no text, so nothing was changed.'));
-  return ok({ markdown, read, unread });
+  if (parsed.markdown === '') return err(new Error('Claude returned no text, so nothing was changed.'));
+  return ok(parsed);
 };

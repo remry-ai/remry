@@ -153,7 +153,7 @@ export interface UpdatePageInput {
 }
 
 /** Why a sync page's content can't be changed by hand, and what to do instead. */
-export const SYNC_PAGE_READ_ONLY = 'This is a sync page: its content is written only from its sources. Change what it pulls with sync.setPrompt, choose its sources with link.update --syncSource, or rewrite it from them with sync.save. To edit it by hand, clear its prompt (sync.setPrompt --prompt null). If this session has no sync tools, Remry was updated while it ran: start a new Claude session.';
+export const SYNC_PAGE_READ_ONLY = 'This is a sync page: only a sync or Claude writes its content, not the editor. Change what it pulls with its prompt (sync.setPrompt) or its sources, sync it, or ask Claude to rewrite it. To edit it by hand, clear its prompt.';
 
 export const updatePage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
@@ -223,12 +223,13 @@ export const deletePage = async (
 export const uploadPageImage = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'uuid'>,
   pageId: string,
-  dataBase64: string
+  dataBase64: string,
+  options: { readonly fromSync?: boolean } = {}
 ): Promise<Result<StoredImage>> => {
   const existing = await reg.prisma.page.findUnique({ where: { id: pageId }, select: { id: true, prompt: true } });
   if (!existing) return err(new Error(`Page ${pageId} not found`));
   const writable = await ensureWritable(reg, 'PAGE', pageId);
   if (!writable.ok) return err(writable.error);
-  if (existing.prompt) return err(new Error(SYNC_PAGE_READ_ONLY));
+  if (existing.prompt && !options.fromSync) return err(new Error(SYNC_PAGE_READ_ONLY));
   return storeEditorImage(reg, `pages/${pageId}`, dataBase64);
 };

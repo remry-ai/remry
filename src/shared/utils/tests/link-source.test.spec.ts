@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linkLabel, linkSource } from '../source';
+import { linkLabel, linkSource } from '../link-source';
 
 describe('linkSource', () => {
   it('recognises the tools people import from', () => {

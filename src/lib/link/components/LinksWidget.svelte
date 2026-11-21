@@ -18,7 +18,7 @@
   import { transcribeFileLinkAndWait, transcribeInBackground, uploadFileLink } from '$lib/link/file-links';
   import AddLinkForm from './AddLinkForm.svelte';
   import { timeAgo } from '$lib/home/utils';
-  import { linkLabel, linkSource } from '../source';
+  import { linkLabel, linkSource } from '$shared/utils/link-source';
   import { isSyncStale } from '$shared/utils/sync-state';
   import { FILE_LINK_HOLDERS, fileLinkKey, linkHref, type FileLinkHolder } from '$shared/utils/file-links';
   import SourceIcon from './SourceIcon.svelte';

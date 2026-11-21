@@ -21,8 +21,11 @@ export interface SyncNowJob {
   readonly prompt: string;
   /** The web addresses among its sources, for an assistant allowed only their hosts. */
   readonly urls: readonly string[];
-  /** Saves the reply; ok with a note for the user (sources it couldn't read), or null. */
-  readonly onReply: (reply: string) => Promise<Result<string | null>>;
+  /**
+   * Saves the reply; ok with a note for the user (sources it couldn't read, and what to do), or
+   * null. `servers` are the connectors the run had (null when the assistant uses none).
+   */
+  readonly onReply: (reply: string, run: { readonly servers: readonly string[] | null }) => Promise<Result<string | null>>;
   /** Called once the job ends, done or failed, to save how it went. */
   readonly onFinish?: (status: SyncNowStatus) => Promise<void>;
 }
@@ -34,7 +37,17 @@ export interface SyncRunner {
   readonly start: (job: SyncNowJob) => Result<void>;
   /** A failed or done status is reported once, then it reads as idle. */
   readonly status: (key: string) => SyncNowStatus;
+  /**
+   * The assistant's connected MCP servers, which are all a run can read private pages with;
+   * null when it uses none. Listed by its CLI (slow), so kept for a few minutes.
+   */
+  readonly connectors: (llm: LocatedLlm) => Promise<readonly string[] | null>;
 }
+
+/** What the banner shows before a sync: the assistant that runs it and the connectors it has. */
+export type SyncConnectors =
+  | { readonly ready: true; readonly assistant: string; readonly servers: readonly string[] | null }
+  | { readonly ready: false; readonly warning: string };
 
 /** A sync doc's or page's last sync, saved so the banner can say when it ran, by what, and how it went. */
 export interface LastSync {
