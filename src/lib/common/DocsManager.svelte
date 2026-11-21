@@ -64,7 +64,7 @@
   const statusOf = (doc: Doc) => ({ ...syncStatus(doc.lastSync ?? null), tone: syncNeedTone(doc.syncNeed) });
 
   // The header shows the sync doc's dot alone, whenever there is one, so a folded list still says
-  // how its last sync went: grey when current, amber when it wants syncing, red when it failed.
+  // how its last sync went: green when current, amber when it wants syncing, red when it failed.
   const syncDoc = $derived(docs.find((d) => d.prompt) ?? null);
   const headerStatus = $derived(syncDoc ? { ...statusOf(syncDoc), text: '' } : null);
 
