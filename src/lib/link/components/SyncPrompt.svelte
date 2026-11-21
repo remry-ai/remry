@@ -15,6 +15,7 @@
   import { isProActive, lockedMessage, NO_LICENSE, type LicenseStatus } from '$shared/types/license';
   import { syncRunning, waitForSync } from '../sync-now';
   import PencilIcon from '$lib/ui/PencilIcon.svelte';
+  import HelpIcon from '$lib/ui/HelpIcon.svelte';
   import Field from '$lib/ui/Field.svelte';
   import { errorMessage, submit } from '$lib/ui/submit';
   import type { SyncNowOutcome } from '../sync-now';
@@ -201,7 +202,7 @@
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onRequest && !editing && !creating}
-      <button type="button" class="btn ghost sm ml-auto" onclick={() => openPopup(SYNC_HELP_POPUP)}>How it works</button>
+      <button type="button" class="btn icon sm ml-auto" aria-label="How sync docs work" title="How sync docs work" onclick={() => openPopup(SYNC_HELP_POPUP)}><HelpIcon /></button>
       {#if requestedAt}
         <span class="badge accent" title="Waiting for the next Claude chat that uses Remry (Cowork, Claude desktop), which syncs it with your connectors">Sync triggered {requestedWhen}</span>
         <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel</button>
