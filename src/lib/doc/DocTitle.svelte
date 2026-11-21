@@ -19,9 +19,11 @@
     readonly onEdit?: () => void;
     /** After the title: a document's "Convert with Claude". */
     readonly after?: Snippet;
+    /** An entity's sync doc: its tag reads "Sync", in the accent colour of the Sync badge, not its body type. */
+    readonly sync?: boolean;
   }
 
-  const { title, bodyType, onSaveTitle, autoEdit = false, onPaste, onEdit, after }: Props = $props();
+  const { title, bodyType, onSaveTitle, autoEdit = false, onPaste, onEdit, after, sync = false }: Props = $props();
 
   // Read once: a new doc starts with its title in the box.
   // svelte-ignore state_referenced_locally
@@ -61,7 +63,11 @@
 </script>
 
 <div class="doc-title-row">
-  <span class="badge selected">{BODY_LABELS[bodyType]}</span>
+  {#if sync}
+    <span class="badge accent" title="Written from its sources, following the prompt in the Sync section">Sync</span>
+  {:else}
+    <span class="badge selected">{BODY_LABELS[bodyType]}</span>
+  {/if}
   {#if editing}
     <input class="title-input" bind:value={draft} onblur={commit} onkeydown={handleKeydown} onpaste={handlePaste} use:focusOnMount aria-label="{BODY_LABELS[bodyType]} title" />
   {:else}

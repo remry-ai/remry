@@ -608,6 +608,7 @@
         title={activeDoc.title}
         content={activeDoc.content}
         readOnly={activeDoc.isSync}
+        sync={activeDoc.isSync}
         hasSourceFile={!activeDoc.isSync && !!docFileLink}
         converting={pdfJob?.docId === activeDoc.id && pdfJob.running}
         convertNotice={pdfJob?.docId === activeDoc.id ? pdfJob.notice : null}

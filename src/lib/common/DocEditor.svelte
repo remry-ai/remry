@@ -51,9 +51,11 @@
     readonly startIn?: 'editor' | 'preview';
     /** Shown only: Preview, no editor tabs, pencil or Save (an entity's sync doc, which only a sync writes). */
     readonly readOnly?: boolean;
+    /** An entity's sync doc: its tag reads "Sync" (DocTitle's `sync`). */
+    readonly sync?: boolean;
   }
 
-  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, onEdit, startIn, showTitle = true, readOnly = false }: Props = $props();
+  const { title, content, hasSourceFile, converting = false, convertNotice = null, onSave, onSaveTitle, onConvert, onUploadImage, onResolveImages, onClose, sources, exportHref, chartBranding = null, autoEditTitle = false, onEdit, startIn, showTitle = true, readOnly = false, sync = false }: Props = $props();
 
   const pendingImages = new Map<string, File>();
   // blob: addresses already in the content as loaded: saved by an earlier tab, so their
@@ -197,7 +199,7 @@
 
 <section class="card doc-card">
   {#if showTitle}
-    <DocTitle {title} bodyType="doc" {onSaveTitle} {onEdit} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
+    <DocTitle {title} bodyType="doc" {sync} {onSaveTitle} {onEdit} autoEdit={autoEditTitle} onPaste={handleTitlePaste}>
       {#snippet after()}
         {#if hasSourceFile && onConvert && !converting && !content.trim()}
           <button type="button" class="btn ghost sm" onclick={onConvert}>Convert with {$assistantName}<ProIcon /></button>
