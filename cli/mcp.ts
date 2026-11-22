@@ -42,6 +42,7 @@ const staleAppStopped = await stopStaleApp(appOwner).catch((error: unknown) => {
 
 const { procedures, callProcedure, disconnect } = await import('./api');
 const { appPageLink, withAppLinks } = await import('./app-links');
+const { desktopLinksWork } = await import('../src/shared/desktop/handoff.server');
 const { callInstalled, installedNow, shouldHandOff } = await import('./newer-install');
 const { createSnapshot, listSnapshots } = await import('../scripts/backup/snapshot');
 const { resolveCurrentNotebook } = await import('../src/shared/notebooks/current.server');
@@ -72,7 +73,7 @@ const INSTRUCTIONS = [
   'To find anything by what it says (notes, docs, wiki pages, todos, comments, names), call search_query. For "what do I know about X", call search_recall with the entity: it returns its notes, todos, docs, links, tags, relations, owned goals and projects, and text elsewhere that names it without linking it. Both need Remry Pro; without a license they say so, and then you answer with the list and get tools instead.',
   'Archive with entity_archive and delete with entity_delete, for every type. Offer to archive before deleting. Confirm with the user before any delete, remove or detach tool, and call backup_snapshot first before deletes or more than about five writes in one go.',
   'To show the user something in the app, call app_open and give them the link.',
-  'After any write, end your reply with a markdown link to each item you created or changed. The item a get, create or update returns has a `url` beside its `path`: use it unchanged. It has the notebook and open=app, for example http://127.0.0.1:7369/app/people/<id>?notebook=<id>&open=app. Rows of a list and items nested in a result have only a `path`, and some items have none (a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity): build those links the same way, the app address (scheme, host and port, from another url or app_open), then the path, with notebook=<notebook id>&open=app at the end of the query. open=app shows the page in the Remry desktop app when it\'s installed, and in the browser otherwise.',
+  'After any write, end your reply with a markdown link to each item you created or changed. The item a get, create or update returns has a `url` beside its `path`: use it unchanged. It opens the notebook in the Remry desktop app when it\'s installed (remry://open/app/people/<id>?notebook=<id>) and otherwise in the browser (http://127.0.0.1:7369/app/people/<id>?notebook=<id>&open=app). Rows of a list and items nested in a result have only a `path`, and some items have none (a doc is its entity\'s path with ?doc=<id>; a todo is /app/todos?popup=todo&todo=<id>; notes, tags and relations link to their entity): build those links the same way as the urls you got: what comes before /app in another url or app_open\'s (remry://open or http://127.0.0.1:<port>), then the path, then notebook=<notebook id> at the end of the query, and &open=app after it only on an http link.',
   'Results leave out fields that are empty: a missing field is null or an empty list.',
   'When bringing in items from another tool (Linear, Notion, Jira), call link_find with the item URL first and update the entity it finds; attach a link to the source on anything you create.',
   "A link whose url starts storage:// is a file uploaded to that entity: read it with link_read, which returns its saved text when it has some (hasText). Read the original (original: true) only when the question is about what text can't hold (a chart, the layout, handwriting, a [Figure: …] line) or the user points you at the file. A PDF or image read with textSaved false: after reading it, save its text with link_update so later reads skip the file.",
@@ -127,12 +128,12 @@ const callExtraTool = async (name: string, args: Readonly<Record<string, unknown
 
   if (name === 'app_open') {
     const launched = await openApp(appOwner);
-    return textResult({ url: appLinkUrl(id, appOwner.port), notebook: id, started: launched.started, restarted: launched.restarted });
+    return textResult({ url: appLinkUrl(id, appOwner.port, desktopLinksWork()), notebook: id, started: launched.started, restarted: launched.restarted });
   }
   if (name === 'app_restart') {
     try {
       const { stopped } = await restartApp(appOwner);
-      return textResult({ url: appLinkUrl(id, appOwner.port), notebook: id, restarted: stopped, started: !stopped });
+      return textResult({ url: appLinkUrl(id, appOwner.port, desktopLinksWork()), notebook: id, restarted: stopped, started: !stopped });
     } catch (error) {
       return textResult(error instanceof Error ? error.message : String(error), true);
     }
@@ -168,7 +169,8 @@ const callTool = async (name: string, rawArgs: Readonly<Record<string, unknown>>
   // A full link beside each app path (cli/app-links.ts), in the notebook the call used.
   const notebook = await resolveCurrentNotebook({ explicit: split.notebook, env: notebookFromEnv(process.env) });
   if (!notebook.ok) return resultFromOutcome(outcome);
-  const result = withAppLinks(outcome.result, (path) => appPageLink(path, notebook.value.id, appOwner.port));
+  const desktop = desktopLinksWork();
+  const result = withAppLinks(outcome.result, (path) => appPageLink(path, notebook.value.id, appOwner.port, desktop));
   return resultFromOutcome({ ...outcome, result });
 };
 

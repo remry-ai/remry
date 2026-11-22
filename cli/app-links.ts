@@ -1,14 +1,19 @@
 // Full links beside the app paths in a tool's result, so Claude gives the user a link that
 // works rather than building one from app_open's address (and leaving out `open=app` or the
-// notebook). `open=app` hands the page to the desktop app's window when it's installed
-// (src/shared/desktop/handoff.ts). Pure; mcp.ts supplies the port and the notebook.
+// notebook). With the desktop app installed the link is `remry://open/app/...`, which opens its
+// window without a browser in between (Safari warns before a plain `http://` page); otherwise
+// it's the page on the app's address with `open=app` (src/shared/desktop/handoff.ts). Pure;
+// mcp.ts supplies the port, the notebook and whether the desktop app takes links.
 
 import { APP_HOST } from './app-ports';
-import { inAppLink } from '../src/shared/desktop/handoff';
+import { desktopPageLink, inAppLink } from '../src/shared/desktop/handoff';
 
-/** The link to give the user for an app path: the page on the app's address, opening the notebook, with `open=app`. */
-export const appPageLink = (path: string, notebookId: string, port: number): string =>
-  `http://${APP_HOST}:${port}${inAppLink(path, notebookId)}`;
+/**
+ * The link to give the user for an app path, opening the notebook: a `remry://` link when the
+ * desktop app takes links (`desktop`), else the page on the app's address with `open=app`.
+ */
+export const appPageLink = (path: string, notebookId: string | null, port: number, desktop = false): string =>
+  desktop ? desktopPageLink(path, notebookId) : `http://${APP_HOST}:${port}${inAppLink(path, notebookId)}`;
 
 const isAppPath = (value: unknown): value is string =>
   typeof value === 'string' && (value === '/app' || value.startsWith('/app/') || value.startsWith('/app?'));

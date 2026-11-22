@@ -161,8 +161,10 @@ struct Links {
 
 struct LinkState(Mutex<Links>);
 
-/// The app page a `remry://open/app/...` link points at, with its query; None for anything else,
-/// so a link from anywhere can only move the window within the app.
+/// The app page a `remry://open/app/...` link points at, with its query less `open=app`; None for
+/// anything else, so a link from anywhere can only move the window within the app. `open=app` would
+/// send the window to the web app's hand-off page (it asks a browser to hand the page over), so a
+/// link Claude built with it still opens the page itself.
 fn deep_link_path(url: &Url) -> Option<String> {
     if url.scheme() != DEEP_LINK_SCHEME || url.host_str() != Some("open") {
         return None;
@@ -174,10 +176,16 @@ fn deep_link_path(url: &Url) -> Option<String> {
     if path.split('/').any(|segment| segment == ".." || segment == ".") {
         return None;
     }
-    Some(match url.query() {
-        Some(query) => format!("{path}?{query}"),
-        None => path.to_string(),
-    })
+    let query: Vec<&str> = url
+        .query()
+        .unwrap_or("")
+        .split('&')
+        .filter(|pair| !pair.is_empty() && *pair != "open=app")
+        .collect();
+    if query.is_empty() {
+        return Some(path.to_string());
+    }
+    Some(format!("{path}?{}", query.join("&")))
 }
 
 /// An app path on the server's address.
@@ -588,6 +596,11 @@ mod tests {
             path("remry://open/app/people/abc?notebook=work"),
             Some("/app/people/abc?notebook=work".to_string())
         );
+        assert_eq!(
+            path("remry://open/app/todos?popup=todo&todo=t1&notebook=work&open=app"),
+            Some("/app/todos?popup=todo&todo=t1&notebook=work".to_string())
+        );
+        assert_eq!(path("remry://open/app?open=app"), Some("/app".to_string()));
         assert_eq!(path("remry://open/files/x"), None);
         assert_eq!(path("remry://open/apple"), None);
         assert_eq!(path("remry://elsewhere/app"), None);

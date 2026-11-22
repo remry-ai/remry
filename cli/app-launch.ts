@@ -12,7 +12,7 @@ import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
 import { appMarkerPath, writeMarker } from './version-check';
 import { compareVersions, isVersion } from '../scripts/release/versions';
-import { inAppLink } from '../src/shared/desktop/handoff';
+import { desktopPageLink, inAppLink } from '../src/shared/desktop/handoff';
 
 export interface LaunchCommand {
   readonly command: string;
@@ -42,11 +42,13 @@ export const appUrl = (notebookId: string | null, port = APP_PORT): string =>
   `http://${APP_HOST}:${port}/app${notebookId ? `?notebook=${encodeURIComponent(notebookId)}` : ''}`;
 
 /**
- * The address to give the user: `/app` with `open=app`, which a release server hands to the
- * desktop app's window when it's installed, and otherwise shows in the browser.
+ * The address to give the user: `remry://open/app` when the desktop app takes links (`desktop`),
+ * which opens its window with no browser in between; otherwise `/app` with `open=app`, which a
+ * release server hands to the desktop app's window when it's installed, and otherwise shows in
+ * the browser.
  */
-export const appLinkUrl = (notebookId: string | null, port = APP_PORT): string =>
-  `http://${APP_HOST}:${port}${inAppLink('/app', notebookId)}`;
+export const appLinkUrl = (notebookId: string | null, port = APP_PORT, desktop = false): string =>
+  desktop ? desktopPageLink('/app', notebookId) : `http://${APP_HOST}:${port}${inAppLink('/app', notebookId)}`;
 
 /**
  * What's on the app port: nothing, a release app reporting its version, something else

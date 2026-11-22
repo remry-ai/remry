@@ -24,7 +24,7 @@ What WebKit drops without a handler (`app_window` builds every window with them;
 
 ## Links open in the window
 
-Claude's links are app pages with `open=app` (`inAppLink`, `src/shared/desktop/handoff.ts`). `reroute` in `src/hooks.ts` sends them to the `open/[...path]` route, which keeps only `/app` paths and, on a release server with the desktop app recorded, hands the page to the window as `remry://open/app/...` (`handoff.server.ts`; `open` on macOS, `rundll32` on Windows), showing "Opened in Remry"; otherwise it redirects. The shell registers `remry://` (tauri-plugin-deep-link, single-instance) and moves its window there (`deep_link_path`, `/app` paths only). The hand-off happens only on loopback.
+With the desktop app recorded, Claude's links are `remry://open/app/...` (`desktopPageLink`, `src/shared/desktop/handoff.ts`; see `cli/CLAUDE.md` § Links), straight to the window, so no browser opens and Safari shows no "not secure" warning. Elsewhere, and from "Copy link", they're app pages with `open=app` (`inAppLink`). `reroute` in `src/hooks.ts` sends them to the `open/[...path]` route, which keeps only `/app` paths and, on a release server with the desktop app recorded, hands the page to the window as `remry://open/app/...` (`handoff.server.ts`; `open` on macOS, `rundll32` on Windows), showing "Opened in Remry"; otherwise it redirects. The shell registers `remry://` (tauri-plugin-deep-link, single-instance) and moves its window there (`deep_link_path`, `/app` paths only, dropping an `open=app` so the window never lands on the hand-off page). The hand-off happens only on loopback.
 
 ## Menus
 
