@@ -573,7 +573,7 @@
     {#if makingSync}
       <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
     {:else if syncDoc?.prompt}
-      <SyncSection prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} onClearError={handleClearSyncError} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
+      <SyncSection peekDocId={activeDoc?.id === syncDoc.id ? null : syncDoc.id} prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} onClearError={handleClearSyncError} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if acceptsDocs(entityType)}
