@@ -17,7 +17,7 @@
 // the server hands them over as remry://open/app/... (src/shared/desktop/handoff.ts), which this
 // shell registers and opens in its window: at once, or when the server is up after a cold start.
 //
-// Updates: the one network request Remry makes. At launch, and from "Check for Updates…",
+// Updates: the shell's one network request (the app's others: docs/security.md). At launch, and from "Check for Updates…",
 // this shell asks GitHub Releases for latest.json (tauri-plugin-updater). It sends nothing
 // but the request itself, and installs only an update signed with the key whose public
 // half is in tauri.conf.json, after the user says yes. The next launch's `remry install`

@@ -19,8 +19,9 @@ A local-only, single-user structured notebook: people and groups, projects, goal
   - the user's `tailscale` CLI, to open the app on their other devices (`src/shared/remote/CLAUDE.md`)
   - Excalidraw share links, an encrypted copy of a drawing to and from `json.excalidraw.com` (`src/lib/drawing/CLAUDE.md`)
   - the desktop app's signed updates from GitHub releases (`desktop/CLAUDE.md`)
+  - remote images in markdown: the browser loads an `https://` image a note links to when the page shows (`img-src … https:` in `svelte.config.js`, `src/lib/common/MarkdownRenderer.svelte`). On by default with no setting yet; it reveals the viewer's IP and that the note was opened, never the note's text
 
-  Don't widen any of them without asking.
+  Don't widen any of them without asking. `docs/security.md` lists every outbound request for security reviewers; keep it in step.
 - **Data never leaves the computer.** No cloud sync and no git for data; backups are local snapshots.
 - **The network boundary is the security boundary** (`src/hooks.server.ts`). Keep all three parts: the server binds to `127.0.0.1`; a request whose hostname isn't loopback gets 403 (blocking DNS rebinding), except the user's own tailnet name when they've turned that on; and `/api/trpc` requires the `x-remry: 1` header (blocking cross-site requests).
 - **A Content Security Policy** (`kit.csp` in `svelte.config.js`) runs scripts only from the app's own files. Markdown renders raw HTML and content often comes from outside, so this is what stops a `<script>`, `onerror=` or `javascript:` link in a note from running with full API access. An inline script needs `nonce="%sveltekit.nonce%"`; never add `unsafe-inline` or `unsafe-eval` to `script-src`.
