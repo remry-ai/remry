@@ -12,7 +12,7 @@ import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { isPortListening } from '../scripts/backup/port';
 import { appMarkerPath, writeMarker } from './version-check';
 import { compareVersions, isVersion } from '../scripts/release/versions';
-import { inAppLink } from '../src/shared/desktop/handoff';
+import { LINK_HOST, inAppLink } from '../src/shared/desktop/handoff';
 
 export interface LaunchCommand {
   readonly command: string;
@@ -43,10 +43,11 @@ export const appUrl = (notebookId: string | null, port = APP_PORT): string =>
 
 /**
  * The address to give the user: `/app` with `open=app`, which a release server hands to the
- * desktop app's window when it's installed, and otherwise shows in the browser.
+ * desktop app's window when it's installed, and otherwise shows in the browser. On `localhost`
+ * (LINK_HOST), which Safari opens without the warning it gives a plain `http://` IP address.
  */
 export const appLinkUrl = (notebookId: string | null, port = APP_PORT): string =>
-  `http://${APP_HOST}:${port}${inAppLink('/app', notebookId)}`;
+  `http://${LINK_HOST}:${port}${inAppLink('/app', notebookId)}`;
 
 /**
  * What's on the app port: nothing, a release app reporting its version, something else

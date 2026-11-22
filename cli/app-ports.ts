@@ -2,6 +2,7 @@
 // desktop app's server, cli/app-server.ts), which cli/app-launch.ts uses to identify,
 // replace and stop it.
 
+/** Where the server listens and where code connects. Links people click use `LINK_HOST` (src/shared/desktop/handoff.ts). */
 export const APP_HOST = '127.0.0.1';
 /** The desktop app's server. 7369 spells REMY on a phone keypad. Not 5173, Vite's default, which other dev servers take. */
 export const APP_PORT = 7369;

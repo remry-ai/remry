@@ -73,15 +73,15 @@ Every call works on one notebook: the default, unless you name another.
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
 - **Use the `url` in the result.** The item a get, create or update returns comes back with a `url` beside its `path`: the full link, with the notebook and `open=app` already in it. Give the user that, unchanged. Rows of a list and items nested in a result have only their `path`.
-- **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://127.0.0.1:7369`) + the item's path + `?notebook=<notebook id>&open=app` (`&` instead of the first `?` when the path already has a query). `open=app` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://localhost:7369`) + the item's path + `?notebook=<notebook id>&open=app` (`&` instead of the first `?` when the path already has a query). `open=app` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
 - **Paths,** when an item has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>`.
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 
 ```markdown
 Added to Work:
-- [Dana Park](http://127.0.0.1:7369/app/people/abc123?notebook=work&open=app), on [Platform](http://127.0.0.1:7369/app/groups/def456?notebook=work&open=app)
-- Todo: [Book 1:1 with Dana](http://127.0.0.1:7369/app/todos?popup=todo&todo=ghi789&notebook=work&open=app)
+- [Dana Park](http://localhost:7369/app/people/abc123?notebook=work&open=app), on [Platform](http://localhost:7369/app/groups/def456?notebook=work&open=app)
+- Todo: [Book 1:1 with Dana](http://localhost:7369/app/todos?popup=todo&todo=ghi789&notebook=work&open=app)
 ```
 
 ## Showing todos

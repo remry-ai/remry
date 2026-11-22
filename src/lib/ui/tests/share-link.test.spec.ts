@@ -5,16 +5,16 @@ const at = (href: string): URL => new URL(href);
 
 describe('shareLink', () => {
   it('links the page, in its notebook, to open in the app', () => {
-    expect(shareLink(at('http://127.0.0.1:7369/app/wiki/abc'), 'home')).toBe('http://127.0.0.1:7369/app/wiki/abc?notebook=home&open=app');
+    expect(shareLink(at('http://127.0.0.1:7369/app/wiki/abc'), 'home')).toBe('http://localhost:7369/app/wiki/abc?notebook=home&open=app');
   });
 
   it('keeps what the page has open, and drops a hash', () => {
     expect(shareLink(at('http://127.0.0.1:7369/app/people/p1?doc=d1#notes'), 'work'))
-      .toBe('http://127.0.0.1:7369/app/people/p1?doc=d1&notebook=work&open=app');
+      .toBe('http://localhost:7369/app/people/p1?doc=d1&notebook=work&open=app');
   });
 
   it('replaces a notebook already in the query', () => {
-    expect(shareLink(at('http://127.0.0.1:7369/app?notebook=old'), 'home')).toBe('http://127.0.0.1:7369/app?notebook=home&open=app');
+    expect(shareLink(at('http://127.0.0.1:7369/app?notebook=old'), 'home')).toBe('http://localhost:7369/app?notebook=home&open=app');
   });
 
   it('works on any address, such as a dev server', () => {
@@ -22,8 +22,13 @@ describe('shareLink', () => {
       .toBe('http://localhost:5173/app/todos?popup=todo&todo=t1&notebook=home&open=app');
   });
 
+  it('shares 127.0.0.1 as localhost, which Safari opens without a warning, and keeps other hosts', () => {
+    expect(shareLink(at('http://127.0.0.1:5173/app'), null)).toBe('http://localhost:5173/app?open=app');
+    expect(shareLink(at('https://mac.tail1234.ts.net/app/projects'), null)).toBe('https://mac.tail1234.ts.net/app/projects?open=app');
+  });
+
   it('keeps a single open=app', () => {
-    expect(shareLink(at('http://127.0.0.1:7369/app/goals?open=app'), 'work')).toBe('http://127.0.0.1:7369/app/goals?notebook=work&open=app');
+    expect(shareLink(at('http://127.0.0.1:7369/app/goals?open=app'), 'work')).toBe('http://localhost:7369/app/goals?notebook=work&open=app');
   });
 
   it('leaves a page outside the app as it is', () => {
@@ -31,6 +36,6 @@ describe('shareLink', () => {
   });
 
   it('leaves the notebook out when there is none', () => {
-    expect(shareLink(at('http://127.0.0.1:7369/app/projects'), null)).toBe('http://127.0.0.1:7369/app/projects?open=app');
+    expect(shareLink(at('http://127.0.0.1:7369/app/projects'), null)).toBe('http://localhost:7369/app/projects?open=app');
   });
 });
