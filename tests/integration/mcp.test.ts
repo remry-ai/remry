@@ -90,7 +90,7 @@ describe('remry mcp', () => {
     expect(created.isError).toBe(false);
     const id = (JSON.parse(created.text) as { id: string }).id;
     // A full link beside the path, in the call's notebook, to open in the app (cli/app-links.ts).
-    expect(JSON.parse(created.text)).toMatchObject({ path: `/app/people/${id}`, url: expect.stringMatching(new RegExp(`^http://127\\.0\\.0\\.1:\\d+/app/people/${id}\\?notebook=[^&]+&open=app$`)) });
+    expect(JSON.parse(created.text)).toMatchObject({ path: `/app/people/${id}`, url: expect.stringMatching(new RegExp(`^http://localhost:\\d+/app/people/${id}\\?notebook=[^&]+&open=app$`)) });
 
     const person = JSON.parse((await callTool('person_get', { id })).text) as { name: string };
     expect(person).toMatchObject({ name: '2024 Mika Tanaka', extensions: { org: { title: '2024' } } });
