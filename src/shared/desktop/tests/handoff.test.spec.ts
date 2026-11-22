@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deepLink, desktopPageLink, desktopTakesLinks, handoffCommand, inAppLink, openInAppRoute, openTarget, withNotebook } from '../handoff';
+import { deepLink, handoffCommand, inAppLink, openInAppRoute, openTarget, withNotebook } from '../handoff';
 
 describe('openTarget', () => {
   it('keeps app pages with their query', () => {
@@ -44,29 +44,6 @@ describe('inAppLink', () => {
     expect(inAppLink('/app/todos?popup=todo&todo=t1', 'work')).toBe('/app/todos?popup=todo&todo=t1&notebook=work&open=app');
     expect(inAppLink('/app?open=app&notebook=old', 'home')).toBe('/app?notebook=home&open=app');
     expect(inAppLink('/app/projects', null)).toBe('/app/projects?open=app');
-  });
-});
-
-describe('desktopPageLink', () => {
-  it('links straight to the desktop app, with the notebook and without open=app', () => {
-    expect(desktopPageLink('/app/todos?popup=todo&todo=t1', 'work')).toBe('remry://open/app/todos?popup=todo&todo=t1&notebook=work');
-    expect(desktopPageLink('/app?open=app&notebook=old', 'home')).toBe('remry://open/app?notebook=home');
-    expect(desktopPageLink('/app', null)).toBe('remry://open/app');
-  });
-});
-
-describe('desktopTakesLinks', () => {
-  const host = { platform: 'darwin' as const, standalone: true, desktopInstalled: true };
-
-  it('is true for a release with the desktop app, on macOS and Windows', () => {
-    expect(desktopTakesLinks(host)).toBe(true);
-    expect(desktopTakesLinks({ ...host, platform: 'win32' })).toBe(true);
-  });
-
-  it('is false for a clone, without the desktop app, or on Linux', () => {
-    expect(desktopTakesLinks({ ...host, standalone: false })).toBe(false);
-    expect(desktopTakesLinks({ ...host, desktopInstalled: false })).toBe(false);
-    expect(desktopTakesLinks({ ...host, platform: 'linux' })).toBe(false);
   });
 });
 

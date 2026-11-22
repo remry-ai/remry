@@ -72,7 +72,6 @@ describe('app launch', () => {
     expect(appUrl('work-work', 5173)).toBe('http://127.0.0.1:5173/app?notebook=work-work');
     expect(appLinkUrl('work-work')).toBe('http://127.0.0.1:7369/app?notebook=work-work&open=app');
     expect(appLinkUrl(null, 5173)).toBe('http://127.0.0.1:5173/app?open=app');
-    expect(appLinkUrl('work-work', 7369, true)).toBe('remry://open/app?notebook=work-work');
   });
 });
 

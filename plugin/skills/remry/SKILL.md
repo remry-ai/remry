@@ -66,25 +66,23 @@ Every call works on one notebook: the default, unless you name another.
 5. **Report back by name.** Say "Added Dana Park to Platform, reporting to Alice Johnson", not ids.
 6. **Keep the user's words.** A note records what they said. Don't embellish or summarise it unless asked.
 7. **Leave out archived items and finished todos** unless the user asks for them ("archived", "old", "everything", "what did I finish", "including done"). Lists and search already skip archived entities; don't pass `--archived only|include` or `--includeArchived true` on your own. `todo.list`, `todo.forEntity` and an entity's `get` also return `COMPLETE` and `CANCELLED` todos: drop them from what you show, count or summarise (or pass `todo.list --status ACTIVE` / `PENDING`). Don't mention an archived entity that a `get`, a relation or a mention turns up, unless it answers the question. When leaving things out changes the answer ("no open todos"), say so in a few words, so the user knows they can ask for the rest.
-8. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>)`, with `&open=app` on an `http://` link. See **Links to what you changed** below.
+8. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>&open=app)`. See **Links to what you changed** below.
 
 ## Links to what you changed
 
 After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
 
-- **Use the `url` in the result.** The item a get, create or update returns comes back with a `url` beside its `path`: the full link, with the notebook already in it. Give the user that, unchanged. With the Remry desktop app installed it's a `remry://open/app/...` link, which opens the app's window directly (no browser, so no "not secure" warning); otherwise it's an `http://` link with `open=app`. Rows of a list and items nested in a result have only their `path`.
-- **Otherwise, build it** the same way as the urls you got: the app's address, which is everything before `/app` in another `url` or in `app_open`'s (`remry://open`, or `http://127.0.0.1:7369`), + the item's path + `?notebook=<notebook id>` (`&` instead of the first `?` when the path already has a query), and then `&open=app` only when the address is `http://`. `open=app` shows the item in the desktop app's window when it's installed, and in the browser otherwise; a `remry://` link never needs it. Always add the notebook, so the link opens in the right one. Call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Use the `url` in the result.** The item a get, create or update returns comes back with a `url` beside its `path`: the full link, with the notebook and `open=app` already in it. Give the user that, unchanged. Rows of a list and items nested in a result have only their `path`.
+- **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://127.0.0.1:7369`) + the item's path + `?notebook=<notebook id>&open=app` (`&` instead of the first `?` when the path already has a query). `open=app` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
 - **Paths,** when an item has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>`.
 - **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
 - **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
 
 ```markdown
 Added to Work:
-- [Dana Park](remry://open/app/people/abc123?notebook=work), on [Platform](remry://open/app/groups/def456?notebook=work)
-- Todo: [Book 1:1 with Dana](remry://open/app/todos?popup=todo&todo=ghi789&notebook=work)
+- [Dana Park](http://127.0.0.1:7369/app/people/abc123?notebook=work&open=app), on [Platform](http://127.0.0.1:7369/app/groups/def456?notebook=work&open=app)
+- Todo: [Book 1:1 with Dana](http://127.0.0.1:7369/app/todos?popup=todo&todo=ghi789&notebook=work&open=app)
 ```
-
-Without the desktop app, the same links are `http://127.0.0.1:7369/app/people/abc123?notebook=work&open=app` and so on.
 
 ## Showing todos
 

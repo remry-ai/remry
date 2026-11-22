@@ -15,11 +15,6 @@ describe('appPageLink', () => {
   it("uses the clone's dev server port", () => {
     expect(appPageLink('/app/projects/p1', 'work', 5173)).toBe('http://127.0.0.1:5173/app/projects/p1?notebook=work&open=app');
   });
-
-  it('links straight to the desktop app when it takes links, so no browser opens', () => {
-    expect(appPageLink('/app/wiki/abc', 'home', 7369, true)).toBe('remry://open/app/wiki/abc?notebook=home');
-    expect(appPageLink('/app/people/abc?doc=d1', 'home', 7369, true)).toBe('remry://open/app/people/abc?doc=d1&notebook=home');
-  });
 });
 
 describe('withAppLinks', () => {

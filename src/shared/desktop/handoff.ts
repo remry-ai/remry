@@ -61,18 +61,6 @@ export const inAppLink = (target: string, notebookId: string | null): string => 
 /** `remry://open/app/...`: the shell reads the path after `open`. */
 export const deepLink = (target: string): string => `${DEEP_LINK_SCHEME}://open${target}`;
 
-/**
- * The link to give the user for an app page when the desktop app can take it: `remry://open/...`,
- * opening `notebookId` (when given), without `open=app`. It goes straight to the desktop app, so
- * no browser opens on the way (Safari warns before loading a plain `http://` page).
- */
-export const desktopPageLink = (target: string, notebookId: string | null): string => {
-  const url = new URL(target, 'http://app.invalid');
-  url.searchParams.delete(OPEN_PARAM);
-  if (notebookId) url.searchParams.set('notebook', notebookId);
-  return deepLink(`${url.pathname}${url.search}`);
-};
-
 export interface HandoffHost {
   readonly platform: NodeJS.Platform;
   /** A release binary (REMRY_STANDALONE): a clone's dev server never hands links over. */
@@ -81,16 +69,9 @@ export interface HandoffHost {
   readonly desktopInstalled: boolean;
 }
 
-/**
- * Whether a deep link reaches the desktop app: a release, with the desktop app recorded, on macOS
- * or Windows (where `handoffCommand` can open one, and the shell registers `remry://`).
- */
-export const desktopTakesLinks = (host: HandoffHost): boolean =>
-  host.standalone && host.desktopInstalled && (host.platform === 'darwin' || host.platform === 'win32');
-
 /** The command that opens a deep link in the desktop app, or null when there's none to hand it to. */
 export const handoffCommand = (link: string, host: HandoffHost): readonly string[] | null => {
-  if (!desktopTakesLinks(host)) return null;
+  if (!host.standalone || !host.desktopInstalled) return null;
   if (host.platform === 'darwin') return ['open', link];
   if (host.platform === 'win32') return ['rundll32', 'url.dll,FileProtocolHandler', link];
   return null;
