@@ -34,7 +34,7 @@ Logs go to `~/Library/Logs/Remry/` on macOS, `<data folder>\Logs` on Windows and
 | `Notebooks/<id>/working-notes.db` (plus `-wal`, `-shm`) | SQLite in WAL mode (`src/shared/db/libsql.server.ts:45`) | All notebook content: people, groups, projects, goals, notes, docs, wiki pages, todos, comments, saved chats with the assistant (`page_chat`) |
 | `Notebooks/<id>/files/` | The files as uploaded | Uploaded PDFs and images, editor images, branding images |
 | `Backups/<id>/` | SQLite copies plus files and `manifest.json` | Snapshots (see Backups) |
-| `App/<version>/`, `App/current` | Executables | The desktop app's installed `remry` binary (`cli/desktop.ts`) |
+| `App/current`, `App/<version>/` | A link, or executables | What every client runs: on macOS a link to `Remry.app/Contents/MacOS`, with no copy; on Windows a copy of the bundled `remry.exe` (`cli/desktop.ts`) |
 | `setup.json`, `desktop.json`, `app.json`, `app-path` | JSON or text | Install and version markers |
 
 ### Encryption
@@ -59,12 +59,22 @@ The web app keeps per-browser UI preferences in `localStorage`, such as collapse
 
 ### What uninstalling leaves behind
 
-Removing the desktop app (dragging `Remry.app` to the Trash on macOS, or running the NSIS uninstaller on Windows) leaves all of the following:
+**`remry uninstall`** (`cli/desktop.ts`) removes what Remry set up outside its notebooks. Run it before removing the app: `/Applications/Remry.app/Contents/MacOS/remry uninstall` on macOS, or `"%LOCALAPPDATA%\Remry\App\current\remry.exe" uninstall` on Windows. It:
 
-- **The whole data folder:** notebooks, uploaded files, backups, `settings.json` with the license key, and the installed binaries in `App/`. This is deliberate (`docs/INSTALL.md`). The user deletes the folder by hand.
+- stops the app's server
+- removes the LaunchAgents
+- removes the `remry` MCP server from Claude desktop and Claude Code, only where it runs this install's binary
+- deletes `App/`
+
+It prints what it did as JSON. It keeps the notebooks, backups and settings.
+
+Removing the desktop app without it (dragging `Remry.app` to the Trash on macOS, or running the NSIS uninstaller on Windows) leaves:
+
+- **The whole data folder:** notebooks, uploaded files, backups, `settings.json` with the license key, and on Windows the copied binaries in `App/`. This is deliberate (`docs/INSTALL.md`). The user deletes the folder by hand.
 - **The logs folder.**
-- **macOS LaunchAgents**, if they were turned on: `~/Library/LaunchAgents/dev.jweatherby.remry.app.plist` (start at login, `src/shared/startup/login-agent.server.ts:31`) and `dev.jweatherby.remry.backup.plist`. These keep running `App/current/remry` from the data folder after the app is gone, until removed.
-- **Claude's registration of the MCP server**, if `remry connect` added it: a `remry` entry in `claude_desktop_config.json` (`cli/desktop-plan.ts:28-30`) or a user-scope `claude mcp add` (`cli/desktop.ts:111`). The Claude plugin, if installed, stays installed in Claude.
+- **macOS LaunchAgents**, if they were turned on: `~/Library/LaunchAgents/dev.jweatherby.remry.app.plist` (start at login, `src/shared/startup/login-agent.server.ts:31`) and `dev.jweatherby.remry.backup.plist`. On macOS `App/current` is a link into the app, so once the app is in the Trash and emptied, they have nothing to run and fail to start.
+- **Claude's registration of the MCP server**, if `remry connect` added it: a `remry` entry in `claude_desktop_config.json` or a user-scope `claude mcp add`. On macOS it fails to start once the app is gone; on Windows it keeps running the copy in `App/`. The Claude plugin, if installed, stays installed in Claude.
+- The Windows uninstaller doesn't run `remry uninstall` (UNVERIFIED whether a Tauri NSIS uninstall hook would also run during updates, which would remove Claude's registration each time).
 - **A `tailscale serve` configuration**, if tailnet access was on and not turned off inside Remry first.
 - **Browser and WebView storage** (the `localStorage` above).
 - Whether the Windows uninstaller offers to delete app data, and which folders it would delete: UNVERIFIED. Tauri's NSIS option keys on the bundle identifier `dev.jweatherby.remry`, not the `Remry` data folder.
@@ -147,7 +157,11 @@ Platforms: macOS on Apple silicon and Windows x64. Each release is built by GitH
 
 Signing depends on secrets in CI. A fork without them builds an ad hoc–signed macOS app or an unsigned Windows app (`scripts/release/CLAUDE.md`).
 
-**Where it runs from:** on first launch, `remry install` copies the bundled binary into `<data folder>/App/<version>/` and points `App/current` at it. The MCP server, the background server and the LaunchAgents all run that copy (`desktop/CLAUDE.md`). On Windows that path is under `%LOCALAPPDATA%`.
+**Where it runs from:** the MCP server, the background server and the LaunchAgents all start `<data folder>/App/current/remry`, which `remry install` sets up at each launch (`cli/desktop.ts`, `desktop/CLAUDE.md`):
+
+- **macOS:** `App/current` is a symlink to `Remry.app/Contents/MacOS`. What runs is the signed, notarized binary inside the installed app, at its install path, with its quarantine attribute untouched. Nothing executable is written to the data folder. The app refuses to start from a disk image or a translocated download, and asks to be moved to Applications.
+- **Windows:** `App/current` is a junction to a copy in `App/<version>/`, because the installer can't replace a `remry.exe` that Claude's MCP servers keep running. The per-user NSIS installer puts the app under `%LOCALAPPDATA%` as well, so both paths are user-writable. A machine-wide installer is the fix (see the installer gap).
+- **Old versions:** each install deletes the `App/<version>/` copies nothing uses: all but the current one and the one it replaced.
 
 **Updates:** `tauri-plugin-updater` reads `latest.json` from the latest GitHub release. It installs only after the user agrees, and only an update whose minisign signature matches the public key in `tauri.conf.json:53` (`main.rs:21-26`). On Windows the update runs the installer in `passive` mode. The update signature covers the already-signed installer. The bundled binary then replaces the old server on the next launch.
 

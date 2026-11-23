@@ -8,14 +8,15 @@
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, platform, tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { installedBinary } from './desktop-plan';
+import { findReleaseFile } from './release-resources';
 import { compareVersions, isVersion } from '../scripts/release/versions';
 import type { CallOutcome } from './api';
 import type { LaunchCommand } from './app-launch';
 
 export interface Installed {
-  /** The version installed now: App/current/VERSION for a release, the clone's plugin.json for a clone. */
+  /** The version installed now: the VERSION of the release App/current runs, the clone's plugin.json for a clone. */
   readonly version: string;
   /** What runs a procedure with that version. */
   readonly command: LaunchCommand;
@@ -64,8 +65,10 @@ const readVersion = async (path: string, json: boolean): Promise<string | null> 
 /** What's installed now, read on each call (two small files), or null when nothing is. */
 export const installedNow = async (o: { readonly standalone: boolean; readonly repoDir: string }): Promise<Installed | null> => {
   const binary = installedBinary({ platform: platform(), home: homedir(), env: process.env });
+  // App/current may link into the macOS app, whose VERSION is in Contents/Resources.
+  const versionFile = o.standalone ? findReleaseFile('VERSION', binary) : null;
   const version = o.standalone
-    ? await readVersion(join(dirname(binary), 'VERSION'), false)
+    ? versionFile === null ? null : await readVersion(versionFile, false)
     : await readVersion(join(o.repoDir, 'plugin', '.claude-plugin', 'plugin.json'), true);
   if (version === null) return null;
   return { version, command: handOffCommand({ standalone: o.standalone, binary, execPath: process.execPath, repoDir: o.repoDir }) };

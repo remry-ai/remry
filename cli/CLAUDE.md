@@ -39,7 +39,7 @@ remry search.recall --entityType PERSON --entityId <personId>
 ## Keeping up with updates
 
 - **A clone after `git pull`** (`version-check.ts`, pure `planVersionCheck`): when the server starts and the clone's plugin version differs from `<data dir>/setup.json`, it runs `bun run setup` in the background, once (`.setup.lock`, log in `setup.log`). Skipped under `APP_ENV=test`.
-- **A server older than what's installed** (`newer-install.ts`): before each call it reads the installed version (`App/current/VERSION`, or the clone's `plugin.json`); when that's newer, the call runs through the installed `remry` as a CLI call, since an update may have migrated the notebook past what this version's queries know.
+- **A server older than what's installed** (`newer-install.ts`): before each call it reads the installed version (the VERSION of the release `App/current` runs, `findReleaseFile`, or the clone's `plugin.json`); when that's newer, the call runs through the installed `remry` as a CLI call, since an update may have migrated the notebook past what this version's queries know.
 
 ## Running the app
 
@@ -49,4 +49,4 @@ remry search.recall --entityType PERSON --entityId <personId>
 
 ## The standalone binary
 
-`standalone.ts` sets `REMRY_STANDALONE` and `REMRY_MIGRATIONS_DIR`, then runs `mcp`, `backup`, `install`, `connect`, `app`, `app ensure`, `app restart` or a procedure. `main.ts` and `mcp.ts` don't chdir to a repo when `REMRY_STANDALONE` is set. `desktop.ts` (pure parts in `desktop-plan.ts`) holds what the desktop app runs: see `desktop/CLAUDE.md`.
+`standalone.ts` sets `REMRY_STANDALONE` and `REMRY_MIGRATIONS_DIR`, then runs `mcp`, `backup`, `install`, `uninstall`, `connect`, `app`, `app ensure`, `app restart` or a procedure. Its VERSION and migrations are beside it or in a macOS app's `Contents/Resources`, found from its real path (`release-resources.ts`), since clients start it through the `App/current` link. `main.ts` and `mcp.ts` don't chdir to a repo when `REMRY_STANDALONE` is set. `desktop.ts` (pure parts in `desktop-plan.ts`) holds what the desktop app runs: see `desktop/CLAUDE.md`.

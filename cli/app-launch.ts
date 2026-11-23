@@ -106,7 +106,7 @@ const waitForPort = async (port: number, listening: boolean, timeoutMs: number):
   return false;
 };
 
-const stopApp = async (port = APP_PORT): Promise<void> => {
+export const stopApp = async (port = APP_PORT): Promise<void> => {
   // An app from before a rename has an old path and header.
   const headers = Object.fromEntries([LOCAL_HEADER, ...LEGACY_LOCAL_HEADERS].map((header) => [header, '1']));
   for (const path of [APP_STOP_PATH, ...LEGACY_APP_STOP_PATHS]) {

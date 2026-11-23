@@ -13,7 +13,7 @@ Run `bun run release:version <x.y.z>`, commit and push to main. After CI passes,
 ## Build (`desktop.yml`, each platform on its own runner; Windows doesn't block a release)
 
 - `bun run release:build --target <t>` (`build.ts`) builds the UI, then compiles `cli/standalone.ts` and the SvelteKit server into one binary with Bun embedded, into `dist/app/` with `migrations/` and `VERSION`. Build a target on its own OS: the binary embeds the host's libsql native package, which `libsql.ts` turns into a static require (and fails the build if libsql changes that line).
-- `bun run release:smoke` (`smoke.ts`): `remry install` into an empty home, the plugin shim running it with no Bun, the MCP tool list, the app's page, assets, API, guard and stop endpoint.
+- `bun run release:smoke` (`smoke.ts`): `remry install` into an empty home (on macOS from a copy of Remry.app's layout, checking it links rather than copies), the plugin shim running it with no Bun, the MCP tool list, the app's page, assets, API, guard and stop endpoint, then `remry uninstall`.
 - Then `desktop:prepare`, `cargo test` and `desktop:build` (`.app` and `.dmg`, or the NSIS `-setup.exe`).
 - `windows-paths.ts` (a unit test) fails on any tracked path Windows can't check out: a reserved device name (`con`, `aux`, `nul`, `com1`…) as any segment, or `<>:"|?*`.
 

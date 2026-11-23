@@ -95,7 +95,7 @@ fn bundled_binary() -> Result<PathBuf, String> {
     Ok(sidecar)
 }
 
-/// Installs the bundled binary and returns the installed copy's path.
+/// Installs the bundled binary (a link to it on macOS, a copy on Windows: cli/desktop.ts) and returns App/current/remry.
 fn install(app: &AppHandle) -> Result<PathBuf, String> {
     let resources = app.path().resource_dir().map_err(|error| error.to_string())?;
     let version = std::fs::read_to_string(resources.join("VERSION"))

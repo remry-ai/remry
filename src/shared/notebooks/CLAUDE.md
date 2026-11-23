@@ -8,7 +8,7 @@ Notebooks/<id>/notebook.json      the notebook's name and profile
 Notebooks/<id>/working-notes.db   SQLite in WAL mode, so the app, CLI and backups share it
 Notebooks/<id>/files/             files uploaded as links, editor images, branding images
 Backups/<id>/                     that notebook's snapshots, outside its folder so they outlive it
-App/<version>/, App/current       the desktop app's installed binaries (desktop/CLAUDE.md)
+App/current, App/<version>/       the binary every client runs: a link into Remry.app on macOS, a copy on Windows (desktop/CLAUDE.md)
 app-path                          the clone `bun run setup` points the plugin at
 ```
 

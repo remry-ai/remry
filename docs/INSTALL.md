@@ -23,9 +23,10 @@ it protected your PC the first time you run it: choose **More info → Run anywa
 Open the app once. It sets Remry up in your data folder, starts it, and shows your notebook.
 
 **Updates.** When a new version is out, the app asks whether to install it and restart. It checks
-when it opens, and from **Updates → Check for Updates…**. That check is the only request Remry
-makes to the internet: it asks GitHub for the latest release, and sends nothing about you or your
-notebooks. Updates are signed, and the app installs only one signed by Remry's release.
+when it opens, and from **Updates → Check for Updates…**. That check asks GitHub for the latest
+release, and sends nothing about you or your notebooks. Updates are signed, and the app installs
+only one signed by Remry's release. The other times Remry reaches the internet are listed in
+[security.md](security.md#outbound-network).
 
 ## 2. Connect Claude
 
@@ -101,6 +102,12 @@ The first time Remry runs, it creates a notebook called `notebook` in your data 
 [Where your data lives](#where-your-data-lives)). Your notebooks stay in that folder when the app
 updates, and if you uninstall it.
 
+To remove Remry, run its uninstaller first, then delete the app:
+`/Applications/Remry.app/Contents/MacOS/remry uninstall` on a Mac, or
+`& "$env:LOCALAPPDATA\Remry\App\current\remry.exe" uninstall` on Windows. It stops the app and removes
+its LaunchAgents, its connection to Claude desktop and Claude Code, and `App/`. Your notebooks stay
+in the data folder until you delete it.
+
 Nothing else to set up. Try it by telling Claude something like *"Dana Park joined Platform as a
 senior engineer, reporting to Alice"*.
 
@@ -160,18 +167,23 @@ Windows, and `$XDG_DATA_HOME/remry` (usually `~/.local/share/remry`) on Linux:
 | `Notebooks/<id>/files/` | uploaded PDFs and branding images |
 | `Backups/<id>/` | that notebook's snapshots, kept outside its folder so they outlive it |
 | `settings.json` | which notebook is the default, and your Pro license key |
-| `App/<version>/`, `App/current` | the desktop app's copy of Remry, which Claude's tools run |
+| `App/current` | what Claude's tools run: on a Mac a link into Remry.app, on Windows a copy in `App/<version>/` |
 | `app-path` | the clone the plugin runs without the desktop app, written by `bun run setup` |
 
 ## Troubleshooting
 
-**`remry: command not found`.** With the desktop app, use its copy:
+**`remry: command not found`.** With the desktop app, use the one it installed:
 `"$HOME/Library/Application Support/Remry/App/current/remry"` on a Mac, or
 `& "$env:LOCALAPPDATA\Remry\App\current\remry.exe"` on Windows. From a clone, run
 `bun run setup`, or use `bin/remry` inside it.
 
 **"Remry isn't set up on this computer".** The plugin can't find the desktop app or a clone. Open
-the desktop app once, then restart Claude.
+the desktop app once, then restart Claude. On a Mac, this also happens after you move or replace Remry.app: open
+it once from where it is now.
+
+**"Move Remry to your Applications folder".** On a Mac, Remry runs from where it's installed, and
+Claude's tools run it from there too, so it won't start from the disk image, or from a download macOS is
+running from a temporary copy. Drag it to Applications and open it from there.
 
 **The app is stuck, or shows an old version.** Quit and reopen the desktop app, or ask Claude to
 restart it (its `app_restart` tool).

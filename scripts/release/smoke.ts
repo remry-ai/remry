@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Smoke-tests a release build the way the desktop app and a computer without a clone use it:
-//   - `remry install` copies the binary into a fresh data directory (the desktop app's first step)
+//   - `remry install` puts the binary in place in a fresh data directory (the desktop app's first
+//     step): on macOS App/current links to it where it is, elsewhere it's copied into App/<version>
 //   - the plugin shim runs that installed copy, with no Bun and no clone
 //   - `remry mcp` answers over stdio with the notebook argument on its tools
 //   - `remry app` serves a page, the API, and the guard
@@ -8,7 +9,7 @@
 //   bun run release:smoke [dist/app]
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -61,13 +62,36 @@ const json = (text: string): { ok?: boolean; value?: unknown } | null => {
   }
 };
 
-// 1. `remry install`, as the desktop app runs it.
-const install = spawnSync(exe, ['install'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
+// 1. `remry install`, as the desktop app runs it. On macOS, from the layout Remry.app has
+// (Contents/MacOS/remry, with VERSION and migrations in Contents/Resources), since it links to it.
 const version = (await Bun.file(join(built, 'VERSION')).text()).trim();
+const installFrom = (() => {
+  if (process.platform !== 'darwin') return exe;
+  const contents = mkdtempSync(join(tmpdir(), 'remry-contents-'));
+  mkdirSync(join(contents, 'MacOS'));
+  mkdirSync(join(contents, 'Resources'));
+  cpSync(exe, join(contents, 'MacOS', 'remry'));
+  cpSync(join(built, 'VERSION'), join(contents, 'Resources', 'VERSION'));
+  cpSync(join(built, 'migrations'), join(contents, 'Resources', 'migrations'), { recursive: true });
+  return join(contents, 'MacOS', 'remry');
+})();
+const install = spawnSync(installFrom, ['install'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
 const installed = dataDirFor({ platform: process.platform, home, env });
 const exeName = windows ? 'remry.exe' : 'remry';
 check('remry install', install.status === 0 && json(install.stdout)?.ok === true, install.stderr.trim().split('\n').at(-1));
-check('installed the binary and App/current', existsSync(join(installed, 'App', version, exeName)) && existsSync(join(installed, 'App', 'current', exeName)));
+if (process.platform === 'darwin') {
+  // Linked, not copied: App/current is the folder the binary is in.
+  const linked = (() => {
+    try {
+      return realpathSync(join(installed, 'App', 'current', exeName)) === realpathSync(installFrom);
+    } catch {
+      return false;
+    }
+  })();
+  check('App/current links to the binary where it is, with no copy', linked && !existsSync(join(installed, 'App', version)));
+} else {
+  check('installed the binary and App/current', existsSync(join(installed, 'App', version, exeName)) && existsSync(join(installed, 'App', 'current', exeName)));
+}
 
 // 2. The plugin shim runs the installed binary.
 const listed = windows
@@ -118,4 +142,9 @@ check('app refuses to stop without the local header', (await fetch(`${base}/__re
 const stopped = await fetch(`${base}/__remry/app/stop`, { method: 'POST', headers: { 'x-remry': '1' } });
 await Bun.sleep(500);
 check('app stops for a newer version', stopped.status === 202 && (await fetch(`${base}/app`).catch(() => null)) === null);
+
+// 4. `remry uninstall` removes App/ and keeps the notebooks.
+const removed = spawnSync(exe, ['uninstall'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
+check('remry uninstall', removed.status === 0 && json(removed.stdout)?.ok === true, removed.stderr.trim().split('\n').at(-1));
+check('uninstall removes App/ and keeps the notebooks', !existsSync(join(installed, 'App')) && existsSync(join(cwd, 'data', 'test', 'Notebooks')));
 finish(Number(process.exitCode ?? 0));
