@@ -30,6 +30,7 @@ export const runStandalone = async (app: StandaloneApp): Promise<void> => {
       return;
     case 'install':
     case 'uninstall':
+    case 'updates':
     case 'connect': {
       const { runDesktopCommand } = await import('./desktop');
       return process.exit(await runDesktopCommand(process.argv[2], process.argv.slice(3)));

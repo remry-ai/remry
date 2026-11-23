@@ -101,10 +101,13 @@ jobs:
           path: dist/release
           merge-multiple: true
 
-      - name: Zip the plugin, and write latest.json for the updater
+      - name: Zip the plugin, write latest.json for the updater, and SHA256SUMS
         run: |
           (cd plugin && zip -qr "../dist/release/remry-$VERSION.zip" .)
           bun scripts/release/updater-manifest.ts "$VERSION" dist/release
+          # Checksums of everything the release carries, so a download can be checked with
+          # `shasum -a 256 -c SHA256SUMS --ignore-missing` (macOS) or `sha256sum -c SHA256SUMS --ignore-missing`.
+          (cd dist/release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
           ls -la dist/release
 
       - name: Publish the plugin to the dist branch, tagged dist-v<version>

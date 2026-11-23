@@ -32,11 +32,11 @@ Claude's links are app pages with `open=app` (`inAppLink`, `src/shared/desktop/h
 
 ## Menus
 
-Claude → "Connect to Claude desktop…" / "Connect to Claude Code…" (each asks first, and says to skip it when the plugin is installed). Updates → "Check for Updates…". File → "New Window" (⌘N). View → "Reload" (⌘R). Reload, a `remry://` link and a second launch act on the front window (`front_window`).
+Claude → "Connect to Claude desktop…" / "Connect to Claude Code…" (each asks first, and says to skip it when the plugin is installed). Updates → "Check for Updates…" and "Check Automatically" (a tick: `remry updates on|off`, saved as `checkForUpdates` in `settings.json`, which `remry install` reports at launch; `AutoUpdateItem`). File → "New Window" (⌘N). View → "Reload" (⌘R). Reload, a `remry://` link and a second launch act on the front window (`front_window`).
 
 ## Updates
 
-The shell fetches `latest.json` from the latest GitHub release at launch (quietly) and from "Check for Updates…", and installs only after the user agrees and only an update signed with the key in `tauri.conf.json`. It sends nothing but that request. A build without an updater public key never checks. The next launch's `remry install` and `app ensure` put the new binary in place. Signing and the keypair: `scripts/release/CLAUDE.md`.
+The shell fetches `latest.json` from the latest GitHub release at launch (quietly, after `remry install` says `checkForUpdates`, and also when install failed, since an update may be the fix) and from "Check for Updates…". Unticking Check Automatically, or `"checkForUpdates": false` in `settings.json` (`src/shared/desktop/update-check.ts`, which IT can deploy), stops the launch check only. It installs only after the user agrees and only an update signed with the key in `tauri.conf.json`. It sends nothing but that request. A build without an updater public key never checks. The next launch's `remry install` and `app ensure` put the new binary in place. Signing and the keypair: `scripts/release/CLAUDE.md`.
 
 ## Commands
 

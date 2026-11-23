@@ -10,6 +10,9 @@
 //                                           and print its address
 //   remry connect claude-desktop|claude-code
 //                                           register App/current/remry as the remry MCP server
+//   remry updates on|off                   whether the desktop app checks for a new release when
+//                                           it opens (`checkForUpdates` in settings.json); install
+//                                           reports it as `checkForUpdates`
 //   remry uninstall                        undo install and connect: stop the app, remove the
 //                                           LaunchAgents, the MCP registrations and App/,
 //                                           and leave the notebooks
@@ -36,6 +39,7 @@ import {
   withoutMcpServer
 } from './desktop-plan';
 import { findReleaseFile, realBinaryPath } from './release-resources';
+import { readUpdateCheck, setUpdateCheck } from '../src/shared/desktop/update-check.server';
 
 const host = (): AppDirsHost => ({ platform: platform(), home: homedir(), env: process.env });
 const binaryName = process.platform === 'win32' ? 'remry.exe' : 'remry';
@@ -99,7 +103,16 @@ const pruneCopies = async (appDir: string, keep: readonly (string | null)[]): Pr
   return removed;
 };
 
-const install = async (): Promise<{ readonly version: string; readonly binary: string; readonly installed: boolean; readonly removed: readonly string[] }> => {
+interface InstallResult {
+  readonly version: string;
+  readonly binary: string;
+  readonly installed: boolean;
+  readonly removed: readonly string[];
+  /** Whether the desktop app checks for updates when it opens. */
+  readonly checkForUpdates: boolean;
+}
+
+const install = async (): Promise<InstallResult> => {
   const version = await readVersion();
   const migrations = process.env['REMRY_MIGRATIONS_DIR'] ?? findReleaseFile('migrations');
   if (!migrations || !existsSync(migrations)) throw new Error(`No migrations beside ${realBinaryPath()}. Reinstall Remry.`);
@@ -132,7 +145,7 @@ const install = async (): Promise<{ readonly version: string; readonly binary: s
   if (process.env['REMRY_DESKTOP'] === '1') {
     await writeFile(join(dataDirFor(host()), DESKTOP_MARKER_FILE), `${JSON.stringify({ scheme: 'remry', version })}\n`);
   }
-  return { version, binary: installedBinary(host()), installed, removed };
+  return { version, binary: installedBinary(host()), installed, removed, checkForUpdates: await readUpdateCheck() };
 };
 
 const ensureApp = async (): Promise<{ readonly url: string; readonly started: boolean; readonly restarted: boolean }> => {
@@ -242,12 +255,20 @@ const uninstall = async (): Promise<unknown> => {
   return { stoppedApp, launchAgents, claudeDesktop, claudeCode, removedApp, kept: dataDir };
 };
 
+/** Turns the desktop app's check for updates at launch on or off. */
+const updates = async (choice: string | undefined): Promise<{ readonly checkForUpdates: boolean }> => {
+  if (choice === 'on' || choice === 'off') return { checkForUpdates: await setUpdateCheck(choice === 'on') };
+  if (choice === undefined || choice === 'status') return { checkForUpdates: await readUpdateCheck() };
+  throw new Error('Say `remry updates on`, `remry updates off` or `remry updates status`.');
+};
+
 /** Runs one desktop command and prints its JSON result. Returns the exit code. */
 export const runDesktopCommand = async (command: string, args: readonly string[]): Promise<number> => {
   try {
     const value =
       command === 'install' ? await install()
       : command === 'uninstall' ? await uninstall()
+      : command === 'updates' ? await updates(args[0])
       : command === 'ensure' ? await ensureApp()
       : await connect(args[0]);
     process.stdout.write(`${JSON.stringify({ ok: true, value })}\n`);

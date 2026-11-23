@@ -3,7 +3,7 @@
 Data lives like a native app's, in one data folder (`dataDirFor` in `settings/server/app-dirs.ts`, pure): `~/Library/Application Support/Remry/` on macOS, `%LOCALAPPDATA%\Remry\` on Windows, `$XDG_DATA_HOME/remry` on Linux.
 
 ```
-settings.json                     defaultNotebook, licenseKey, tailnetHost, llmProvider
+settings.json                     defaultNotebook, licenseKey, tailnetHost, llmProvider, checkForUpdates
 Notebooks/<id>/notebook.json      the notebook's name and profile
 Notebooks/<id>/working-notes.db   SQLite in WAL mode, so the app, CLI and backups share it
 Notebooks/<id>/files/             files uploaded as links, editor images, branding images

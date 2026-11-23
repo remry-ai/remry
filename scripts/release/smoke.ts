@@ -93,6 +93,13 @@ if (process.platform === 'darwin') {
   check('installed the binary and App/current', existsSync(join(installed, 'App', version, exeName)) && existsSync(join(installed, 'App', 'current', exeName)));
 }
 
+// The automatic update check's setting, which install reports to the desktop app.
+const off = spawnSync(exe, ['updates', 'off'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
+const reinstall = spawnSync(installFrom, ['install'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
+const updateSetting = (json(reinstall.stdout)?.value ?? {}) as { checkForUpdates?: unknown };
+check('remry updates off, and install reports it', json(off.stdout)?.ok === true && updateSetting.checkForUpdates === false, off.stderr.trim().split('\n').at(-1));
+spawnSync(exe, ['updates', 'on'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS });
+
 // 2. The plugin shim runs the installed binary.
 const listed = windows
   ? spawnSync('cmd.exe', ['/d', '/c', join(plugin, 'scripts', 'remry.cmd'), 'notebook.list'], { cwd, env, encoding: 'utf8', timeout: SYNC_TIMEOUT_MS })

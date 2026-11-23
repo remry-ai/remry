@@ -17,7 +17,8 @@
 // the server hands them over as remry://open/app/... (src/shared/desktop/handoff.ts), which this
 // shell registers and opens in its window: at once, or when the server is up after a cold start.
 //
-// Updates: the shell's one network request (the app's others: docs/security.md). At launch, and from "Check for Updates…",
+// Updates: the shell's one network request (the app's others: docs/security.md). At launch, unless
+// Updates → Check Automatically is off (`checkForUpdates: false` in settings.json), and from "Check for Updates…",
 // this shell asks GitHub Releases for latest.json (tauri-plugin-updater). It sends nothing
 // but the request itself, and installs only an update signed with the key whose public
 // half is in tauri.conf.json, after the user says yes. The next launch's `remry install`
@@ -32,7 +33,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, Submenu};
 use tauri::webview::{DownloadEvent, NewWindowResponse};
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -45,6 +46,7 @@ const APP_PORT: u16 = 7369;
 const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
 const CHECK_UPDATES: &str = "check-for-updates";
+const AUTO_UPDATES: &str = "check-for-updates-automatically";
 const RELOAD: &str = "reload";
 const NEW_WINDOW: &str = "new-window";
 const DEEP_LINK_SCHEME: &str = "remry";
@@ -95,8 +97,9 @@ fn bundled_binary() -> Result<PathBuf, String> {
     Ok(sidecar)
 }
 
-/// Installs the bundled binary (a link to it on macOS, a copy on Windows: cli/desktop.ts) and returns App/current/remry.
-fn install(app: &AppHandle) -> Result<PathBuf, String> {
+/// Installs the bundled binary (a link to it on macOS, a copy on Windows: cli/desktop.ts), and returns
+/// App/current/remry and whether to check for updates at launch (`checkForUpdates` in settings.json).
+fn install(app: &AppHandle) -> Result<(PathBuf, bool), String> {
     let resources = app.path().resource_dir().map_err(|error| error.to_string())?;
     let version = std::fs::read_to_string(resources.join("VERSION"))
         .map_err(|error| format!("This app is missing its VERSION file: {error}"))?;
@@ -107,10 +110,11 @@ fn install(app: &AppHandle) -> Result<PathBuf, String> {
         ("REMRY_DESKTOP", "1".to_string()),
     ];
     let value = run_remry(&bundled_binary()?, &["install"], &envs)?;
-    value["binary"]
+    let binary = value["binary"]
         .as_str()
         .map(PathBuf::from)
-        .ok_or_else(|| "`remry install` didn't say where it installed".to_string())
+        .ok_or_else(|| "`remry install` didn't say where it installed".to_string())?;
+    Ok((binary, value["checkForUpdates"].as_bool().unwrap_or(true)))
 }
 
 fn show_error(window: &WebviewWindow, message: &str) {
@@ -121,10 +125,19 @@ fn show_error(window: &WebviewWindow, message: &str) {
     ));
 }
 
-/// Installs, starts or reuses the server, then moves the window to it.
+/// Installs, starts or reuses the server, then moves the window to it. Checks for updates once it
+/// knows whether the user wants that, and also when installing failed: an update may be the fix.
 fn start(app: AppHandle, window: WebviewWindow) {
     std::thread::spawn(move || {
-        let result = install(&app).and_then(|binary| {
+        let installed = install(&app);
+        let automatic = installed.as_ref().map(|(_, automatic)| *automatic).unwrap_or(true);
+        if let Some(item) = app.try_state::<AutoUpdateItem>() {
+            let _ = item.0.set_checked(automatic);
+        }
+        if automatic {
+            check_for_updates(app.clone(), false);
+        }
+        let result = installed.and_then(|(binary, _)| {
             app.manage(Installed(binary.clone()));
             run_remry(&binary, &["app", "ensure"], &[])
         });
@@ -151,6 +164,32 @@ fn start(app: AppHandle, window: WebviewWindow) {
 
 /// The installed binary, once `install` has run.
 struct Installed(PathBuf);
+
+/// Updates → Check Automatically, so `start` can show the saved setting.
+struct AutoUpdateItem(CheckMenuItem<tauri::Wry>);
+
+/// Updates → Check Automatically: saves the tick the menu now shows with `remry updates on|off`,
+/// and puts it back if that fails.
+fn set_automatic_updates(app: AppHandle) {
+    let Some(item) = app.try_state::<AutoUpdateItem>().map(|state| state.0.clone()) else { return };
+    let on = item.is_checked().unwrap_or(true);
+    std::thread::spawn(move || {
+        let binary = app.try_state::<Installed>().map(|installed| installed.0.clone());
+        let saved = match binary {
+            None => Err("Remry is still starting. Try again in a moment.".to_string()),
+            Some(binary) => run_remry(&binary, &["updates", if on { "on" } else { "off" }], &[]),
+        };
+        match saved {
+            Ok(value) => {
+                let _ = item.set_checked(value["checkForUpdates"].as_bool().unwrap_or(on));
+            }
+            Err(error) => {
+                let _ = item.set_checked(!on);
+                app.dialog().message(error).title("Check Automatically").kind(MessageDialogKind::Error).show(|_| {});
+            }
+        }
+    });
+}
 
 /// Whether the server is up, and the page of a remry:// link that arrived before it was.
 #[derive(Default)]
@@ -535,11 +574,14 @@ fn main() {
                 ],
             )?;
             menu.append(&claude)?;
+            // Ticked until `start` reads the saved setting; unticked, the app checks only when asked.
+            let automatic = CheckMenuItem::with_id(&handle, AUTO_UPDATES, "Check Automatically", true, true, None::<&str>)?;
+            app.manage(AutoUpdateItem(automatic.clone()));
             let updates = Submenu::with_items(
                 &handle,
                 "Updates",
                 true,
-                &[&MenuItem::with_id(&handle, CHECK_UPDATES, "Check for Updates…", true, None::<&str>)?],
+                &[&MenuItem::with_id(&handle, CHECK_UPDATES, "Check for Updates…", true, None::<&str>)?, &automatic],
             )?;
             menu.append(&updates)?;
             app.set_menu(menu)?;
@@ -547,6 +589,7 @@ fn main() {
                 CONNECT_DESKTOP => connect(app.clone(), "claude-desktop"),
                 CONNECT_CODE => connect(app.clone(), "claude-code"),
                 CHECK_UPDATES => check_for_updates(app.clone(), true),
+                AUTO_UPDATES => set_automatic_updates(app.clone()),
                 NEW_WINDOW => new_window(app),
                 RELOAD => {
                     if let Some(window) = front_window(app) {
@@ -560,8 +603,7 @@ fn main() {
                 .inner_size(1280.0, 860.0)
                 .build()?;
 
-            start(handle.clone(), window);
-            check_for_updates(handle, false);
+            start(handle, window);
             Ok(())
         })
         .run(tauri::generate_context!())

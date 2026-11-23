@@ -23,7 +23,8 @@ it protected your PC the first time you run it: choose **More info → Run anywa
 Open the app once. It sets Remry up in your data folder, starts it, and shows your notebook.
 
 **Updates.** When a new version is out, the app asks whether to install it and restart. It checks
-when it opens, and from **Updates → Check for Updates…**. That check asks GitHub for the latest
+when it opens, and from **Updates → Check for Updates…**. To stop the check when it opens, untick
+**Updates → Check Automatically**; Check for Updates… still works. That check asks GitHub for the latest
 release, and sends nothing about you or your notebooks. Updates are signed, and the app installs
 only one signed by Remry's release. The other times Remry reaches the internet are listed in
 [security.md](security.md#outbound-network).

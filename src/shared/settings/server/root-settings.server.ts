@@ -3,6 +3,7 @@
 //   licenseKey        the Remry Pro license key (src/shared/license/store.server.ts)
 //   llmProvider       the AI assistant the web app runs (src/shared/assist/llm-choice.server.ts)
 //   tailnetHost       the tailnet name other devices open the app on (src/shared/remote/store.server.ts)
+//   checkForUpdates   false: the desktop app doesn't check for updates when it opens (src/shared/desktop/update-check.ts)
 // Each writer changes only its own keys and keeps the rest.
 // Relative imports only — prisma.config.ts and scripts load settings outside SvelteKit.
 
