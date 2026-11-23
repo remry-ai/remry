@@ -22,7 +22,7 @@ export const notebookRouter = router({
     .query(({ ctx }) => listNotebooks(ctx, ctx.notebook.id)),
 
   create: procedure
-    .meta({ description: 'Creates a notebook: a separate database with its own people, projects and files. profile picks its modules (work or home).' })
+    .meta({ description: 'Creates a notebook: a separate database with its own people, projects and files. profile picks its modules (work or home). Leave id out: it\'s made from the name, with -2, -3… if taken.' })
     .input(z.object({
       name: z.string().trim().min(1).max(100),
       id: z.string().max(40).optional(),

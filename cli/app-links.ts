@@ -3,12 +3,11 @@
 // notebook). `open=app` hands the page to the desktop app's window when it's installed
 // (src/shared/desktop/handoff.ts). Pure; mcp.ts supplies the port and the notebook.
 
-import { APP_HOST } from './app-ports';
-import { inAppLink } from '../src/shared/desktop/handoff';
+import { LINK_HOST, inAppLink } from '../src/shared/desktop/handoff';
 
 /** The link to give the user for an app path: the page on the app's address, opening the notebook, with `open=app`. */
 export const appPageLink = (path: string, notebookId: string, port: number): string =>
-  `http://${APP_HOST}:${port}${inAppLink(path, notebookId)}`;
+  `http://${LINK_HOST}:${port}${inAppLink(path, notebookId)}`;
 
 const isAppPath = (value: unknown): value is string =>
   typeof value === 'string' && (value === '/app' || value.startsWith('/app/') || value.startsWith('/app?'));

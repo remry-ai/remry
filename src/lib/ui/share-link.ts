@@ -3,10 +3,14 @@
 // otherwise (src/shared/desktop/handoff.ts). The desktop window has no address bar to copy from.
 // Pure; CopyLinkButton reads the page's URL and the notebook.
 
-import { inAppLink } from '$shared/desktop/handoff';
+import { LINK_HOST, inAppLink } from '$shared/desktop/handoff';
 
 const isAppPath = (path: string): boolean => path === '/app' || path.startsWith('/app/');
 
+/** The origin to share: on this computer, `localhost` (LINK_HOST) in place of 127.0.0.1; any other host as it is. */
+const shareOrigin = (url: URL): string =>
+  url.hostname === '127.0.0.1' ? `${url.protocol}//${LINK_HOST}${url.port ? `:${url.port}` : ''}` : url.origin;
+
 /** The page at `url` as a link to share, opening `notebookId`. A page outside the app is its own address. */
 export const shareLink = (url: URL, notebookId: string | null): string =>
-  isAppPath(url.pathname) ? `${url.origin}${inAppLink(`${url.pathname}${url.search}`, notebookId)}` : url.href;
+  isAppPath(url.pathname) ? `${shareOrigin(url)}${inAppLink(`${url.pathname}${url.search}`, notebookId)}` : url.href;

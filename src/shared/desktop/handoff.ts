@@ -5,6 +5,14 @@
 // nothing else. Pure: the route and handoff.server.ts supply the request, the environment and
 // the process.
 
+/**
+ * The host in links people click (Claude's, "Copy link"): `localhost`, not `127.0.0.1`. The
+ * server listens on 127.0.0.1 and accepts both, but Safari warns before opening a plain
+ * `http://` page on an IP address and not on `localhost`. Connections from code keep 127.0.0.1
+ * (`APP_HOST` in cli/app-ports.ts): `localhost` can resolve to ::1 first, where nothing listens.
+ */
+export const LINK_HOST = 'localhost';
+
 /** The scheme the desktop app registers. */
 export const DEEP_LINK_SCHEME = 'remry';
 

@@ -4,6 +4,7 @@
 
 import { LOCAL_HEADER } from '../src/shared/trpc/config';
 import { APP_CONTROL_PATH, APP_HOST, APP_PORT, APP_STOP_PATH } from './app-ports';
+import { LINK_HOST } from '../src/shared/desktop/handoff';
 
 /** The parts of SvelteKit's generated `Server` (build/server/index.js) this uses. */
 export interface SvelteKitServer {
@@ -92,10 +93,10 @@ export const serveApp = async (options: ServeAppOptions): Promise<void> => {
         return server.respond(request, { getClientAddress: () => bunServer.requestIP(request)?.address ?? APP_HOST });
       }
     });
-    console.error(`Remry is running at http://${APP_HOST}:${http.port}/app`);
+    console.error(`Remry is running at http://${LINK_HOST}:${http.port}/app`);
   } catch (error) {
     const inUse = (error as { code?: string }).code === 'EADDRINUSE';
-    console.error(inUse ? `Something is already running on ${APP_HOST}:${port}. If it's Remry, open http://${APP_HOST}:${port}/app` : error);
+    console.error(inUse ? `Something is already running on ${APP_HOST}:${port}. If it's Remry, open http://${LINK_HOST}:${port}/app` : error);
     process.exit(1);
   }
   // Hourly snapshots while the app is open, on every platform (see scripts/backup/schedule.ts).
