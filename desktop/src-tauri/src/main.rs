@@ -9,8 +9,8 @@
 //      different version, replaces) one that's running, and prints its address.
 //   3. The window leaves its splash page for that address. The page gets no access to
 //      Tauri's IPC: it's the same web app a browser shows.
-// The Claude menu registers the installed binary as an MCP server with Claude desktop
-// or Claude Code (`remry connect …`), after asking. The server keeps running when the
+// The Connect menu registers the installed binary as an MCP server with Claude desktop,
+// Claude Code or ChatGPT (`remry connect …`), after asking. The server keeps running when the
 // window closes, as it does when Claude starts it.
 //
 // Links: Claude links to pages as http://127.0.0.1:7369/open/app/...; with this app installed,
@@ -45,6 +45,7 @@ const APP_ORIGIN_HOST: &str = "127.0.0.1";
 const APP_PORT: u16 = 7369;
 const CONNECT_DESKTOP: &str = "connect-claude-desktop";
 const CONNECT_CODE: &str = "connect-claude-code";
+const CONNECT_CHATGPT: &str = "connect-chatgpt";
 const CHECK_UPDATES: &str = "check-for-updates";
 const AUTO_UPDATES: &str = "check-for-updates-automatically";
 const RELOAD: &str = "reload";
@@ -400,6 +401,11 @@ fn connect(app: AppHandle, target: &'static str) {
             "This adds Remry to Claude desktop's MCP servers, in its config file. Skip it if you installed the Remry plugin in Claude desktop, which already includes it.",
             "Restart Claude desktop to use it.",
         ),
+        "chatgpt" => (
+            "ChatGPT",
+            "This adds Remry to the MCP servers in ~/.codex/config.toml, which the ChatGPT desktop app and the Codex CLI share. It runs on this computer: ChatGPT on the web can't reach it.",
+            "Restart ChatGPT to use it; new Codex sessions will have it too.",
+        ),
         _ => (
             "Claude Code",
             "This runs `claude mcp add` to add Remry to Claude Code for your user. Skip it if you installed the Remry plugin in Claude Code, which already includes it.",
@@ -566,11 +572,12 @@ fn main() {
             }
             let claude = Submenu::with_items(
                 &handle,
-                "Claude",
+                "Connect",
                 true,
                 &[
                     &MenuItem::with_id(&handle, CONNECT_DESKTOP, "Connect to Claude desktop…", true, None::<&str>)?,
                     &MenuItem::with_id(&handle, CONNECT_CODE, "Connect to Claude Code…", true, None::<&str>)?,
+                    &MenuItem::with_id(&handle, CONNECT_CHATGPT, "Connect to ChatGPT…", true, None::<&str>)?,
                 ],
             )?;
             menu.append(&claude)?;
@@ -588,6 +595,7 @@ fn main() {
             app.on_menu_event(|app, event| match event.id().as_ref() {
                 CONNECT_DESKTOP => connect(app.clone(), "claude-desktop"),
                 CONNECT_CODE => connect(app.clone(), "claude-code"),
+                CONNECT_CHATGPT => connect(app.clone(), "chatgpt"),
                 CHECK_UPDATES => check_for_updates(app.clone(), true),
                 AUTO_UPDATES => set_automatic_updates(app.clone()),
                 NEW_WINDOW => new_window(app),

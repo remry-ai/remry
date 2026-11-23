@@ -50,7 +50,7 @@ as well as the tools. Its tools run the desktop app's copy of Remry, which the a
   Repeat with each new release — Chat takes uploads only.
 
 **Without the plugin, or on Windows.** The plugin starts its server with `sh`, which Windows
-doesn't have unless Git Bash is on your PATH. In the desktop app, choose **Claude → Connect to
+doesn't have unless Git Bash is on your PATH. In the desktop app, choose **Connect → Connect to
 Claude desktop…** or **Connect to Claude Code…**. It asks first, then adds Remry's tools to that
 Claude's settings, pointing at the app's copy of Remry. You get the tools without the skill.
 
@@ -59,6 +59,15 @@ session runs in a sandbox that cannot see your data folder, so the plugin's tool
 to your notebooks. Claude desktop runs those tools on your computer for local sessions.
 
 Do not attach the data folder to a session. Two programs must never open the same database at once.
+
+### ChatGPT
+
+In the desktop app, choose **Connect → Connect to ChatGPT…** (or run
+`remry connect chatgpt` with the installed binary). It adds Remry as a local MCP server in
+`~/.codex/config.toml`, which the ChatGPT desktop app and the Codex CLI share, then restart ChatGPT.
+The server runs on your computer like Claude's does: nothing is exposed to the network, and so
+ChatGPT on the web can't use it. ChatGPT gets the tools and their instructions, but not Claude's
+skill, so it knows less about recipes and charts.
 
 ## From a clone
 
@@ -106,7 +115,7 @@ updates, and if you uninstall it.
 To remove Remry, run its uninstaller first, then delete the app:
 `/Applications/Remry.app/Contents/MacOS/remry uninstall` on a Mac, or
 `& "$env:LOCALAPPDATA\Remry\App\current\remry.exe" uninstall` on Windows. It stops the app and removes
-its LaunchAgents, its connection to Claude desktop and Claude Code, and `App/`. Your notebooks stay
+its LaunchAgents, its connections to Claude desktop, Claude Code and ChatGPT, and `App/`. Your notebooks stay
 in the data folder until you delete it.
 
 Nothing else to set up. Try it by telling Claude something like *"Dana Park joined Platform as a
