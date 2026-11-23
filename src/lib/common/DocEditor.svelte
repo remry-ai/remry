@@ -40,7 +40,7 @@
      * page's). "Convert with Claude" is in that row, so a caller hiding it passes none.
      */
     readonly showTitle?: boolean;
-    /** Link to the doc's print page (Export PDF). */
+    /** Link to the doc's print page (Export). */
     readonly exportHref?: string;
     /** Colours charts in the preview like the exported PDF (the default branding). */
     readonly chartBranding?: ChartBranding | null;
@@ -179,7 +179,7 @@
     }
   };
 
-  // Export PDF opens the print page in this window (the desktop app's window drops a new-window
+  // Export opens the print page in this window (the desktop app's window drops a new-window
   // link), so unsaved changes are saved first. A modified click still opens a browser tab.
   const handleExport = async (e: MouseEvent) => {
     if (!exportHref || !isDirty || e.metaKey || e.ctrlKey || e.shiftKey) return;

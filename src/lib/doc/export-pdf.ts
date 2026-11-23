@@ -93,7 +93,7 @@ const drawImage = async (href: string): Promise<PdfImage | null> => {
 };
 
 /** A chart block drawn off screen at the width the page shows it, in the branding's colours. */
-const drawChart = (source: string, branding: ChartBranding | null): PdfImage | null => {
+export const drawChart = (source: string, branding: ChartBranding | null): PdfImage | null => {
   const parsed = parseChartSpec(source);
   if (!parsed.ok) return null;
   const host = document.createElement('div');
@@ -140,7 +140,7 @@ const drawDiagram = async (mermaid: Mermaid, source: string): Promise<PdfImage |
   }
 };
 
-const drawDiagrams = async (sources: readonly string[], branding: ChartBranding | null): Promise<Map<string, PdfImage>> => {
+export const drawDiagrams = async (sources: readonly string[], branding: ChartBranding | null): Promise<Map<string, PdfImage>> => {
   const drawn = new Map<string, PdfImage>();
   if (sources.length === 0) return drawn;
   const mermaid = (await import('mermaid')).default as unknown as Mermaid;
@@ -176,7 +176,7 @@ const defaultOf = <T>(mod: unknown): T => ((mod as { default?: T }).default ?? m
  * app's window accepts (`on_download`). pdfmake's own `download` spots that window's WebKit and opens
  * the PDF in a new window instead, which the window refuses.
  */
-const saveBlob = (blob: Blob, fileName: string): void => {
+export const saveBlob = (blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

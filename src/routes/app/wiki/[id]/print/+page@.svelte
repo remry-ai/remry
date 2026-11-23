@@ -17,5 +17,7 @@
     options={data.options}
     branding={data.branding}
     brandingLocked={data.brandingLocked}
-    urlFor={(choice, header) => wikiPrintUrl(wikiPage.id, choice, header)}
+    urlFor={(choice, header, format) => wikiPrintUrl(wikiPage.id, choice, header, format)}
+    format={data.format}
+    exportTarget={{ entityType: 'PAGE', id: wikiPage.id }}
   />

@@ -19,6 +19,7 @@ Current domains, grouped into folders:
 - `modules/`: what modules add to the core, today `person-extensions.ts` (org: title and lead in `org_person`; personal: birthday and known-as in `personal_person`)
 - `entities/`: `ports.ts`, each type's label and archive state, which `_entity-labels` and `_archive` dispatch to
 - `entity`: `entity.archive` and `entity.delete`, one archive and one delete for every type, dispatching to `setArchived` and each domain's delete. The CLI and MCP offer these instead of the per-type procedures (`APP_ONLY` in `cli/api.ts`), which the app keeps using
+- `entity.exportTree` (app-only, `entity/export-tree.ts`): a page with its sub-pages, a project with its docs (sync doc first) then sub-projects, or a doc, with content, for the app's markdown export (`src/lib/doc/CLAUDE.md` § Markdown export); archived children left out, the root kept even if archived
 - `convert`: `entity.convert` (on the entity router), turning a project, doc or note into a wiki page and a page into a project, doc or note. See § Converting
 - `attached/` (named so, not `aux`, which Windows reserves as a device name; attach to any entity via `entityType` + `entityId`): `doc`, `note`, `todo`, `link`, `tag`, `comment`, `emoji`, `sync` (an entity's sync doc, prompt and sources; § Sync docs)
 - flat (infra + top-level entities): `project`, `goal`, `page` (wiki pages), `relation`, `branding`, `home`, `search`, `health`, `trpc-meta`

@@ -1,6 +1,6 @@
 <script lang="ts">
   // An open doc's bar, the same for every type: its view tabs (a document's Markdown, Editor and
-  // Preview; none for a spreadsheet or drawing), Export PDF, the doc's own actions, then ×. It
+  // Preview; none for a spreadsheet or drawing), Export, the doc's own actions, then ×. It
   // stays in view while a long doc scrolls, and once it sticks a row above it shows the doc's
   // tag and title, so a doc scrolled down still names itself. That row is pulled up over what's
   // above the bar (hidden, so nothing jumps when it shows); the bar is stuck once it has moved.
@@ -13,7 +13,7 @@
     /** False when a heading above already names it (a wiki page's): no title row. */
     readonly showTitle?: boolean;
     readonly tabs?: Snippet;
-    /** The print page (Export PDF), shown while the doc has something to print; a document passes it only on Preview. */
+    /** The print page (Export), shown while the doc has something to print; a document passes it only on Preview. */
     readonly exportHref?: string;
     /** A document saves unsaved changes before it goes there. */
     readonly onExport?: (e: MouseEvent) => void;
@@ -58,7 +58,7 @@
     <div class="tabs scroll">
       {#if tabs}{@render tabs()}{/if}
       {#if exportHref}
-        <a class="tab" class:divided={!!tabs} href={exportHref} onclick={onExport}>Export PDF</a>
+        <a class="tab" class:divided={!!tabs} href={exportHref} onclick={onExport}>Export</a>
       {/if}
     </div>
     <div class="doc-actions">

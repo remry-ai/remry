@@ -21,6 +21,8 @@ import { removeLink } from '$api/attached/link/operations';
 import { CONVERT_FROM, CONVERT_TO, convertEntity } from '$api/convert/operations';
 import { previewDelete } from './delete-preview';
 import { PREVIEWABLE_TYPES } from '$shared/types/delete-preview';
+import { EXPORT_ROOT_TYPES } from '$shared/types/export-tree';
+import { exportTree } from './export-tree';
 
 export const DELETABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'TODO', 'DOC', 'NOTE', 'LINK'] as const;
 export type DeletableType = (typeof DELETABLE_TYPES)[number];
@@ -80,6 +82,13 @@ export const entityRouter = router({
     .meta({ description: 'What deleting a person, group, project, goal or page takes with it (sub-projects, sub-goals and sub-pages included), and what loses its owner.' })
     .input(z.object({ entityType: z.enum(PREVIEWABLE_TYPES), id: z.string() }))
     .query(({ ctx, input }) => previewDelete(ctx.reg, input.entityType, input.id)),
+
+  // A page and its sub-pages, a project with its docs and sub-projects, or a doc, with their
+  // content, for the app's markdown export (app-only).
+  exportTree: procedure
+    .meta({ description: 'A page with its sub-pages, a project with its docs and sub-projects, or one doc, with content, for a markdown export.' })
+    .input(z.object({ entityType: z.enum(EXPORT_ROOT_TYPES), id: z.string() }))
+    .query(({ ctx, input }) => exportTree(ctx.reg, input.entityType, input.id)),
 
   // Deletes for good, with everything attached to it (its notes, docs, todos, links,
   // tags and relations). Prefer archive for anything that may matter later.

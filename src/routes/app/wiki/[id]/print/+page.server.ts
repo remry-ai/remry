@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { trpc } from '$shared/trpc/client';
-import { printBrandingChoice } from '$lib/doc/print-options';
+import { exportFormatOf, printBrandingChoice } from '$lib/doc/print-options';
 import { isProActive, NO_LICENSE } from '$shared/types/license';
 
 export const load: PageServerLoad = async ({ params, url, fetch }) => {
@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
   const branding = choice.options.brandingId ? await client.branding.get.query({ id: choice.options.brandingId }) : null;
   return {
     page: page.value,
+    format: exportFormatOf(url.searchParams),
     brandings: choice.brandings,
     options: choice.options,
     brandingLocked: choice.brandingLocked,

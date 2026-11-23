@@ -1,6 +1,6 @@
 <script lang="ts">
   // An open doc that's a spreadsheet or a drawing, built like a document's DocEditor from the
-  // same parts: DocTitle (tag, title, rename), its links, DocBar (Export PDF, its actions, ×),
+  // same parts: DocTitle (tag, title, rename), its links, DocBar (Export, its actions, ×),
   // then the body exactly as a wiki page shows it (BodyView). A spreadsheet's bar has Full screen
   // and Save (SheetActions) before the ×, where a document has its Save.
   import type { Snippet } from 'svelte';

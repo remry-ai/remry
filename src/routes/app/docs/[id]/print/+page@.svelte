@@ -20,5 +20,7 @@
     options={data.options}
     branding={data.branding}
     brandingLocked={data.brandingLocked}
-    urlFor={(choice, header) => printUrl(doc.id, choice, header)}
+    urlFor={(choice, header, format) => printUrl(doc.id, choice, header, format)}
+    format={data.format}
+    exportTarget={{ entityType: 'DOC', id: doc.id }}
   />

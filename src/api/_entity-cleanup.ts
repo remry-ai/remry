@@ -35,7 +35,7 @@ interface Ref {
 /** Ids per statement: well under SQLite's 32,766 values, however many rows a delete reaches. */
 export const CLEANUP_BATCH = 5000;
 
-const inBatches = <T>(items: readonly T[], size = CLEANUP_BATCH): T[][] => {
+export const inBatches = <T>(items: readonly T[], size = CLEANUP_BATCH): T[][] => {
   const batches: T[][] = [];
   for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
   return batches;

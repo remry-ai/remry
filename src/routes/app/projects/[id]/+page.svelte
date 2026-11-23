@@ -12,6 +12,7 @@
   import { statusCounts } from '$lib/project/sub-project-summary';
   import { submit, submitOrThrow } from '$lib/ui/submit';
   import StatusBadge from '$lib/project/components/StatusBadge.svelte';
+  import { projectExportUrl } from '$lib/doc/print-options';
   import Menu from '$lib/ui/Menu.svelte';
   import { PROJECT_STATUSES, PROJECT_STATUS_LABELS } from '$shared/utils/project-status';
   import { parseOwnerOptionValue } from '$shared/trpc/load-owner-options';
@@ -295,6 +296,7 @@
 
   {#snippet renderAssetHeader()}
     <StatusBadge status={project.status} />
+    <a class="btn ghost sm" href={projectExportUrl(project.id)}>Export</a>
   {/snippet}
 
   {#snippet renderEditForm({ onSuccess, onCancel })}

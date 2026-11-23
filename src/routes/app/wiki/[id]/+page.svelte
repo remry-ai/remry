@@ -175,7 +175,7 @@
     await submitOrThrow(() => trpc().page.update.mutate({ id: wikiPage.id, content }));
   };
 
-  // A spreadsheet page's Full screen and Save sit beside Export PDF (SheetActions), and Export
+  // A spreadsheet page's Full screen and Save sit beside Export (SheetActions), and Export
   // saves its changes first, as a doc's does.
   const sheet = new SheetControl();
   const handleSheetExport = async (e: MouseEvent) => {
@@ -317,7 +317,7 @@
         <div class="section-header sticky">
           <h4>{BODY_LABELS[wikiPage.bodyType]}</h4>
           <span class="content-actions">
-            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export PDF</a>
+            <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)} onclick={wikiPage.bodyType === 'sheet' ? handleSheetExport : undefined}>Export</a>
             {#if wikiPage.bodyType === 'sheet'}
               <SheetActions control={sheet} editable={!wikiPage.archivedAt} />
             {/if}
@@ -355,7 +355,7 @@
           <h4>Content</h4>
           <span class="content-actions">
             {#if wikiPage.content.trim()}
-              <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export PDF</a>
+              <a class="btn ghost sm" href={wikiPrintUrl(wikiPage.id)}>Export</a>
             {:else if fileLink && !converting && !wikiPage.archivedAt && isDocument && !wikiPage.prompt}
               <button type="button" class="btn ghost sm" title="Write the page from {fileLink.title ?? 'the newest file'}" onclick={() => handleConvert()}>Convert with {$assistantName}<ProIcon /></button>
             {/if}

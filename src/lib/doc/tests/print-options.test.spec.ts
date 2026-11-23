@@ -77,3 +77,15 @@ describe('printBrandingChoice', () => {
     }
   });
 });
+
+describe('export formats', () => {
+  it('reads ?format and keeps it in the export URLs', async () => {
+    const { exportFormatOf, projectExportUrl } = await import('../print-options');
+    expect(exportFormatOf(new URLSearchParams('format=remry'))).toBe('remry');
+    expect(exportFormatOf(new URLSearchParams('format=docx'))).toBe('pdf');
+    expect(printUrl('doc_1', 'none', false, 'markdown')).toBe('/app/docs/doc_1/print?format=markdown&branding=none');
+    expect(wikiPrintUrl('page_1', '', false, 'pdf')).toBe('/app/wiki/page_1/print');
+    expect(projectExportUrl('p_1')).toBe('/app/projects/p_1/export');
+    expect(projectExportUrl('p_1', 'remry')).toBe('/app/projects/p_1/export?format=remry');
+  });
+});

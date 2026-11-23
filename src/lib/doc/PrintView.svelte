@@ -1,13 +1,22 @@
 <script lang="ts">
-  // A printable sheet of markdown with branding: the toolbar (branding, header, Print…,
-  // Download PDF), the branded header or a plain title, then the body. The doc and wiki
-  // print pages render it; each owns its URL (through `urlFor`) and its "Back" link.
+  // A doc's or wiki page's export page: the toolbar (the format, then for a PDF the branding,
+  // header, Print… and Download PDF), for markdown the export's choices (`MarkdownExportPanel`),
+  // then the sheet: the branded header or a plain title, then the body. The doc and wiki
+  // export pages render it; each owns its URL (through `urlFor`) and its "Back" link.
   import type { Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import ProIcon from '$lib/ui/ProIcon.svelte';
   import MarkdownRenderer from '$lib/common/MarkdownRenderer.svelte';
   import DocPrintHeader from '$lib/doc/DocPrintHeader.svelte';
-  import { NO_BRANDING, withoutLeadingTitle, type PrintOptions } from '$lib/doc/print-options';
+  import MarkdownExportPanel from '$lib/doc/MarkdownExportPanel.svelte';
+  import {
+    EXPORT_FORMATS,
+    EXPORT_FORMAT_LABELS,
+    NO_BRANDING,
+    withoutLeadingTitle,
+    type ExportFormat,
+    type PrintOptions
+  } from '$lib/doc/print-options';
   import { downloadPdf } from '$lib/doc/export-pdf';
   import { markPageBreaks } from '$lib/doc/pdf-pages';
   import { printPage } from '$lib/doc/print';
@@ -38,14 +47,18 @@
     readonly options: PrintOptions;
     readonly branding: PrintBranding | null;
     /** This page's URL with other print options. */
-    readonly urlFor: (choice: string, header: boolean) => string;
+    readonly urlFor: (choice: string, header: boolean, format: ExportFormat) => string;
+    /** What Export makes (`?format=`). */
+    readonly format: ExportFormat;
+    /** What a markdown export reads its tree from: this doc, or this page with its sub-pages. */
+    readonly exportTarget: { readonly entityType: 'DOC' | 'PAGE'; readonly id: string };
     /** Printed between the title and the body (a wiki page's properties). */
     readonly details?: Snippet;
     /** Branded export is Remry Pro: it prints plain, and the branding choice links to the License page. */
     readonly brandingLocked?: boolean;
   }
 
-  const { title, content: markdown, backHref, brandings, options, branding, urlFor, details, brandingLocked = false }: Props = $props();
+  const { title, content: markdown, backHref, brandings, options, branding, urlFor, format, exportTarget, details, brandingLocked = false }: Props = $props();
 
   const defaultBranding = $derived(brandings.find((b) => b.isDefault) ?? null);
   const showHeader = $derived(options.header && !!branding);
@@ -70,8 +83,8 @@
     }
   };
 
-  const choose = (choice: string, header: boolean): void => {
-    void goto(urlFor(choice, header), { replaceState: true, keepFocus: true, noScroll: true });
+  const choose = (choice: string, header: boolean, nextFormat: ExportFormat = format): void => {
+    void goto(urlFor(choice, header, nextFormat), { replaceState: true, keepFocus: true, noScroll: true });
   };
 </script>
 
@@ -82,7 +95,18 @@
 <div class="print-toolbar no-print">
   <a href={backHref} class="btn ghost sm">← Back</a>
   <div class="options">
-    {#if brandingLocked}
+    <select
+      class="sm"
+      aria-label="Export format"
+      onchange={(e) => choose(options.choice, options.header, e.currentTarget.value as ExportFormat)}
+    >
+      {#each EXPORT_FORMATS as f (f)}
+        <option value={f} selected={format === f}>{EXPORT_FORMAT_LABELS[f]}</option>
+      {/each}
+    </select>
+    {#if format !== 'pdf'}
+      <!-- A markdown export's Download is in its panel, below. -->
+    {:else if brandingLocked}
       <a class="branding-locked text-sm text-2" href="/app/license" title="Branded PDFs are part of Remry Pro">Branding<ProIcon show label="Branded PDFs are part of Remry Pro" /></a>
     {:else}
     <select
@@ -107,13 +131,22 @@
       <span>Header</span>
     </label>
     {/if}
-    <button type="button" class="btn ghost sm" onclick={() => printPage()}>Print…</button>
-    <button type="button" class="btn primary sm" onclick={handleDownload} disabled={exporting} aria-busy={exporting}>
-      {exporting ? 'Making PDF…' : 'Download PDF'}
-    </button>
+    {#if format === 'pdf'}
+      <button type="button" class="btn ghost sm" onclick={() => printPage()}>Print…</button>
+      <button type="button" class="btn primary sm" onclick={handleDownload} disabled={exporting} aria-busy={exporting}>
+        {exporting ? 'Making PDF…' : 'Download PDF'}
+      </button>
+    {/if}
   </div>
 </div>
 {#if exportError}<p class="form-error export-error no-print" role="alert">{exportError}</p>{/if}
+{#if format !== 'pdf'}
+  <div class="export-choices">
+    {#key format}
+      <MarkdownExportPanel entityType={exportTarget.entityType} id={exportTarget.id} {format} {branding} />
+    {/key}
+  </div>
+{/if}
 
 <main class="print-page">
   <div class="sheet">
@@ -164,6 +197,11 @@
     margin: 0 auto;
     padding: var(--sp-8) var(--sp-5) var(--sp-10);
     background: var(--surface);
+  }
+  .export-choices {
+    max-width: 900px;
+    margin: var(--sp-4) auto 0;
+    padding: 0 var(--sp-5);
   }
   .export-error {
     max-width: 900px;
