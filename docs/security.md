@@ -1,6 +1,6 @@
 # Remry security inventory
 
-What the app does, taken from the code in this repository at version 0.16.113 (November 2026). Each claim cites the file that does it. **UNVERIFIED** marks anything that couldn't be confirmed from the code or the release build logs.
+What the app does, taken from the code in this repository at version 0.17.0 (November 2026). Each claim cites the file that does it. **UNVERIFIED** marks anything that couldn't be confirmed from the code or the release build logs.
 
 To report a vulnerability, see [SECURITY.md](../SECURITY.md).
 

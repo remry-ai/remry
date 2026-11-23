@@ -11,7 +11,7 @@ Only the latest release gets security fixes. The desktop app checks for updates 
 
 ## Reporting a vulnerability
 
-Email **security@remry.ai**. Please don't open a public GitHub issue for a vulnerability.
+Email **jamie@jweatherby.dev**. Please don't open a public GitHub issue for a vulnerability.
 
 Please include:
 
