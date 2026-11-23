@@ -8,8 +8,10 @@
 //                                           <data dir>/desktop.json
 //   remry app ensure                       start the app, or reuse or replace a running one,
 //                                           and print its address
-//   remry connect claude-desktop|claude-code
+//   remry connect claude-desktop|claude-code|chatgpt
 //                                           register App/current/remry as the remry MCP server
+//                                           (chatgpt: in ~/.codex/config.toml, which the ChatGPT
+//                                           desktop app and the Codex CLI share)
 //   remry updates on|off                   whether the desktop app checks for a new release when
 //                                           it opens (`checkForUpdates` in settings.json); install
 //                                           reports it as `checkForUpdates`
@@ -38,6 +40,7 @@ import {
   withMcpServer,
   withoutMcpServer
 } from './desktop-plan';
+import { chatGptConfigPath, withChatGptMcpServer, withoutChatGptMcpServer } from './chatgpt-config';
 import { findReleaseFile, realBinaryPath } from './release-resources';
 import { readUpdateCheck, setUpdateCheck } from '../src/shared/desktop/update-check.server';
 
@@ -189,12 +192,27 @@ const connectClaudeCode = (binary: string): { readonly change: string } => {
   return { change: existing.status === 0 ? 'updated' : 'added' };
 };
 
+/** Adds our server to the config.toml the ChatGPT desktop app and the Codex CLI share. */
+const connectChatGpt = async (binary: string): Promise<{ readonly change: string; readonly configPath: string }> => {
+  const configPath = chatGptConfigPath(host());
+  const existing = existsSync(configPath) ? await readFile(configPath, 'utf8') : null;
+  const next = withChatGptMcpServer(existing, MCP_SERVER_NAME, { command: binary, args: ['mcp'] });
+  if (!next.ok) throw next.error;
+  if (next.value.change !== 'unchanged') {
+    await mkdir(dirname(configPath), { recursive: true });
+    if (existing !== null && !existsSync(`${configPath}.bak`)) await writeFile(`${configPath}.bak`, existing);
+    await writeFile(configPath, next.value.text);
+  }
+  return { change: next.value.change, configPath };
+};
+
 const connect = async (target: string | undefined): Promise<unknown> => {
   const binary = installedBinary(host());
   if (!existsSync(binary)) throw new Error(`Remry isn't installed at ${binary}. Run \`remry install\` first.`);
   if (target === 'claude-desktop') return connectClaudeDesktop(binary);
   if (target === 'claude-code') return connectClaudeCode(binary);
-  throw new Error('Say what to connect: `remry connect claude-desktop` or `remry connect claude-code`.');
+  if (target === 'chatgpt') return connectChatGpt(binary);
+  throw new Error('Say what to connect: `remry connect claude-desktop`, `remry connect claude-code` or `remry connect chatgpt`.');
 };
 
 type Removal = 'removed' | 'none' | 'skipped';
@@ -205,6 +223,18 @@ const disconnectClaudeDesktop = async (binary: string): Promise<Removal> => {
   const existing = existsSync(configPath) ? await readFile(configPath, 'utf8') : null;
   const next = withoutMcpServer(existing, MCP_SERVER_NAME, binary);
   if (!next.ok) throw next.error;
+  if (next.value === null) return 'none';
+  if (existing !== null && !existsSync(`${configPath}.bak`)) await writeFile(`${configPath}.bak`, existing);
+  await writeFile(configPath, next.value);
+  return 'removed';
+};
+
+/** Removes our server from ChatGPT's config.toml, only where it runs this install's binary. */
+const disconnectChatGpt = async (binary: string): Promise<Removal> => {
+  const configPath = chatGptConfigPath(host());
+  const existing = existsSync(configPath) ? await readFile(configPath, 'utf8') : null;
+  const next = withoutChatGptMcpServer(existing, MCP_SERVER_NAME, binary);
+  if (!next.ok) return 'skipped';
   if (next.value === null) return 'none';
   if (existing !== null && !existsSync(`${configPath}.bak`)) await writeFile(`${configPath}.bak`, existing);
   await writeFile(configPath, next.value);
@@ -247,12 +277,13 @@ const uninstall = async (): Promise<unknown> => {
 
   const claudeDesktop = await disconnectClaudeDesktop(binary);
   const claudeCode = disconnectClaudeCode(binary);
+  const chatGpt = await disconnectChatGpt(binary);
 
   const dataDir = dataDirFor(host());
   await rm(join(dataDir, DESKTOP_MARKER_FILE), { force: true });
   // On Windows this process may be running from App/, which then stays until it exits.
   const removedApp = await rm(join(dataDir, 'App'), { recursive: true, force: true }).then(() => true, () => false);
-  return { stoppedApp, launchAgents, claudeDesktop, claudeCode, removedApp, kept: dataDir };
+  return { stoppedApp, launchAgents, claudeDesktop, claudeCode, chatGpt, removedApp, kept: dataDir };
 };
 
 /** Turns the desktop app's check for updates at launch on or off. */

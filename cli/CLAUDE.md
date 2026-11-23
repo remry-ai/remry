@@ -28,6 +28,8 @@ remry search.recall --entityType PERSON --entityId <personId>
 
 `remry mcp` serves procedures as tools over stdio (`.` written as `_`: `person_create`), plus `backup_snapshot`, `backup_list`, `app_open` and `app_restart`. JSON-RPC with no SDK; the protocol is the pure `handleMessage` in `mcp-protocol.ts`. stdout carries protocol messages only. No port, no network.
 
+Its clients are Claude and, through `remry connect chatgpt`, the ChatGPT desktop app and the Codex CLI. Those have no skill: the server instructions and tool descriptions are all they get, so keep the instructions self-sufficient and not Claude-specific.
+
 - **Descriptions:** each tool's is its procedure's one-line `.meta({ description })`; the server instructions (`INSTRUCTIONS`) say the rest once. Queries are marked read-only, `delete`/`remove`/`detach` tools destructive.
 - **Notebook:** every tool but `notebook_*` takes an optional `notebook` argument, which `callTool` strips.
 - **A lean tool list:** every schema sits in Claude's context, so the list stays short (the MCP test caps it). `APP_ONLY` in `api.ts` leaves out what only the app needs: per-type archive/delete (`entity.archive` and `entity.delete` cover every type), the app's own views, and the procedures that run the user's AI assistant. Prefer a parameter on an existing procedure to a new one.
@@ -49,4 +51,4 @@ remry search.recall --entityType PERSON --entityId <personId>
 
 ## The standalone binary
 
-`standalone.ts` sets `REMRY_STANDALONE` and `REMRY_MIGRATIONS_DIR`, then runs `mcp`, `backup`, `install`, `uninstall`, `updates`, `connect`, `app`, `app ensure`, `app restart` or a procedure. Its VERSION and migrations are beside it or in a macOS app's `Contents/Resources`, found from its real path (`release-resources.ts`), since clients start it through the `App/current` link. `main.ts` and `mcp.ts` don't chdir to a repo when `REMRY_STANDALONE` is set. `desktop.ts` (pure parts in `desktop-plan.ts`) holds what the desktop app runs: see `desktop/CLAUDE.md`.
+`standalone.ts` sets `REMRY_STANDALONE` and `REMRY_MIGRATIONS_DIR`, then runs `mcp`, `backup`, `install`, `uninstall`, `updates`, `connect`, `app`, `app ensure`, `app restart` or a procedure. Its VERSION and migrations are beside it or in a macOS app's `Contents/Resources`, found from its real path (`release-resources.ts`), since clients start it through the `App/current` link. `main.ts` and `mcp.ts` don't chdir to a repo when `REMRY_STANDALONE` is set. `desktop.ts` (pure parts in `desktop-plan.ts`, and `chatgpt-config.ts` for ChatGPT's `config.toml`) holds what the desktop app runs: see `desktop/CLAUDE.md`.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Remry MCP server: `remry mcp`. Serves the procedures (cli/api.ts), plus snapshots and
-// opening the app, as MCP tools over stdio for Claude desktop Chat, Cowork and Claude Code.
+// opening the app, as MCP tools over stdio for Claude desktop Chat, Cowork, Claude Code and the
+// ChatGPT desktop app and Codex CLI (`remry connect chatgpt`).
 // Local only: no network, and it runs with the permissions of whoever starts it.
 // The protocol itself is in mcp-protocol.ts.
 
@@ -76,10 +77,10 @@ const INSTRUCTIONS = [
   'Results leave out fields that are empty: a missing field is null or an empty list.',
   'When bringing in items from another tool (Linear, Notion, Jira), call link_find with the item URL first and update the entity it finds; attach a link to the source on anything you create.',
   "A link whose url starts storage:// is a file uploaded to that entity: read it with link_read, which returns its saved text when it has some (hasText). Read the original (original: true) only when the question is about what text can't hold (a chart, the layout, handwriting, a [Figure: …] line) or the user points you at the file. A PDF or image read with textSaved false: after reading it, save its text with link_update so later reads skip the file.",
-  "The user can ask in the Remry app for a sync doc to be synced by Claude, since the app's own assistant lacks your connectors. When you start using Remry in a conversation, call sync_needed once: for each one marked `requested`, tell the user and sync it now (read its sources with your connectors, then sync_save with the sources you read), unless they'd rather not.",
+  "The user can ask in the Remry app for a sync doc to be synced by their assistant, since the app's own assistant lacks your connectors. When you start using Remry in a conversation, call sync_needed once: for each one marked `requested`, tell the user and sync it now (read its sources with your connectors, then sync_save with the sources you read), unless they'd rather not.",
   "Before re-reading a synced link's source, compare the source's own last-edited time with the link's sourceEditedAt: when it's no later, nothing changed, so call link_markSynced with that time and don't read the source.",
   "Reach Remry only through these tools. Never read its data folder (~/Library/Application Support/Remry on macOS, %LOCALAPPDATA%\\Remry on Windows) or database directly, and don't ask the user to attach that folder: a sandbox such as Cowork's can't see it, and the database must not be opened from two places at once.",
-  'Report back by name, not id. The remry skill has the full rules and recipes.'
+  'Report back by name, not id. In Claude, the remry skill has the full rules and recipes; other clients (ChatGPT, Codex) have only these instructions and the tool descriptions, so check a tool\'s inputs with its schema before calling it.'
 ].join(' ');
 
 const extraTools: readonly McpTool[] = [

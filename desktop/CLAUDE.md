@@ -1,6 +1,6 @@
 # Desktop app — `desktop/`
 
-A Tauri 2 shell: a window on the local server, the installer, the updater, and the way Windows users connect Claude (the plugin's `sh` shim doesn't run there).
+A Tauri 2 shell: a window on the local server, the installer, the updater, and the way Windows users connect Claude (the plugin's `sh` shim doesn't run there), and the way anyone connects ChatGPT.
 
 ## A thin shell
 
@@ -11,8 +11,8 @@ A Tauri 2 shell: a window on the local server, the installer, the updater, and t
     - **Windows:** a copy in `App/<version>`, pointed at by a junction. Windows can't replace an exe that's running and Claude keeps MCP servers running, so the installer couldn't update a binary run from the install folder. The per-user installer is under `%LOCALAPPDATA%` too, so the copy changes nothing for allow-listing; a machine-wide installer is what fixes that.
     - Then it deletes the `App/<version>` copies nothing uses: all but the current one and the one just replaced (`staleAppFolders`), which a Claude session may still be running. With `REMRY_DESKTOP=1` it records the app in `<data dir>/desktop.json`.
   - `remry app ensure` starts the server or reuses it (an older one is replaced) and prints its address.
-  - `remry connect claude-desktop|claude-code` registers `App/current/remry mcp` as the `remry` MCP server: in `claude_desktop_config.json` (keeping everything else, refusing a file it can't parse, keeping a `.bak`), or with `claude mcp add --scope user`.
-  - `remry uninstall` undoes both, for removing Remry or for IT's scripts: stops the app (only one that reports its version), removes the LaunchAgents, removes the `remry` MCP server from Claude desktop and Claude Code only where it runs this install's binary (`withoutMcpServer`), and deletes `App/` and `desktop.json`. The notebooks, backups and settings stay.
+  - `remry connect claude-desktop|claude-code` registers `App/current/remry mcp` as the `remry` MCP server: in `claude_desktop_config.json` (keeping everything else, refusing a file it can't parse, keeping a `.bak`), or with `claude mcp add --scope user`. `remry connect chatgpt` writes a `[mcp_servers.remry]` table to `~/.codex/config.toml` (`$CODEX_HOME`), which the ChatGPT desktop app and the Codex CLI share: line by line, keeping the user's comments and the table's other keys, refusing a server defined as a dotted key or inline table, keeping a `.bak` (pure parts in `cli/chatgpt-config.ts`). It's stdio on this computer, so the network boundary doesn't change; ChatGPT on the web can't use it.
+  - `remry uninstall` undoes both, for removing Remry or for IT's scripts: stops the app (only one that reports its version), removes the LaunchAgents, removes the `remry` MCP server from Claude desktop, Claude Code and ChatGPT's `config.toml` only where it runs this install's binary (`withoutMcpServer`, `withoutChatGptMcpServer`), and deletes `App/` and `desktop.json`. The notebooks, backups and settings stay.
 - The server keeps running when the window closes.
 
 ## The window
@@ -32,7 +32,7 @@ Claude's links are app pages with `open=app` (`inAppLink`, `src/shared/desktop/h
 
 ## Menus
 
-Claude → "Connect to Claude desktop…" / "Connect to Claude Code…" (each asks first, and says to skip it when the plugin is installed). Updates → "Check for Updates…" and "Check Automatically" (a tick: `remry updates on|off`, saved as `checkForUpdates` in `settings.json`, which `remry install` reports at launch; `AutoUpdateItem`). File → "New Window" (⌘N). View → "Reload" (⌘R). Reload, a `remry://` link and a second launch act on the front window (`front_window`).
+Connect → "Connect to Claude desktop…" / "Connect to Claude Code…" (each asks first, and says to skip it when the plugin is installed) / "Connect to ChatGPT…". Updates → "Check for Updates…" and "Check Automatically" (a tick: `remry updates on|off`, saved as `checkForUpdates` in `settings.json`, which `remry install` reports at launch; `AutoUpdateItem`). File → "New Window" (⌘N). View → "Reload" (⌘R). Reload, a `remry://` link and a second launch act on the front window (`front_window`).
 
 ## Updates
 
