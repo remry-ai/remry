@@ -1,4 +1,4 @@
-// The New notebook form sends the profile picked in it to notebook.create.
+// The New notebook form sends the name and the profile picked in it to notebook.create, and no id.
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { flushSync, mount, unmount, tick } from 'svelte';
@@ -41,6 +41,9 @@ describe('NotebookForm', () => {
   it('creates a work notebook unless another profile is picked', async () => {
     await createNotebook();
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Family', profile: 'work' }));
+    // No id field: the server makes the id from the name.
+    expect(document.body.querySelectorAll('input')).toHaveLength(1);
+    expect(create.mock.calls[0]?.[0]).not.toHaveProperty('id');
   });
 
   it('creates a home notebook when Home is picked, and says what it adds', async () => {

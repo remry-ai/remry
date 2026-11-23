@@ -157,7 +157,7 @@ Relationships between two people are `person_relation` (`person-relation/operati
 
 A notebook is a folder, `<data dir>/Notebooks/<id>/`, holding `notebook.json` (name, profile, createdAt), `working-notes.db` and `files/`. The default notebook is in `<data dir>/settings.json`. The code lives in `src/shared/notebooks/`:
 
-- `id.ts`: `isNotebookId` (1–40 lowercase letters, digits and dashes) and `notebookIdFromName`. Client-safe.
+- `id.ts`: `isNotebookId` (1–40 lowercase letters, digits and dashes), `notebookIdFromName`, and `uniqueNotebookId`, the id `notebook.create` makes when none is given: from the name (`notebook` when it has no letters or digits), with `-2`, `-3`… when taken, so it never fails. The app's form doesn't ask for one; an id passed (`--id`) is checked as given. Client-safe.
 - `resolve.ts`: `resolveNotebook`, pure. Named on the call (id, or a name matching exactly one notebook), then `REMRY_NOTEBOOK`, then the UI cookie, then the default. An unknown named notebook is an error listing the ones that exist.
 - `layout.ts` / `layout.server.ts`: `planLayout` (pure) and `ensureLayout`, which moves a pre-notebooks data directory into `work-work` and makes sure a default exists.
 - `store.server.ts`: `NotebookStore`, the raw filesystem reads and writes. `$api/notebook/operations` does the validation and writes the messages.

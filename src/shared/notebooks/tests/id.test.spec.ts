@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isNotebookId, notebookIdFromName } from '../id';
+import { isNotebookId, notebookIdFromName, uniqueNotebookId } from '../id';
 
 describe('isNotebookId', () => {
   it('accepts lowercase slugs', () => {
@@ -23,5 +23,28 @@ describe('notebookIdFromName', () => {
 
   it('is empty when the name has no letters or digits', () => {
     expect(notebookIdFromName('🙂 !!')).toBe('');
+  });
+});
+
+describe('uniqueNotebookId', () => {
+  it('uses the id made from the name when it is free', () => {
+    expect(uniqueNotebookId('Side Project', new Set(['work']))).toBe('side-project');
+  });
+
+  it('adds -2, -3… when it is taken', () => {
+    expect(uniqueNotebookId('Work', new Set(['work']))).toBe('work-2');
+    expect(uniqueNotebookId('Work', new Set(['work', 'work-2']))).toBe('work-3');
+  });
+
+  it('falls back to "notebook" for a name with no letters or digits', () => {
+    expect(uniqueNotebookId('🙂 !!', new Set())).toBe('notebook');
+    expect(uniqueNotebookId('日記', new Set(['notebook']))).toBe('notebook-2');
+  });
+
+  it('stays a valid id at the length limit', () => {
+    const long = 'x'.repeat(40);
+    const id = uniqueNotebookId(long, new Set([long]));
+    expect(id).toBe(`${'x'.repeat(38)}-2`);
+    expect(isNotebookId(id)).toBe(true);
   });
 });

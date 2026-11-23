@@ -53,7 +53,7 @@ Every call works on one notebook: the default, unless you name another.
   - `work`: the **org** module (a person's title and lead, Team and Department groups, the org map) and **goals**.
   - `home`: the **personal** module (a person's birthday and how you know them, Family and Friends groups, partner/parent/sibling/friend relations).
   - Everything else (people, groups, projects, pages, docs, notes, todos, relations, tags, search) is the same in both. A tool for a module the notebook doesn't have (`goal_*` in a home notebook, or an `org` field) is refused with a message saying so; don't retry it there.
-- `notebook.create --name "Garden"` makes a notebook; its id comes from the name, or pass `--id`. Add `--profile home` for home life. A work notebook starts with the group kinds TEAM and DEPARTMENT, a home one with FAMILY and FRIENDS. `notebook.setProfile --id <id> --profile home` changes it, only when the user asks. `notebook.setDefault --id <id>` changes the default for every later call, so do it only when the user asks. There is no delete: the user removes a notebook themselves.
+- `notebook.create --name "Garden"` makes a notebook; its id comes from the name (`-2` and so on when taken), so leave `--id` out unless the user asks for one. Add `--profile home` for home life. A work notebook starts with the group kinds TEAM and DEPARTMENT, a home one with FAMILY and FRIENDS. `notebook.setProfile --id <id> --profile home` changes it, only when the user asks. `notebook.setDefault --id <id>` changes the default for every later call, so do it only when the user asks. There is no delete: the user removes a notebook themselves.
 
 ## Rules
 

@@ -49,7 +49,15 @@ describe('notebook operations', () => {
     expect((await d.notebooks.list()).map((n) => n.id)).toEqual(['work-work', 'garden', 'side-project', 'plot']);
   });
 
-  it('refuses duplicate ids and names, bad ids, and names without an id-able character', async () => {
+  it('makes an id that is free, and one for a name with no letters or digits', async () => {
+    const d = { ...deps(), notebooks: memoryStore([{ ...GARDEN, name: 'Allotment' }], null) };
+    const made = await createNotebook(d, { name: 'Garden' });
+    expect(made.ok && made.value.id).toBe('garden-2');
+    const symbols = await createNotebook(d, { name: '🙂' });
+    expect(symbols.ok && symbols.value.id).toBe('notebook');
+  });
+
+  it('refuses duplicate ids and names, and bad ids', async () => {
     const message = async (input: { name: string; id?: string }) => {
       const result = await createNotebook(deps(), input);
       return result.ok ? 'ok' : result.error.message;
@@ -57,7 +65,6 @@ describe('notebook operations', () => {
     expect(await message({ name: 'Other garden', id: 'garden' })).toContain('already a notebook with id "garden"');
     expect(await message({ name: 'GARDEN', id: 'garden-2' })).toContain('already a notebook named "Garden"');
     expect(await message({ name: 'Plot', id: '../plot' })).toContain('"../plot" can\'t be a notebook id');
-    expect(await message({ name: '🙂' })).toContain('Pass an id');
     expect(await message({ name: '   ' })).toBe('Give the notebook a name');
   });
 

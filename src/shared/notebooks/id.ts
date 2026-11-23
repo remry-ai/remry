@@ -19,6 +19,24 @@ export const notebookIdFromName = (name: string): string =>
     .slice(0, 40)
     .replace(/-+$/, '');
 
+/** The id a notebook gets when its name has no letters or digits to make one from. */
+const FALLBACK_ID = 'notebook';
+
+/**
+ * The id a new notebook gets when none is given: made from its name (`notebook` when the name
+ * has no letters or digits), with `-2`, `-3`… when that's taken. Always a valid id, so the app
+ * never has to ask for one.
+ */
+export const uniqueNotebookId = (name: string, taken: ReadonlySet<string>): string => {
+  const base = notebookIdFromName(name) || FALLBACK_ID;
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) {
+    const suffix = `-${n}`;
+    const id = `${base.slice(0, 40 - suffix.length).replace(/-+$/, '')}${suffix}`;
+    if (!taken.has(id)) return id;
+  }
+};
+
 /** The cookie holding the notebook the UI is looking at. */
 export const NOTEBOOK_COOKIE = 'wn-notebook';
 

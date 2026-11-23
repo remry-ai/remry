@@ -3,7 +3,7 @@
 // of <data dir>/Notebooks by hand, and its snapshots stay in Backups.
 
 import { ok, err, type Result } from '$shared/utils/result';
-import { isNotebookId, notebookIdFromName, NOTEBOOK_ID_RULE } from '$shared/notebooks/id';
+import { isNotebookId, NOTEBOOK_ID_RULE, uniqueNotebookId } from '$shared/notebooks/id';
 import type { NotebookStore } from '$shared/notebooks/store.server';
 import type { NotebookInfo, NotebookProfile, NotebookSummary } from '$shared/types/notebook';
 
@@ -34,18 +34,17 @@ export const createNotebook = async (
   const name = input.name.trim();
   if (!name) return err(new Error('Give the notebook a name'));
 
-  const id = input.id?.trim() || notebookIdFromName(name);
-  if (!isNotebookId(id)) {
-    return err(new Error(input.id?.trim()
-      ? `"${id}" can't be a notebook id. Use ${NOTEBOOK_ID_RULE}.`
-      : `Couldn't make an id from "${name}". Pass an id: ${NOTEBOOK_ID_RULE}.`));
-  }
-
   const existing = await deps.notebooks.list();
-  const sameId = existing.find((n) => n.id === id);
-  if (sameId) return err(new Error(`There is already a notebook with id "${id}" (${sameId.name}). Pass a different id.`));
   const named = existing.find((n) => sameName(n.name, name));
   if (named) return err(new Error(`There is already a notebook named "${named.name}" (id ${named.id}).`));
+
+  // An id given (the CLI's --id) is checked as given; without one, it's made from the name and
+  // never clashes (the app doesn't ask for one).
+  const given = input.id?.trim();
+  if (given && !isNotebookId(given)) return err(new Error(`"${given}" can't be a notebook id. Use ${NOTEBOOK_ID_RULE}.`));
+  const sameId = given ? existing.find((n) => n.id === given) : undefined;
+  if (sameId) return err(new Error(`There is already a notebook with id "${given}" (${sameId.name}). Pass a different id, or leave it out.`));
+  const id = given || uniqueNotebookId(name, new Set(existing.map((n) => n.id)));
 
   const notebook: NotebookInfo = { id, name, profile: input.profile ?? 'work', createdAt: deps.now().toISOString() };
   await deps.notebooks.create(notebook);

@@ -1,8 +1,7 @@
 <script lang="ts">
-  // Create a notebook (name, optional id, profile), or rename one. Ids can't change, so editing shows only
-  // the name; a profile is picked here and changed with notebook.setProfile.
+  // Create a notebook (name and profile; the server makes its id from the name), or rename one, which
+  // shows only the name: the id never changes, and a profile changes with notebook.setProfile.
   import { trpc } from '$shared/trpc/client';
-  import { NOTEBOOK_ID_RULE, notebookIdFromName } from '$shared/notebooks/id';
   import type { NotebookInfo, NotebookProfile } from '$shared/types/notebook';
   import { PROFILE_OPTIONS, profileHint } from '../profiles';
   import Field from '$lib/ui/Field.svelte';
@@ -19,19 +18,16 @@
 
   // Follows `initial` (another notebook to rename) until the user types.
   let name = $derived(initial?.name ?? '');
-  let id = $state('');
   let profile = $state<NotebookProfile>('work');
   let submitting = $state(false);
   let error = $state('');
-
-  const suggestedId = $derived(notebookIdFromName(name));
 
   const handleSubmit = async () => {
     submitting = true;
     error = '';
     const outcome = initial
       ? await submit(() => trpc().notebook.rename.mutate({ id: initial.id, name: name.trim() }))
-      : await submit(() => trpc().notebook.create.mutate({ name: name.trim(), id: id.trim() || undefined, profile }));
+      : await submit(() => trpc().notebook.create.mutate({ name: name.trim(), profile }));
     submitting = false;
     if (!outcome.ok) {
       error = outcome.error;
@@ -55,11 +51,6 @@
             <option value={option.id}>{option.name}</option>
           {/each}
         </select>
-      {/snippet}
-    </Field>
-    <Field label="Id" hint="Used in links and by Claude (--notebook), and can't be changed. {NOTEBOOK_ID_RULE}.">
-      {#snippet children({ id: fieldId })}
-        <input id={fieldId} type="text" bind:value={id} maxlength="40" placeholder={suggestedId || 'side-project'} autocomplete="off" spellcheck="false" />
       {/snippet}
     </Field>
   {/if}
