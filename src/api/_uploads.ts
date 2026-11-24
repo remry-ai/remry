@@ -36,7 +36,7 @@ const BASE64 = /^[A-Za-z0-9+/_-]*={0,2}$/;
  * or bytes of another kind, with what to do; goes by the bytes, not the named type.
  */
 /** The bytes of a base64 upload (a data: URL prefix and line breaks are fine), or what's wrong with it. */
-const decodeBase64 = (dataBase64: string): Result<Buffer> => {
+export const decodeBase64 = (dataBase64: string): Result<Buffer> => {
   const text = dataBase64.trim().replace(DATA_URL_PREFIX, '').replace(/\s+/g, '');
   if (!text) return err(new Error("The file is empty. Send the file's bytes as base64."));
   if (!BASE64.test(text)) {

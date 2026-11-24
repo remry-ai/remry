@@ -79,3 +79,13 @@ describe('typesOf', () => {
     expect([...typesOf({ enum: ['A', null] })].sort()).toEqual(['null', 'string']);
   });
 });
+
+describe('fileFieldValue', () => {
+  it('reads text fields as text and binary files as base64 for a Base64 field', async () => {
+    const { fileFieldValue } = await import('../args');
+    const enc = new TextEncoder();
+    expect(fileFieldValue(enc.encode('# Hi'), 'content')).toBe('# Hi');
+    expect(fileFieldValue(enc.encode('aGk=\n'), 'dataBase64')).toBe('aGk=\n');
+    expect(fileFieldValue(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff]), 'archiveBase64')).toBe('UEsDBP8=');
+  });
+});

@@ -245,6 +245,15 @@ The notebook is the user's own layer over the shared tools (Linear, Notion, Jira
 
 Say what you did by name and source: "Updated the Checkout project from Linear (now In progress, due 15 Oct); added the Payments API project, which it depends on."
 
+## Importing markdown
+
+`entity.import` reads markdown back in: a Remry markdown export (a `.zip` from Export → Remry markdown) comes back as it was, pages, projects and docs with their images and the links between them; any other markdown (an Obsidian vault, a folder of notes) comes in as pages, a folder's files under the page beside it (`Guide.md` and `Guide/`). Images linked relatively (`images/x.png`) are stored on the item that shows them; one missing from the import becomes an "Image lost" note, and the result lists it.
+
+- From a file on disk, run `remry entity.import --archiveBase64-file <export.zip>` (any `…Base64-file` option reads a binary file as base64). Otherwise call it with `files`: each markdown file's `path` and `text`, each image's `path` and `dataBase64`, with the paths the links use.
+- `--underType PAGE|PROJECT --underId <id>` puts what has no parent in the import beneath that page or project (docs need a person, group, project or goal: `underType PROJECT`; without one they become pages).
+- An item exported from this notebook keeps its id: by default it's skipped and left as it is; `--existing overwrite` replaces its title and text. Say which before overwriting.
+- Report what the result says: `created`, `updated`, `skipped`, `images`, `imagesMissing` and `problems`, linking the top items (`top: true`).
+
 ## Tracked docs
 
 A project (or any entity) can track outside docs: a spec in Notion, a plan in Google Docs, a Linear project, a Confluence page. A tracked doc is a link with a `syncedAt`; a plain link (a dashboard, a reference) has none and is never checked.

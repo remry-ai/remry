@@ -23,6 +23,11 @@ import { previewDelete } from './delete-preview';
 import { PREVIEWABLE_TYPES } from '$shared/types/delete-preview';
 import { EXPORT_ROOT_TYPES } from '$shared/types/export-tree';
 import { exportTree } from './export-tree';
+import { importMarkdown } from '$api/import/operations';
+import { importInput, requestFiles } from '$api/import/routes-input';
+import { countDrawings } from '$api/_license';
+import { canAddDrawing, drawingLimitMessage, isProActive } from '$shared/types/license';
+import { ok } from '$shared/utils/result';
 
 export const DELETABLE_TYPES = ['PERSON', 'GROUP', 'PROJECT', 'GOAL', 'PAGE', 'TODO', 'DOC', 'NOTE', 'LINK'] as const;
 export type DeletableType = (typeof DELETABLE_TYPES)[number];
@@ -89,6 +94,31 @@ export const entityRouter = router({
     .meta({ description: 'A page with its sub-pages, a project with its docs and sub-projects, or one doc, with content, for a markdown export.' })
     .input(z.object({ entityType: z.enum(EXPORT_ROOT_TYPES), id: z.string() }))
     .query(({ ctx, input }) => exportTree(ctx.reg, input.entityType, input.id)),
+
+  // Makes pages, projects and docs from markdown (a Remry markdown export or any .md files),
+  // with their images and the links between them (src/api/import/).
+  import: procedure
+    .meta({ description: 'Imports markdown: a .zip (archiveBase64; a Remry markdown export or any folder of .md files with images) or loose files. Makes pages (folders become sub-pages), and from a Remry export its projects and docs too, storing relative images and pointing links between them at the new items. An id already here is skipped unless existing: overwrite.' })
+    .input(importInput)
+    .mutation(async ({ ctx, input }) => {
+      const files = requestFiles(input);
+      if (!files.ok) return files;
+      return importMarkdown(ctx.reg, {
+        files: files.value,
+        under: input.underType && input.underId ? { type: input.underType, id: input.underId } : null,
+        existing: input.existing
+      }, {
+        fromSync: ctx.surface === 'tool',
+        // New drawings past the free ones are Remry Pro, as one at a time would be.
+        allowDrawings: async (count) => {
+          if (count === 0) return ok(undefined);
+          const status = await ctx.license();
+          if (isProActive(status)) return ok(undefined);
+          const used = await countDrawings(ctx.reg);
+          return canAddDrawing(used + count - 1, status) ? ok(undefined) : err(new Error(drawingLimitMessage(used, status)));
+        }
+      });
+    }),
 
   // Deletes for good, with everything attached to it (its notes, docs, todos, links,
   // tags and relations). Prefer archive for anything that may matter later.

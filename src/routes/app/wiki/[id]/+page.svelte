@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Popup from '$lib/common/Popup.svelte';
+  import ImportForm from '$lib/common/ImportForm.svelte';
+  import { openPopup, closePopup } from '$lib/ui/popup-url';
   import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import EntityRow from '$lib/ui/EntityRow.svelte';
@@ -412,6 +415,10 @@
     {/if}
   {/snippet}
 
+  {#snippet renderAssetHeader()}
+    {#if !wikiPage.archivedAt}<button type="button" class="btn ghost sm" onclick={() => openPopup('import')}>Import</button>{/if}
+  {/snippet}
+
   {#snippet renderEditForm({ onSuccess, onCancel })}
     <PageForm initial={wikiPage} {onSuccess} {onCancel} onDelete={handleDelete} />
   {/snippet}
@@ -429,3 +436,7 @@
     input { flex: 1; }
   }
 </style>
+
+<Popup id="import" title="Import into {wikiPage.title}">
+  <ImportForm under={{ type: 'PAGE', id: wikiPage.id, label: wikiPage.title }} onDone={() => closePopup({ invalidate: true })} onCancel={() => closePopup()} />
+</Popup>

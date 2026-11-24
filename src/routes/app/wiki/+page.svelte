@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ImportForm from '$lib/common/ImportForm.svelte';
   import { BODY_LABELS } from '$shared/types/body-types';
   import type { PageData } from './$types';
   import Popup from '$lib/common/Popup.svelte';
@@ -53,6 +54,7 @@
 
 <div class="page">
   <PageHeader title="Wiki" description="Pages for anything worth writing down, as docs, spreadsheets or drawings.">
+    <button type="button" class="btn ghost" onclick={() => openPopup('import')}>Import</button>
     <button type="button" class="btn primary" onclick={() => openPopup('new-page')}>Add page</button>
   </PageHeader>
 
@@ -137,3 +139,7 @@
     font-size: var(--fs-sm);
   }
 </style>
+
+<Popup id="import" title="Import markdown">
+  <ImportForm onDone={() => closePopup({ invalidate: true })} onCancel={() => closePopup()} />
+</Popup>

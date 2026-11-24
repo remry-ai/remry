@@ -3,7 +3,7 @@
 //   --key value | --key=value   one input field
 //   --flag                      boolean true
 //   --key null                  null, for nullable fields
-//   --<key>-file <path>         read the field's value from a file (long markdown)
+//   --<key>-file <path>         read the field's value from a file (long markdown; any file, as base64, for a …Base64 field)
 //   --input '<json>'            the whole input as JSON (or --input-file <path>)
 
 import { ok, err, type Result } from '$shared/utils/result';
@@ -20,7 +20,15 @@ export interface JsonSchema {
   readonly maxLength?: number;
 }
 
-export type FileReader = (path: string) => string;
+/** Reads a `--<field>-file`: the field's name says how (a `…Base64` field takes any file's bytes). */
+export type FileReader = (path: string, field: string) => string;
+
+/** A file read for a field: its text, or for a `…Base64` field its bytes as base64 unless it's already base64 text. */
+export const fileFieldValue = (bytes: Uint8Array, field: string): string => {
+  const text = new TextDecoder().decode(bytes);
+  if (!field.endsWith('Base64')) return text;
+  return /^\s*(data:[^,]*,)?[A-Za-z0-9+/=_\-\s]*$/.test(text) && text.trim() !== '' ? text : Buffer.from(bytes).toString('base64');
+};
 
 export interface GlobalArgs {
   /** `--notebook <id or name>`: the notebook to call against. */
@@ -89,7 +97,7 @@ const coerce = (key: string, raw: string | true, prop: JsonSchema | undefined): 
 const read = (key: string, path: string | true, readFile: FileReader): Result<string> => {
   if (path === true) return err(new Error(`--${key} needs a file path`));
   try {
-    return ok(readFile(path));
+    return ok(readFile(path, key.slice(0, -'-file'.length)));
   } catch (e) {
     return err(new Error(`Could not read ${path} for --${key}: ${e instanceof Error ? e.message : String(e)}`));
   }

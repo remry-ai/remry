@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Popup from '$lib/common/Popup.svelte';
+  import ImportForm from '$lib/common/ImportForm.svelte';
+  import { openPopup, closePopup } from '$lib/ui/popup-url';
   import EntityRow from '$lib/ui/EntityRow.svelte';
   import type { PageData } from './$types';
   import { goto, invalidateAll } from '$app/navigation';
@@ -297,6 +300,7 @@
   {#snippet renderAssetHeader()}
     <StatusBadge status={project.status} />
     <a class="btn ghost sm" href={projectExportUrl(project.id)}>Export</a>
+    {#if !project.archivedAt}<button type="button" class="btn ghost sm" onclick={() => openPopup('import')}>Import</button>{/if}
   {/snippet}
 
   {#snippet renderEditForm({ onSuccess, onCancel })}
@@ -326,3 +330,7 @@
     input { flex: 1; }
   }
 </style>
+
+<Popup id="import" title="Import into {project.name}">
+  <ImportForm under={{ type: 'PROJECT', id: project.id, label: project.name }} onDone={() => closePopup({ invalidate: true })} onCancel={() => closePopup()} />
+</Popup>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ImportForm from '$lib/common/ImportForm.svelte';
   import type { PageData } from './$types';
   import { page } from '$app/state';
   import Popup from '$lib/common/Popup.svelte';
@@ -140,6 +141,7 @@
 
 <div class="page">
   <PageHeader title="Projects" description="Track project health, documentation, and feedback.">
+    <button type="button" class="btn ghost" onclick={() => openPopup('import')}>Import</button>
     <button type="button" class="btn primary" onclick={() => openPopup('new-project')}>Add project</button>
   </PageHeader>
 
@@ -314,3 +316,7 @@
     width: var(--control-h-sm);
   }
 </style>
+
+<Popup id="import" title="Import markdown">
+  <ImportForm onDone={() => closePopup({ invalidate: true })} onCancel={() => closePopup()} />
+</Popup>

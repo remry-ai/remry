@@ -21,7 +21,7 @@ remry search.recall --entityType PERSON --entityId <personId>
 - **Output:** stdout is JSON, `{ "ok": true, "value": … }` or `{ "ok": false, "error": { "message": … } }`; logs go to stderr. It exits 1 on `ok: false`, invalid input or an unknown procedure.
 - **Notebook:** the default, unless `--notebook <id or name>` (anywhere in the arguments) or `REMRY_NOTEBOOK`.
 - **Typing:** values are coerced by each procedure's JSON Schema: `--title 2024` stays a string, `--priority 2` becomes a number, `null` clears a field.
-- **Input:** `--<field>-file <path>` reads a value from a file (markdown, base64), `--input '<json>'` passes the whole input.
+- **Input:** `--<field>-file <path>` reads a value from a file (markdown, base64); for a `…Base64` field any file is read as its bytes, base64-encoded unless it's already base64 text (`fileFieldValue`), so `remry entity.import --archiveBase64-file export.zip` works. `--input '<json>'` passes the whole input.
 - `bin/remry` finds Bun in `~/.bun/bin`, `/opt/homebrew/bin` or `/usr/local/bin` (or `$REMRY_BUN`), since Claude desktop starts MCP servers with a minimal PATH. On Windows a clone runs through `clone-entry.ts`, which does the same.
 
 ## The MCP server (`mcp.ts`)

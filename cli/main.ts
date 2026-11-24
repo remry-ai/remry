@@ -20,7 +20,7 @@ if (!process.env['REMRY_STANDALONE']) process.chdir(resolve(import.meta.dir, '..
 // App logs go to stderr so stdout carries only the JSON result.
 console.log = console.info = console.debug = (...args: unknown[]): void => console.error(...args);
 
-const { coerceArgs, splitGlobalArgs, typesOf } = await import('./args');
+const { coerceArgs, fileFieldValue, splitGlobalArgs, typesOf } = await import('./args');
 const { procedures, callProcedure, disconnect } = await import('./api');
 
 const describeType = (prop: JsonSchema): string => {
@@ -76,7 +76,7 @@ const run = async (): Promise<number> => {
     return 1;
   }
 
-  const input = coerceArgs(rest, meta.inputSchema, (path) => readFileSync(resolve(callerCwd, path), 'utf8'));
+  const input = coerceArgs(rest, meta.inputSchema, (path, field) => fileFieldValue(readFileSync(resolve(callerCwd, path)), field));
   if (!input.ok) {
     console.error(`Error: ${input.error.message}. Run \`remry help ${command}\` for its inputs.`);
     return 1;
