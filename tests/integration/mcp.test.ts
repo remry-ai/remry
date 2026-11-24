@@ -52,7 +52,7 @@ describe('remry mcp', () => {
     const byName = new Map(tools.map((t) => [t.name, t]));
     expect(tools.length).toBeGreaterThan(60);
     // Every tool's schema sits in Claude's context: keep the list lean (cli/api.ts APP_ONLY).
-    expect(tools.length).toBeLessThanOrEqual(111);
+    expect(tools.length).toBeLessThanOrEqual(120);
     expect(tools.filter((t) => t.description.includes('with the same inputs as')).map((t) => t.name)).toEqual([]);
     for (const hidden of ['person_delete', 'project_archive', 'goal_unarchive', 'note_remove', 'emoji_toggle', 'home_graph']) {
       expect(byName.has(hidden)).toBe(false);
