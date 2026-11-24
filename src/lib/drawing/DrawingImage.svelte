@@ -1,8 +1,8 @@
 <script lang="ts">
   // A drawing page's drawing as a picture (a PNG from Excalidraw's canvas
-  // export, render-drawing.ts). With onOpen it's a button that opens the
-  // full-screen editor; without it (a peek) it opens the picture in ZoomViewer,
-  // as an image in a doc does.
+  // export, render-drawing.ts). Clicking it opens the picture in ZoomViewer, as
+  // an image in a doc does; with onOpen (and not readOnly) the viewer has a
+  // pencil beside × that switches to the full-screen editor.
   import { untrack } from 'svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ZoomViewer from '$lib/ui/ZoomViewer.svelte';
@@ -75,8 +75,6 @@
   $effect(() => () => { if (image) URL.revokeObjectURL(image.url); });
 
   let zoomed = $state<ZoomSource | null>(null);
-
-  const label = $derived(readOnly ? `Open ${title}` : `Edit ${title}`);
 </script>
 
 {#if empty}
@@ -97,16 +95,17 @@
   <p class="form-error" role="alert">{error}</p>
 {:else if !image}
   <p class="text-sm muted drawing-loading" aria-busy="true">Drawing…</p>
-{:else if onOpen}
-  <button type="button" class="drawing-image openable" aria-label={label} title={readOnly ? 'Open full screen' : 'Click to edit'} onclick={onOpen}>
-    <img src={image.url} alt={title} width={image.width} />
-  </button>
 {:else}
   {@const shown = image}
   <button type="button" class="drawing-image openable" aria-label="Zoom {title}" title="Zoom" onclick={() => { zoomed = { kind: 'image', src: shown.url, alt: title }; }}>
     <img src={image.url} alt={title} width={image.width} />
   </button>
-  <ZoomViewer source={zoomed} onClose={() => { zoomed = null; }} />
+  <ZoomViewer
+    source={zoomed}
+    onClose={() => { zoomed = null; }}
+    onEdit={onOpen && !readOnly ? () => { zoomed = null; onOpen(); } : undefined}
+    editLabel="Edit {title}"
+  />
 {/if}
 
 <style lang="scss">
