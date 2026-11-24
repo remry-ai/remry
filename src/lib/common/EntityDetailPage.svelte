@@ -687,11 +687,8 @@
        entity has no edit button, so its banner holds Unarchive. -->
   {#if archivable && !isArchived}
     <div class="archive-row">
-      <div>
-        <strong>Archive</strong>
-        <p class="text-sm muted">Hide it from lists and make it read-only. You can unarchive it later.</p>
-      </div>
-      <button type="button" class="btn sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>{archiveBusy ? 'Archiving…' : 'Archive'}</button>
+      <span>Hide from lists and make read-only; you can unarchive it later.</span>
+      <button type="button" class="btn ghost sm" onclick={handleToggleArchive} disabled={archiveBusy} aria-busy={archiveBusy}>{archiveBusy ? 'Archiving…' : 'Archive'}</button>
     </div>
     {#if archiveError}<p class="form-error">{archiveError}</p>{/if}
   {/if}
@@ -727,15 +724,18 @@
     // A touch screen has no hover.
     @media (hover: none) { .edit-btn { opacity: 1; } }
   }
+  // One quiet line under the form: a secondary action, so it shouldn't compete with Save or Delete.
   .archive-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--sp-3);
-    margin-top: var(--sp-4);
-    padding-top: var(--sp-4);
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-2);
     border-top: 1px solid var(--border);
-    p { margin: var(--sp-1) 0 0; }
+    font-size: var(--fs-sm);
+    color: var(--text-3);
+    span { min-width: 0; }
   }
   .archived-banner {
     display: flex;
