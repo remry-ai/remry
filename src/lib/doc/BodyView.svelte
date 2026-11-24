@@ -1,7 +1,7 @@
 <script lang="ts">
   // A spreadsheet's or drawing's body, the same on a wiki page and in a doc: the grid, saving
-  // itself (SheetEditor), or the drawing's picture (DrawingImage), which opens the full-screen
-  // editor (DrawingEditor, loaded only then). An empty drawing can also start from an
+  // itself (SheetEditor), or the drawing's picture (DrawingImage), which zooms it, with a pencil
+  // that opens the full-screen editor (DrawingEditor, loaded only then). An empty drawing can also start from an
   // excalidraw.com share link. The holder's header opens the editor through `drawingOpen`.
   import SheetEditor from '$lib/page/components/SheetEditor.svelte';
   import DrawingImage from '$lib/drawing/DrawingImage.svelte';

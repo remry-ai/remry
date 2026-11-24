@@ -2,17 +2,22 @@
   // A diagram or image over the whole window, to zoom and pan: the wheel (or a
   // trackpad pinch) zooms at the cursor, dragging pans, double-click switches
   // between fitted and actual size, and Esc, × or a click on the backdrop
-  // closes it. MarkdownRenderer opens it; the math is in zoom.ts. It renders on
+  // closes it. MarkdownRenderer and DrawingImage open it; with onEdit a pencil
+  // beside × switches to editing (a drawing). The math is in zoom.ts. It renders on
   // <body>, above everything on the page, the drawer toggles included.
   import { tick } from 'svelte';
+  import PencilIcon from './PencilIcon.svelte';
   import { ZOOM_LIMITS, centredView, fitView, panBy, scaleLabel, zoomAt, type Size, type ZoomSource, type ZoomView } from './zoom';
 
   interface Props {
     readonly source: ZoomSource | null;
     readonly onClose: () => void;
+    /** Shows a pencil beside ×, labelled `editLabel`, that switches to editing it. */
+    readonly onEdit?: () => void;
+    readonly editLabel?: string;
   }
 
-  const { source, onClose }: Props = $props();
+  const { source, onClose, onEdit, editLabel = 'Edit' }: Props = $props();
 
   const PADDING = 32;
 
@@ -117,6 +122,9 @@
         <button type="button" class="btn icon sm" aria-label="Zoom in" title="Zoom in (+)" onclick={() => zoomBy(ZOOM_LIMITS.step)}>+</button>
         <button type="button" class="btn sm" title="Fit to the window (0)" onclick={fit}>Fit</button>
         <button type="button" class="btn sm" title="Actual size" onclick={actualSize}>100%</button>
+        {#if onEdit}
+          <button type="button" class="btn icon sm edit" aria-label={editLabel} title={editLabel} onclick={onEdit}><PencilIcon /></button>
+        {/if}
         <button type="button" class="btn icon sm close" aria-label="Close" title="Close (Esc)" onclick={onClose}>&times;</button>
       </div>
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -174,6 +182,8 @@
     gap: var(--sp-1);
     padding: var(--sp-2) var(--sp-3);
     border-bottom: 1px solid var(--border);
+    .edit { margin-left: auto; }
+    .edit + .close { margin-left: 0; }
     .close { margin-left: auto; }
   }
   .scale {
