@@ -5,7 +5,7 @@
   // the heading; open while the prompt is first being written (`creating`). Collapsed, the
   // prompt stays mounted but hidden, so a sync already running still shows when it's opened.
   // Opening it also shows the sync doc in the right panel's peek (`peekDocId`). The heading's
-  // Active switch pauses or resumes the sync (`onSetActive`), open or folded.
+  // switch pauses or resumes the sync (`onSetActive`), open or folded.
   import type { ComponentProps } from 'svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import SyncPrompt from './SyncPrompt.svelte';
@@ -19,7 +19,7 @@
   type Props = Omit<ComponentProps<typeof SyncPrompt>, 'badge'> & {
     /** The sync doc, shown in the right panel's peek while the section is open (not when it's already the open doc). */
     readonly peekDocId?: string | null;
-    /** Pauses (false) or resumes (true) the sync: the Active switch. Without it the switch is read-only. */
+    /** Pauses (false) or resumes (true) the sync: the heading's switch. Without it the switch is read-only. */
     readonly onSetActive?: (active: boolean) => Promise<unknown>;
   };
 
@@ -66,7 +66,7 @@
     {#if !expanded && status && active}<span class="status"><SyncStatus {...status} /></span>{/if}
     {#if !props.creating}
       <span class="active" class:alone={!(!expanded && status && active)}>
-        <Switch checked={active} label="Active" disabled={!onSetActive || pending !== null} title={active ? 'Synced from its sources. Turn off to pause it, keeping the prompt, sources and text.' : 'Paused: nothing syncs it. Turn on to sync it again from its sources.'} onchange={setActive} />
+        <Switch checked={active} label="Sync active" hideLabel disabled={!onSetActive || pending !== null} title={active ? 'Synced from its sources. Turn off to pause it, keeping the prompt, sources and text.' : 'Paused: nothing syncs it. Turn on to sync it again from its sources.'} onchange={setActive} />
       </span>
     {/if}
   </div>

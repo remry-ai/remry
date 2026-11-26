@@ -1,23 +1,25 @@
 <script lang="ts">
   // An on/off switch: a checkbox with role="switch", drawn as a track and thumb, with its label
-  // beside it. Use it for a setting that takes effect at once (a sync being active), not a form field.
+  // beside it (or only for screen readers, `hideLabel`). Use it for a setting that takes effect at once (a sync being active), not a form field.
   interface Props {
     readonly checked: boolean;
-    /** The visible text beside it, naming what it turns on. */
+    /** What it turns on: shown beside it, or only to screen readers with `hideLabel`. */
     readonly label: string;
+    /** Leaves the label to screen readers, where the switch's place says what it is. */
+    readonly hideLabel?: boolean;
     readonly disabled?: boolean;
     /** Shown on hover: what on and off mean. */
     readonly title?: string;
     readonly onchange: (checked: boolean) => void;
   }
 
-  const { checked, label, disabled = false, title, onchange }: Props = $props();
+  const { checked, label, hideLabel = false, disabled = false, title, onchange }: Props = $props();
 </script>
 
 <label class="switch" class:disabled {title}>
   <input type="checkbox" role="switch" {checked} {disabled} aria-checked={checked} onchange={(e) => onchange(e.currentTarget.checked)} />
   <span class="track" aria-hidden="true"><span class="thumb"></span></span>
-  <span class="text">{label}</span>
+  <span class={hideLabel ? 'sr-only' : 'text'}>{label}</span>
 </label>
 
 <style lang="scss">

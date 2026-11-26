@@ -7,7 +7,7 @@
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
   // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
   // with `target`, a sync still running when the page opens shows as running until it ends.
-  // While `active` is false (paused, from SyncSection's Active switch), Trigger sync and Sync now are hidden.
+  // While `active` is false (paused, from SyncSection's switch), Trigger sync and Sync now are hidden.
   import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import { syncStatus, type LastSyncView } from '../last-sync';
@@ -206,7 +206,7 @@
     {:else if status}<SyncStatus {...status} tone={active ? status.tone : 'none'} />{/if}
     {#if onRequest && !editing && !creating}
       <button type="button" class="btn icon sm ml-auto" aria-label="How sync docs work" title="How sync docs work" onclick={() => openPopup(SYNC_HELP_POPUP)}><HelpIcon /></button>
-      <!-- Paused (the heading's Active switch off): nothing to trigger. -->
+      <!-- Paused (the heading's switch off): nothing to trigger. -->
       {#if active && requestedAt}
         <span class="badge accent" title="Waiting for the next Claude chat that uses Remry (Cowork, Claude desktop), which syncs it with your connectors">Sync triggered {requestedWhen}</span>
         <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel</button>
@@ -266,7 +266,7 @@
       <li><strong>The prompt</strong> says what to take from each source and what to watch for, for example: <em>PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.</em> Edit it with the pencil.</li>
       <li><strong>The sources</strong> are this page's links marked with the sync icon in the sidebar's Links. Click a link's icon to make it a source or not; add a link or upload a file here to add one.</li>
       <li><strong>Trigger sync</strong> asks Claude to sync it. The next Claude chat that uses Remry (Cowork, Claude desktop or Claude Code) reads the sources with your connectors and rewrites it. You can also just ask Claude in a chat to sync it.</li>
-      <li><strong>Active</strong>, the switch beside the Sync heading: turn it off to stop syncing it for a while, keeping the prompt, sources and text, and on again to pick it back up.</li>
+      <li><strong>The switch</strong> beside the Sync heading: turn it off to stop syncing it for a while, keeping the prompt, sources and text, and on again to pick it back up.</li>
       <li><strong>Discrepancies</strong>: where sources disagree, Claude lists each side at the end rather than picking one, and never changes your own fields to match.</li>
       <li><strong>Only Claude writes it.</strong> To edit it by hand, clear the prompt: it becomes an ordinary {noun}.</li>
     </ul>

@@ -26,7 +26,7 @@
     readonly syncNeed?: SyncNeed | null;
     /** A sync doc's last sync, for its date. */
     readonly lastSync?: LastSyncView | null;
-    /** False while a sync doc's sync is paused (its Active switch off): its dot is grey. */
+    /** False while a sync doc's sync is paused (its sync switch off): its dot is grey. */
     readonly syncActive?: boolean;
     readonly sortOrder: number;
   }
@@ -63,11 +63,11 @@
   const toggle = () => { expanded = !expanded; };
 
   // A sync doc's dot takes its colour from why it wants syncing; the date and details from its last sync.
-  // A paused one (its Active switch off) has a grey dot; the tooltip says why.
+  // A paused one (its sync switch off) has a grey dot; the tooltip says why.
   const statusOf = (doc: Doc) => {
     const last = syncStatus(doc.lastSync ?? null);
     return doc.syncActive === false
-      ? { ...last, tone: 'none' as const, title: `Not active: nothing syncs it until its Active switch is turned on. ${last.title}` }
+      ? { ...last, tone: 'none' as const, title: `Not active: nothing syncs it until the switch beside the Sync heading is turned on. ${last.title}` }
       : { ...last, tone: syncNeedTone(doc.syncNeed) };
   };
 
