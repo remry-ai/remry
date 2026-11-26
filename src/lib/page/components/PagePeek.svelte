@@ -1,10 +1,11 @@
 <script lang="ts">
   // A wiki page in a side peek: its parent, content (BodyPreview, as a doc's peek shows it),
-  // sub-pages and open todos. Read-only; Open goes to the
-  // full page, and a sub-page opens in the peek.
+  // sub-pages and open todos. Read-only, except a drawing (not archived), whose zoomed picture
+  // has a pencil that opens the editor; Open goes to the full page, and a sub-page opens in the peek.
   import { page } from '$app/state';
+  import { invalidateAll } from '$app/navigation';
   import { trpc } from '$shared/trpc/client';
-  import { errorMessage } from '$lib/ui/submit';
+  import { errorMessage, submitOrThrow } from '$lib/ui/submit';
   import { openPopup } from '$lib/ui/popup-url';
   import { openPeek, peekValue } from '$lib/ui/peek-url';
   import SidePeek from '$lib/ui/SidePeek.svelte';
@@ -50,9 +51,12 @@
     };
   };
 
-  // Reload when the peeked page changes, and when a popup closes (a todo edited from here).
+  // Reload when the peeked page changes, when a popup closes (a todo edited from here), and
+  // when the drawing editor closes, so the picture shows what was drawn.
   const popupOpen = $derived(page.url.searchParams.has('popup'));
+  let reloads = $state(0);
   $effect(() => {
+    void reloads;
     const pageId = id;
     if (popupOpen) return;
     let stale = false;
@@ -70,6 +74,17 @@
   const peeked = $derived(loaded?.id === id ? loaded.value : null);
   const error = $derived(failed?.id === id ? failed.message : null);
   const wikiPage = $derived(peeked?.page ?? null);
+
+  const handleSave = async (content: string): Promise<void> => {
+    await submitOrThrow(() => trpc().page.update.mutate({ id, content }));
+  };
+  // The page behind the peek may show the drawing too (a list's preview), so it reloads as well.
+  const handleDrawingClosed = (): void => {
+    reloads += 1;
+    void invalidateAll();
+  };
+  const handleShare = async (): Promise<string> =>
+    (await submitOrThrow(() => trpc().drawing.shareLink.mutate({ pageId: id }))).url;
 </script>
 
 <SidePeek title={wikiPage?.title ?? (error ? 'Page' : 'Loading…')} href="/app/wiki/{id}">
@@ -89,7 +104,7 @@
     </dl>
 
     {#key wikiPage.id}
-      <BodyPreview bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} emptyMessage="This page is empty." />
+      <BodyPreview bodyType={wikiPage.bodyType} content={wikiPage.content} title={wikiPage.title} emptyMessage="This page is empty." onSave={wikiPage.archivedAt ? undefined : handleSave} onShare={handleShare} onDrawingClosed={handleDrawingClosed} />
     {/key}
 
     <section class="section">
