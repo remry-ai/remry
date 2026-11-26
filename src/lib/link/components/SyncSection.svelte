@@ -4,11 +4,14 @@
   // sync page's content, is only the output. Collapsed by default, with the last sync's dot in
   // the heading; open while the prompt is first being written (`creating`). Collapsed, the
   // prompt stays mounted but hidden, so a sync already running still shows when it's opened.
-  // Opening it also shows the sync doc in the right panel's peek (`peekDocId`).
+  // Opening it also shows the sync doc in the right panel's peek (`peekDocId`). The heading's
+  // Active switch pauses or resumes the sync (`onSetActive`), open or folded.
   import type { ComponentProps } from 'svelte';
   import DisclosureButton from '$lib/ui/DisclosureButton.svelte';
   import SyncPrompt from './SyncPrompt.svelte';
   import SyncStatus from './SyncStatus.svelte';
+  import Switch from '$lib/ui/Switch.svelte';
+  import { submit } from '$lib/ui/submit';
   import { syncStatus } from '../last-sync';
   import { page } from '$app/state';
   import { closePeek, openPeek, PEEK_PARAM, peekValue } from '$lib/ui/peek-url';
@@ -16,9 +19,24 @@
   type Props = Omit<ComponentProps<typeof SyncPrompt>, 'badge'> & {
     /** The sync doc, shown in the right panel's peek while the section is open (not when it's already the open doc). */
     readonly peekDocId?: string | null;
+    /** Pauses (false) or resumes (true) the sync: the Active switch. Without it the switch is read-only. */
+    readonly onSetActive?: (active: boolean) => Promise<unknown>;
   };
 
-  const { peekDocId = null, ...props }: Props = $props();
+  const { peekDocId = null, onSetActive, ...props }: Props = $props();
+
+  // The switch shows what it was set to at once, and goes back if saving fails.
+  let pending = $state<boolean | null>(null);
+  let switchError = $state('');
+  const active = $derived(pending ?? props.active ?? true);
+  const setActive = async (next: boolean) => {
+    if (!onSetActive) return;
+    pending = next;
+    switchError = '';
+    const outcome = await submit(() => onSetActive(next));
+    pending = null;
+    if (!outcome.ok) switchError = outcome.error;
+  };
 
   // Opening the section shows what it writes beside it: the sync doc, in the peek. Folding it
   // closes that peek (and only that one).
@@ -45,15 +63,22 @@
         Sync
       </DisclosureButton>
     </h4>
-    {#if !expanded && props.active === false}<span class="status badge muted">Paused</span>
-    {:else if !expanded && status}<span class="status"><SyncStatus {...status} /></span>{/if}
+    {#if !expanded && status && active}<span class="status"><SyncStatus {...status} /></span>{/if}
+    {#if !props.creating}
+      <span class="active" class:alone={!(!expanded && status && active)}>
+        <Switch checked={active} label="Active" disabled={!onSetActive || pending !== null} title={active ? 'Synced from its sources. Turn off to pause it, keeping the prompt, sources and text.' : 'Paused: nothing syncs it. Turn on to sync it again from its sources.'} onchange={setActive} />
+      </span>
+    {/if}
   </div>
+  {#if switchError}<p class="form-error">{switchError}</p>{/if}
   <div hidden={!expanded}>
-    <SyncPrompt {...props} badge={false} />
+    <SyncPrompt {...props} {active} badge={false} />
   </div>
 </section>
 
 <style lang="scss">
   .section-header { justify-content: flex-start; }
   .status { margin-left: auto; }
+  .active { display: inline-flex; margin-left: var(--sp-3); }
+  .active.alone { margin-left: auto; }
 </style>

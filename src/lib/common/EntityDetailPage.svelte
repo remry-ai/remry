@@ -248,7 +248,7 @@
     await invalidateAll();
   };
 
-  // Pause or Resume: the prompt and sources stay; paused, nothing syncs it.
+  // The Sync heading's Active switch: off pauses it (the prompt and sources stay), on resumes it.
   const handleSetSyncActive = async (active: boolean): Promise<void> => {
     const holder = syncHolder;
     if (!holder) return;
