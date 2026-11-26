@@ -326,7 +326,16 @@ The user can ask for one write-up drawn from several sources, with where they di
 1. **Find them.** `sync.list` returns one row per unarchived entity to check: `entityType`, `entityId`, `label` and `path`; `sync` (its prompt, `docId`, `lastSync` and `need`) when it has an active sync, else null; and `links`, its tracked links with `syncedAt`, `sourceEditedAt` and `syncSource`. A doc with tracked links of its own is a row too. Archived entities and paused syncs are left out; don't sync those unless asked. Only an empty `sync.list` means there's nothing to check.
 2. **Check every link of each.** For each link, ask its tool when the source was last edited and compare it with the link's `sourceEditedAt` (or `syncedAt` when that's empty), reading the source only when it changed, as under **Tracked docs**. Do this whatever `need` says. On a row with a `sync`, take from each source only what its prompt asks for; a change outside it doesn't count, unless it contradicts the write-up. A wiki page's prompt is its `sync.prompt`; `doc.get --id <docId>` or `page.get` gives the current text.
 3. **Write only what changed.** On a row with a `sync`, where a covered part changed, rewrite and `sync.save` as under **Refreshing it**. On a row without one, update the entity's fields from a source it was imported from (**Importing from other tools**) and leave the rest to the note. Either way, `link.markSynced --id <link> --sourceEditedAt <its edited time>` every link you checked, changed or not.
-4. **A sync diff note.** For each entity where a source changed (its write-up rewritten, or, without a sync, what the source now says), `note.add --entityType <holder type> --entityId <holder id>` (a sync page's holder is the page itself) with content starting `Sync diff`. Keep it succinct: just the differences, with a few words of why only where a bare diff would puzzle. Name a source by its title when it matters, but don't link it: the sources are already on the entity. For example: `Sync diff: launch 30 Oct → 12 Nov (PRD); new risk: card-on-file vendor delay (Linear). Discrepancy with the project's target date is new.` No note when nothing changed.
+4. **A sync diff note.** For each entity where a source changed (its write-up rewritten, or, without a sync, what the source now says), `note.add --entityType <holder type> --entityId <holder id>` (a sync page's holder is the page itself) starting `Sync diff` on its own line, then one bullet per change. Keep it succinct: just the differences, as short fragments, with a few words of why only where a bare diff would puzzle. Name a source by its title in brackets when it matters, but don't link it: the sources are already on the entity. For example:
+
+   ```markdown
+   Sync diff
+   - Launch 30 Oct → 12 Nov (PRD)
+   - New risk: card-on-file vendor delay (Linear)
+   - Now disagrees with the project's target date
+   ```
+
+   No note when nothing changed.
 5. **Review its tables.** After each `sync.save`, read every table in the new text for how it will render: a column of long sentences squeezed beside several short ones, many columns, or a cell holding a paragraph. Fix it in the write-up and save again: shorten cells, move long text into a list under the table, split a wide table, or add a `<!-- table-cols: … -->` line above it giving the long column more room (on this review, the one time you add one unasked). Keep any widths the user set unless you changed that table's columns.
 6. **Show the results** in the chat once you're done, as markdown in this shape:
 
