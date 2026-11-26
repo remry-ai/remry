@@ -6,6 +6,7 @@ import type { SyncHolderRef } from '$shared/utils/sync-state';
 import { err, ok, type Result } from '$shared/utils/result';
 import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
+import { listSyncEntities } from './list';
 import { getSyncStatus, startSyncNow } from '$api/assist/sync';
 import { clearSyncError, getSync, requestSync, saveSyncText, setSyncActive, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
 
@@ -66,9 +67,14 @@ export const syncRouter = router({
     .input(z.object(holder))
     .mutation(({ ctx, input }) => inModel(ctx, input, () => clearSyncError(ctx.reg, input))),
 
+  // What "run the Remry sync" goes through: every entity kept up to date from outside sources.
+  list: procedure
+    .meta({ description: "Every unarchived entity to check when the user asks to sync (\"run the Remry sync\", \"sync docs\", a scheduled sync): each with an active sync (`sync`: its prompt, docId, lastSync and need) or tracked links, with those links (`links`: synced from a source, or marked syncSource, with syncedAt and sourceEditedAt). Check every link of every row for edits since its sourceEditedAt, whatever `need` says. Paused syncs are left out. Empty means the notebook has nothing synced or tracked." })
+    .query(async ({ ctx }) => ok((await listSyncEntities(ctx.reg)).filter((e) => e.entityType === 'DOC' || ctx.model.shows(e.entityType)))),
+
   // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure
-    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null): use it when the user asks to sync, and check every row's sources, since need null only means it was synced in the last week, not that its sources are unchanged. Paused syncs are left out." })
+    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null). Paused syncs are left out. When the user asks to sync, use sync.list instead: it also has entities tracked through their links alone." })
     // A default, not .optional(): an optional object's JSON schema hides its fields from the CLI and MCP.
     .input(z.object({ all: z.boolean().optional() }).default({}))
     .query(async ({ ctx, input }) => ok(await listSyncsNeeded(ctx.reg, input.all ?? false)))
