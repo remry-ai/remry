@@ -68,7 +68,7 @@ export const syncRouter = router({
 
   // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure
-    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null). Paused syncs are left out." })
+    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null): use it when the user asks to sync, and check every row's sources, since need null only means it was synced in the last week, not that its sources are unchanged. Paused syncs are left out." })
     // A default, not .optional(): an optional object's JSON schema hides its fields from the CLI and MCP.
     .input(z.object({ all: z.boolean().optional() }).default({}))
     .query(async ({ ctx, input }) => ok(await listSyncsNeeded(ctx.reg, input.all ?? false)))
