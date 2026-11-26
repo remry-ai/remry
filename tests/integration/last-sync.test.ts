@@ -99,6 +99,13 @@ describe('last sync', () => {
     // Failed ones come first, with the reason and where the doc is.
     expect(needed[0]).toMatchObject({ need: 'failed', lastSync: { message: 'Claude Code exited without a reply.' } });
     expect(needed.find((n) => n.id === never.doc.id)).toMatchObject({ need: 'never', on: { label: 'Never (last sync)' } });
+    // all: every unarchived one, the current ones last with no need.
+    const every = value(await api.sync.needed({ all: true }));
+    const everyIds = every.map((n) => n.id);
+    expect(everyIds).toEqual(expect.arrayContaining([fresh.doc.id, failed.doc.id, never.doc.id]));
+    expect(everyIds).not.toContain(archived.doc.id);
+    expect(every.find((n) => n.id === fresh.doc.id)).toMatchObject({ need: null });
+    expect(every.at(-1)?.need).toBeNull();
 
     const listed = value(await api.doc.list({ entityType: 'PROJECT', entityId: failed.project.id }));
     expect(listed.map((d) => d.syncNeed)).toEqual(['failed']);

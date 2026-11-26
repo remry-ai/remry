@@ -130,19 +130,22 @@ export interface SyncNeeded {
   readonly on: { readonly label: string; readonly path: string } | null;
   /** The synced entity, for sync.get and sync.save: the doc's entity, or the page. */
   readonly holder: SyncHolderRef;
-  readonly need: SyncNeed;
+  /** Null only with `all`: synced and current. */
+  readonly need: SyncNeed | null;
   readonly lastSync: LastSync | null;
   /** When the user asked for this sync in the app; null when they didn't. */
   readonly requestedAt: Date | null;
 }
 
 const NEED_ORDER: Readonly<Record<SyncNeed, number>> = { requested: 0, failed: 1, never: 2, stale: 3 };
+const needOrder = (need: SyncNeed | null): number => need ? NEED_ORDER[need] : 4;
 
 /**
  * Every sync doc and page that wants syncing: ones the user asked for first, then failed, then
  * never synced, then the longest since a sync. Leaves out archived pages, docs on archived entities, and spreadsheets.
+ * `all` also lists the ones that are current (need null), last: every sync doc and page to refresh.
  */
-export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Promise<readonly SyncNeeded[]> => {
+export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>, all = false): Promise<readonly SyncNeeded[]> => {
   const [docs, pages, archived] = await Promise.all([
     reg.prisma.doc.findMany({ where: { syncHolder: { not: null }, bodyType: 'doc' }, select: { id: true, title: true, entityType: true, entityId: true, ...LAST_SYNC_FIELDS } }),
     reg.prisma.page.findMany({ where: { prompt: { not: null }, archivedAt: null, bodyType: 'doc' }, select: { id: true, title: true, ...LAST_SYNC_FIELDS } }),
@@ -161,8 +164,8 @@ export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Pr
   const pageById = new Map(pages.map((p) => [p.id, p]));
 
   const rows = targets.flatMap((t): SyncNeeded[] => {
-    const need = needs.get(targetKey(t.entityType, t.id));
-    if (!need) return [];
+    const need = needs.get(targetKey(t.entityType, t.id)) ?? null;
+    if (!need && !all) return [];
     const doc = t.entityType === 'DOC' ? docById.get(t.id) : undefined;
     if (doc) {
       const holderType = doc.entityType as EntityType;
@@ -185,7 +188,7 @@ export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>): Pr
       : [];
   });
   return rows.sort((a, b) =>
-    NEED_ORDER[a.need] - NEED_ORDER[b.need]
+    needOrder(a.need) - needOrder(b.need)
     || (a.lastSync?.at.getTime() ?? 0) - (b.lastSync?.at.getTime() ?? 0)
     || a.title.localeCompare(b.title));
 };

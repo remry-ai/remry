@@ -63,6 +63,7 @@ export const syncRouter = router({
 
   // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure
-    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt." })
-    .query(async ({ ctx }) => ok(await listSyncsNeeded(ctx.reg)))
+    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null)." })
+    .input(z.object({ all: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => ok(await listSyncsNeeded(ctx.reg, input?.all ?? false)))
 });
