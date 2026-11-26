@@ -328,24 +328,43 @@ The user can ask for one write-up drawn from several sources, with where they di
 3. **Write only what changed.** On a row with a `sync`, where a covered part changed, rewrite and `sync.save` as under **Refreshing it**. On a row without one, update the entity's fields from a source it was imported from (**Importing from other tools**) and leave the rest to the note. Either way, `link.markSynced --id <link> --sourceEditedAt <its edited time>` every link you checked, changed or not.
 4. **A sync diff note.** For each entity where a source changed (its write-up rewritten, or, without a sync, what the source now says), `note.add --entityType <holder type> --entityId <holder id>` (a sync page's holder is the page itself) with content starting `Sync diff`. Keep it succinct: just the differences, with a few words of why only where a bare diff would puzzle. Name a source by its title when it matters, but don't link it: the sources are already on the entity. For example: `Sync diff: launch 30 Oct → 12 Nov (PRD); new risk: card-on-file vendor delay (Linear). Discrepancy with the project's target date is new.` No note when nothing changed.
 5. **Review its tables.** After each `sync.save`, read every table in the new text for how it will render: a column of long sentences squeezed beside several short ones, many columns, or a cell holding a paragraph. Fix it in the write-up and save again: shorten cells, move long text into a list under the table, split a wide table, or add a `<!-- table-cols: … -->` line above it giving the long column more room (on this review, the one time you add one unasked). Keep any widths the user set unless you changed that table's columns.
-6. **Show the results** in the chat, one line for every entity you considered, skipped ones included, written as you finish each:
+6. **Show the results** in the chat once you're done, as markdown in this shape:
 
-   ```
-   Syncing 4 entities with an active sync in Work…
-   · Checkout (project): updated. [Notion: Checkout PRD](<url>): launch 30 Oct → 12 Nov. Linear: Checkout unchanged.
-   · Vendor renewal (page): nothing to sync. Contract.pdf and Notion: Vendors unchanged since 3 Nov.
-   · Platform (group): skipped, couldn't read Confluence: Platform roadmap (Confluence isn't connected).
-   · Dana Park (person): nothing to sync, no sources.
-   Updated 1 of 4.
+   ```markdown
+   ## remry sync Nov 26
+
+   Checkout's launch slipped two weeks on a vendor delay; Platform dropped the Q1 migration from its roadmap.
+
+   ### [Checkout](<remry url>)
+   - [Notion: Checkout PRD](<source url>)
+     - Launch 30 Oct → 12 Nov
+     - Card-on-file dropped from v1
+   - [Linear: Checkout](<source url>)
+     - New risk: vendor SDK delay
+
+   ### [Platform](<remry url>)
+   - [Confluence: Platform roadmap](<source url>)
+     - Q1 migration removed
+
+   **Nothing to sync:** [Vendor renewal](<remry url>), [Dana Park](<remry url>)
+
+   **Skipped:** [Hiring plan](<remry url>): [Google Docs: Hiring plan](<source url>) couldn't be read (Google Drive isn't connected)
    ```
 
-   Each line names the entity and its type, then either updated, with the headline diff and a link to each source that changed; nothing to sync (no source changed what the prompt covers, or it has no sources); or skipped, with the source you couldn't read and why. When `sync.list` is empty, say the notebook has no active syncs or tracked links, and that archived entities and paused syncs were left out. Name every source you checked. Then the links to what you saved. This one log replaces **Tracked docs**' log per entity.
+   - **The title** is the run's title, "remry sync" and the date.
+   - **The summary** is a sentence or two on what the changes mean, across entities: what moved and why it matters. Never what you did (checked, rewrote, noted, marked synced).
+   - **A section for each entity that changed**, its heading a link to it in Remry (its `url`, or its `path` made a link as the Remry tools describe). Under it, a bullet for each source that changed, linked to the source, and nested under that, one short bullet per change. Leave out its sources that didn't change.
+   - **Then one line each** for the entities with nothing to sync and the ones skipped (with the source that couldn't be read, linked, and why), each entity a Remry link. Leave out a line with none.
+   - Keep it terse: changes as fragments ("Launch 30 Oct → 12 Nov"), no entity types, no counts, no closing remarks.
+   - When `sync.list` is empty, say only that the notebook has no active syncs or tracked links (archived entities and paused syncs are left out).
+
+   The source links go here only, never in the sync diff note. This replaces **Tracked docs**' log for the run.
 
 **Scheduling it.** "Create a scheduled task to run the Remry sync in Work at 8:45 daily": make a daily scheduled task at 8:45 in the user's time zone (ask if you don't know it). Each run starts a fresh conversation that has only the task's prompt, so write the prompt to stand on its own, naming the notebook and the full run:
 
-> Run the Remry sync in the Work notebook: use the remry skill's **Syncing them all**. Title this run "remry sync <month> <day>" with today's date, for example "remry sync Nov 26", and start the report with that title. Call sync_list with notebook "Work", check every link of every entity it lists for edits since the last sync (whatever its need), rewrite (where it has a sync) and add a "Sync diff" note where a source changed, review the tables, then list every entity: nothing to sync, the diff with the sources that changed, or what couldn't be read and why.
+> Run the Remry sync in the Work notebook: use the remry skill's **Syncing them all**. Title this run "remry sync <month> <day>" with today's date, for example "remry sync Nov 26", and make that the report's heading. Call sync_list with notebook "Work", check every link of every entity it lists for edits since the last sync (whatever its need), rewrite (where it has a sync) and add a "Sync diff" note where a source changed, review the tables, then report as its step 6 shows: a summary of what the changes mean, a section per changed entity titled with its Remry link, its changed sources linked with the changes nested under them, then the entities with nothing to sync and the skipped ones.
 
-Each run's title is "remry sync" and the day it ran, three-letter month then day with no leading zero ("remry sync Nov 26", "remry sync Dec 3"), so the runs read as a dated list; give the run that title where the client lets you, and put it as the report's first line. Name the connectors the sources need (Notion, Linear, Google Drive) when the scheduling tool asks which a run may use. Then tell the user when it first runs, and that a source whose tool isn't connected in that run is reported as skipped.
+Each run's title is "remry sync" and the day it ran, three-letter month then day with no leading zero ("remry sync Nov 26", "remry sync Dec 3"), so the runs read as a dated list; give the run that title where the client lets you, and make it the report's heading. Name the connectors the sources need (Notion, Linear, Google Drive) when the scheduling tool asks which a run may use. Then tell the user when it first runs, and that a source whose tool isn't connected in that run is reported as skipped.
 
 **Pausing it.** "Pause the Checkout brief", "stop syncing that until after launch": `sync.setActive --entityType <type> --entityId <id> --active false` (in the app, the switch beside the Sync heading). The prompt, sources and text stay as they are; `sync.needed` leaves it out, and `sync.save` and Trigger sync refuse it until `--active true` resumes it. `search.recall`'s `docs`, `doc.list` and `page.get` show it (`syncActive`). While it's paused, don't check its sources or rewrite it, even when you answer about the entity; say once that it's paused if that matters to the answer ("the brief is paused, last synced 3 Nov"). Pausing isn't clearing the prompt: offer `--prompt null` only when the user wants it to stop for good.
 
