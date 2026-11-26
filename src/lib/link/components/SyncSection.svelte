@@ -45,7 +45,8 @@
         Sync
       </DisclosureButton>
     </h4>
-    {#if !expanded && status}<span class="status"><SyncStatus {...status} /></span>{/if}
+    {#if !expanded && props.active === false}<span class="status badge muted">Paused</span>
+    {:else if !expanded && status}<span class="status"><SyncStatus {...status} /></span>{/if}
   </div>
   <div hidden={!expanded}>
     <SyncPrompt {...props} badge={false} />

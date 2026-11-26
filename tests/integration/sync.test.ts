@@ -166,3 +166,48 @@ describe('asking Claude to sync', () => {
     expect(!unsynced.ok && unsynced.error.message).toContain('give it a prompt first');
   });
 });
+
+describe('pausing a sync', () => {
+  it('keeps the prompt and sources, leaves it out of sync.needed and refuses a sync until resumed', async () => {
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    const project = must(await createProject(reg, { name: 'Paused sync' }));
+    const holder = { entityType: 'PROJECT' as const, entityId: project.id };
+    const docId = must(await setSyncPrompt(reg, holder, 'Scope.')).docId!;
+    const link = must(await addLink(reg, 'PROJECT', project.id, { url: 'https://www.notion.so/acme/paused', syncSource: true }));
+    must(await api.sync.request({ ...holder, requested: true }));
+    const before = must(await getDoc(reg, docId)).updatedAt;
+
+    must(await api.sync.setActive({ ...holder, active: false }));
+    // Pausing isn't an edit, and takes back the request.
+    expect(must(await getDoc(reg, docId))).toMatchObject({ syncActive: false, syncRequestedAt: null, prompt: 'Scope.' });
+    expect(must(await getDoc(reg, docId)).updatedAt.getTime()).toBe(before.getTime());
+    expect(must(await getSync(reg, holder))).toMatchObject({ active: false, prompt: 'Scope.', syncNeed: null, sources: [{ id: link.id }] });
+    expect(must(await listDocs(reg, 'PROJECT', project.id))[0]).toMatchObject({ syncActive: false, syncNeed: null });
+    expect(must(await api.sync.needed({ all: true })).some((n) => n.id === docId)).toBe(false);
+    expect(refusal(await api.sync.save({ ...holder, content: '# Scope' }))).toContain('paused');
+    expect(refusal(await api.sync.request({ ...holder, requested: true }))).toContain('paused');
+    // Its prompt stays editable, and stays paused.
+    must(await api.sync.setPrompt({ ...holder, prompt: 'Scope and dates.' }));
+    expect(must(await getSync(reg, holder))).toMatchObject({ active: false, prompt: 'Scope and dates.' });
+
+    must(await api.sync.setActive({ ...holder, active: true }));
+    expect(must(await getSync(reg, holder))).toMatchObject({ active: true, syncNeed: 'never' });
+    expect(must(await api.sync.needed()).some((n) => n.id === docId)).toBe(true);
+    must(await api.sync.save({ ...holder, content: '# Scope', syncedLinkIds: [link.id] }));
+  });
+
+  it('is resumed by clearing the prompt, and refused on an entity that isn\'t synced', async () => {
+    const project = must(await createProject(reg, { name: 'Paused then cleared' }));
+    const holder = { entityType: 'PROJECT' as const, entityId: project.id };
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    expect(refusal(await api.sync.setActive({ ...holder, active: false }))).toContain('isn\'t synced');
+    const docId = must(await setSyncPrompt(reg, holder, 'Scope.')).docId!;
+    must(await api.sync.setActive({ ...holder, active: false }));
+    must(await setSyncPrompt(reg, holder, null));
+    expect(must(await getDoc(reg, docId)).syncActive).toBe(true);
+  });
+});

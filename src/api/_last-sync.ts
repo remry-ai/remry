@@ -37,7 +37,18 @@ export interface SyncRecord {
 }
 
 /** The fields to select for `readLastSync`. */
-export const LAST_SYNC_FIELDS = { lastSyncAt: true, lastSyncBy: true, lastSyncOutcome: true, lastSyncMessage: true, syncRequestedAt: true } as const;
+export const LAST_SYNC_FIELDS = { lastSyncAt: true, lastSyncBy: true, lastSyncOutcome: true, lastSyncMessage: true, syncRequestedAt: true, syncActive: true } as const;
+
+/** What a write to a paused sync is told. */
+export const SYNC_PAUSED = 'Its sync is paused: the prompt and sources are kept, and nothing syncs it until it\'s resumed. Resume it with sync.setActive --active true (the app\'s Resume), or leave it.';
+
+/** True while the sync doc's or page's sync is paused (`sync_active` false). */
+export const isSyncPaused = async (reg: Pick<Registry, 'prisma'>, target: SyncTargetRef): Promise<boolean> => {
+  const row = target.entityType === 'DOC'
+    ? await reg.prisma.doc.findUnique({ where: { id: target.id }, select: { syncActive: true } })
+    : await reg.prisma.page.findUnique({ where: { id: target.id }, select: { syncActive: true } });
+  return row?.syncActive === false;
+};
 
 /** The last-sync columns to copy when a sync doc becomes a sync page, or back (entity.convert). */
 export const lastSyncColumnsOf = (row: LastSyncColumns): LastSyncColumns => ({
@@ -79,7 +90,7 @@ export const recordClaudeSync = async (reg: Pick<Registry, 'prisma' | 'now'>, li
   const link = await reg.prisma.link.findUnique({ where: { id: linkId }, select: { entityType: true, entityId: true, syncSource: true } });
   if (!link?.syncSource || !isSyncHolder(link.entityType)) return;
   const target = await findSyncTarget(reg, { entityType: link.entityType, entityId: link.entityId });
-  if (target) await recordSync(reg, target.entityType, target.id, { by: 'CLAUDE', outcome: 'OK' });
+  if (target && !(await isSyncPaused(reg, target))) await recordSync(reg, target.entityType, target.id, { by: 'CLAUDE', outcome: 'OK' });
 };
 
 export interface SyncNeedTarget {
@@ -90,6 +101,8 @@ export interface SyncNeedTarget {
   readonly lastSync: LastSync | null;
   /** When the user asked for a sync in the app, still waiting; null when not. */
   readonly requestedAt?: Date | null;
+  /** False while its sync is paused: then it wants nothing. */
+  readonly active?: boolean;
 }
 
 const targetKey = (entityType: string, id: string): string => `${entityType}:${id}`;
@@ -114,7 +127,7 @@ export const loadSyncNeeds = async (
   const now = reg.now();
   return new Map(targets.map((t) => [
     targetKey(t.entityType, t.id),
-    syncNeed(t.lastSync, sources.get(targetKey(t.holder.entityType, t.holder.entityId)) ?? [], now, t.requestedAt ?? null)
+    t.active === false ? null : syncNeed(t.lastSync, sources.get(targetKey(t.holder.entityType, t.holder.entityId)) ?? [], now, t.requestedAt ?? null)
   ]));
 };
 
@@ -144,11 +157,12 @@ const needOrder = (need: SyncNeed | null): number => need ? NEED_ORDER[need] : 4
  * Every sync doc and page that wants syncing: ones the user asked for first, then failed, then
  * never synced, then the longest since a sync. Leaves out archived pages, docs on archived entities, and spreadsheets.
  * `all` also lists the ones that are current (need null), last: every sync doc and page to refresh.
+ * A paused sync (`sync_active` false) is never listed.
  */
 export const listSyncsNeeded = async (reg: Pick<Registry, 'prisma' | 'now'>, all = false): Promise<readonly SyncNeeded[]> => {
   const [docs, pages, archived] = await Promise.all([
-    reg.prisma.doc.findMany({ where: { syncHolder: { not: null }, bodyType: 'doc' }, select: { id: true, title: true, entityType: true, entityId: true, ...LAST_SYNC_FIELDS } }),
-    reg.prisma.page.findMany({ where: { prompt: { not: null }, archivedAt: null, bodyType: 'doc' }, select: { id: true, title: true, ...LAST_SYNC_FIELDS } }),
+    reg.prisma.doc.findMany({ where: { syncHolder: { not: null }, syncActive: true, bodyType: 'doc' }, select: { id: true, title: true, entityType: true, entityId: true, ...LAST_SYNC_FIELDS } }),
+    reg.prisma.page.findMany({ where: { prompt: { not: null }, syncActive: true, archivedAt: null, bodyType: 'doc' }, select: { id: true, title: true, ...LAST_SYNC_FIELDS } }),
     loadArchivedIds(reg)
   ]);
   const activeDocs = docs.filter((d) => !isArchivedRef(archived, d.entityType, d.entityId));

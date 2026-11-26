@@ -26,6 +26,8 @@
     readonly syncNeed?: SyncNeed | null;
     /** A sync doc's last sync, for its date. */
     readonly lastSync?: LastSyncView | null;
+    /** False while a sync doc's sync is paused: it reads "Paused" instead of its dot. */
+    readonly syncActive?: boolean;
     readonly sortOrder: number;
   }
 
@@ -61,7 +63,10 @@
   const toggle = () => { expanded = !expanded; };
 
   // A sync doc's dot takes its colour from why it wants syncing; the date and details from its last sync.
-  const statusOf = (doc: Doc) => ({ ...syncStatus(doc.lastSync ?? null), tone: syncNeedTone(doc.syncNeed) });
+  // A paused one has a grey dot and says so.
+  const statusOf = (doc: Doc) => doc.syncActive === false
+    ? { tone: 'none' as const, text: 'Paused', title: 'Paused: the prompt and sources are kept, and nothing syncs it until it\'s resumed' }
+    : { ...syncStatus(doc.lastSync ?? null), tone: syncNeedTone(doc.syncNeed) };
 
   // The header shows the sync doc's dot alone, whenever there is one, so a folded list still says
   // how its last sync went: blue when current, amber when it wants syncing, red when it failed.

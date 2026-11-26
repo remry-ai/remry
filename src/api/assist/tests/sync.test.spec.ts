@@ -11,7 +11,9 @@ import { fakeLookup } from './fake-llm';
 vi.mock('$api/attached/sync/operations', () => ({ saveSyncText: vi.fn().mockResolvedValue({ ok: true, value: { entityType: 'PAGE', id: 'pg1' } }) }));
 vi.mock('$api/_last-sync', () => ({
   recordSync: vi.fn().mockResolvedValue(undefined),
-  findSyncTarget: vi.fn((_reg: unknown, holder: { entityId: string }) => Promise.resolve({ entityType: 'PAGE', id: holder.entityId }))
+  findSyncTarget: vi.fn((_reg: unknown, holder: { entityId: string }) => Promise.resolve({ entityType: 'PAGE', id: holder.entityId })),
+  isSyncPaused: vi.fn().mockResolvedValue(false),
+  SYNC_PAUSED: 'Its sync is paused.'
 }));
 
 const holder = { entityType: 'PAGE' as const, entityId: 'pg1' };

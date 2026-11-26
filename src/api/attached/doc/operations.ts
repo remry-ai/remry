@@ -30,6 +30,8 @@ export interface DocSummary {
   readonly lastSync: LastSync | null;
   /** When the user asked Claude in the app to sync it, still waiting; null when not. */
   readonly syncRequestedAt: Date | null;
+  /** False while a sync doc's sync is paused (sync.setActive); true for any other doc. */
+  readonly syncActive: boolean;
   readonly sortOrder: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -66,6 +68,7 @@ export const getDoc = async (
     isSync: doc.syncHolder !== null,
     lastSync: readLastSync(doc),
     syncRequestedAt: doc.syncRequestedAt,
+    syncActive: doc.syncActive,
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -96,12 +99,13 @@ export const listDocs = async (
     isSync: doc.syncHolder !== null,
     lastSync: readLastSync(doc),
     syncRequestedAt: doc.syncRequestedAt,
+    syncActive: doc.syncActive,
     sortOrder: doc.sortOrder,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt
   }));
   const needs = isSyncHolder(entityType)
-    ? await loadSyncNeeds(reg, summaries.filter((d) => d.isSync).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: d.lastSync, requestedAt: d.syncRequestedAt })))
+    ? await loadSyncNeeds(reg, summaries.filter((d) => d.isSync).map((d) => ({ entityType: 'DOC' as const, id: d.id, holder: { entityType, entityId }, lastSync: d.lastSync, requestedAt: d.syncRequestedAt, active: d.syncActive })))
     : new Map<string, SyncNeed | null>();
   return ok(summaries.map((d) => ({ ...d, syncNeed: needs.get(syncNeedKey('DOC', d.id)) ?? null })));
 };

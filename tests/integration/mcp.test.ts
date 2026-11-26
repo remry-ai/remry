@@ -69,6 +69,9 @@ describe('remry mcp', () => {
     expect(byName.get('person_list')?.inputSchema.properties?.['notebook']).toBeDefined();
     expect(byName.get('backup_snapshot')?.inputSchema.properties?.['notebook']).toBeDefined();
     expect(byName.get('notebook_list')?.inputSchema.properties?.['notebook']).toBeUndefined();
+    // An input with a default keeps its fields: sync_needed takes `all`; sync_setActive pauses a sync.
+    expect(byName.get('sync_needed')?.inputSchema.properties?.['all']).toBeDefined();
+    expect(byName.get('sync_setActive')?.inputSchema.properties?.['active']).toBeDefined();
   });
 
   it('works in the default notebook unless a call passes `notebook`', async () => {

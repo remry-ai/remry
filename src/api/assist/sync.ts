@@ -18,7 +18,7 @@ import { entityTypeLabel } from '$shared/utils/entity';
 import { requireDocument } from '$api/_body';
 import { saveSyncText } from '$api/attached/sync/operations';
 import { readyLlm } from './llm';
-import { findSyncTarget, recordSync } from '$api/_last-sync';
+import { findSyncTarget, isSyncPaused, recordSync, SYNC_PAUSED } from '$api/_last-sync';
 import type { SyncHolderRef } from '$shared/utils/sync-state';
 
 /** The assistant named as the program on this computer ("Claude Code"), apart from Claude in Cowork or the desktop app. */
@@ -72,6 +72,7 @@ export const startSyncNow = async (
   if (!target.ok) return err(target.error);
   const writable = await ensureWritable(reg, holder.entityType, holder.entityId);
   if (!writable.ok) return err(writable.error);
+  if (await isSyncPaused(reg, { entityType: target.value.kind, id: target.value.id })) return err(new Error(SYNC_PAUSED));
   const links = await reg.prisma.link.findMany({ where: { entityType: holder.entityType, entityId: holder.entityId, syncSource: true }, orderBy: { createdAt: 'asc' } });
   if (links.length === 0) return err(new Error('Choose a source first: add a link or a file as a source, or mark one of its links as a source.'));
   const { kind, id } = target.value;

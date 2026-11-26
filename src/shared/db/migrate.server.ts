@@ -105,7 +105,9 @@ export const ADDITIVE_MIGRATIONS: ReadonlySet<string> = new Set([
   // The page search triggers rewritten to index a drawing's text; nothing else changes.
   '20261107120000_drawing_search',
   // A nullable column on doc and page: a sync the user asked Claude for.
-  '20261122120000_sync_request'
+  '20261122120000_sync_request',
+  // A column on doc and page, defaulting to active: a paused sync. An older Remry syncs it anyway.
+  '20261126120000_sync_active'
 ]);
 
 /**

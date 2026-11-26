@@ -186,7 +186,7 @@ const projectToPage = async (reg: Reg, run: Run, projectId: string, parentId: st
     goals: project.goals.map(({ goal }) => ({ label: goal.title, path: entityPath('GOAL', goal.id) }))
   });
   // A synced project becomes a sync page: its sync doc's text follows the facts, and its prompt,
-  // last sync and sources (the project's links, which move below) come with it.
+  // whether it's paused, last sync and sources (the project's links, which move below) come with it.
   const syncDoc = await reg.prisma.doc.findUnique({ where: { syncHolder: syncHolderKey({ entityType: 'PROJECT', entityId: project.id }) } });
   const content = syncDoc?.content.trim() ? `${facts.trimEnd()}\n\n${syncDoc.content}` : facts;
 
@@ -196,7 +196,7 @@ const projectToPage = async (reg: Reg, run: Run, projectId: string, parentId: st
   run.created.push({ entityType: 'PAGE', id: page.value.id, title: project.name, path: page.value.path });
   await reg.prisma.page.update({
     where: { id: page.value.id },
-    data: { ...(sortOrder !== undefined && { sortOrder }), ...(syncDoc && { prompt: syncDoc.prompt, ...lastSyncColumnsOf(syncDoc) }) }
+    data: { ...(sortOrder !== undefined && { sortOrder }), ...(syncDoc && { prompt: syncDoc.prompt, syncActive: syncDoc.syncActive, ...lastSyncColumnsOf(syncDoc) }) }
   });
   if (syncDoc) {
     // What's on the sync doc itself (notes, comments) goes to the page; the doc goes with the project.
@@ -334,7 +334,7 @@ const pageToProject = async (
     if (synced) {
       await reg.prisma.doc.update({
         where: { id: docId },
-        data: { prompt: synced, syncHolder: syncHolderKey({ entityType: 'PROJECT', entityId: created.value.id }), sortOrder: -1, ...lastSyncColumnsOf(page) }
+        data: { prompt: synced, syncHolder: syncHolderKey({ entityType: 'PROJECT', entityId: created.value.id }), sortOrder: -1, syncActive: page.syncActive, ...lastSyncColumnsOf(page) }
       });
     }
     run.created.push({ entityType: 'DOC', id: docId, title: page.title, path: docPath('PROJECT', created.value.id, docId) });

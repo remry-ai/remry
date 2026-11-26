@@ -55,6 +55,7 @@
     readonly isSync?: boolean;
     /** When the user asked Claude to sync it, still waiting (doc.list). */
     readonly syncRequestedAt?: Date | string | null;
+    readonly syncActive?: boolean;
     /** A sync doc's last sync (doc.list). */
     readonly lastSync?: LastSyncView | null;
     /** Why a sync doc wants syncing (doc.list); null when it doesn't. */
@@ -244,6 +245,14 @@
     const holder = syncHolder;
     if (!holder) return;
     await submitOrThrow(() => trpc().sync.request.mutate({ ...holder, requested }));
+    await invalidateAll();
+  };
+
+  // Pause or Resume: the prompt and sources stay; paused, nothing syncs it.
+  const handleSetSyncActive = async (active: boolean): Promise<void> => {
+    const holder = syncHolder;
+    if (!holder) return;
+    await submitOrThrow(() => trpc().sync.setActive.mutate({ ...holder, active }));
     await invalidateAll();
   };
 
@@ -573,7 +582,7 @@
     {#if makingSync}
       <SyncSection prompt="" links={syncSources} creating onSave={handleSavePrompt} onAddLink={handleAddSource} onUploadFile={handleUploadSource} onCancel={() => { makingSync = false; }} />
     {:else if syncDoc?.prompt}
-      <SyncSection peekDocId={activeDoc?.id === syncDoc.id ? null : syncDoc.id} prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} onClearError={handleClearSyncError} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
+      <SyncSection peekDocId={activeDoc?.id === syncDoc.id ? null : syncDoc.id} prompt={syncDoc.prompt} links={syncSources} empty={!syncDoc.content.trim()} onSave={archivedAt ? undefined : handleSavePrompt} onAddLink={archivedAt ? undefined : handleAddSource} onUploadFile={archivedAt ? undefined : handleUploadSource} onSyncNow={archivedAt ? undefined : handleSyncDoc} requestedAt={syncDoc.syncRequestedAt ?? null} onRequest={archivedAt ? undefined : handleRequestSync} active={syncDoc.syncActive ?? true} onSetActive={archivedAt ? undefined : handleSetSyncActive} onClearError={handleClearSyncError} lastSync={syncDoc.lastSync ?? null} target={syncHolder ?? undefined} onRefresh={invalidateAll} />
     {/if}
 
     {#if acceptsDocs(entityType)}

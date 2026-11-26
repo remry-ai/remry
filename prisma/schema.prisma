@@ -153,6 +153,8 @@ model Doc {
   lastSyncMessage String?   @map("last_sync_message")
   /// When the user asked in the app for a sync by Claude (the next Claude chat that uses Remry does it); cleared by a sync.
   syncRequestedAt DateTime? @map("sync_requested_at")
+  /// False while the sync is paused: the prompt and sources are kept, and nothing syncs it until it's resumed.
+  syncActive      Boolean   @default(true) @map("sync_active")
   sortOrder  Int      @default(0) @map("sort_order")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -284,6 +286,8 @@ model Page {
   lastSyncMessage String?   @map("last_sync_message")
   /// When the user asked in the app for a sync by Claude; cleared by a sync.
   syncRequestedAt DateTime? @map("sync_requested_at")
+  /// False while the sync is paused: the prompt and sources are kept, and nothing syncs it until it's resumed.
+  syncActive      Boolean   @default(true) @map("sync_active")
   sortOrder  Int      @default(0) @map("sort_order")
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime @default(now()) @map("created_at")

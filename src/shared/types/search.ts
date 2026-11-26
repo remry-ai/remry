@@ -81,6 +81,8 @@ export interface RecallDoc {
   readonly prompt: string | null;
   /** The entity's one sync doc, written only from its sources (sync.save). */
   readonly isSync: boolean;
+  /** False while a sync doc's sync is paused (sync.setActive): don't sync it. */
+  readonly syncActive: boolean;
   readonly updatedAt: Date;
   /** A sync doc's last sync: when, by what (the app's Sync now or Claude) and how it went. Null if never. */
   readonly lastSync: LastSync | null;

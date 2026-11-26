@@ -34,6 +34,8 @@ export interface PageDetail extends PageSummary {
   readonly lastSync: LastSync | null;
   /** When the user asked Claude in the app to sync it, still waiting; null when not. */
   readonly syncRequestedAt: Date | null;
+  /** False while a sync page's sync is paused (sync.setActive); true for any other page. */
+  readonly syncActive: boolean;
   readonly parent: { readonly id: string; readonly title: string } | null;
   readonly children: readonly PageLink[];
   readonly createdAt: Date;

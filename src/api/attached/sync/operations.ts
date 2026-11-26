@@ -10,7 +10,7 @@ import { ok, err, type Result } from '$shared/utils';
 import { ensureWritable } from '$api/_archive';
 import { resolveEntityLabel } from '$api/_entity-labels';
 import { requireDocument } from '$api/_body';
-import { findSyncTarget, loadSyncNeeds, LAST_SYNC_FIELDS, syncNeedKey, type SyncTargetRef } from '$api/_last-sync';
+import { findSyncTarget, isSyncPaused, loadSyncNeeds, LAST_SYNC_FIELDS, SYNC_PAUSED, syncNeedKey, type SyncTargetRef } from '$api/_last-sync';
 import { listLinks, markLinkSynced, type LinkSummary } from '$api/attached/link/operations';
 import { updateDoc } from '$api/attached/doc/operations';
 import { updatePage } from '$api/page/operations';
@@ -33,6 +33,8 @@ export interface SyncView {
   readonly syncNeed: SyncNeed | null;
   /** When the user asked Claude in the app to sync it (sync.request), still waiting; null when not. */
   readonly requestedAt: Date | null;
+  /** False while its sync is paused (sync.setActive): the prompt and sources are kept, and nothing syncs it. True when it isn't synced. */
+  readonly active: boolean;
   /** Its links marked as sources, newest first. */
   readonly sources: readonly LinkSummary[];
 }
@@ -53,13 +55,13 @@ export const getSync = async (reg: Pick<Registry, 'prisma' | 'now'>, holder: Syn
   if (!links.ok) return err(links.error);
   const sources = links.value.filter((l) => l.syncSource);
   const target = await findSyncTarget(reg, holder);
-  if (!target) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, sources });
+  if (!target) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, active: true, sources });
   const row = target.entityType === 'DOC'
     ? await reg.prisma.doc.findUnique({ where: { id: target.id }, select: { prompt: true, ...LAST_SYNC_FIELDS } })
     : await reg.prisma.page.findUnique({ where: { id: target.id }, select: { prompt: true, ...LAST_SYNC_FIELDS } });
-  if (!row) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, sources });
+  if (!row) return ok({ ...holder, prompt: null, docId: null, lastSync: null, syncNeed: null, requestedAt: null, active: true, sources });
   const lastSync = readLastSync(row);
-  const needs = await loadSyncNeeds(reg, [{ ...target, holder, lastSync, requestedAt: row.syncRequestedAt }]);
+  const needs = await loadSyncNeeds(reg, [{ ...target, holder, lastSync, requestedAt: row.syncRequestedAt, active: row.syncActive }]);
   return ok({
     ...holder,
     prompt: row.prompt,
@@ -67,11 +69,12 @@ export const getSync = async (reg: Pick<Registry, 'prisma' | 'now'>, holder: Syn
     lastSync,
     syncNeed: needs.get(syncNeedKey(target.entityType, target.id)) ?? null,
     requestedAt: row.syncRequestedAt,
+    active: row.syncActive,
     sources
   });
 };
 
-const NO_SYNC = { lastSyncAt: null, lastSyncBy: null, lastSyncOutcome: null, lastSyncMessage: null } as const;
+const NO_SYNC = { lastSyncAt: null, lastSyncBy: null, lastSyncOutcome: null, lastSyncMessage: null, syncActive: true } as const;
 
 export interface SetPromptResult {
   /** The sync doc (made now on a first prompt); null for a wiki page, or once the prompt is cleared. */
@@ -82,7 +85,8 @@ export interface SetPromptResult {
  * Sets what the entity is synced with. A first prompt on a person, group, project or goal makes its
  * sync doc, empty, titled "<Name> brief" and first among its docs; on a wiki page it makes the
  * page's content the synced text (a spreadsheet or drawing page is refused). Null or blank clears
- * it: the sync doc stays as an ordinary doc, and the entity's links stop being sources.
+ * it: the sync doc stays as an ordinary doc, and the entity's links stop being sources. Editing the
+ * prompt of a paused sync keeps it paused.
  */
 export const setSyncPrompt = async (
   reg: Pick<Registry, 'prisma'>,
@@ -149,7 +153,7 @@ export interface SyncedSource {
  * Writes the entity's synced text: the one way a sync doc's text, or a sync page's content, changes.
  * Marks each of `synced` that is one of the entity's sources as synced now. Recording the sync
  * itself (by what, how it went) is the caller's: Claude's sync.save records one, Sync now records
- * when its job ends.
+ * when its job ends. Refused while the sync is paused.
  */
 export const saveSyncText = async (
   reg: Pick<Registry, 'prisma' | 'storage' | 'logger' | 'now' | 'uuid'>,
@@ -162,6 +166,7 @@ export const saveSyncText = async (
     if ((await resolveEntityLabel(reg, holder.entityType, holder.entityId)) === null) return err(NOT_FOUND(holder));
     return err(new Error('It isn\'t synced: give it a prompt first with sync.setPrompt, then mark its sources with link.add or link.update --syncSource true.'));
   }
+  if (await isSyncPaused(reg, target)) return err(new Error(SYNC_PAUSED));
   const saved = target.entityType === 'DOC'
     ? await updateDoc(reg, target.id, { content }, { fromSync: true })
     : await updatePage(reg, target.id, { content }, { fromSync: true });
@@ -192,6 +197,7 @@ export const requestSync = async (
   if (!target) return err(new Error('It isn\'t synced: give it a prompt first.'));
   const writable = await ensureWritable(reg, holder.entityType, holder.entityId);
   if (!writable.ok) return err(writable.error);
+  if (requested && await isSyncPaused(reg, target)) return err(new Error(SYNC_PAUSED));
   const requestedAt = requested ? reg.now() : null;
   // Asking for a sync isn't an edit: the row keeps its updatedAt.
   if (target.entityType === 'DOC') {
@@ -219,4 +225,32 @@ export const clearSyncError = async (reg: Pick<Registry, 'prisma'>, holder: Sync
   if (target.entityType === 'DOC') await reg.prisma.doc.update({ where: { id: target.id }, data: { lastSyncMessage: null, updatedAt: cleared.updatedAt } });
   else await reg.prisma.page.update({ where: { id: target.id }, data: { lastSyncMessage: null, updatedAt: cleared.updatedAt } });
   return ok({ cleared: true });
+};
+
+/**
+ * Pauses an entity's sync, or resumes it. Paused, it keeps its prompt, sources, text and last
+ * sync, but wants no sync (`syncNeed` null, left out of sync.needed), and sync.save, Trigger sync
+ * and Sync now refuse it. Pausing takes back a sync the user asked for. Keeps `updatedAt`.
+ */
+export const setSyncActive = async (
+  reg: Pick<Registry, 'prisma'>,
+  holder: SyncHolderRef,
+  active: boolean
+): Promise<Result<{ readonly active: boolean }>> => {
+  const target = await findSyncTarget(reg, holder);
+  if (!target) {
+    if ((await resolveEntityLabel(reg, holder.entityType, holder.entityId)) === null) return err(NOT_FOUND(holder));
+    return err(new Error('It isn\'t synced, so there\'s nothing to pause: give it a prompt first with sync.setPrompt.'));
+  }
+  const writable = await ensureWritable(reg, holder.entityType, holder.entityId);
+  if (!writable.ok) return err(writable.error);
+  const data = { syncActive: active, ...(!active && { syncRequestedAt: null }) };
+  if (target.entityType === 'DOC') {
+    const row = await reg.prisma.doc.findUniqueOrThrow({ where: { id: target.id }, select: { updatedAt: true } });
+    await reg.prisma.doc.update({ where: { id: target.id }, data: { ...data, updatedAt: row.updatedAt } });
+  } else {
+    const row = await reg.prisma.page.findUniqueOrThrow({ where: { id: target.id }, select: { updatedAt: true } });
+    await reg.prisma.page.update({ where: { id: target.id }, data: { ...data, updatedAt: row.updatedAt } });
+  }
+  return ok({ active });
 };

@@ -7,7 +7,7 @@ import { err, ok, type Result } from '$shared/utils/result';
 import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
 import { getSyncStatus, startSyncNow } from '$api/assist/sync';
-import { clearSyncError, getSync, requestSync, saveSyncText, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
+import { clearSyncError, getSync, requestSync, saveSyncText, setSyncActive, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
 
 const holder = { entityType: z.enum(SYNC_HOLDERS), entityId: z.string().min(1) };
 
@@ -17,7 +17,7 @@ const inModel = async <T>(ctx: Pick<Context, 'model'>, ref: SyncHolderRef, run: 
 
 export const syncRouter = router({
   get: procedure
-    .meta({ description: "An entity's sync: its prompt (null when it isn't synced), its sync doc (docId; a wiki page's own content is its text), lastSync, syncNeed and its sources (its links marked syncSource)." })
+    .meta({ description: "An entity's sync: its prompt (null when it isn't synced), whether it's active (false while paused), its sync doc (docId; a wiki page's own content is its text), lastSync, syncNeed and its sources (its links marked syncSource)." })
     .input(z.object(holder))
     .query(({ ctx, input }) => inModel(ctx, input, () => getSync(ctx.reg, input))),
 
@@ -32,8 +32,13 @@ export const syncRouter = router({
       return startsSync(current.value.prompt, input.prompt) ? gated(ctx, 'sync', run) : run();
     })),
 
+  setActive: procedure
+    .meta({ description: "Pauses an entity's sync (active: false) or resumes it (true). Paused, it keeps its prompt, sources and text, but sync.needed leaves it out and sync.save refuses it until it's resumed. Use it when the user wants a sync paused for a while; clearing the prompt (sync.setPrompt --prompt null) ends it instead." })
+    .input(z.object({ ...holder, active: z.boolean() }))
+    .mutation(({ ctx, input }) => inModel(ctx, input, () => setSyncActive(ctx.reg, input, input.active))),
+
   save: procedure
-    .meta({ description: "Writes an entity's synced text (its sync doc's markdown, or a sync page's content), the only way it changes, and records the sync. syncedLinkIds marks those sources synced now, as link.markSynced does." })
+    .meta({ description: "Writes an entity's synced text (its sync doc's markdown, or a sync page's content), the only way it changes, and records the sync. Refused while the sync is paused. syncedLinkIds marks those sources synced now, as link.markSynced does." })
     .input(z.object({ ...holder, content: z.string(), syncedLinkIds: z.array(z.string()).optional() }))
     .mutation(({ ctx, input }) => inModel(ctx, input, async () => {
       const saved = await saveSyncText(ctx.reg, input, input.content, (input.syncedLinkIds ?? []).map((id) => ({ id })));
@@ -63,7 +68,8 @@ export const syncRouter = router({
 
   // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure
-    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null)." })
-    .input(z.object({ all: z.boolean().optional() }).optional())
-    .query(async ({ ctx, input }) => ok(await listSyncsNeeded(ctx.reg, input?.all ?? false)))
+    .meta({ description: "Sync docs and pages that want syncing, most pressing first: `requested` (the user asked Claude to sync it in the app: do it now, with your connectors), then the last sync failed, never synced, or over a week old (`stale`). Each has its holder (search.recall it for the prompt and sources; sync.save it), path, need, lastSync and requestedAt. all: true lists every sync doc and page on an unarchived entity, current ones last (need null). Paused syncs are left out." })
+    // A default, not .optional(): an optional object's JSON schema hides its fields from the CLI and MCP.
+    .input(z.object({ all: z.boolean().optional() }).default({}))
+    .query(async ({ ctx, input }) => ok(await listSyncsNeeded(ctx.reg, input.all ?? false)))
 });

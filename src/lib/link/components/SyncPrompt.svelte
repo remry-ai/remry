@@ -7,6 +7,7 @@
   // "Sync now" (with onSyncNow) has the local Claude read the sources and rewrite the text now.
   // Under the prompt, a line says when it was last synced, by what, and how it went (`lastSync`);
   // with `target`, a sync still running when the page opens shows as running until it ends.
+  // Pause (with onSetActive) keeps the prompt and sources but stops syncs until Resume (`active`).
   import ProIcon from '$lib/ui/ProIcon.svelte';
   import { assistantName } from '$lib/stores/assistant';
   import { syncStatus, type LastSyncView } from '../last-sync';
@@ -66,9 +67,13 @@
     readonly onClearError?: () => Promise<unknown>;
     /** Reloads the page's data once that sync ends (onSyncNow does its own). */
     readonly onRefresh?: () => Promise<unknown>;
+    /** False while the sync is paused: kept as it is, and nothing syncs it until it's resumed. */
+    readonly active?: boolean;
+    /** Pauses (false) or resumes (true) the sync. */
+    readonly onSetActive?: (active: boolean) => Promise<unknown>;
   }
 
-  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, requestedAt = null, onRequest, onClearError, onRefresh }: Props = $props();
+  const { prompt, links, onSave, onAddLink, onUploadFile, creating = false, onCancel, empty = false, onSyncNow, lastSync = null, target, noun = 'doc', badge = true, requestedAt = null, onRequest, onClearError, onRefresh, active = true, onSetActive }: Props = $props();
 
   // Shown once it has sources: a dot and when, with the details in the tooltip.
   // Making a sync doc (its first prompt) is Remry Pro: without it, "Sync doc…" or "Make sync page" shows why instead of the prompt box.
@@ -113,6 +118,17 @@
     if (!outcome.ok) requestError = outcome.error;
   };
   const requestedWhen = $derived(requestedAt ? timeAgo(new Date(requestedAt)) : null);
+
+  // ----- Pausing: the prompt and sources stay, and nothing syncs it until it's resumed -----
+  let pausing = $state(false);
+  const setActive = async (next: boolean) => {
+    if (!onSetActive) return;
+    pausing = true;
+    requestError = '';
+    const outcome = await submit(() => onSetActive(next));
+    pausing = false;
+    if (!outcome.ok) requestError = outcome.error;
+  };
 
   // ----- Running -----
   let elapsed = $state(0);
@@ -200,17 +216,21 @@
     {#if creating}<span class="text-xs text-2">Say what Claude should take from each source; add the sources below, or mark links as sources.</span>
     {:else if syncing}<span class="text-xs text-2" aria-live="polite">{assistantHere} is reading {links.length} source{links.length === 1 ? '' : 's'} and rewriting this… {clock(elapsed)}</span>
     {:else if empty && !lastSync}<span class="text-xs text-2">Nothing written yet: choose Sync now, or ask Claude to write it.</span>
+    {:else if !active}<span class="badge muted" title="Paused: the prompt and sources are kept, and nothing syncs it until you resume it">Paused</span>
     {:else if status}<SyncStatus {...status} />{/if}
     {#if onRequest && !editing && !creating}
       <button type="button" class="btn icon sm ml-auto" aria-label="How sync docs work" title="How sync docs work" onclick={() => openPopup(SYNC_HELP_POPUP)}><HelpIcon /></button>
-      {#if requestedAt}
+      {#if !active}
+        {#if onSetActive}<button type="button" class="btn sm" onclick={() => setActive(true)} disabled={pausing} aria-busy={pausing} title="Sync it again from its sources">Resume</button>{/if}
+      {:else if requestedAt}
         <span class="badge accent" title="Waiting for the next Claude chat that uses Remry (Cowork, Claude desktop), which syncs it with your connectors">Sync triggered {requestedWhen}</span>
         <button type="button" class="btn ghost sm" onclick={() => request(false)} disabled={requesting}>Cancel</button>
       {:else}
         <button type="button" class="btn sm" onclick={() => request(true)} disabled={requesting || syncing || links.length === 0} aria-busy={requesting} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : 'The next Claude chat that uses Remry (Cowork, Claude desktop) syncs it, reading the sources with your claude.ai connectors'}>Trigger sync</button>
       {/if}
+      {#if active && onSetActive}<button type="button" class="btn ghost sm" onclick={() => setActive(false)} disabled={pausing || syncing} aria-busy={pausing} title="Stop syncing it for now, keeping the prompt and sources">Pause</button>{/if}
     {/if}
-    {#if onSyncNow && SYNC_NOW_SHOWN && !editing && !creating}
+    {#if onSyncNow && SYNC_NOW_SHOWN && active && !editing && !creating}
       <button type="button" class="btn sm" class:ghost={!!onRequest} class:ml-auto={!onRequest} onclick={syncNow} disabled={syncing || links.length === 0} aria-busy={syncing} title={links.length === 0 ? 'Add a source first, or mark one of its links as a source' : `${assistantHere} reads each source now, with only the connectors it has here, and rewrites the text from the prompt`}>{syncing ? 'Syncing…' : 'Sync now'}{#if !syncing}<ProIcon />{/if}</button>
     {/if}
     {#if onSave && !editing}
@@ -262,6 +282,7 @@
       <li><strong>The prompt</strong> says what to take from each source and what to watch for, for example: <em>PRD: scope and launch plan. Linear: status and dates. Flag any disagreement.</em> Edit it with the pencil.</li>
       <li><strong>The sources</strong> are this page's links marked with the sync icon in the sidebar's Links. Click a link's icon to make it a source or not; add a link or upload a file here to add one.</li>
       <li><strong>Trigger sync</strong> asks Claude to sync it. The next Claude chat that uses Remry (Cowork, Claude desktop or Claude Code) reads the sources with your connectors and rewrites it. You can also just ask Claude in a chat to sync it.</li>
+      <li><strong>Pause</strong> stops syncing it for a while, keeping the prompt, sources and text; <strong>Resume</strong> picks it up again.</li>
       <li><strong>Discrepancies</strong>: where sources disagree, Claude lists each side at the end rather than picking one, and never changes your own fields to match.</li>
       <li><strong>Only Claude writes it.</strong> To edit it by hand, clear the prompt: it becomes an ordinary {noun}.</li>
     </ul>
