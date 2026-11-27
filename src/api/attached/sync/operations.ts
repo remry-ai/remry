@@ -254,3 +254,12 @@ export const setSyncActive = async (
   }
   return ok({ active });
 };
+
+/** The longest change line, and the most lines, a sync diff note takes. */
+export const SYNC_DIFF_LIMITS = { line: 300, lines: 30 } as const;
+
+/** A sync diff note's text: "Sync diff", then a bullet per change (a leading "- " is dropped, blanks skipped). */
+export const syncDiffNote = (changes: readonly string[]): string | null => {
+  const lines = changes.map((c) => c.trim().replace(/^[-*•]\s+/, '').trim()).filter((c) => c.length > 0);
+  return lines.length > 0 ? ['Sync diff', ...lines.map((l) => `- ${l}`)].join('\n') : null;
+};

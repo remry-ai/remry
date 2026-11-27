@@ -8,7 +8,8 @@ import { gated, startsSync } from '$api/_license';
 import { listSyncsNeeded, recordSync } from '$api/_last-sync';
 import { listSyncEntities } from './list';
 import { getSyncStatus, startSyncNow } from '$api/assist/sync';
-import { clearSyncError, getSync, requestSync, saveSyncText, setSyncActive, setSyncPrompt, SYNC_PROMPT_LIMIT } from './operations';
+import { clearSyncError, getSync, requestSync, saveSyncText, setSyncActive, setSyncPrompt, SYNC_DIFF_LIMITS, SYNC_PROMPT_LIMIT, syncDiffNote } from './operations';
+import { addNote } from '$api/attached/note/operations';
 
 const holder = { entityType: z.enum(SYNC_HOLDERS), entityId: z.string().min(1) };
 
@@ -39,13 +40,21 @@ export const syncRouter = router({
     .mutation(({ ctx, input }) => inModel(ctx, input, () => setSyncActive(ctx.reg, input, input.active))),
 
   save: procedure
-    .meta({ description: "Writes an entity's synced text (its sync doc's markdown, or a sync page's content), the only way it changes, and records the sync. Refused while the sync is paused. syncedLinkIds marks those sources synced now, as link.markSynced does." })
-    .input(z.object({ ...holder, content: z.string(), syncedLinkIds: z.array(z.string()).optional() }))
+    .meta({ description: "Writes an entity's synced text (its sync doc's markdown, or a sync page's content), the only way it changes, and records the sync. Refused while the sync is paused. syncedLinkIds marks those sources synced now, as link.markSynced does. diff: what changed since the last sync, one short line per change (\"Launch 30 Oct → 12 Nov (PRD)\", sources named, not linked): it's added as a \"Sync diff\" note on the entity (noteId in the result). Pass it on every save that changes the text, except the first write-up." })
+    .input(z.object({
+      ...holder,
+      content: z.string(),
+      syncedLinkIds: z.array(z.string()).optional(),
+      diff: z.array(z.string().max(SYNC_DIFF_LIMITS.line)).max(SYNC_DIFF_LIMITS.lines).optional()
+    }))
     .mutation(({ ctx, input }) => inModel(ctx, input, async () => {
       const saved = await saveSyncText(ctx.reg, input, input.content, (input.syncedLinkIds ?? []).map((id) => ({ id })));
       if (!saved.ok) return err(saved.error);
       await recordSync(ctx.reg, saved.value.entityType, saved.value.id, { by: 'CLAUDE', outcome: 'OK' });
-      return ok(saved.value);
+      const note = syncDiffNote(input.diff ?? []);
+      if (!note) return ok({ ...saved.value, noteId: null as string | null });
+      const added = await addNote(ctx.reg, input.entityType, input.entityId, { content: note });
+      return added.ok ? ok({ ...saved.value, noteId: added.value.id }) : err(new Error(`Saved the text, but not its sync diff note: ${added.error.message}`));
     })),
 
   // Web app only, like chat: "Sync now" (see $api/assist/sync.ts).

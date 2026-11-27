@@ -243,3 +243,21 @@ describe('sync.list, what "run the Remry sync" goes through', () => {
     expect(rows.every((r) => r.sync.prompt.length > 0)).toBe(true);
   });
 });
+
+describe('sync.save with a diff', () => {
+  it('adds a "Sync diff" note on the entity, one bullet per change, and none without one', async () => {
+    const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
+    if (!notebook.ok) throw notebook.error;
+    const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
+    const project = must(await createProject(reg, { name: 'Diffed brief' }));
+    const holder = { entityType: 'PROJECT' as const, entityId: project.id };
+    must(await setSyncPrompt(reg, holder, 'Scope.'));
+
+    // The first write-up has nothing to compare with.
+    expect(must(await api.sync.save({ ...holder, content: '# Scope' })).noteId).toBeNull();
+    const saved = must(await api.sync.save({ ...holder, content: '# Scope\nLaunch 12 Nov.', diff: ['Launch 30 Oct → 12 Nov (PRD)', '- New risk: vendor delay (Linear)', '  '] }));
+    const notes = must(await api.note.list({ entityType: 'PROJECT', entityId: project.id }));
+    expect(notes.map((n) => n.id)).toEqual([saved.noteId]);
+    expect(notes[0]?.content).toBe('Sync diff\n- Launch 30 Oct → 12 Nov (PRD)\n- New risk: vendor delay (Linear)');
+  });
+});
