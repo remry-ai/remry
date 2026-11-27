@@ -69,8 +69,8 @@ export const syncRouter = router({
 
   // What "run the Remry sync" goes through: every entity kept up to date from outside sources.
   list: procedure
-    .meta({ description: "Every unarchived entity to check when the user asks to sync (\"run the Remry sync\", \"sync docs\", a scheduled sync): each with an active sync (`sync`: its prompt, docId, lastSync and need) or tracked links, with those links (`links`: synced from a source, or marked syncSource, with syncedAt and sourceEditedAt). Check every link of every row for edits since its sourceEditedAt, whatever `need` says. Paused syncs are left out. Empty means the notebook has nothing synced or tracked." })
-    .query(async ({ ctx }) => ok((await listSyncEntities(ctx.reg)).filter((e) => e.entityType === 'DOC' || ctx.model.shows(e.entityType)))),
+    .meta({ description: "Every unarchived entity with an active sync that has a prompt, to check when the user asks to sync (\"run the Remry sync\", \"sync docs\", a scheduled sync): `sync` (its prompt, docId, lastSync and need) and `links`, its sync sources (with syncedAt and sourceEditedAt). Check every link of every row for edits since its sourceEditedAt, whatever `need` says. Paused syncs and links that aren't sync sources are left out. Empty means the notebook has no active syncs." })
+    .query(async ({ ctx }) => ok((await listSyncEntities(ctx.reg)).filter((e) => ctx.model.shows(e.entityType)))),
 
   // Sync docs and pages that want syncing: Claude's to-do list.
   needed: procedure

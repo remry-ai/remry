@@ -213,39 +213,33 @@ describe('pausing a sync', () => {
 });
 
 describe('sync.list, what "run the Remry sync" goes through', () => {
-  it('lists every unarchived entity with an active sync or tracked links, with those links', async () => {
+  it('lists only unarchived entities with an active sync that has a prompt, with their sync sources', async () => {
     const notebook = await resolveCurrentNotebook({ explicit: TEST_NOTEBOOK });
     if (!notebook.ok) throw notebook.error;
     const api = createCallerFactory(appRouter)(await createNotebookContext(notebook.value));
-    // Tracked through links alone: no prompt, so sync.needed never lists it.
-    const tracked = must(await createProject(reg, { name: 'Tracked by links' }));
-    const linear = must(await addLink(reg, 'PROJECT', tracked.id, { url: 'https://linear.app/acme/project/tracked', title: 'Linear: Tracked', synced: true }));
-    must(await addLink(reg, 'PROJECT', tracked.id, { url: 'https://dashboards.example/plain', title: 'A plain reference' }));
-    // An active sync with a source.
+    // An active sync: its sync sources only, not its other links.
     const synced = must(await createProject(reg, { name: 'Synced brief' }));
     const docId = must(await setSyncPrompt(reg, { entityType: 'PROJECT', entityId: synced.id }, 'Scope.')).docId!;
     const source = must(await addLink(reg, 'PROJECT', synced.id, { url: 'https://www.notion.so/acme/synced', syncSource: true }));
-    // A tracked link on a doc.
+    must(await addLink(reg, 'PROJECT', synced.id, { url: 'https://linear.app/acme/project/synced-tracked', synced: true }));
+    // Left out: tracked links with no prompt, a doc's own tracked link, a paused sync, an archived entity's sync.
+    const tracked = must(await createProject(reg, { name: 'Tracked by links' }));
+    must(await addLink(reg, 'PROJECT', tracked.id, { url: 'https://linear.app/acme/project/tracked', synced: true }));
     const holder = must(await createProject(reg, { name: 'Holds a tracked doc' }));
     const doc = must(await addDoc(reg, 'PROJECT', holder.id, { title: 'Spec' }));
-    const docLink = must(await addLink(reg, 'DOC', doc.id, { url: 'https://docs.google.com/document/d/spec', synced: true }));
-    // Left out: a paused sync, and an archived entity with a tracked link.
+    must(await addLink(reg, 'DOC', doc.id, { url: 'https://docs.google.com/document/d/spec', synced: true }));
     const paused = must(await createProject(reg, { name: 'Paused brief' }));
     must(await setSyncPrompt(reg, { entityType: 'PROJECT', entityId: paused.id }, 'Scope.'));
-    must(await addLink(reg, 'PROJECT', paused.id, { url: 'https://www.notion.so/acme/paused-list', syncSource: true, synced: true }));
     must(await api.sync.setActive({ entityType: 'PROJECT', entityId: paused.id, active: false }));
-    const archived = must(await createProject(reg, { name: 'Archived tracked' }));
-    must(await addLink(reg, 'PROJECT', archived.id, { url: 'https://linear.app/acme/project/archived', synced: true }));
+    const archived = must(await createProject(reg, { name: 'Archived brief' }));
+    must(await setSyncPrompt(reg, { entityType: 'PROJECT', entityId: archived.id }, 'Scope.'));
     must(await setArchived(reg, 'PROJECT', archived.id, true));
 
     const rows = must(await api.sync.list());
     const byId = new Map(rows.map((r) => [r.entityId, r]));
-    expect(byId.get(tracked.id)).toMatchObject({ label: 'Tracked by links', sync: null, links: [{ id: linear.id }] });
-    expect(byId.get(synced.id)).toMatchObject({ sync: { docId, prompt: 'Scope.', need: 'never' }, links: [{ id: source.id, syncSource: true }] });
-    expect(byId.get(doc.id)).toMatchObject({ entityType: 'DOC', label: 'Spec', links: [{ id: docLink.id }] });
-    expect(byId.has(paused.id)).toBe(false);
-    expect(byId.has(archived.id)).toBe(false);
-    // Synced ones come first.
-    expect(rows[0]?.sync).not.toBeNull();
+    expect(byId.get(synced.id)).toMatchObject({ label: 'Synced brief', sync: { docId, prompt: 'Scope.', need: 'never' } });
+    expect(byId.get(synced.id)?.links.map((l) => l.id)).toEqual([source.id]);
+    for (const left of [tracked.id, holder.id, doc.id, paused.id, archived.id]) expect(byId.has(left)).toBe(false);
+    expect(rows.every((r) => r.sync.prompt.length > 0)).toBe(true);
   });
 });
