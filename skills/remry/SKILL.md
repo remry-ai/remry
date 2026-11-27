@@ -1,0 +1,459 @@
+---
+name: remry
+description: Read and write the user's local Remry notebooks (separate ones for work, home life and personal projects) — their people and groups (teams, departments, families, friend groups — a group's kind is defined per notebook), reporting lines, friends and family and how they're related, projects and who owns them, goals with targets and check-ins, a wiki of pages, spreadsheets and drawings (policies, software, expenses, recipes, places, home things, tax records), relations between any of these, notes, docs (with charts), recurring todos and tags. Use whenever the user talks about the people or teams they work with, friends, family, birthdays, who is whose partner, sibling or parent, bills, subscriptions, recurring expenses, taxes, recipes, places to visit, things around the house, personal projects, 1:1s, who reports to whom, org changes ("X moved to team Y", "Z is now X's manager"), projects, goals, OKRs, targets or progress ("we're at 80%", "that goal is at risk"), policies, products, the software or vendors they use, decisions, wiki pages, links between things ("link X to Y", "X depends on Y", "team X uses Y"), follow-ups or reminders about their work, meetings and calendar events (prep, "brief me before my meetings", "what's my next meeting about"), asks you to "remember", "note", "log" or "track" something about their org, wants a report or write-up about a person, team, project or goal, wants a PDF imported into their notes, or wants projects, issues, pages or people from Linear, Notion, Jira, GitHub or another tool brought into their notes. Also whenever they ask to run the Remry sync, sync their docs or sync docs, or to schedule that.
+---
+
+# Remry
+
+Local notebooks on this computer, stored in SQLite in the user's app data folder (`~/Library/Application Support/Remry` on macOS, `%LOCALAPPDATA%\Remry` on Windows, `~/.local/share/remry` on Linux). Each notebook (their work, their home life, a side project) has its own people, projects, notes and files, and nothing is shared between notebooks. You are the main way data gets in. The user browses them in a web UI.
+
+On a phone, the user can reach you through Claude desktop's Remote Control: the session runs on their Mac, so these tools work the same way.
+
+## Calling it
+
+The notebooks are reachable in two ways, and the app does **not** need to be running for either. Use whichever this session has; if it has both, use the MCP tools.
+
+**MCP tools** from the `remry` server, in Claude desktop Chat, Cowork and Claude Code. Each tool is one procedure, with `_` in place of `.`: `person_list`, `person_create`, `note_add`. Pass inputs as the tool's arguments, and long text inline (there are no `-file` inputs). Every tool except `notebook_*` also takes an optional `notebook`. `backup_snapshot` and `backup_list` handle snapshots, `app_open` starts the app on this computer and returns its link, and `app_restart` stops and starts it again (when the user asks, or the app is stuck or out of date). From a terminal, `remry app restart` does the same.
+
+**In Cowork, or any other sandbox, use only the MCP tools.** The notebooks live on the user's Mac, in `~/Library/Application Support/Remry`, which a sandbox can't see, and `remry` isn't installed there.
+- Never read, list, copy or `cat` that folder, open its database, or run `remry` from a sandbox.
+- Don't ask the user to attach that folder to the session: the database must not be opened from the sandbox and the Mac at once.
+- To start or open the app, call `app_open`; it starts the app on the Mac. Never try to start it any other way.
+- The tools may be deferred: if `notebook_list` isn't listed, search for "remry" with your tool-search tool before deciding they're missing.
+- If the Remry tools (`notebook_list`, `person_list` and so on) still aren't in this session, stop and tell the user. They need the current Remry plugin installed, and the Cowork session started on their Mac, not in the cloud, with the Claude desktop app open. Local MCP servers don't run in cloud sessions.
+
+**The `remry` CLI**, only in a shell on the user's own Mac (for example Claude Code), not in a sandbox:
+
+```bash
+remry help                    # every procedure
+remry help person.create      # one procedure's inputs, types and limits
+remry person.list
+remry person.create --name "Dana Park" --extensions '{"org":{"title":"Senior Engineer"}}'
+```
+
+- If the shell says `remry: command not found`, use the first of these that exists, wherever this skill says `remry`:
+  - the desktop app's copy: `"$HOME/Library/Application Support/Remry/App/current/remry"` (on Windows, `"$env:LOCALAPPDATA\Remry\App\current\remry.exe"`)
+  - a clone set up with `bun run setup`: `"$(cat "$HOME/Library/Application Support/Remry/app-path")/bin/remry"` (on Linux, `"$(cat "${XDG_DATA_HOME:-$HOME/.local/share}/remry/app-path")/bin/remry"`)
+- If neither the tools nor `remry` work, or they say Remry isn't set up, tell the user what you saw and stop. Setup is theirs to do: install the Remry desktop app from https://github.com/remry-ai/remry/releases/latest and open it once. Don't look for the data folder yourself.
+- stdout is JSON. Most calls return `{"ok": true, "value": ...}` or `{"ok": false, "error": {"message": ...}}`. Exit code 1 means failure; read the message and fix the call.
+- Values are typed by each procedure's schema: `--priority 2` is a number, `--title 2024` stays a string, and `null` clears a field (`--email null`, or `{"org":{"title":null}}` in `--extensions`).
+- The MCP tools' results leave out fields that are empty (null or an empty list), so a missing field is empty. `remry`'s JSON keeps them.
+- For long text, write it to a file and pass `--content-file path.md` (any `--<field>-file`). For awkward input, pass `--input '{"...": ...}'`.
+
+## Notebooks
+
+Every call works on one notebook: the default, unless you name another.
+
+- **Start with `notebook.list`** (`notebook_list`). It shows each notebook's id and name, and marks the default.
+- **Pick the notebook the user means.** Their job belongs in their work notebook, and a side project in its own. If there's more than one notebook and you can't tell, ask.
+- **Name it on the call** to use a notebook other than the default: `--notebook <id or name>` on any CLI call, or `notebook` in any tool's arguments. Keep passing it for every call in that notebook, lookups included.
+- **Ids don't carry across notebooks.** Look people, groups and projects up in the notebook you're writing to.
+- **Say which notebook** you read or wrote when there's more than one: "Added Dana Park to Platform, in Work".
+- **A notebook's profile** is `work` or `home` (`notebook.list` shows it), and picks its **modules**:
+  - `work`: the **org** module (a person's title and lead, Team and Department groups, the org map) and **goals**.
+  - `home`: the **personal** module (a person's birthday and how you know them, Family and Friends groups, partner/parent/sibling/friend relations).
+  - Everything else (people, groups, projects, pages, docs, notes, todos, relations, tags, search) is the same in both. A tool for a module the notebook doesn't have (`goal_*` in a home notebook, or an `org` field) is refused with a message saying so; don't retry it there.
+- `notebook.create --name "Garden"` makes a notebook; its id comes from the name (`-2` and so on when taken), so leave `--id` out unless the user asks for one. Add `--profile home` for home life. A work notebook starts with the group kinds TEAM and DEPARTMENT, a home one with FAMILY and FRIENDS. `notebook.setProfile --id <id> --profile home` changes it, only when the user asks. `notebook.setDefault --id <id>` changes the default for every later call, so do it only when the user asks. There is no delete: the user removes a notebook themselves.
+
+## Rules
+
+1. **Look before you write**, in the notebook you're writing to. Find ids with `person.list`, `group.list` (`--kind TEAM`), `project.list`, `goal.list` and `page.list`, or `search.query` when you only know roughly what it's called. Match names and titles case-insensitively. Never create a second goal or page with a title that already exists (`goal.list` leaves out done and dropped goals, so check with `--closed include`). `person.create`, `group.create` and `project.create` refuse a name already in use (archived ones too) and name the one that exists: update that one instead. Pass `allowDuplicate: true` only when the user confirms it's a different person or thing with the same name.
+2. **Ask when it's ambiguous.** For example, two people match "Sam", or it's unclear which project a note belongs to.
+3. **Confirm before deleting anything**, and say exactly what will be removed. When someone leaves, or a group, project, goal or page is finished, offer to **archive** it instead: archiving keeps its history, and deleting removes everything attached to it.
+4. **Snapshot before bulk or destructive changes.** That means any delete, or more than about five writes in one go:
+   `backup_snapshot` with a reason like "before <what>", or `remry backup --force --reason "before <what>"`
+   Deleting a project, goal or wiki page also deletes its sub-projects, sub-goals or sub-pages at any depth, and everything attached to them (goals linked to a project, and projects linked to a goal, are kept). When you confirm a delete, name what goes with it ("Q4 migration, its 2 sub-projects and their 5 docs"); `search.recall` and `project.get` / `goal.get` / `page.get` show what's under it.
+5. **Report back by name.** Say "Added Dana Park to Platform, reporting to Alice Johnson", not ids.
+6. **Keep the user's words.** A note records what they said. Don't embellish or summarise it unless asked.
+7. **Leave out archived items and finished todos** unless the user asks for them ("archived", "old", "everything", "what did I finish", "including done"). Lists and search already skip archived entities; don't pass `--archived only|include` or `--includeArchived true` on your own. `todo.list`, `todo.forEntity` and an entity's `get` also return `COMPLETE` and `CANCELLED` todos: drop them from what you show, count or summarise (or pass `todo.list --status ACTIVE` / `PENDING`). Don't mention an archived entity that a `get`, a relation or a mention turns up, unless it answers the question. When leaving things out changes the answer ("no open todos"), say so in a few words, so the user knows they can ask for the rest.
+8. **Link everything you created or changed.** End every reply that wrote something with a markdown link to each item, by name, so the user can open it: `[Dana Park](<app address>/app/people/<id>?notebook=<notebook id>&open=app)`. See **Links to what you changed** below.
+
+## Links to what you changed
+
+After any write (create, update, add, attach, check-in, archive), list what changed at the end of your reply, one link per item. Don't link deleted items; name them.
+
+- **Use the `url` in the result.** The item a get, create or update returns comes back with a `url` beside its `path`: the full link, with the notebook and `open=app` already in it. Give the user that, unchanged. Rows of a list and items nested in a result have only their `path`.
+- **Otherwise, build it** the same way: the app's address from `app_open` (its scheme, host and port, for example `http://localhost:7369`) + the item's path + `?notebook=<notebook id>&open=app` (`&` instead of the first `?` when the path already has a query). `open=app` shows the item in the Remry desktop app's window when it's installed, and in the browser otherwise. Always add the notebook, so the link opens in the right one. The links work only while the app is running: call `app_open` once (with the notebook) if you haven't this session, and use the address it returns.
+- **Paths,** when an item has no `url`: `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, `/app/wiki/<id>`.
+- **Things attached to an entity** link to that entity's page: a note, tag, link, relation, group membership or goal check-in. A doc opens with `?doc=<doc id>` on its entity's path. A todo opens with `/app/todos?popup=todo&todo=<todo id>`.
+- **Several changes to one item** are one link. For more than about ten items, link the ten that matter most and say how many more there are.
+
+```markdown
+Added to Work:
+- [Dana Park](http://localhost:7369/app/people/abc123?notebook=work&open=app), on [Platform](http://localhost:7369/app/groups/def456?notebook=work&open=app)
+- Todo: [Book 1:1 with Dana](http://localhost:7369/app/todos?popup=todo&todo=ghi789&notebook=work&open=app)
+```
+
+## Showing todos
+
+Whenever you list todos in chat (what's due, a person's open todos, the result of `todo.list`), show them as an interactive widget the user can update, if this session can show one inline (the `show_widget` tool in Claude desktop Chat and Cowork; follow that tool's own setup first).
+
+- Build it from the template in [references/todo-widget.md](references/todo-widget.md), filled with the todos, their app links and the notebook id. Keep your explanation in the reply, not in the widget.
+- The user ticks todos done, moves dates and changes priorities, then presses **Save changes**. That sends you a message listing each change by todo id. Make each one with `todo_update` (`status`, `targetDate`, `priority`; `null` clears the date), without listing the todos again first. Then reply with the links, as for any write. Completing a recurring todo returns `nextId`: say when the next one is due.
+- For one or two todos, or without a widget tool (Claude Code in a terminal, say), list them in markdown with their links instead.
+
+## Meeting briefs
+
+With a calendar connected to Claude, brief the user just before a meeting: the big takeaways on who they're meeting, not a dump of the notebook.
+
+**Setting it up** ("brief me 5 minutes before each meeting"): this needs the calendar's tools and a scheduled task on the user's computer (the Remry tools don't run in the cloud). If either is missing, say so and offer on-demand briefs. Otherwise create one weekday-morning task (check there isn't one already) that reads today's events, skips all-day, declined and solo ones, and sets a one-time reminder 5 minutes before each to write its brief.
+
+**Writing a brief:** re-read the event (skip it if cancelled), match attendees to people by `email` from `person.list` (then by name) and the title to a group or project, and gather with `search.recall` (without Pro: `person.get`, `note.list`, `todo.forEntity`). Write nothing.
+
+- **A group meeting:** per team or person, one line on what's going on with them: changes, decisions, blockers, anything at risk. Leave out anyone with nothing new.
+- **A 1:1:** a review of your interactions with that person over the last 2 months (older is out), as **at most 5 talking points**, then their **outstanding todos** with links.
+
+Keep it to what fits on a phone screen. If the notebook has nothing on the meeting, say so in one line.
+
+## Recipes
+
+These use CLI syntax. With MCP tools, `person.create --name "Dana Park"` is `person_create` with `{"name": "Dana Park"}`.
+
+| The user says | Do |
+|---|---|
+| "Start a notebook for my garden project" | `notebook.list`, then `notebook.create --name "Garden"` if there isn't one |
+| "In my garden notebook, remind me to order seeds" | `todo.create --title "Order seeds" --notebook garden` (look up any ids with `--notebook garden` too) |
+| "Dana joined as a senior engineer" | `person.create --name "Dana Park" --extensions '{"org":{"title":"Senior Engineer"}}'` |
+| "Dana reports to Alice" | `personRelation.add --fromId <alice> --toId <dana> --kind LEAD_OF`. A person has one lead, so this replaces Dana's old one, and `replaced` in the result names who it was: tell the user. `personRelation.remove` clears it |
+| "This is me" / "I'm Jamie" | `person.setMe --id <person>` (one per notebook). Then relationships with that person read as "To you" on People, and `person.list` gives each person's `toMe` |
+| "Dana is on Platform" | `group.list --kind TEAM` to find it (`group.create --kind TEAM --name Platform` if it's new), then `group.addMember --groupId <platform> --personId <dana>` (people can be in many groups) |
+| "Dana moved from Platform to Payments" | `group.removeMember` from Platform, then `group.addMember` to Payments |
+| "Dana left the company" | Ask whether to archive or delete; archiving keeps their notes and history. `entity.archive --entityType PERSON --id <dana>` (first move or close anything that must change: archived people are read-only) |
+| "The Q4 migration is finished, archive it" | `project.update --id <project> --status done` first if the status should change, then `entity.archive --entityType PROJECT --id <project>` |
+| "What did we archive?" / "Show old projects" | `project.list --archived only` (also `person`, `group`, `goal`, `page`); `--archived include` lists both |
+| "Dana is in Engineering" | `group.addMember --groupId <engineering> --personId <dana>`. DEPARTMENT is an exclusive kind (one per person), so this moves her out of her old department; the result's `replaced` names it |
+| "Note that Dana wants to lead the migration" | `note.add --entityType PERSON --entityId <dana> --content "..."` |
+| "Remind me to book a 1:1 with Dana" | `todo.create --title "Book 1:1 with Dana" --entityType PERSON --entityId <dana>` (optional `--priority 0-3`, `--targetDate 2026-10-01`) |
+| "That's done" | `todo.update --id <todo> --status COMPLETE` |
+| "Brief me 5 minutes before each meeting" | See **Meeting briefs** |
+| "What's my next meeting about?" / "Prep me for my 2pm" | Write a brief. See **Meeting briefs** |
+| "Start a project for the Q4 migration" | `project.create --name "Q4 migration" --description "<why and what, 3–5 lines>" --status in-progress --endDate 2026-12-18` (ask for the end date if the user didn't say; optional `--parentId`, `--startDate`, `--daysLikely`), then its sync doc (`sync.setPrompt`, which makes "Q4 migration brief"). See **Where things go on a project** |
+| "Tag Dana as high-potential" | `tag.list`, then `tag.create --name high-potential` if it's missing, then `tag.attach --tagId <tag> --entityType PERSON --entityId <dana>` |
+| "What do I know about Dana?" / "Catch me up on the Q4 migration" | `search.recall --entityType PERSON --entityId <dana>`: the entity, its notes, open todos, docs (with excerpts), links, tags, relations, owned goals and projects, and `unlinkedMentions` (notes and docs elsewhere that name Dana without linking her). Lists are capped at 10 (`--limit` up to 50) and flagged `truncated`; `doc.get` reads a whole doc |
+| "Track the Checkout PRD in Notion" / "Link this doc to Checkout" | Read it, `link.add --entityType PROJECT --entityId <checkout> --url <url> --title "Notion: Checkout PRD" --synced true`, and a note summarising it. See **Tracked docs** |
+| "Make a Checkout brief from the PRD, the Linear project and the pricing sheet" | `sync.setPrompt --entityType PROJECT --entityId <checkout> --prompt "<what to take from each>"` (it makes "Checkout brief"), read each, link each to the project with `--synced true --syncSource true`, then `sync.save --content-file <the write-up, with ## Discrepancies> --syncedLinkIds <ids>`. See **Sync docs** |
+| "Run the Remry sync" / "Sync docs" / "Sync everything" (or a scheduled task asking for it), or "Sync these docs" / "Sync the Checkout brief" | Every unarchived entity with an active sync that has a prompt (or just the ones named): `sync.list`, then every source of each checked for updates, a rewrite and a "Sync diff" note where they changed, and a line in the chat for each entity, skipped ones included. See **Sync docs** § **Syncing them all** |
+| "Create a scheduled task to run the Remry sync in Work at 8:45 daily" | A daily scheduled task at 8:45 in the user's time zone whose prompt stands on its own (each run starts a fresh conversation). See **Sync docs** § **Scheduling it** |
+| "Pause the Checkout brief for now" / "Resume it" | `sync.setActive --entityType PROJECT --entityId <checkout> --active false` (or `true`). The prompt, sources and text stay. See **Sync docs** § **Pausing it** |
+| "What's new on Checkout?" | `search.recall` for the project, check each tracked doc for edits since its `syncedAt`, add a note for each that changed, then answer with what's new first. See **Tracked docs** |
+| "Move the Checkout brief to the Payments project" | `doc_update --id <doc> --entityType PROJECT --entityId <payments>`. The doc keeps its id, images, links, notes and PDF. A sync doc can't move: it belongs to its entity. Never move a doc by copying it into a new doc and deleting the old one |
+| "Turn this doc into a wiki page" / "Move the Q4 migration into the wiki" / "Make this page a project" | `entity.convert`. See **Moving between projects and the wiki** |
+| "Put this screenshot in the Checkout notes" (an image in the chat) | Shrink it, `doc_uploadImage --docId <brief> --dataBase64 <base64>`, put the returned `markdown` where it belongs and `doc_update` the content. See **Files from the chat** |
+| "Where did I write about the vendor renewal?" / "Did anyone mention SSO?" | `search.query --q "vendor renewal"`. Each result has a `snippet` with the match in bold, and `on`: the entity a note, doc or todo is attached to |
+| "Anything about hiring on the Platform team?" | `search.query --q hiring --within '{"entityType":"GROUP","entityId":"<platform>"}'` (the group and what's attached to it) |
+| "Platform owns the Q4 migration" | `project.update --id <project> --ownerType GROUP --ownerId <platform>` (set both together; `--ownerType null --ownerId null` clears the owner) |
+| "Engineering's H2 goal is 99.9% uptime, and Platform has a sub-goal for it" | `goal.list`, then `goal.create --title "99.9% uptime" --ownerType GROUP --ownerId <engineering> --period 2026-H2 --unit % --baseline 99.5 --target 99.9`, then `goal.create --title "..." --ownerType GROUP --ownerId <platform> --parentId <eng goal>` |
+| "Uptime is at 99.7%, and it's at risk" | `goal.checkIn --goalId <goal> --value 99.7 --status AT_RISK --comment "..."` (optional `--date`; the status also becomes the goal's status) |
+| "The Q4 migration is part of the uptime goal" | `goal.addProject --goalId <goal> --projectId <project>` |
+| "Sam is my sister" | `person.create --name "Sam" --extensions '{"personal":{"knownAs":"Sister"}}'` if she's new, then `personRelation.add --fromId <me> --toId <sam> --kind SIBLING_OF`. "Me" is the person `person.list` marks `isMe`; if there's none, ask whether the user wants to be in the notebook (`person.create`, then `person.setMe`) |
+| "Alex is Sam's partner" / "Jo is Sam's mum" / "Alex and Kim are friends" | `personRelation.add --fromId --toId` with `--kind PARTNER_OF`, `PARENT_OF` (from the parent to the child) or `FRIEND_OF`; `personRelationKind.list` has the notebook's kinds. A relationship that recurs and has no kind ("mentor", "neighbour"): propose `personRelationKind.create --key MENTOR_OF --label "Mentor of" --inverseLabel "Mentee of"` (leave out `inverseLabel` when it reads the same both ways). A one-off ("met at the climbing gym") is `relation.add --kind RELATED` with `--note` |
+| "Alex's birthday is 3 May" / "…3 May 1990" | `person.update --id <alex> --extensions '{"personal":{"birthday":"--05-03"}}'` (no year) or `"1990-05-03"` |
+| "Add the Riveras as a family" / "my climbing friends" | `group.list --kind FAMILY` (or `FRIENDS`); `group.create --kind FAMILY --name Riveras` if it's missing, then `group.addMember` for each person. Other kinds of group ("book club"): `groupKind.list`, and `groupKind.create --key BOOK_CLUB --name "Book club"` once the user agrees |
+| "Netflix is $15.49 a month, on autopay" | Records like this live as rows of a spreadsheet page (see **Records and spreadsheets**). `page.list` for one that fits ("Subscriptions", "Expenses"); add a row to it (`page.get`, then `page.update --content` with the whole sheet), or propose one: `page.create --title Subscriptions --bodyType sheet` with columns Item, Amount, Frequency, Autopay and a total row |
+| "What do I spend a month on subscriptions?" | `page.get` the sheet and add up the monthly rows yourself (its `values` are what each cell showed, totals included); give the total and the items, and link the page |
+| "Save this recipe" (a URL or text) | `page.create --title "<dish>" --content-file recipe.md`: a details list at the top (`- **Serves:** 4`, time, cuisine, source), then the ingredients and method. Put it under a "Recipes" page with `--parentId` if the user keeps one |
+| "Remind me to renew the car insurance every March" | `todo.create --title "Renew car insurance" --entityType PAGE --entityId <the insurance page> --targetDate 2027-03-01 --recurrence YEARLY`. Completing it adds next year's (`WEEKLY MONTHLY QUARTERLY YEARLY`) |
+| "Add the expense policy, version 2, effective 1 October" | `page.list`, then `page.create --title "Expense policy" --content-file policy.md`, a plain page with the version and date in a details list at the top of its content |
+| "Make a budget spreadsheet" / "put this table in a sheet" | `page.create --title "Budget 2027" --bodyType sheet --content '{"columns":[{"title":"Item"},{"title":"Monthly","format":{"type":"currency","symbol":"$","decimals":2}}],"data":[["Rent","1200"],["Food","400"],["Total","=SUM(B1:B2)"]]}'` (the format shows Monthly as $1,200.00; see `references/schema.md` for formats and formulas). A spreadsheet page is a grid the user edits in the app, for a table or a set of records (see **Records and spreadsheets**) |
+| "Import this Excalidraw: https://excalidraw.com/#json=…" / an `.excalidraw` file | `drawing.importLink --url <link> --title …`, or `page.create --bodyType drawing --content-file <file>.excalidraw`. See [references/drawings.md](references/drawings.md) |
+| "Give me a link to share the architecture drawing" | Only when asked: `drawing.shareLink --pageId <id>` (or `--docId` for a drawing doc) (an encrypted copy on excalidraw.com); say that anyone with the link can open it and it can't be taken down from Remry |
+| "Draw the checkout architecture" / "Sketch how a request flows" | `page.create --title "Checkout architecture" --bodyType drawing --content-file <skeleton.json>`: shapes, labels and arrows, laid out by the app and editable by hand (Excalidraw). See [references/drawings.md](references/drawings.md). It shows on its page as a picture that opens to edit; to refer to it from a write-up, link the page. A drawing that belongs to a person, group, project or goal can be a doc there instead: `doc.add --bodyType drawing --content-file <skeleton.json>`. Through the MCP tools, `content` is the skeleton's JSON as a string (an object works too) |
+| "Add a budget sheet to the Garden project" | A doc can be a spreadsheet too: `doc.add --entityType PROJECT --entityId <id> --title Budget --bodyType sheet`, then `doc.update --content` with the same JSON as a spreadsheet page |
+| "We pay Datadog $40k a year; it renews in March" | `page.create --title Datadog --content` with a details list at the top (`- **Vendor:** Datadog`, `- **Annual cost:** $40,000`, `- **Renews:** 1 Mar 2027`), and a todo for the renewal. If they track several tools, offer a "Software" spreadsheet page with a row each instead |
+| "Platform uses Datadog for alerting" | `relation.add --fromType GROUP --fromId <platform> --toType PAGE --toId <datadog> --note "Uses it for alerting"` (kind defaults to `RELATED`) |
+| "Pull my Linear project into my notes" / "Track this Notion page" | Follow **Importing from other tools** below: `link.find --url <url>` first, and update what it finds instead of creating a second one |
+| "Checkout can't ship until the payments API is done" | `relation.add --fromType PROJECT --fromId <checkout> --toType PROJECT --toId <payments api> --kind DEPENDS_ON` |
+
+## Records and spreadsheets
+
+Wiki pages have no kinds or fields: a page is a document, a spreadsheet or a drawing (a diagram the user edits by hand; [references/drawings.md](references/drawings.md)). Docs take the same three (`doc.add --bodyType sheet|drawing`), for a table or diagram that belongs to one person, group, project or goal. Pick by what the user keeps:
+
+- **One thing with details** (a tool, a policy, a place, a recipe): a document page whose text starts with a short details list, `- **Label:** value` per line, then everything else. Pages from before 0.16.42 had their fields written into their text this way.
+- **Many things of the same shape** (expenses, subscriptions, contacts, a reading list): one spreadsheet page with a row each and a column per detail (`--bodyType sheet`; the content is `{"columns":[{"title":"…"}],"data":[["…"]]}`, and a cell starting with `=` is a formula, like `=SUM(B1:B9)`). Find an existing sheet before starting a new one, and keep one sheet per kind of record. To add or change rows, `page.get` the sheet, edit `data`, and `page.update --content` with the whole sheet.
+- **Answering "how much" or "which"**: read the sheet (`values` are what each cell showed, totals included) and work it out; don't make a page per row just to count them.
+
+## Searching
+
+`search.query --q "<words>"` searches the text of everything in the notebook: names and titles, notes, docs, wiki pages (content and property values), todos, comments, links and goal check-in comments. Matches in names and titles rank first.
+
+- **Words:** every word must match, and each also matches as a prefix (`migr` finds "migration"). Word endings are ignored (`leaving` finds "leave"), and so are case and accents.
+- **`"exact phrase"`**, **`a OR b`** (either), **`-word`** (leave out matches containing it).
+- **Narrow it:** `--types '["NOTE","DOC"]'` (also `PERSON GROUP PROJECT GOAL PAGE TODO COMMENT LINK GOAL_CHECKIN`), `--within` one entity, `--limit` up to 50 (default 20).
+- Archived entities and what's attached to them are left out unless `--includeArchived true`, or you search `--within` them.
+- Search before saying the notebook has nothing on a topic, and before creating something that might exist under another name.
+
+## Linking things
+
+- **Owners:** a project or goal's owner is its `ownerType` + `ownerId` (a person or a group). There is no ownership relation.
+- **Relations:** `relation.add --fromType --fromId --toType --toId --kind --note` links any two of `PERSON GROUP PROJECT GOAL PAGE DOC NOTE TODO`. `RELATED` (the default) has no direction, so linking B to A when A is already related to B is a duplicate. `DEPENDS_ON` reads from `from` to `to`: "Checkout depends on the payments API" is from Checkout to the payments API, and the API shows it as "Needed by". For anything else ("uses", "replaces", "applies to"), add `RELATED` and say how in `--note`. `relation.forEntity` shows both directions, grouped by label (for a person, with their relationships to people). Change a note or kind with `relation.update`.
+- **Relationships between people:** `personRelation.add --fromId --toId --kind --note`, of the notebook's kinds (`personRelationKind.list`). Each reads one way from `from` and another from `to`: `PARENT_OF` goes from parent to child, and the child shows "Child of"; `LEAD_OF` from lead to report, who shows "Reports to". A kind with no direction (friend, partner, sibling) is one relationship either way. A one-each kind (`LEAD_OF`) replaces the person's old one and returns it as `replaced`; it also refuses a loop. `personRelation.update --id --kind --note`, `personRelation.remove --id`, `personRelation.forPerson --personId`. Ending a relationship deletes it; there's no history.
+- **Linking in content:** in a page, doc or note, write `[Title](<path>)` using the `path` from a get or create result. Saving the content turns the link into a backlink: the target shows "Mentioned in". Other paths are `/app/people/<id>`, `/app/groups/<id>`, `/app/projects/<id>`, `/app/goals/<id>`, and `/app/wiki/<id>`. Links inside code blocks don't count. Don't add `MENTIONS` with `relation.add`; to remove a backlink, remove the link from the content.
+
+## Where things go on a project
+
+**A project ends; a wiki page doesn't.** A project is work that finishes, so it has an end date (`--endDate`; ask for one when the user hasn't given it, and note a rough one as rough). Something ongoing with no end (a policy, a runbook, a vendor, a recipe, how a team works) is a wiki page. When a project has no end in sight, or a page has become a piece of work with a deadline, offer to convert it (**Moving between projects and the wiki**).
+
+A project page pairs two things, with notes alongside. Give each its own job, so the user finds things in one place:
+
+- **Description (the Brief): why, and what's being done,** in 3–5 lines. It changes rarely. Rewrite it when the scope changes; never append updates or details to it.
+- **The project's sync doc: the details from its sources.** Scope, plan, timeline and open questions as its sources have them. At most one per project, "<Project> brief", made by `sync.setPrompt` and written only by `sync.save` from the project's links marked as sources (see **Sync docs**). It's read-only, so details that live in the user's head rather than a tool go in an ordinary doc, not the sync doc.
+- **Keep its prompt narrow.** When the brief runs past a few screens, or one part (pricing, the rollout, an API design) is a write-up of its own, propose a wiki page for it, synced as a sync page with its own prompt and sources, and narrow the project's prompt to match. Ask before splitting.
+- **Notes: commentary and feedback.** What the user and others think about the work: reactions, concerns, praise, feedback from a review, what someone said about it, the user's own read ("I don't believe that date"). One note per remark, dated by when it's added. A note doesn't hold the plan or the facts; if one does, the fact belongs in the doc and the note keeps the reaction.
+- **Other docs:** reference that isn't the project's own details: an imported PDF, a write-up for someone else.
+- **Sub-projects:** only when a piece has its own owner, its own dates or its own status worth tracking. Smaller steps are todos on the project.
+
+The same goes for groups and goals: a short description, the details in docs, notes for commentary.
+
+## Moving between projects and the wiki
+
+`entity.convert` turns one kind of item into another and deletes the old one. Everything attached comes along (notes, todos, links, tags, comments, relations), links to the old item in other pages, docs and notes are rewritten to the new one (`relinked` counts them), and the result lists everything it made.
+
+| From → to | What happens | Add |
+|---|---|---|
+| Project → page | A page with the project's facts at the top (status, owner, dates, estimate, goals, as links) then its brief. A synced project's sync doc follows the facts, and the page is a sync page with the same prompt and sources. Sub-projects become sub-pages, then each other doc becomes a sub-page. Goal links and the owner live on as links in the text | `--parentId <page>` to put it under a page |
+| Doc → page | The doc's text and images. The page is related to where the doc was. A sync doc is refused: convert its entity, or clear its prompt first | `--parentId <page>` |
+| Note → page | The note's text; its replies become notes on the page. Related to where the note was | `--title` (default: its first line), `--parentId <page>` |
+| Page → project | Sub-pages become sub-projects. Each page's text becomes a doc of the same name on its project (a spreadsheet or drawing page becomes a spreadsheet or drawing doc); a sync page's becomes the project's sync doc, with the same prompt and sources | `--description` (a 3–5 line brief you write from the page), `--status`, `--ownerType --ownerId`, `--parentId <project>` |
+| Page → doc | The page's text and images, as a doc (a sync page's prompt is dropped, with a warning) | `--onType --onId` (a person, group, project or goal) |
+| Page → note | The title in bold, then the text; the page's notes become replies | `--onType --onId` |
+
+- **Confirm first, and snapshot** (`backup_snapshot`): the old item is deleted, and a project tree is many writes. Say what it'll make: "Q4 migration becomes a wiki page under Engineering, with its 2 sub-projects and 3 docs as sub-pages."
+- **It refuses, with what to do,** when: a page with sub-pages is going to a doc or note (convert it to a project, or move the sub-pages), a page with images or uploaded files is going to a note (make it a doc), or a page tree's titles are already project names (`--allowDuplicate true` only if they're different projects).
+- **Archived items** must be unarchived first.
+- **Moving a doc** to another person, group, project or goal isn't a conversion: `doc.update --entityType --entityId`.
+- Reply with the link to the new item and what came along, and pass on any `warnings`.
+
+## Write-ups
+
+When the user asks for a report or write-up, write it as a doc on the person, group, project or goal. A wiki page takes no docs; write into its content instead.
+
+1. Gather the facts first (`person.get`, `note.list`, `todo.forEntity`, and so on). Don't invent numbers; ask for them if they're missing.
+2. Write the markdown. Add charts as fenced `chart` blocks; the syntax is in [references/charts.md](references/charts.md). Refer to a drawing by linking its page (`[Architecture](/app/wiki/<id>)`); drawings aren't shown inside a document's text (a drawing can be a doc of its own, `--bodyType drawing`) ([references/drawings.md](references/drawings.md)). A horizontal rule (`---` on its own line, with a blank line above it) starts a new page when the doc is exported to PDF, and isn't drawn; so use `---` only where the user wants a new page (say, before an appendix), not as a decorative divider. A `<!-- table-cols: 30, 20, 50 -->` line above a table holds the column widths the user set by dragging in the editor (percents, one per column); it's never shown. Keep it with its table when you rewrite a doc, drop it if you change the table's columns, and add one yourself only when the user asks for set widths.
+3. `remry doc.add --entityType GROUP --entityId <id> --title "Q3 review"`, then `remry doc.update --id <doc> --content-file /tmp/q3.md`.
+4. Tell the user where to view it. Call `app_open` (with the doc's `notebook`) so the app is running, then link the doc: the entity's page with `?doc=<doc id>&notebook=<notebook id>`. Its "Export" button makes a PDF (with the notebook's branding and letterhead with Remry Pro), portable markdown, or Remry markdown; a wiki page's export can include its sub-pages, and a project's (its own Export button) its docs and sub-projects.
+
+## Importing from other tools
+
+The notebook is the user's own layer over the shared tools (Linear, Notion, Jira, GitHub, a spreadsheet): the parts that matter to them, plus their own view of it. When the user asks you to bring something in, read it with that tool's MCP tools, then:
+
+1. **Import only what the user touches.** Their team, projects they own or depend on, goals they report on, people they manage or work with. Never mirror a whole workspace or project board. If the user asks for "everything", say how many items that is and ask which ones they care about.
+2. **Find it first.** `link.find --url <the item's URL>` returns every entity already carrying that link, however the URL was written. Titles in Linear and Notion URLs change on rename, so when that finds nothing, try `link.find --contains <stable id>`: the issue or project key (`ENG-123`), or the 32-character id at the end of a Notion URL. Then check by name with the usual `list` calls (rule 1).
+   - **Found:** update that entity. Don't create another.
+   - **Not found:** create it, then `link.add --entityType <type> --entityId <id> --url <url> --title "<Tool>: <key or title>" --synced true`, for example `--title "Linear: ENG-123"`. Every imported entity carries a link to its source.
+   - **Found an entity by name, without the link:** it was added by hand. Add the link with `--synced true` once you've updated it.
+3. **Map shared facts onto fields.** Name and status (`project.status` is one of `proposed committed in-progress blocked done abandoned`: map the tool's word onto one, e.g. Linear's "In Progress" → `in-progress`, "Backlog" → `proposed`, "Canceled" → `abandoned`), dates, owner (look the owner up; create a person only if the user wants them tracked), parent project, `DEPENDS_ON` relations between items you're importing (only between items already in the notebook), and goal–project links.
+4. **Mark it synced.** After updating an entity from its source, `link.markSynced --id <link> --sourceEditedAt <the item's last-edited time>` records the time on the source link (`syncedAt`, which `link.list` and `link.find` return) and the item's own edit time (`sourceEditedAt`), which the next check compares instead of reading the item again. When something changed that the user would want to see later, also add a note: "From Linear: now In progress, due 15 Oct, 6 of 9 issues done." Don't copy the item's description or comments in bulk; summarise only what the user needs, and keep the link for the rest.
+5. **The source owns shared facts; the user owns their view.** On a re-sync, update fields to match the source, then mark the link synced. Never edit or remove the user's own notes, todos, relations or judgements ("I don't believe that date"): they're the reason the notebook exists. When the source disagrees with something the user said, tell them rather than choosing.
+6. **Check before you state it as current.** When you answer from an entity with tracked sources, check them first: see **Tracked docs** below.
+
+Say what you did by name and source: "Updated the Checkout project from Linear (now In progress, due 15 Oct); added the Payments API project, which it depends on."
+
+## Importing markdown
+
+`entity.import` reads markdown back in: a Remry markdown export (a `.zip` from Export → Remry markdown) comes back as it was, pages, projects and docs with their images and the links between them; any other markdown (an Obsidian vault, a folder of notes) comes in as pages, a folder's files under the page beside it (`Guide.md` and `Guide/`). Images linked relatively (`images/x.png`) are stored on the item that shows them; one missing from the import becomes an "Image lost" note, and the result lists it.
+
+- From a file on disk, run `remry entity.import --archiveBase64-file <export.zip>` (any `…Base64-file` option reads a binary file as base64). Otherwise call it with `files`: each markdown file's `path` and `text`, each image's `path` and `dataBase64`, with the paths the links use.
+- `--underType PAGE|PROJECT --underId <id>` puts what has no parent in the import beneath that page or project (docs need a person, group, project or goal: `underType PROJECT`; without one they become pages).
+- An item exported from this notebook keeps its id: by default it's skipped and left as it is; `--existing overwrite` replaces its title and text. Say which before overwriting.
+- Report what the result says: `created`, `updated`, `skipped`, `images`, `imagesMissing` and `problems`, linking the top items (`top: true`).
+
+## Tracked docs
+
+A project (or any entity) can track outside docs: a spec in Notion, a plan in Google Docs, a Linear project, a Confluence page. A tracked doc is a link with a `syncedAt`; a plain link (a dashboard, a reference) has none and is never checked.
+
+**Tracking one.** "Link this Notion doc to Checkout", "Keep an eye on the PRD for Checkout":
+1. Read the doc with its tool's MCP tools. `link.find --url <url>` first: if it's already linked here, it's already tracked.
+2. `link.add --entityType PROJECT --entityId <id> --url <url> --title "<Tool>: <doc title>" --synced true --sourceEditedAt <the doc's last-edited time>`.
+3. Add a note with a short summary of what the doc says that matters to the project (decisions, dates, open questions), starting "From <Tool>: <doc title>". That note is the baseline the next check compares against.
+
+**Checking them, whenever you answer about the entity.** Before you answer a question about a project (its status, "catch me up", a search that lands on it, a report or summary you write about it), check its tracked docs:
+1. Get them: `search.recall` returns its `links` with `syncedAt`, `sourceEditedAt` and `syncSource`. Only links with a `syncedAt` count, except a sync source (below), where a link without one is a source the user added by hand.
+2. For each, ask its tool when the doc was last edited (Notion's `last_edited_time`, Google Drive's `modifiedTime`, Linear's `updatedAt`, Confluence's version date). Fetch metadata first; read the content only when it changed. Compare it with the link's `sourceEditedAt` (the doc's own time at the last sync, so clocks don't matter); a link without one is compared with `syncedAt`.
+3. **Edited since:** read it, work out what's new since the last "From <Tool>" note on the entity (use the tool's history or comments when it has them), and add a note: "From Notion: Checkout PRD, updated 18 Oct: launch moved to 12 Nov; card-on-file dropped from v1." If the doc is the entity's source (an imported Linear project), also update the fields (see **Importing from other tools**). Then `link.markSynced --id <link> --sourceEditedAt <its last-edited time>`.
+4. **Not edited since:** `link.markSynced --id <link> --sourceEditedAt <the same time>`, so the app shows it as checked. Don't read the content, and add no note.
+5. **Tool not available, or the doc can't be read:** don't guess. Answer from the notebook and say how old it is ("the PRD was last checked 3 weeks ago").
+
+**Show the check as you go.** The user can't see your tool calls, so a check that runs silently looks like nothing happened. While you check, write a short log in the chat, a line as each source is done, before the answer:
+
+```
+Checking Checkout's sources (brief last synced 3 Nov by Sync now)…
+· Notion: Checkout PRD: edited 18 Oct, after the last sync, so reading it
+· Linear: Checkout: unchanged since 2 Nov
+· Pricing sheet: couldn't read it (Google Drive isn't connected)
+Brief synced: 2 of 3 sources read.
+```
+
+- The first line names what you're checking and how current it is. `search.recall`'s `docs` carry a sync doc's `lastSync` (when, `by` APP for the app's Sync now or CLAUDE, `outcome` OK, PARTIAL or FAILED, and its `message`) and its `syncNeed` (`requested`, the user asked for a sync in the app; `never`; `failed`; or `stale`, over a week old); `doc.get` and `page.get` return `lastSync` too. Say it when the last sync failed or skipped a source: "last sync failed 2 days ago: Notion wasn't connected".
+- One line per source: its link title, then unchanged (with the date), edited (and that you're reading it), or couldn't be read (and why). No content in the log; what changed goes in the answer.
+- The last line says what you saved: the doc rewritten, a note added, or nothing changed. `sync.save`, or `link.markSynced` on a source, records the sync, so the app's banner then reads "Last synced just now by Claude in a chat".
+- Skip it when there's nothing to check (no tracked docs), and keep it to the log: no headings, no tables.
+
+Then answer, leading with what's new: "Two updates since you last looked: the PRD moved launch to 12 Nov, and the Linear project is now In progress." Keep the summary to what changed; link the doc for the rest. Never copy a doc in bulk, and never change the user's own notes or todos because a doc disagrees: tell them instead.
+
+Keep it proportionate: check the docs of the entities your answer is about, not every entity a search touches. If that's more than about five docs, check the ones that matter most and offer to check the rest. Don't re-check a doc you checked earlier in the same conversation.
+
+## Sync docs
+
+The user can ask for one write-up drawn from several sources, with where they disagree flagged: "Make a Checkout brief from the PRD, the Linear project and the pricing sheet", "Pull the pricing from these three docs into the vendor page". A write-up like this is a **sync doc**. It belongs to an entity: a person, group, project or goal has at most one, and a wiki page can be a **sync page**, its own content being the write-up. The entity holds a **prompt** and **sources**, its own links marked `syncSource`. Making one is Remry Pro (**Remry Pro** below): without a license a first prompt is refused, so write it as an ordinary doc with its sources linked. The app shows it under a "Sync" banner, with the prompt and the sources, so it's never mistaken for something the user wrote.
+
+**Only a sync writes it.** In the app a sync doc is read-only; you write it. Prefer `sync.save`, which also records the sync; `doc.update --content` (or `page.update --content` for a sync page) and `doc.uploadImage` work too. Its title, its entity and deleting it are refused: the user changes it by changing the prompt or the sources. To make it an ordinary doc they can edit, clear the prompt (`sync.setPrompt --prompt null`).
+
+**The prompt is the recipe.** It says what to take from each source and what to watch for, in the user's terms: "PRD: scope and launch plan. Linear: status and dates. Pricing sheet: the tiers only. Flag any disagreement on dates or scope." Write it from what the user asked; ask when it's unclear which parts of a source they want. `sync.setPrompt --entityType <type> --entityId <id> --prompt "<prompt>"` (up to 2000 characters) stores it, so every later refresh, in any session, pulls the same parts. On a person, group, project or goal, a first prompt makes the sync doc, empty, titled "<Name> brief" and first among its docs (`docId` in the result). The user can edit the prompt in the banner. `search.recall` returns the entity's sync doc (`isSync`, with its `prompt`, `lastSync` and `syncNeed`) and marks its source links (`syncSource`); for a sync page, `page.get` has the prompt.
+
+| Synced entity | The write-up | Also compare against the sources |
+|---|---|---|
+| A project | Its sync doc, "<Project> brief" (not the description, which they edit by hand) | The project's status, start and target dates, owner and estimates |
+| A person, group or goal | Its sync doc, "<Name> brief" | Its fields (a goal's target and status, a person's title) |
+| A wiki page | The page's content | The details list at the top of its text (an amount, a date, a renewal) |
+
+**Writing it:**
+1. `sync.setPrompt` on the entity (skip it when it has one). Read every source with its tool. Link each to the entity as a source: `link.add --entityType <type> --entityId <id> --url <url> --title "<Tool>: <title>" --synced true --syncSource true`, after `link.find --url` (rule 2 of importing). A link the entity already has becomes a source with `link.update --id <link> --syncSource true`.
+2. Take from each source only what the prompt asks for. Write it as one view, organised by topic (goal, scope, timeline, open questions), not source by source. Say where each point comes from, inline: "Launch is 12 Nov (PRD; Linear agrees)". Link the sources for the rest.
+3. End with `## Discrepancies`: each place the sources disagree with each other, with the notebook's fields, or with the user's own notes, on what the prompt covers. Quote each side with its source and date: "**Launch date.** PRD (edited 18 Oct): 12 Nov. Linear (updated 15 Oct): 30 Oct. Project's target date: 30 Oct." Don't pick a winner; say which looks newer if that's clear. With none, write "None found." so the user knows you checked.
+4. Save it: `sync.save --entityType <type> --entityId <id> --content-file <file> --syncedLinkIds '["<link>", …]'` with the sources you read, which records the sync and marks them current. Use `link.markSynced --sourceEditedAt` for a source whose edited time you have.
+5. Never change a field the user set because a source disagrees: list it in Discrepancies and ask ("Linear says 30 Oct; update the project's target date?"). The exception is an entity imported from that source, whose shared facts the source owns (see **Importing from other tools**).
+6. Report it in the shape of **Running a sync**'s step 6, with the summary on what the write-up says and the discrepancies, and no sync diff note (there's nothing earlier to compare with).
+
+**Syncs the user asked you for.** This is about requests waiting from the app, at the start of any conversation; when the user asks you to sync, run **Running a sync** instead. The app doesn't sync on its own: the assistant on the user's computer seldom has the claude.ai connectors you have in Cowork or Claude desktop. Its "Trigger sync" button marks the sync doc or page `requested`, for you. When a conversation first uses Remry, call `sync.needed` once. For each `requested` one, say so ("You asked me to sync the Checkout brief") and sync it now as under **Running a sync**, for that one entity. That clears the request. If you can't read a source either, say which and why; the request stays until a sync runs. A partial or failed Sync now leaves its report in `lastSync.message`: what it couldn't read and why.
+
+**Started in the app.** "Sync doc…" (in the Docs list's "+") and "Make sync page" (on the line of links above a wiki page's content) let the user write the prompt and add sources themselves; the sync icon on each link in the sidebar's Links marks it as a source (blue) or not (grey). The prompt and sources sit in a folded "Sync" section on the entity's page; the sync doc itself is only the write-up. The app's "Trigger sync" asks you to sync it (below); the app itself writes nothing. So a sync doc or page with no text, or with sources that aren't synced yet, is waiting for you. When the user asks about it, asks you to write or update it, or you come across it (in `search.recall`, `doc.list`, `sync.needed`), write it from its prompt and its sources: as under **Writing it** while it has no text, and as under **Running a sync** once it has. Ask for any source the prompt names that isn't there.
+
+**Sources added in the app.** A source added from the banner or marked in Links (a link, or a file whose `url` starts `storage://`, titled with the file's name; read it with `link.read --id`, which gives a text file's text or an image or PDF to look at) has no `syncedAt` and shows "not synced yet". Treat it as a new source: read it, and if the prompt doesn't say what to take from it, ask, then add that to the prompt. Fold it into the write-up (a rewrite, under the rules below), and mark it synced. A link on the entity that isn't a source is a reference: mention it if it's relevant, and offer to make it a source when the user seems to want its content pulled in.
+
+**Refreshing it.** Unless it's paused (**Pausing it**), run **Tracked docs** over its sources whenever you answer about the sync doc or what it's on, showing the log as you go, and read the prompt first: a change outside what it covers doesn't count, unless it contradicts something the write-up says. When a covered part changed, rewrite it from all its sources, following the prompt, Discrepancies included, and `sync.save` it with `--syncedLinkIds` for every source you checked and `--diff` for what changed (nobody else edits it, so there's nothing of the user's to keep). Then review its tables, as under **Running a sync** (the `--diff` makes its sync diff note), and tell the user what changed: "Since the last brief: the PRD moved launch to 12 Nov, so the launch-date discrepancy with Linear is new; the pricing sheet now matches the PRD on tiers, so that one's resolved."
+
+**Running a sync.** Every request to sync or update a sync doc or page runs these steps, whatever its size and wherever it comes from (a chat, a scheduled task, the app's Trigger sync, a changed prompt); only its first write-up follows **Writing it**:
+- **All of them:** "run the Remry sync", "sync docs", "sync my docs", "sync everything", or a scheduled task asking for any of them. That's every unarchived entity with an active sync that has a prompt, not only the ones due. `sync.needed` (only those due) and the requests at the start of a conversation (**Syncs the user asked you for**) never tell you there's nothing to sync: one synced yesterday can have a source edited this morning.
+- **Some of them:** "sync these docs", "sync the Checkout brief", "sync Checkout and Platform". The same steps, for just the ones named.
+
+Unless the user says otherwise (how much detail, no notes), do this:
+1. **Find them.** `sync.list` returns one row per unarchived entity with an active sync that has a prompt: `entityType`, `entityId`, `label` and `path`; `sync` (its `prompt`, `docId`, `lastSync` and `need`); and `links`, its sync sources with `syncedAt` and `sourceEditedAt`. Archived entities, paused syncs and links that aren't sync sources are left out; don't sync those unless asked. For some of them, take the rows the user named. One they named that's paused or archived goes under Skipped in the report, saying so. One with no prompt yet isn't synced at all: don't skip it, offer to set it up (**First time** below). Only an empty `sync.list` means there's nothing to check.
+2. **Check every source of each.** For each link, ask its tool when the source was last edited and compare it with the link's `sourceEditedAt` (or `syncedAt` when that's empty), reading the source only when it changed, as under **Tracked docs**. Do this whatever `need` says. Take from each source only what the prompt asks for; a change outside it doesn't count, unless it contradicts the write-up. `doc.get --id <docId>` (or `page.get` for a sync page) gives the current text.
+3. **Write only what changed.** Where a covered part changed, rewrite and `sync.save` as under **Refreshing it**. Either way, `link.markSynced --id <link> --sourceEditedAt <its edited time>` every link you checked, changed or not.
+4. **A sync diff note, with the save.** Every `sync.save` that changes the text (all but the first write-up) passes `--diff '["…", "…"]'`: one short line per change. The save adds it as a note on the entity, "Sync diff" then a bullet per line, and returns its `noteId`, so the note can't be left out. Keep each line succinct: just the difference, as a fragment, with a few words of why only where a bare diff would puzzle. Name a source by its title in brackets when it matters, but don't link it: the sources are already on the entity. For example, `--diff '["Launch 30 Oct → 12 Nov (PRD)", "New risk: card-on-file vendor delay (Linear)", "Now disagrees with the project'"'"'s target date"]'` makes:
+
+   ```markdown
+   Sync diff
+   - Launch 30 Oct → 12 Nov (PRD)
+   - New risk: card-on-file vendor delay (Linear)
+   - Now disagrees with the project's target date
+   ```
+
+   A save whose result has no `noteId` when the text changed is a missed note: add it with `note.add` before you report.
+   No note when nothing changed.
+5. **Review its tables.** After each `sync.save`, read every table in the new text for how it will render: a column of long sentences squeezed beside several short ones, many columns, or a cell holding a paragraph. Fix it in the write-up and save again: shorten cells, move long text into a list under the table, split a wide table, or add a `<!-- table-cols: … -->` line above it giving the long column more room (on this review, the one time you add one unasked). Keep any widths the user set unless you changed that table's columns.
+6. **Show the results** in the chat once you're done, as markdown in this shape:
+
+   ```markdown
+   ## remry sync Nov 26
+
+   Checkout's launch slipped two weeks on a vendor delay; Platform dropped the Q1 migration from its roadmap.
+
+   ### [Checkout](<remry url>)
+   - [Notion: Checkout PRD](<source url>)
+     - Launch 30 Oct → 12 Nov
+     - Card-on-file dropped from v1
+   - [Linear: Checkout](<source url>)
+     - New risk: vendor SDK delay
+
+   ### [Platform](<remry url>)
+   - [Confluence: Platform roadmap](<source url>)
+     - Q1 migration removed
+
+   **Nothing to sync:** [Vendor renewal](<remry url>), [Dana Park](<remry url>)
+
+   **Skipped:** [Hiring plan](<remry url>): [Google Docs: Hiring plan](<source url>) couldn't be read (Google Drive isn't connected)
+   ```
+
+   - **The title** is the run's title, "remry sync" and the date.
+   - **The summary** is a sentence or two on what the changes mean, across entities: what moved and why it matters. Never what you did (checked, rewrote, noted, marked synced).
+   - **A section for each entity that changed**, its heading a link to it in Remry (its `url`, or its `path` made a link as the Remry tools describe). Under it, a bullet for each source that changed, linked to the source, and nested under that, one short bullet per change. Leave out its sources that didn't change.
+   - **Then one line each** for the entities with nothing to sync and the ones skipped (with the source that couldn't be read, linked, and why), each entity a Remry link. Leave out a line with none.
+   - Keep it terse: changes as fragments ("Launch 30 Oct → 12 Nov"), no entity types, no counts, no closing remarks.
+   - When `sync.list` is empty, don't report a run: follow **First time** below.
+
+   The source links go here only, never in the sync diff note. This replaces **Tracked docs**' log for the run.
+
+**First time.** A notebook with no syncs yet (an empty `sync.list`), or an entity the user named that has no prompt, is someone who hasn't set one up, not a run with nothing to do. Don't report "no active syncs" and stop:
+- Say in a sentence what a sync is: a write-up on an entity that Claude keeps current from the sources you link to it, following a prompt that says what to take from each, with a "Sync diff" note when they change.
+- Offer to set one up, suggesting where: an entity the user named, or ones with links synced from a tool (`search.recall` shows an entity's `links` with `syncedAt`). Ask which sources and what to take from each, then follow **Writing it**. That first write-up is its first sync; report it in the usual shape.
+- When paused syncs or archived entities are why it's empty, say that instead, and offer to resume one (`sync.setActive --active true`).
+- Starting a sync is Remry Pro. Without a license, `sync.setPrompt` refuses: say so once, and offer the ordinary doc with its sources linked (**Remry Pro**).
+- In a scheduled run nobody is there to answer, so set nothing up: the report is the heading and one line, that the notebook has no active syncs yet and that asking Claude to "make a sync doc for <entity> from <sources>" starts one.
+
+**Scheduling it.** "Create a scheduled task to run the Remry sync in Work at 8:45 daily": make a daily scheduled task at 8:45 in the user's time zone (ask if you don't know it). Call `sync.list` first: when it's empty, the task would only ever find nothing, so set up a first sync with the user (**First time**) before scheduling it, or schedule it once they say to go ahead anyway. Each run starts a fresh conversation that has only the task's prompt, so write the prompt to stand on its own, naming the notebook and the full run:
+
+> Run the Remry sync in the Work notebook: use the remry skill's **Running a sync**. Title this run "remry sync <month> <day>" with today's date, for example "remry sync Nov 26", and make that the report's heading. Call sync_list with notebook "Work", check every source of every entity it lists for edits since the last sync (whatever its need), rewrite where a source changed, passing the changes as sync_save's diff (it adds the "Sync diff" note), review the tables, then report as its step 6 shows: a summary of what the changes mean, a section per changed entity titled with its Remry link, its changed sources linked with the changes nested under them, then the entities with nothing to sync and the skipped ones.
+
+Each run's title is "remry sync" and the day it ran, three-letter month then day with no leading zero ("remry sync Nov 26", "remry sync Dec 3"), so the runs read as a dated list; give the run that title where the client lets you, and make it the report's heading. Name the connectors the sources need (Notion, Linear, Google Drive) when the scheduling tool asks which a run may use. Then tell the user when it first runs, and that a source whose tool isn't connected in that run is reported as skipped.
+
+**Pausing it.** "Pause the Checkout brief", "stop syncing that until after launch": `sync.setActive --entityType <type> --entityId <id> --active false` (in the app, the switch beside the Sync heading). The prompt, sources and text stay as they are; `sync.needed` leaves it out, and `sync.save` and Trigger sync refuse it until `--active true` resumes it. `search.recall`'s `docs`, `doc.list` and `page.get` show it (`syncActive`). While it's paused, don't check its sources or rewrite it, even when you answer about the entity; say once that it's paused if that matters to the answer ("the brief is paused, last synced 3 Nov"). Pausing isn't clearing the prompt: offer `--prompt null` only when the user wants it to stop for good.
+
+**Changing what it covers.** "Also pull the risks from the PRD" or "drop the pricing sheet": update the prompt with `sync.setPrompt`, mark or unmark the link (`link.update --syncSource true|false`, or `link.add --syncSource true`), then sync it as under **Running a sync**, for that one entity, reading every source again, since the prompt changed what counts. `--prompt null` turns a sync doc back into an ordinary doc (or page); its text stays, and the entity's links stop being sources.
+
+## Importing a PDF
+
+The app stores PDFs but can't read them; you do the reading.
+
+1. Read the PDF and convert it to clean markdown, keeping headings, lists and tables.
+2. `remry doc.add --entityType PERSON --entityId <id> --title "<title>"`, then `remry doc.update --id <doc> --content-file /tmp/doc.md`
+3. To keep the original, upload it as a file link on the doc: with a shell on the user's Mac, `base64 -i file.pdf > /tmp/pdf.b64`, then `remry link.upload --entityType DOC --entityId <doc> --fileName "<name>.pdf" --dataBase64-file /tmp/pdf.b64`; from a sandbox, `link_upload` only for a small file (**Files from the chat**). It shows in the doc's line of links, and `link_read` reads it back. Save the markdown on it too (`link.update --id <link> --text-file /tmp/doc.md`), so later reads skip the PDF (**Reading a file link**).
+
+## Reading a file link
+
+A file link can carry its **saved text** (`hasText` in `link.list`): the PDF or image written out once as markdown, with a `[Figure: …]` line for each chart, diagram, photo, signature or handwriting it couldn't hold. A text file's saved text is the file itself. The web app saves it with the user's own Claude when a file is uploaded there; from the tools you save it.
+
+- **`link_read --id`** returns the saved text when there is some (`savedTextOf: "pdf"` or `"image"` says what it stands for), else the file. Use it for routine questions: what's in it, summaries, quoting.
+- **Open the original** (`link_read --id --original true`) when the question is about what text can't hold (a chart's values, the layout, a signature, handwriting), when it touches a `[Figure: …]` line, or when the user points you at the file ("look at page 4"). For a focused question ("termination clauses"), read the original with that question and answer it in the chat or a note; the saved text stays as it is.
+- **No saved text yet** (a PDF or image read with `textSaved: false`): once you've read it, save its markdown, all its text in order with `[Figure: …]` lines, with `link_update --id --text`, so the next read is the cheap one. Rewrite it the same way when the saved text turns out poor; `--text null` clears it.
+
+## Files from the chat
+
+When the user shares a file in the chat and wants it in the notebook, add it yourself; don't send them to the app to do it. The app stores files two ways: images shown in a doc's or page's text, and a file kept as a link on a person, group, project, goal, wiki page or doc (`link_upload`: any file you can read, so a PDF, an image or any text file such as Markdown or CSV; it shows in the line of links with its name, and `link_read` reads it back). What it says goes in as text you write; keep the file as well when it's a source (a sync doc's, or one the user will want to open) or the user asks.
+
+| The file | What to do |
+|---|---|
+| An image (PNG, JPEG, GIF, WebP; a screenshot, photo, whiteboard) | `doc_uploadImage --docId` or `page_uploadImage --pageId`. It returns `markdown` (`![](storage://<key>)`): put it where the image belongs, with a short alt text (`![Q3 roadmap whiteboard](storage://…)`), and save the text in the same turn (`doc_update --content`, `page_update --content`). An uploaded image the text doesn't show is tidied away on the next save. Text that shows another doc's or page's images (`storage://docs/<id>/…`) gets its own copies when saved, so deleting the other one later can't lose them |
+| A PDF | Read it and write its markdown into a doc (**Importing a PDF**). Keeping the original as a file link (`link_upload --entityType DOC`) is optional, and from a sandbox only when it's small (below) |
+| Markdown, text, CSV, JSON, code | Read it and write it as a doc's or page's content, as markdown. To keep the original too, `link_upload` with `text` (its contents as they are, no base64) |
+| A Word or Excel file, a web page | Read it and write it as a doc's or page's content, as markdown. The original can't be stored (only files you can read are); say so, and offer to keep it as a PDF or text file instead |
+| A spreadsheet or CSV | A markdown table in a doc or page; or, when each row is a record (expenses, contacts), a spreadsheet page with a row each (**Records and spreadsheets**). Ask which when it isn't clear |
+| Anything else (audio, video, an archive) | The app can't store it. Say so, and offer to note what it is and link to where it lives |
+
+The upload tools take the file's bytes as base64 (`dataBase64`; a `data:` URL is fine), and `link_upload` takes a text file's contents as `text` instead (no base64, so a third smaller). The bytes decide the type, and anything else is refused with what to do. An error saying it isn't valid base64, or isn't an image or a PDF, means the text was cut or altered: encode it again.
+
+**In Cowork (or any sandbox), the file goes through the tool call as text you write**, so it has to be small: every character costs time and output. A text file goes as `text`, its contents unchanged, up to about 200 KB; an image or a PDF goes as base64, up to 150 KB.
+1. Find the file. One the user attached is a file in your sandbox (look in the uploads folder). An image pasted into the message may exist only as a picture you can see; then ask them to attach it as a file.
+2. Shrink an image there, keeping it legible: longest side 1400px (1000px for a photo), saved as WebP at quality 70, or JPEG at quality 75 if WebP isn't available. Aim for 50 KB or less and stop at 150 KB: step the size and quality down until it fits. For example, with Python and Pillow:
+   ```python
+   from PIL import Image
+   im = Image.open(src); im.thumbnail((1400, 1400)); im.convert("RGB").save("/tmp/up.webp", "WEBP", quality=70)
+   ```
+   A PDF can't be shrunk the same way: keep it only when it's 150 KB or less. Otherwise import its text, skip the original, and say that "+ Add link" under the doc's title in the app, then "or upload a file", adds it. The same goes for a text file over about 200 KB.
+3. For an image or a PDF, `base64 -w0 <file>` (or Python's `base64.b64encode`) and pass the whole output as `dataBase64`, unchanged and in one piece. For a text file, pass its contents as `text`, with `fileName` (it keeps the extension: `notes.md`, `budget.csv`).
+4. Say what you reduced or left out ("added at 1400px; the original is larger", "the PDF's text is in the doc; attach the original in the app").
+
+**In Claude Code on the user's Mac**, use the CLI, which reads the file itself, so size doesn't matter (up to 18 MB): `base64 -i shot.png > /tmp/shot.b64`, then `remry doc.uploadImage --docId <doc> --dataBase64-file /tmp/shot.b64` (`page.uploadImage --pageId`). To keep a file as a link: `remry link.upload --entityType DOC --entityId <doc> --fileName budget.csv --text-file budget.csv` for a text file, or `--dataBase64-file` with its base64 for a PDF or an image.
+
+**In Claude desktop Chat**, with no sandbox, you can read a file but can't send its bytes: write its text into the notebook as usual (a short text file can still go as a file link, `link_upload` with `text`), and say that an image or the original PDF can be dragged in, or uploaded from "+ Add link", in the app.
+
+## Remry Pro
+
+A yearly license unlocks:
+- **More than 3 drawings in a notebook.** Each notebook has 3 free drawings (drawing pages and docs together, archived ones included). Past them, `page.create --bodyType drawing`, `doc.add --bodyType drawing`, turning an empty page or doc into a drawing, and `drawing.importLink` into a new one return an error saying so. Existing drawings stay fully editable, and deleting one frees a place. Don't work around it by making another kind of page: tell the user, and offer a mermaid diagram in a doc instead.
+- **Branding:** creating or changing brandings, the app wearing them, and branded PDFs (plain PDF export is free).
+- **Sync docs:** starting to sync an entity (its first `sync.setPrompt`), and the app's own sync (Sync now, hidden for now). An entity that's already synced stays so: you can edit its prompt, clear it, and refresh it with `sync.save` as usual. Without a license, write the same write-up as an ordinary doc, link its sources on the entity the same way, and say once that keeping it in sync with them is Remry Pro.
+- **AI assist in the app:** its Chat tab, the finder's /ask and Convert with Claude. Nothing you do through these tools is limited by them.
+- **Opening Remry on other devices:** `remoteAccess.set --tailscale true` or `--hostname`. Turning it off, and `--startAtLogin`, are free.
+
+Everything else is free, full-text search (`search.query`, `search.recall`) and spreadsheets included. A locked procedure returns an error that says so: don't retry it, say it once, and carry on. Nothing stored is lost without a license, and it all comes back with one. The license belongs to the computer, so it covers every notebook. `license.status` says whether this computer has one; if the user gives you a key (it starts `WN1.`), add it with `license.activate --key <key>`. Never look for, edit or work around the license file.
+
+**Opening the app from another device.** If the user wants Remry on their phone or another computer, it goes through their Tailscale tailnet. `remoteAccess.status` says what this computer's Tailscale is missing (not installed, not running, signed out, HTTPS certificates off: tell them how to fix that one thing); then `remoteAccess.set --tailscale true` shares the app with `tailscale serve` and returns the `https://<machine>.<tailnet>.ts.net/app` address to open on their devices (`--tailscale false` turns it off). They need Tailscale on the phone too, signed in to the same account. `remoteAccess.set --startAtLogin true` starts the app at login on a Mac with the desktop app, so it still works after a restart. The app's Other devices page (notebook menu) does the same. Nothing else opens it to the network: never suggest Funnel, port forwarding or another hostname.
+
+## Backups
+
+Snapshots are kept on this computer in the `Backups` folder, per notebook. Every notebook that changed is snapshotted hourly while the Remry tools or the app are running, and on macOS also by the LaunchAgent if the user ran `remry backup install`.
+
+- A snapshot covers one notebook: `backup_snapshot` with `notebook`, or `remry backup --force --reason "<why>" --notebook <id>`. Snapshot the notebook you're about to change.
+- `backup_list` (with `notebook`), or `remry backup list` for every notebook
+- Restore **only when the user asks**, and only from a shell on the user's computer: `remry backup restore <id|latest> --notebook <id>`. The app must be closed. Restore snapshots the current data first, so it can be undone. In Cowork, or without a shell on their computer, give the user the command to run in Terminal: `"$HOME/Library/Application Support/Remry/App/current/remry" backup restore <id|latest> --notebook <id>` on a Mac, or in PowerShell on Windows: `& "$env:LOCALAPPDATA\Remry\App\current\remry.exe" backup restore <id|latest> --notebook <id>`.
